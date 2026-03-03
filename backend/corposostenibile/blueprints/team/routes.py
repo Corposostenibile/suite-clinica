@@ -55,6 +55,20 @@ def _require_assignment_permission() -> None:
     if current_user.is_admin:
         return
 
+    role = getattr(current_user, 'role', None)
+    role_value = role.value if hasattr(role, 'value') else str(role or '')
+    if role_value == 'health_manager':
+        return
+    if role_value == 'team_leader':
+        from corposostenibile.models import Team, TeamTypeEnum
+        is_hm_team_leader = Team.query.filter_by(
+            head_id=current_user.id,
+            team_type=TeamTypeEnum.health_manager,
+            is_active=True,
+        ).first() is not None
+        if is_hm_team_leader:
+            return
+
     # Utente specifico con accesso gestione Psicologia (ID 35)
     if current_user.id == 35:
         return
@@ -75,6 +89,13 @@ def _require_assignment_permission() -> None:
             if current_user.department.head_id == current_user.id:
                 return
             # Team Leader (head di un team nel dipartimento Nutrizione)
+            from corposostenibile.models import Team
+            is_team_leader = Team.query.filter_by(head_id=current_user.id).first() is not None
+            if is_team_leader:
+                return
+
+        # Team Leader area HM / Customer Success
+        if current_user.department.name in ['Health Manager', 'Customer Success']:
             from corposostenibile.models import Team
             is_team_leader = Team.query.filter_by(head_id=current_user.id).first() is not None
             if is_team_leader:

@@ -270,6 +270,84 @@ spec:
 
           echo "[migration] post-alignment: backfill users.specialty..."
           psql -q -v ON_ERROR_STOP=1 <<'SQL'
+          ALTER TYPE public.teamtypeenum ADD VALUE IF NOT EXISTS 'health_manager';
+
+          WITH hm_users AS (
+            SELECT DISTINCT health_manager_id AS user_id
+            FROM clienti
+            WHERE health_manager_id IS NOT NULL
+          )
+          UPDATE users u
+          SET role = 'health_manager'::public.userroleenum
+          FROM hm_users h
+          WHERE u.id = h.user_id
+            AND u.is_admin = false
+            AND (
+              u.role IS NULL
+              OR u.role = 'professionista'::public.userroleenum
+            );
+
+          UPDATE users
+          SET role = 'team_leader'::public.userroleenum,
+              is_active = true,
+              updated_at = NOW()
+          WHERE lower(trim(first_name)) = 'daniela'
+            AND lower(trim(last_name)) = 'mastropasqua'
+            AND is_admin = false;
+
+          INSERT INTO teams (
+            name,
+            description,
+            team_type,
+            department_id,
+            head_id,
+            is_active,
+            created_at,
+            updated_at
+          )
+          SELECT
+            'Health Manager - Team Unico',
+            'Team unico Health Manager',
+            'health_manager'::public.teamtypeenum,
+            13,
+            u.id,
+            true,
+            NOW(),
+            NOW()
+          FROM users u
+          WHERE lower(trim(u.first_name)) = 'daniela'
+            AND lower(trim(u.last_name)) = 'mastropasqua'
+          ON CONFLICT (team_type, name) DO UPDATE
+          SET head_id = EXCLUDED.head_id,
+              department_id = EXCLUDED.department_id,
+              is_active = true,
+              updated_at = NOW();
+
+          WITH hm_team AS (
+            SELECT id
+            FROM teams
+            WHERE team_type = 'health_manager'::public.teamtypeenum
+              AND name = 'Health Manager - Team Unico'
+            LIMIT 1
+          ),
+          hm_members AS (
+            SELECT DISTINCT health_manager_id AS user_id
+            FROM clienti
+            WHERE health_manager_id IS NOT NULL
+            UNION
+            SELECT u.id
+            FROM users u
+            WHERE lower(trim(u.first_name)) = 'daniela'
+              AND lower(trim(u.last_name)) = 'mastropasqua'
+          )
+          INSERT INTO team_members (team_id, user_id, joined_at)
+          SELECT t.id, m.user_id, NOW()
+          FROM hm_team t
+          JOIN hm_members m ON true
+          JOIN users u ON u.id = m.user_id
+          WHERE u.is_active = true
+          ON CONFLICT DO NOTHING;
+
           WITH src AS (
             SELECT nutrizionista_id AS user_id, 'nutrizionista'::public.userspecialtyenum AS spec, count(*)::int AS cnt
             FROM clienti

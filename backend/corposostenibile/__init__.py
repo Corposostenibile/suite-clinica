@@ -388,7 +388,7 @@ def create_app(config_name: str | None = None) -> Flask:
     from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
     from .blueprints.dev_tracker import bp as dev_tracker_bp  # Dev Tracker - Development Team Management
     from .blueprints.it_projects import bp as it_projects_bp  # IT Projects - Gestione Progetti IT
-    from .blueprints.news import news_bp  # AGGIUNTO: Import del blueprint news
+    from .blueprints.news import news_bp, news_api_bp  # AGGIUNTO: Import del blueprint news
 
     from .blueprints.pwa import pwa_bp
     
@@ -436,6 +436,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # News Blueprint
     app.register_blueprint(news_bp)  # AGGIUNTO: Registrazione del blueprint news
+    app.register_blueprint(news_api_bp)  # API JSON per news (React)
 
     # Blueprint Registry
     app.register_blueprint(blueprint_registry_bp)  # AGGIUNTO: Registrazione Blueprint Registry
@@ -470,12 +471,28 @@ def create_app(config_name: str | None = None) -> Flask:
     # CLI custom
     register_cli_commands(app)
     
+    # ---- Serve Kanban Tab SPA ---- #
+    kanban_dist = Path(__file__).parent.parent / "teams-kanban" / "dist"
+    if not kanban_dist.exists():
+        kanban_dist = Path(__file__).parent.parent.parent / "teams-kanban" / "dist"
+
+    if kanban_dist.exists():
+        from flask import send_from_directory as _sfd
+
+        @app.route("/teams-kanban/")
+        @app.route("/teams-kanban/<path:path>")
+        def serve_kanban_tab(path=None):
+            """Serve the Kanban Teams Tab SPA."""
+            if path and (kanban_dist / path).exists() and (kanban_dist / path).is_file():
+                return _sfd(str(kanban_dist), path)
+            return _sfd(str(kanban_dist), "index.html")
+
     # ---- Serve React Frontend Assets ---- #
     # React app is served via Vite dev server in development (port 3000)
     # In production, these routes serve the built React assets
     # Check standard structure (backend/frontend)
     react_dist = Path(__file__).parent.parent / "frontend" / "dist"
-    
+
     # Check Suite Clinica structure (suite-clinica/corposostenibile-clinica) if standard not found
     if not react_dist.exists():
         react_dist = Path(__file__).parent.parent.parent / "corposostenibile-clinica" / "dist"
@@ -518,6 +535,7 @@ def create_app(config_name: str | None = None) -> Flask:
             '/ghl/',
             '/review/api/',
             '/health',
+            '/teams-kanban/',
         ]
 
         # In SPA mode we want /auth/* pages to be handled by React routes.

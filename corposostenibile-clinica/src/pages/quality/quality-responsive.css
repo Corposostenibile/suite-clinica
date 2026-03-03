@@ -1,0 +1,153 @@
+/* Responsive styles for Quality Page */
+
+@media (max-width: 767.98px) {
+
+    /* Safe horizontal scrolling for filter bars and tabs */
+    .qu-scroll-mobile {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* Firefox */
+        padding-bottom: 8px !important;
+        margin-bottom: 0 !important;
+        width: 100% !important;
+        flex-wrap: nowrap !important;
+        justify-content: flex-start !important;
+        /* Overwrite desktop justification if any */
+    }
+
+    .qu-scroll-mobile::-webkit-scrollbar {
+        display: none;
+        /* Chrome/Safari */
+    }
+
+    /* Horizontal scrolling for KPI cards */
+    .qu-kpi-scroll {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 15px;
+        /* Leave space for card shadow */
+    }
+
+    .qu-kpi-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .qu-kpi-scroll>div {
+        flex: 0 0 280px !important;
+        width: 280px !important;
+        max-width: 280px !important;
+    }
+
+    /* Tabs wrapper specific styling for the Quality header */
+    .tabs-scroll-mobile {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 10px;
+        margin-top: 15px;
+    }
+
+    .tabs-scroll-mobile::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Transform Tables into Cards */
+    .table-responsive {
+        border: none !important;
+        overflow-x: visible !important;
+    }
+
+    .quality-table,
+    .quality-table thead,
+    .quality-table tbody,
+    .quality-table tr,
+    .quality-table th,
+    .quality-table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Hide table headers */
+    .quality-table thead {
+        display: none;
+    }
+
+    /* Card styling for each row */
+    .quality-table tbody tr {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-bottom: 20px;
+        border: 1px solid #eef2f7;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Cell styling */
+    .quality-table tbody tr>td {
+        padding: 14px 16px !important;
+        font-size: 14px !important;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #f1f5f9 !important;
+        min-height: 48px;
+        text-align: right;
+        background: transparent !important;
+    }
+
+    .quality-table tbody tr>td:last-child {
+        border-bottom: none !important;
+    }
+
+    /* Data labels via pseudo-elements */
+    .quality-table tbody tr>td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #64748b;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+        margin-right: 15px;
+        text-align: left;
+    }
+
+    /* Header styling for the main entity in the card (Professionista, etc.) */
+    .quality-table tbody tr>td[data-label="Professionista"] {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
+        background: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 16px !important;
+        justify-content: flex-start;
+    }
+
+    .quality-table tbody tr>td[data-label="Professionista"]::before {
+        display: none;
+    }
+
+    /* Align inner content to the right */
+    .quality-table tbody tr>td>span,
+    .quality-table tbody tr>td>div.badge {
+        word-break: break-word;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 479.98px) {
+
+    /* Compact buttons for very small screens */
+    .btn {
+        padding: 0 10px !important;
+        font-size: 12px !important;
+        height: 38px !important;
+    }
+}

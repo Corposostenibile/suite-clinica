@@ -294,3 +294,50 @@ def retry_failed_webhook(self, webhook_id: int):
     except Exception as exc:
         logger.error(f"[GHL Task] Error retrying webhook {webhook_id}: {exc}")
         raise self.retry(exc=exc, countdown=600)  # Retry dopo 10 minuti
+
+
+@celery_app.task(
+    bind=True,
+    name='ghl.reactivate_after_pausa',
+    max_retries=3,
+    default_retry_delay=300,
+)
+def reactivate_after_pausa(self, cliente_id: int, servizi: list[str]):
+    """
+    Auto-riattiva i servizi di un cliente dopo la fine della pausa.
+    Viene schedulato con ETA dal webhook pausa-servizio.
+    """
+    try:
+        app = create_app()
+        with app.app_context():
+            from corposostenibile.models import Cliente, StatoClienteEnum
+
+            cliente = db.session.get(Cliente, cliente_id)
+            if not cliente:
+                logger.warning(f"[GHL Task] reactivate_after_pausa: cliente {cliente_id} non trovato")
+                return
+
+            reactivated = []
+            for servizio in servizi:
+                stato_attr = f'stato_{servizio}'
+                current_stato = getattr(cliente, stato_attr, None)
+                # Riattiva solo se ancora in pausa (l'HM potrebbe averlo già fatto)
+                if current_stato == StatoClienteEnum.pausa:
+                    cliente.update_stato_servizio(servizio, StatoClienteEnum.attivo)
+                    reactivated.append(servizio)
+
+            if reactivated:
+                db.session.commit()
+                logger.info(
+                    f"[GHL Task] reactivate_after_pausa OK: cliente={cliente.nome_cognome} "
+                    f"servizi riattivati={reactivated}"
+                )
+            else:
+                logger.info(
+                    f"[GHL Task] reactivate_after_pausa: nessun servizio da riattivare "
+                    f"per cliente={cliente.nome_cognome} (già attivi o cambiati)"
+                )
+
+    except Exception as exc:
+        logger.error(f"[GHL Task] reactivate_after_pausa error: {exc}")
+        raise self.retry(exc=exc, countdown=600)

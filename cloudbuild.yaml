@@ -1,11 +1,65 @@
 steps:
   # 1. Build Layer: Crea l'immagine Docker
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA', '.']
+    entrypoint: 'bash'
+    env:
+      - 'CB_PROJECT_ID=$PROJECT_ID'
+      - 'CB_COMMIT_SHA=$COMMIT_SHA'
+      - 'CB_BUILD_ID=$BUILD_ID'
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        IMAGE_TAG="$${CB_COMMIT_SHA}"
+        if [ -z "$${IMAGE_TAG}" ]; then
+          echo "ERROR: COMMIT_SHA substitution mancante. Esegui gcloud builds submit con --substitutions=COMMIT_SHA=<git-sha>" >&2
+          exit 2
+        fi
+        IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
+        for attempt in 1 2 3; do
+          echo "Docker build attempt $${attempt}/3 for $${IMAGE}"
+          if docker build -t "$${IMAGE}" .; then
+            exit 0
+          fi
+          rc=$?
+          echo "docker build failed (rc=$${rc})"
+          if [ "$${attempt}" -eq 3 ]; then
+            exit "$${rc}"
+          fi
+          echo "Retrying docker build in 10s (transient builder failure mitigation)..."
+          sleep 10
+        done
 
   # 2. Push Layer: Carica su Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA']
+    entrypoint: 'bash'
+    env:
+      - 'CB_PROJECT_ID=$PROJECT_ID'
+      - 'CB_COMMIT_SHA=$COMMIT_SHA'
+      - 'CB_BUILD_ID=$BUILD_ID'
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        IMAGE_TAG="$${CB_COMMIT_SHA}"
+        if [ -z "$${IMAGE_TAG}" ]; then
+          echo "ERROR: COMMIT_SHA substitution mancante. Esegui gcloud builds submit con --substitutions=COMMIT_SHA=<git-sha>" >&2
+          exit 2
+        fi
+        IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
+        for attempt in 1 2 3; do
+          echo "Docker push attempt $${attempt}/3 for $${IMAGE}"
+          if docker push "$${IMAGE}"; then
+            exit 0
+          fi
+          rc=$?
+          echo "docker push failed (rc=$${rc})"
+          if [ "$${attempt}" -eq 3 ]; then
+            exit "$${rc}"
+          fi
+          echo "Retrying docker push in 10s..."
+          sleep 10
+        done
 
   # 3. Deploy Layer: Aggiorna GKE
   - name: 'gcr.io/cloud-builders/gke-deploy'
@@ -16,6 +70,7 @@ steps:
       - --filename=k8s/frontendconfig.yaml
       - --filename=k8s/managed-certificate.yaml
       - --filename=k8s/ingress.yaml
+      - --filename=k8s/hpa.yaml
       - --location=europe-west8
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
@@ -37,7 +92,7 @@ steps:
       - rollout
       - status
       - deployment/suite-clinica-backend
-      - --timeout=300s
+      - --timeout=900s
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
@@ -55,6 +110,22 @@ steps:
       - |
         set -euo pipefail
         flask db upgrade
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  # 4b. Schema parity check separato: evita falsi negativi e isola meglio exit code/risorse
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - exec
+      - deployment/suite-clinica-backend
+      - -c
+      - backend
+      - --
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
         PYTHONPATH=/app python /app/scripts/migration_scripts/verify_schema_parity.py
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'

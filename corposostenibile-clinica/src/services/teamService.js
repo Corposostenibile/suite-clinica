@@ -42,6 +42,14 @@ export const ROLE_LABELS = {
   health_manager: 'Health Manager',
 };
 
+export const getUserRoleDisplayLabel = (userLike) => {
+  const role = userLike?.role;
+  if (role !== 'team_leader') {
+    return ROLE_LABELS[role] || role || 'N/D';
+  }
+  return 'Team Leader';
+};
+
 // Specialty labels for display (unificati per categoria)
 export const SPECIALTY_LABELS = {
   amministrazione: 'Amministrazione',
@@ -52,6 +60,7 @@ export const SPECIALTY_LABELS = {
   nutrizionista: 'Nutrizione',   // Unificato con nutrizione
   psicologo: 'Psicologia',       // Unificato con psicologia
   medico: 'Medico',
+  health_manager: 'Health Manager',
 };
 
 // Opzioni filtro specializzazione (solo valori unici per i filtri)
@@ -84,6 +93,24 @@ export const SPECIALTY_COLORS = {
   nutrizionista: 'info',
   psicologo: 'warning',
   medico: 'danger',
+  health_manager: 'primary',
+};
+
+export const getUserDisplaySpecialty = (userLike) => {
+  const explicitSpecialty = String(userLike?.specialty || '').toLowerCase().trim();
+  if (explicitSpecialty) return explicitSpecialty;
+
+  if (userLike?.role !== 'team_leader' || !Array.isArray(userLike?.teams_led)) return null;
+
+  const ledTeamTypes = userLike.teams_led
+    .map((team) => String(team?.team_type || '').toLowerCase().trim())
+    .filter(Boolean);
+
+  if (ledTeamTypes.includes('health_manager')) return 'health_manager';
+  if (ledTeamTypes.includes('nutrizione')) return 'nutrizione';
+  if (ledTeamTypes.includes('coach')) return 'coach';
+  if (ledTeamTypes.includes('psicologia')) return 'psicologia';
+  return null;
 };
 
 // ==================== TEAM ENTITY CONSTANTS ====================
@@ -93,6 +120,7 @@ export const TEAM_TYPES = {
   NUTRIZIONE: 'nutrizione',
   COACH: 'coach',
   PSICOLOGIA: 'psicologia',
+  HEALTH_MANAGER: 'health_manager',
 };
 
 // Team type labels for display
@@ -100,6 +128,7 @@ export const TEAM_TYPE_LABELS = {
   nutrizione: 'Nutrizione',
   coach: 'Coach',
   psicologia: 'Psicologia',
+  health_manager: 'Health Manager',
 };
 
 // Team type colors (for badges and gradients)
@@ -107,6 +136,7 @@ export const TEAM_TYPE_COLORS = {
   nutrizione: 'info',
   coach: 'success',
   psicologia: 'warning',
+  health_manager: 'primary',
 };
 
 // Team type gradients (for card headers)
@@ -114,6 +144,7 @@ export const TEAM_TYPE_GRADIENTS = {
   nutrizione: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
   coach: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
   psicologia: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+  health_manager: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
 };
 
 // Team type icons
@@ -121,6 +152,7 @@ export const TEAM_TYPE_ICONS = {
   nutrizione: 'ri-heart-pulse-line',
   coach: 'ri-run-line',
   psicologia: 'ri-mental-health-line',
+  health_manager: 'ri-user-star-line',
 };
 
 const teamService = {

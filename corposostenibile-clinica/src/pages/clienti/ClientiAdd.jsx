@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import DatePicker from '../../components/DatePicker';
 import clientiService, {
   STATO_CLIENTE,
   STATO_LABELS,
@@ -282,8 +283,7 @@ function ClientiAdd() {
                     </div>
                     <div className="col-md-6">
                       <label className="form-label fw-semibold">Data di Nascita</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         className="form-control"
                         name="data_di_nascita"
                         value={formData.data_di_nascita}
@@ -398,8 +398,7 @@ function ClientiAdd() {
                   <div className="row g-3">
                     <div className="col-md-6">
                       <label className="form-label fw-semibold">Data Inizio Abbonamento</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         className="form-control"
                         name="data_inizio_abbonamento"
                         value={formData.data_inizio_abbonamento}

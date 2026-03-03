@@ -38,6 +38,8 @@ def init_scheduler(app: Flask):
         return
 
     try:
+        google_oauth_enabled = bool(app.config.get("GOOGLE_CLIENT_ID") and app.config.get("GOOGLE_CLIENT_SECRET"))
+
         # Crea scheduler in background
         scheduler = BackgroundScheduler(
             daemon=True,
@@ -47,16 +49,19 @@ def init_scheduler(app: Flask):
         # ─────────────────────────────────────────────────────────────
         # JOB 1: Refresh token ogni 5 minuti
         # ─────────────────────────────────────────────────────────────
-        scheduler.add_job(
-            func=lambda: _run_in_app_context(app, refresh_google_tokens_task),
-            trigger=IntervalTrigger(minutes=5),
-            id='refresh_google_tokens',
-            name='Refresh Google OAuth Tokens',
-            replace_existing=True,
-            max_instances=1,  # Evita esecuzioni concorrenti
-            misfire_grace_time=120  # Tolleranza 2 minuti se il server è occupato
-        )
-        logger.info("✅ Job 'Refresh Google Tokens' schedulato ogni 5 minuti")
+        if google_oauth_enabled:
+            scheduler.add_job(
+                func=lambda: _run_in_app_context(app, refresh_google_tokens_task),
+                trigger=IntervalTrigger(minutes=5),
+                id='refresh_google_tokens',
+                name='Refresh Google OAuth Tokens',
+                replace_existing=True,
+                max_instances=1,  # Evita esecuzioni concorrenti
+                misfire_grace_time=120  # Tolleranza 2 minuti se il server è occupato
+            )
+            logger.info("✅ Job 'Refresh Google Tokens' schedulato ogni 5 minuti")
+        else:
+            logger.info("⏭️ Job 'Refresh Google Tokens' non schedulato: GOOGLE_CLIENT_ID/SECRET mancanti")
 
         # ─────────────────────────────────────────────────────────────
         # JOB 2: Cleanup token scaduti ogni giorno alle 3:00 AM
@@ -74,15 +79,18 @@ def init_scheduler(app: Flask):
         # ─────────────────────────────────────────────────────────────
         # JOB 3: Monitoring salute token ogni ora
         # ─────────────────────────────────────────────────────────────
-        scheduler.add_job(
-            func=lambda: _run_in_app_context(app, monitor_token_health),
-            trigger=IntervalTrigger(hours=1),
-            id='monitor_token_health',
-            name='Monitor Google Token Health',
-            replace_existing=True,
-            max_instances=1
-        )
-        logger.info("✅ Job 'Monitor Token Health' schedulato ogni ora")
+        if google_oauth_enabled:
+            scheduler.add_job(
+                func=lambda: _run_in_app_context(app, monitor_token_health),
+                trigger=IntervalTrigger(hours=1),
+                id='monitor_token_health',
+                name='Monitor Google Token Health',
+                replace_existing=True,
+                max_instances=1
+            )
+            logger.info("✅ Job 'Monitor Token Health' schedulato ogni ora")
+        else:
+            logger.info("⏭️ Job 'Monitor Token Health' non schedulato: GOOGLE_CLIENT_ID/SECRET mancanti")
 
         # Avvia scheduler
         scheduler.start()

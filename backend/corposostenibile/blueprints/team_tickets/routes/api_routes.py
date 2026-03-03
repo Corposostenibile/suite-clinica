@@ -2,6 +2,7 @@
 api_routes.py
 =============
 REST API endpoints per la gestione Team Tickets dalla Suite Amministrativa.
+Il pannello admin e' solo lettura — i ticket si gestiscono esclusivamente da Teams/SUMI.
 """
 
 from __future__ import annotations
@@ -9,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import jsonify, request, send_file, abort, current_app
-from flask_login import login_required, current_user
+from flask_login import login_required
 
 from corposostenibile.blueprints.team_tickets import team_tickets_bp
 from corposostenibile.blueprints.team_tickets.services import ticket_service
@@ -57,46 +58,6 @@ def list_tickets():
     })
 
 
-# ─────────────────────────── CREATE ──────────────────────────────────── #
-
-@team_tickets_bp.route("/", methods=["POST"])
-@login_required
-def create_ticket():
-    """Crea un nuovo ticket (multipart per allegati)."""
-    # Supporta sia JSON che multipart
-    if request.content_type and "multipart" in request.content_type:
-        title = request.form.get("title", "").strip() or None
-        description = request.form.get("description", "").strip()
-        priority = request.form.get("priority", "media")
-        assignee_ids = request.form.getlist("assignee_ids", type=int)
-        cliente_id = request.form.get("cliente_id", type=int)
-        files = request.files.getlist("files")
-    else:
-        data = request.get_json(silent=True) or {}
-        title = data.get("title", "").strip() or None
-        description = data.get("description", "").strip()
-        priority = data.get("priority", "media")
-        assignee_ids = data.get("assignee_ids", [])
-        cliente_id = data.get("cliente_id")
-        files = []
-
-    if not description:
-        return jsonify({"success": False, "error": "Descrizione obbligatoria"}), 400
-
-    ticket = ticket_service.create_ticket(
-        description=description,
-        created_by_id=current_user.id,
-        priority=priority,
-        source="admin",
-        assignee_ids=assignee_ids or None,
-        cliente_id=cliente_id,
-        files=files or None,
-        title=title,
-    )
-
-    return jsonify({"success": True, "ticket": ticket.to_dict()}), 201
-
-
 # ─────────────────────────── DETAIL ──────────────────────────────────── #
 
 @team_tickets_bp.route("/<int:ticket_id>", methods=["GET"])
@@ -112,42 +73,12 @@ def get_ticket(ticket_id):
     })
 
 
-# ─────────────────────────── UPDATE ──────────────────────────────────── #
-
-@team_tickets_bp.route("/<int:ticket_id>", methods=["PATCH"])
-@login_required
-def update_ticket(ticket_id):
-    """Aggiorna status, priorità, assegnatari."""
-    data = request.get_json(silent=True) or {}
-
-    ticket = ticket_service.update_ticket(
-        ticket_id=ticket_id,
-        changed_by_id=current_user.id,
-        status=data.get("status"),
-        priority=data.get("priority"),
-        assignee_ids=data.get("assignee_ids"),
-        description=data.get("description"),
-    )
-
-    return jsonify({"success": True, "ticket": ticket.to_dict()})
-
-
-# ─────────────────────────── DELETE ──────────────────────────────────── #
-
-@team_tickets_bp.route("/<int:ticket_id>", methods=["DELETE"])
-@login_required
-def delete_ticket(ticket_id):
-    """Elimina un ticket."""
-    ticket_service.delete_ticket(ticket_id)
-    return jsonify({"success": True, "message": "Ticket eliminato"})
-
-
-# ─────────────────────────── MESSAGES ────────────────────────────────── #
+# ─────────────────────────── MESSAGES (read-only) ────────────────────── #
 
 @team_tickets_bp.route("/<int:ticket_id>/messages", methods=["GET"])
 @login_required
 def get_messages(ticket_id):
-    """Messaggi del ticket."""
+    """Messaggi del ticket (sola lettura)."""
     messages = ticket_service.get_messages(ticket_id)
     return jsonify({
         "success": True,
@@ -155,47 +86,7 @@ def get_messages(ticket_id):
     })
 
 
-@team_tickets_bp.route("/<int:ticket_id>/messages", methods=["POST"])
-@login_required
-def add_message(ticket_id):
-    """Aggiungi messaggio al ticket."""
-    data = request.get_json(silent=True) or {}
-    content = data.get("content", "").strip()
-    if not content:
-        return jsonify({"success": False, "error": "Contenuto obbligatorio"}), 400
-
-    msg = ticket_service.add_message(
-        ticket_id=ticket_id,
-        sender_id=current_user.id,
-        content=content,
-        source="admin",
-    )
-
-    return jsonify({"success": True, "message": msg.to_dict()}), 201
-
-
-# ─────────────────────────── ATTACHMENTS ─────────────────────────────── #
-
-@team_tickets_bp.route("/<int:ticket_id>/attachments", methods=["POST"])
-@login_required
-def upload_attachments(ticket_id):
-    """Upload allegati al ticket."""
-    files = request.files.getlist("files")
-    if not files:
-        return jsonify({"success": False, "error": "Nessun file caricato"}), 400
-
-    attachments = []
-    for f in files:
-        att = ticket_service.add_attachment(
-            ticket_id=ticket_id,
-            file=f,
-            uploaded_by_id=current_user.id,
-            source="admin",
-        )
-        attachments.append(att.to_dict())
-
-    return jsonify({"success": True, "attachments": attachments}), 201
-
+# ─────────────────────────── ATTACHMENTS (download only) ─────────────── #
 
 @team_tickets_bp.route("/attachments/<int:att_id>", methods=["GET"])
 @login_required

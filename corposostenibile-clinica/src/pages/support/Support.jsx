@@ -1,444 +1,178 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import clientiService from '../../services/clientiService';
-import { 
-    FaUserFriends, 
-    FaTasks, 
-    FaGraduationCap, 
-    FaChartBar, 
-    FaBookOpen, 
-    FaPlayCircle, 
-    FaSearch,
-    FaQuestionCircle,
-    FaArrowRight,
-    FaUserCircle,
-    FaClipboardList
-} from 'react-icons/fa';
+import './Support.css';
 
-const SUPPORT_CARDS = [
+const SUPPORT_SECTIONS = [
     {
-        id: 'lista-pazienti',
-        title: 'Lista Pazienti',
-        description: 'Dashboard operativa per gestire pazienti, filtri avanzati, statistiche e monitoraggio rinnovi.',
-        icon: <FaUserFriends size={32} />,
-        color: '#4CAF50',
-        gradient: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)',
-        docHash: 'lista-pazienti',
-        tourPage: '/clienti-lista',
-        tourAvailable: true
+        id: 'dashboard',
+        title: 'Dashboard',
+        description: 'Panoramica generale, statistiche rapide e riepilogo giornaliero della tua attività.',
+        icon: 'ri-dashboard-line',
+        gradient: 'linear-gradient(135deg, #25B36A, #1a8a50)',
     },
     {
-        id: 'dettaglio-paziente',
-        title: 'Scheda Paziente',
-        description: 'Visione completa a 360° del paziente: anagrafica, piani, allenamenti e diario clinico.',
-        icon: <FaUserCircle size={32} />,
-        color: '#2196F3',
-        gradient: 'linear-gradient(135deg, #2196F3 0%, #1565C0 100%)',
-        docHash: 'la-scheda-completa_del_paziente',
-        tourPage: '/clienti-dettaglio/10101', // ID demo valido
-        tourAvailable: true
+        id: 'calendario',
+        title: 'Calendario',
+        description: 'Gestione appuntamenti, sincronizzazione Google Calendar e vista settimanale.',
+        icon: 'ri-calendar-line',
+        gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+    },
+    {
+        id: 'chat',
+        title: 'Chat',
+        description: 'Comunicazione diretta con i pazienti in tempo reale. Funzionalità in arrivo.',
+        icon: 'ri-chat-3-line',
+        gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+        comingSoon: true,
     },
     {
         id: 'task',
-        title: 'Sistema Task',
-        description: 'Organizza la giornata con task automatici, scadenze e solleciti intelligenti.',
-        icon: <FaTasks size={32} />,
-        color: '#FF9800',
-        gradient: 'linear-gradient(135deg, #FF9800 0%, #EF6C00 100%)',
-        docHash: 'task',
-        tourPage: '/task',
-        tourAvailable: true
+        title: 'Task',
+        description: 'Gestione attività, scadenze, solleciti automatici e organizzazione del lavoro.',
+        icon: 'ri-task-line',
+        gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    },
+    {
+        id: 'post-it',
+        title: 'Post-it',
+        description: 'Promemoria rapidi nella sidebar, note personali e appunti veloci.',
+        icon: 'ri-sticky-note-line',
+        gradient: 'linear-gradient(135deg, #eab308, #ca8a04)',
     },
     {
         id: 'formazione',
         title: 'Formazione',
-        description: 'Accedi ai materiali formativi, protocolli ufficiali e richiedi training specifici.',
-        icon: <FaGraduationCap size={32} />,
-        color: '#9C27B0',
-        gradient: 'linear-gradient(135deg, #9C27B0 0%, #6A1B9A 100%)',
-        docHash: 'formazione',
-        tourPage: '/formazione',
-        tourAvailable: true
+        description: 'Training assegnati, formazione erogata e richieste di crescita professionale tra colleghi.',
+        icon: 'ri-graduation-cap-line',
+        gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
     },
     {
-        id: 'check-azienda',
-        title: 'Check Azienda (KPI)',
-        description: 'Analizza qualità del servizio, soddisfazione pazienti e performance del team.',
-        icon: <FaChartBar size={32} />,
-        color: '#F44336',
-        gradient: 'linear-gradient(135deg, #F44336 0%, #C62828 100%)',
-        docHash: 'check-azienda',
-        tourPage: '/check-azienda',
-        tourAvailable: true
-    }
+        id: 'pazienti',
+        title: 'Pazienti',
+        description: 'Lista pazienti, scheda dettagliata, filtri avanzati e monitoraggio percorsi.',
+        icon: 'ri-group-line',
+        gradient: 'linear-gradient(135deg, #10b981, #059669)',
+    },
+    {
+        id: 'assegnazioni',
+        title: 'Assegnazioni',
+        description: 'Assegnazione pazienti ai professionisti, criteri automatici e gestione carico.',
+        icon: 'ri-user-settings-line',
+        gradient: 'linear-gradient(135deg, #ec4899, #db2777)',
+    },
+    {
+        id: 'check',
+        title: 'Check',
+        description: 'Compilazione check, monitoraggio progressi e storico dei pazienti.',
+        icon: 'ri-checkbox-circle-line',
+        gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+    },
+    {
+        id: 'team',
+        title: 'Team',
+        description: 'Gestione team, composizione gruppi, ruoli e coordinamento tra professionisti.',
+        icon: 'ri-team-line',
+        gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+    },
+    {
+        id: 'professionisti',
+        title: 'Professionisti',
+        description: 'Elenco professionisti, specialità, capacità operativa e dettagli profilo.',
+        icon: 'ri-user-star-line',
+        gradient: 'linear-gradient(135deg, #f97316, #ea580c)',
+    },
+    {
+        id: 'quality',
+        title: 'Quality',
+        description: 'Analisi qualità del servizio, KPI, soddisfazione pazienti e performance.',
+        icon: 'ri-bar-chart-box-line',
+        gradient: 'linear-gradient(135deg, #ef4444, #dc2626)',
+    },
+    {
+        id: 'in-prova',
+        title: 'In Prova',
+        description: 'Gestione utenti in prova, monitoraggio trial e conversione a professionisti attivi.',
+        icon: 'ri-user-follow-line',
+        gradient: 'linear-gradient(135deg, #a855f7, #9333ea)',
+    },
 ];
 
 const Support = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
-    const [firstClientId, setFirstClientId] = useState(null);
 
-    useEffect(() => {
-        const fetchFirstClient = async () => {
-            try {
-                const response = await clientiService.getClienti({ per_page: 1 });
-                const clients = response.data || response.clienti || (Array.isArray(response) ? response : []);
-                if (clients.length > 0) {
-                    const id = clients[0].cliente_id || clients[0].id;
-                    setFirstClientId(id);
-                }
-            } catch (error) {
-                console.error("Errore nel recupero del primo cliente per il tour:", error);
-            }
-        };
-        fetchFirstClient();
-    }, []);
-
-    const filteredCards = SUPPORT_CARDS.filter(card => 
-        card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        card.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const filteredSections = SUPPORT_SECTIONS.filter(section =>
+        section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        section.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const handleOpenDocs = (hash) => {
-        navigate(`/documentazione#${hash}`);
-    };
-
-    const handleStartTour = (card) => {
-        if (card.id === 'dettaglio-paziente' && firstClientId) {
-            navigate(`/clienti-dettaglio/${firstClientId}?startTour=true`);
-        } else if (card.tourPage) {
-            navigate(`${card.tourPage}?startTour=true`);
-        } else if (card.id === 'dettaglio-paziente') {
-            // Fallback se non abbiamo ancora l'ID o se c'è stato un errore
-            navigate(`/clienti-lista?startTour=true`);
-        }
-    };
-
     return (
-        <div className="support-container" style={{ padding: '0 10px' }}>
-            <style>
-                {`
-                    .search-input::placeholder {
-                        color: rgba(255, 255, 255, 0.85) !important;
-                        opacity: 1 !important;
-                    }
-                `}
-            </style>
-            {/* Header Hero Section */}
-            <div style={{ 
-                background: 'linear-gradient(135deg, #1B5E20 0%, #0D3B12 100%)',
-                padding: '40px 30px',
-                borderRadius: '24px',
-                marginBottom: '30px',
-                color: 'white',
-                position: 'relative',
-                overflow: 'hidden',
-                boxShadow: '0 15px 35px rgba(0,0,0,0.2)'
-            }}>
-                <div style={{ position: 'relative', zIndex: 2 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
-                        <img 
-                            src="/suitemind.png" 
-                            alt="SUMI" 
-                            style={{ 
-                                width: '80px', 
-                                height: '80px', 
-                                objectFit: 'contain',
-                                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))'
-                            }} 
-                        />
-                        <div>
-                            <h1 style={{ fontSize: '38px', fontWeight: '800', marginBottom: '8px', margin: 0, color: '#ffffff', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-                                Centro Supporto
-                            </h1>
-                            <p style={{ fontSize: '18px', opacity: 1, fontWeight: '500', margin: 0 }}>
-                                Guide, Tour e Assistenza per Suite Clinica
-                            </p>
-                        </div>
-                    </div>
-                    
-                    {/* Search Bar */}
-                    <div style={{ 
-                        background: 'rgba(255,255,255,0.15)',
-                        backdropFilter: 'blur(10px)',
-                        borderRadius: '16px',
-                        padding: '10px 20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        maxWidth: '600px',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                        marginTop: '24px'
-                    }}>
-                        <FaSearch style={{ marginRight: '15px', color: 'rgba(255,255,255,0.9)', fontSize: '18px' }} />
-                        <input 
-                            type="text" 
-                            className="search-input"
-                            placeholder="Cerca una funzionalità (es. come creare un task...)"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ 
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'white',
-                                width: '100%',
-                                fontSize: '16px',
-                                outline: 'none'
-                            }}
-                        />
+        <div className="sup-page">
+            {/* Header */}
+            <div className="sup-header">
+                <div className="sup-header-left">
+                    <img src="/suitemind.png" alt="SUMI" className="sup-header-logo" />
+                    <div>
+                        <h4>Centro Supporto</h4>
+                        <p>Guide e documentazione per ogni sezione di Suite Clinica</p>
                     </div>
                 </div>
-                
-                {/* Decorative Pattern */}
-                <div style={{ 
-                    position: 'absolute',
-                    top: '-50px',
-                    right: '-50px',
-                    width: '300px',
-                    height: '300px',
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '50%',
-                    zIndex: 1
-                }} />
-                <div style={{ 
-                    position: 'absolute',
-                    bottom: '-30px',
-                    right: '100px',
-                    width: '150px',
-                    height: '150px',
-                    background: 'rgba(255,255,255,0.03)',
-                    borderRadius: '50%',
-                    zIndex: 1
-                }} />
             </div>
 
-            {/* Section Title */}
-            <div style={{ marginBottom: '24px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>
-                    📚 Guide Operative
-                </h2>
-                <p style={{ color: '#64748b', fontSize: '15px', margin: 0 }}>
-                    Seleziona un'area per leggere la guida completa o avviare il tour guidato interattivo
-                </p>
+            {/* Search */}
+            <div className="sup-search-row">
+                <div className="sup-search-wrap">
+                    <input
+                        type="text"
+                        className="sup-search-input"
+                        placeholder="Cerca una sezione"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <i className="ri-search-line sup-search-icon"></i>
+                </div>
             </div>
 
-            {/* Support Hub Grid */}
-            <div className="row g-4 mb-5">
-                {filteredCards.map((card) => (
-                    <div key={card.id} className="col-xl-4 col-lg-6">
-                        <div className="card border-0" style={{ 
-                            borderRadius: '20px', 
-                            overflow: 'hidden',
-                            boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
-                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            cursor: 'default',
-                            position: 'relative'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-8px)';
-                            e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)';
-                        }}
-                        >
-                            {/* Header con gradiente */}
-                            <div style={{ 
-                                background: card.gradient, 
-                                padding: '20px 20px', 
-                                color: 'white',
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{ 
-                                    position: 'absolute',
-                                    top: '-20px',
-                                    right: '-20px',
-                                    width: '100px',
-                                    height: '100px',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    borderRadius: '50%'
-                                }} />
-                                <div style={{ 
-                                    background: 'rgba(255,255,255,0.2)', 
-                                    padding: '20px', 
-                                    borderRadius: '16px',
-                                    backdropFilter: 'blur(5px)',
-                                    display: 'inline-flex',
-                                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-                                    position: 'relative',
-                                    zIndex: 2
-                                }}>
-                                    {card.icon}
+            {/* Cards grid */}
+            {filteredSections.length === 0 ? (
+                <div className="sup-empty">
+                    <div className="sup-empty-icon">
+                        <i className="ri-search-line"></i>
+                    </div>
+                    <h5>Nessun risultato</h5>
+                    <p>Nessuna sezione trovata per "{searchQuery}". Prova con un altro termine.</p>
+                </div>
+            ) : (
+                <div className="sup-cards-grid">
+                    {filteredSections.map((section) => (
+                        <div key={section.id} className="sup-card">
+                            <div className="sup-card-icon-area">
+                                <div className="sup-card-icon" style={{ background: section.gradient }}>
+                                    <i className={section.icon}></i>
                                 </div>
                             </div>
-
-                            {/* Body */}
-                            <div className="card-body p-3 d-flex flex-column">
-                                <h5 style={{ 
-                                    fontWeight: '700', 
-                                    marginBottom: '8px', 
-                                    color: '#1e293b',
-                                    fontSize: '17px'
-                                }}>
-                                    {card.title}
-                                </h5>
-                                <p style={{ 
-                                    color: '#64748b', 
-                                    fontSize: '13px', 
-                                    lineHeight: '1.5',
-                                    marginBottom: '16px', 
-                                }}>
-                                    {card.description}
-                                </p>
-                                
-                                {/* Action Buttons */}
-                                <div className="d-grid gap-2">
-                                    <button 
-                                        className="btn"
-                                        onClick={() => handleOpenDocs(card.docHash)}
-                                        style={{ 
-                                            borderRadius: '12px', 
-                                            padding: '12px', 
-                                            fontWeight: '600',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            border: `2px solid ${card.color}`,
-                                            background: 'white',
-                                            color: card.color,
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.background = card.color;
-                                            e.currentTarget.style.color = 'white';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.background = 'white';
-                                            e.currentTarget.style.color = card.color;
-                                        }}
-                                    >
-                                        <FaBookOpen size={14} /> Leggi Guida
+                            <div className="sup-card-body">
+                                <div className="sup-card-title">{section.title}</div>
+                                <div className="sup-card-desc">{section.description}</div>
+                                {section.comingSoon ? (
+                                    <button className="sup-btn-go disabled" disabled>
+                                        <i className="ri-time-line"></i>
+                                        In Arrivo
                                     </button>
-                                    {card.tourAvailable && (
-                                        <button 
-                                            className="btn"
-                                            onClick={() => handleStartTour(card)}
-                                            style={{ 
-                                                borderRadius: '12px', 
-                                                padding: '12px', 
-                                                fontWeight: '600',
-                                                border: 'none',
-                                                background: card.gradient,
-                                                color: 'white',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '8px',
-                                                boxShadow: `0 4px 15px ${card.color}40`,
-                                                transition: 'all 0.2s ease'
-                                            }}
-                                            onMouseEnter={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                                e.currentTarget.style.boxShadow = `0 6px 20px ${card.color}60`;
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                e.currentTarget.style.transform = 'translateY(0)';
-                                                e.currentTarget.style.boxShadow = `0 4px 15px ${card.color}40`;
-                                            }}
-                                        >
-                                            <FaPlayCircle size={14} /> Avvia Tour Guidato
-                                        </button>
-                                    )}
-                                </div>
+                                ) : (
+                                    <button
+                                        className="sup-btn-go"
+                                        onClick={() => navigate(`/supporto/${section.id}`)}
+                                    >
+                                        Vai al Supporto Dedicato
+                                        <i className="ri-arrow-right-line"></i>
+                                    </button>
+                                )}
                             </div>
                         </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Additional Help Sections */}
-            <div style={{ marginBottom: '24px', marginTop: '48px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1e293b', marginBottom: '8px' }}>
-                    💡 Altre Risorse
-                </h2>
-                <p style={{ color: '#64748b', fontSize: '15px', margin: 0 }}>
-                    Strumenti aggiuntivi per risolvere dubbi e ottenere assistenza
-                </p>
-            </div>
-
-            <div className="row g-4">
-                <div className="col-lg-6">
-                    <div className="card border-0" style={{ 
-                        borderRadius: '20px', 
-                        background: 'linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)', 
-                        border: '1px solid #E5E7EB',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'none';
-                    }}
-                    >
-                        <div className="card-body p-4 d-flex align-items-center gap-4">
-                            <div style={{ 
-                                background: 'linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)', 
-                                padding: '18px', 
-                                borderRadius: '16px', 
-                                boxShadow: '0 4px 15px rgba(76, 175, 80, 0.3)' 
-                            }}>
-                                <FaQuestionCircle size={32} color="white" />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <h5 className="mb-1" style={{ fontWeight: '700', color: '#1e293b' }}>FAQ & Troubleshooting</h5>
-                                <p className="text-muted mb-0 small">Risolvi velocemente i dubbi più comuni</p>
-                            </div>
-                            <FaArrowRight size={20} style={{ color: '#4CAF50' }} />
-                        </div>
-                    </div>
+                    ))}
                 </div>
-                <div className="col-lg-6">
-                    <div className="card border-0" style={{ 
-                        borderRadius: '20px', 
-                        background: 'linear-gradient(135deg, #F9FAFB 0%, #F3F4F6 100%)', 
-                        border: '1px solid #E5E7EB',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'none';
-                    }}
-                    >
-                        <div className="card-body p-4 d-flex align-items-center gap-4">
-                            <div style={{ 
-                                background: 'linear-gradient(135deg, #2196F3 0%, #1565C0 100%)', 
-                                padding: '18px', 
-                                borderRadius: '16px', 
-                                boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)' 
-                            }}>
-                                <img src="/suitemind.png" alt="SUMI" style={{ width: '32px', height: '32px', objectFit: 'contain' }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <h5 className="mb-1" style={{ fontWeight: '700', color: '#1e293b' }}>Chiedi a SUMI</h5>
-                                <p className="text-muted mb-0 small">Assistente AI per supporto immediato</p>
-                            </div>
-                            <FaArrowRight size={20} style={{ color: '#2196F3' }} />
-                        </div>
-                    </div>
-                </div>
-            </div>
+            )}
         </div>
     );
 };

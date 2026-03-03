@@ -21,12 +21,29 @@ const ROLE_LABELS = {
   cco: 'CCO',
   coordinatore: 'Coordinatore',
   team_leader: 'Team Leader',
+  health_manager: 'Health Manager',
   professionista: 'Professionista',
   team_esterno: 'Team Esterno',
   consulente: 'Consulente',
   nutrizionista: 'Nutrizionista',
   coach: 'Coach',
   psicologo: 'Psicologo',
+};
+
+const getRoleLabel = (user) => {
+  if (!user) return 'Profilo';
+  if (user.role === 'team_leader' && user.is_health_manager_team_leader) {
+    return 'Team Leader HM';
+  }
+  if (user.role === 'team_leader') {
+    const specialty = String(user.specialty || '').toLowerCase();
+    if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'Team Leader Nutrizione';
+    if (specialty === 'coach') return 'Team Leader Coach';
+    if (specialty === 'psicologia' || specialty === 'psicologo' || specialty === 'psicologa') return 'Team Leader Psicologia';
+    if (specialty === 'medico') return 'Team Leader Medico';
+    return 'Team Leader';
+  }
+  return ROLE_LABELS[user.role] || user.role || 'Profilo';
 };
 
 const Header = ({ onNote }) => {
@@ -370,7 +387,7 @@ const Header = ({ onNote }) => {
                   <img src={user?.avatar_path || defaultAvatar} width={34} height={34} alt="" style={{ borderRadius: '10px' }} />
                   <div className="header-info ms-2">
                     <span style={{ fontSize: '13px' }}>Ciao, <strong style={{ color: '#1e293b' }}>{user?.first_name || 'Utente'}</strong></span>
-                    <small style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>{ROLE_LABELS[user?.role] || user?.role || 'Profilo'}</small>
+                    <small style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600 }}>{getRoleLabel(user)}</small>
                   </div>
                 </Dropdown.Toggle>
                 <Dropdown.Menu align="end" className="mt-2 dropdown-menu-end" style={{ border: 'none', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', borderRadius: '16px', padding: '10px' }}>
@@ -380,6 +397,12 @@ const Header = ({ onNote }) => {
                     </div>
                     <span className="fw-semibold" style={{ fontSize: '14px' }}>Mio Profilo</span>
                   </Link>
+                  <Link to="/novita" className="dropdown-item ai-icon d-flex align-items-center p-2 rounded-3 mt-1">
+                    <div className="d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(37, 179, 106, 0.1)' }}>
+                      <i className="mdi mdi-rocket text-success" style={{ fontSize: '16px' }}></i>
+                    </div>
+                    <span className="fw-semibold" style={{ fontSize: '14px' }}>Novità</span>
+                  </Link>
                   <button onClick={logout} className="dropdown-item ai-icon d-flex align-items-center p-2 rounded-3 mt-1">
                     <div className="icon-wrapper-logout bg-danger-light d-flex align-items-center justify-content-center me-2" style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)' }}>
                       <i className="ri-logout-box-r-line text-danger" style={{ fontSize: '16px' }}></i>
@@ -388,7 +411,7 @@ const Header = ({ onNote }) => {
                   </button>
                 </Dropdown.Menu>
               </Dropdown>
-              <li className="nav-item right-sidebar ms-2">
+              <li className="nav-item right-sidebar ms-2" style={{ marginRight: '1rem' }}>
                 <Link
                   to="#"
                   className="nav-link bell i-false c-pointer ai-icon p-2"

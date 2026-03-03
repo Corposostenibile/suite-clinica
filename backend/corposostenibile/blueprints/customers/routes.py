@@ -52,7 +52,7 @@ from corposostenibile.models import (
     CallBonusStatusEnum,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
-from .filters import parse_filter_args
+from .filters import apply_customer_filters, parse_filter_args
 from .permissions import CustomerPerm, permission_required
 from .repository import customers_repo
 from .schemas import ClienteSchema
@@ -600,8 +600,9 @@ def update_multiple_fields(cliente_id: int):
                         value = None
                 else:
                     value = None
-            # Gestione campi Integer (es. recensione_stelle)
-            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte']:
+            # Gestione campi Integer (es. recensione_stelle, durata_*_giorni)
+            elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte',
+                           'durata_programma_giorni', 'durata_nutrizione_giorni', 'durata_coach_giorni', 'durata_psicologia_giorni']:
                 if value:
                     try:
                         value = int(value)
@@ -641,7 +642,28 @@ def update_multiple_fields(cliente_id: int):
                 logger.info(f"Data Rinnovo calcolata automaticamente: {data_inizio} + {durata} giorni = {data_rinnovo_calcolata}")
             except (ValueError, TypeError) as e:
                 logger.warning(f"Impossibile calcolare data_rinnovo: {e}")
-    
+
+    # Ricalcolo automatico scadenze per-servizio (inizio + durata)
+    _servizio_map = {
+        'nutrizione': ('data_inizio_nutrizione', 'durata_nutrizione_giorni', 'data_scadenza_nutrizione'),
+        'coach':      ('data_inizio_coach',      'durata_coach_giorni',      'data_scadenza_coach'),
+        'psicologia': ('data_inizio_psicologia',  'durata_psicologia_giorni', 'data_scadenza_psicologia'),
+    }
+    for servizio, (inizio_field, durata_field, scadenza_field) in _servizio_map.items():
+        if inizio_field in valid_fields or durata_field in valid_fields:
+            data_inizio = valid_fields.get(inizio_field) or (getattr(cliente, inizio_field, None) if inizio_field not in valid_fields else None)
+            durata = valid_fields.get(durata_field) or (getattr(cliente, durata_field, None) if durata_field not in valid_fields else None)
+            if data_inizio and durata:
+                try:
+                    from datetime import timedelta
+                    if isinstance(durata, str):
+                        durata = int(durata)
+                    scadenza_calcolata = data_inizio + timedelta(days=durata)
+                    valid_fields[scadenza_field] = scadenza_calcolata
+                    logger.info(f"Scadenza {servizio} calcolata: {data_inizio} + {durata}gg = {scadenza_calcolata}")
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Impossibile calcolare scadenza {servizio}: {e}")
+
     # Se non ci sono campi validi ma ci sono professionisti multipli da aggiornare, è ok
     if not valid_fields and not multi_fields:
         return jsonify({"error": "Nessun campo valido da aggiornare"}), HTTPStatus.BAD_REQUEST
@@ -1452,16 +1474,76 @@ def api_list() -> Any:
         pagination.items = filtered_items
         pagination.total = len(filtered_items)
     
-    return jsonify(
-        {
-            "data": clienti_schema.dump(pagination.items),
-            "pagination": {
-                "page": pagination.page,
-                "pages": pagination.pages,
-                "total": pagination.total,
-            },
-        }
-    )
+    result = {
+        "data": clienti_schema.dump(pagination.items),
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+    }
+
+    # Compute KPI aggregates for specialty views (coach, nutrizione, psicologia)
+    view = request.args.get("view", "").lower()
+    _VIEW_KPI_FIELDS = {
+        "coach": ("stato_coach", "stato_cliente_chat_coaching"),
+        "nutrizione": ("stato_nutrizione", "stato_cliente_chat_nutrizione"),
+        "psicologia": ("stato_psicologia", "stato_cliente_chat_psicologia"),
+    }
+    if view in _VIEW_KPI_FIELDS:
+        stato_field_name, chat_field_name = _VIEW_KPI_FIELDS[view]
+        stato_col = getattr(Cliente, stato_field_name, None)
+        chat_col = getattr(Cliente, chat_field_name, None)
+        if stato_col is not None and chat_col is not None:
+            # Build filtered (unpaginated) base query with same filters + RBAC
+            kpi_qry = db.session.query(Cliente).filter(
+                Cliente.show_in_clienti_lista.is_(True)
+            )
+            kpi_qry = apply_customer_filters(kpi_qry, params)
+            kpi_qry = apply_role_filtering(kpi_qry)
+
+            stato_rows = (
+                kpi_qry.with_entities(stato_col, func.count(Cliente.cliente_id))
+                .order_by(None)
+                .group_by(stato_col)
+                .all()
+            )
+            chat_rows = (
+                kpi_qry.with_entities(chat_col, func.count(Cliente.cliente_id))
+                .order_by(None)
+                .group_by(chat_col)
+                .all()
+            )
+            stato_counts = {
+                (s.value if hasattr(s, "value") else str(s) if s else "null"): c
+                for s, c in stato_rows
+            }
+            chat_counts = {
+                (s.value if hasattr(s, "value") else str(s) if s else "null"): c
+                for s, c in chat_rows
+            }
+            result["kpi"] = {
+                "stato_attivo": stato_counts.get("attivo", 0),
+                "stato_ghost": stato_counts.get("ghost", 0),
+                "stato_pausa": stato_counts.get("pausa", 0),
+                "stato_stop": stato_counts.get("stop", 0),
+                "chat_attivo": chat_counts.get("attivo", 0),
+                "chat_ghost": chat_counts.get("ghost", 0),
+                "chat_pausa": chat_counts.get("pausa", 0),
+                "chat_stop": chat_counts.get("stop", 0),
+            }
+
+    return jsonify(result)
+
+
+def _require_cliente_scope_or_403(cliente_id: int) -> None:
+    """
+    Verifica che il cliente sia nel perimetro RBAC dell'utente corrente
+    (admin=globale, TL=team, professionista=propri clienti).
+    """
+    scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+    if scoped_query.filter(Cliente.cliente_id == cliente_id).first() is None:
+        abort(HTTPStatus.FORBIDDEN, description="Cliente fuori dal perimetro autorizzato.")
 
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
@@ -1483,6 +1565,7 @@ def api_detail(cliente_id: int) -> Any:
                     "message": "Puoi visualizzare solo i clienti assegnati a te"
                 }), HTTPStatus.FORBIDDEN
     
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id, eager=True)
     return jsonify({"data": cliente_schema.dump(cliente)})
 
@@ -1503,6 +1586,7 @@ def api_create() -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["PATCH"])
 @permission_required(CustomerPerm.EDIT)
 def api_update(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
     # Use schema with session for validation
@@ -1516,6 +1600,7 @@ def api_update(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.DELETE)
 def api_delete(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     delete_cliente(cliente, current_user)
     return "", HTTPStatus.NO_CONTENT
@@ -1524,6 +1609,7 @@ def api_delete(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
 def api_history(cliente_id: int) -> Any:
+    _require_cliente_scope_or_403(cliente_id)
     limit = request.args.get("limit", 100, type=int)
     versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
 
@@ -1753,6 +1839,7 @@ def api_feedback_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js.
     """
     from corposostenibile.models import TypeFormResponse
+    _require_cliente_scope_or_403(cliente_id)
     
     # Recupera tutti i feedback del cliente ordinati per data
     responses = (
@@ -1834,6 +1921,7 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
     Dati organizzati per grafici Chart.js (stesso formato di TypeForm).
     """
     from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
+    _require_cliente_scope_or_403(cliente_id)
 
     # Recupera tutte le risposte ai weekly checks del cliente ordinate per data
     # WeeklyCheckResponse si collega a WeeklyCheck che ha cliente_id
@@ -1901,27 +1989,26 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
 @permission_required(CustomerPerm.VIEW)
 def api_initial_checks(cliente_id: int) -> Any:
     """
-    Restituisce i dati dei Check 1 e 2 (Iniziali).
+    Restituisce i dati dei Check 1, 2 e 3 (Iniziali).
     Priorità: dati compilati dal Lead originale (se presenti), altrimenti
     fallback su ClientCheckAssignment con link pubblico da inviare.
     """
     from corposostenibile.models import CheckForm, CheckFormTypeEnum
+    _require_cliente_scope_or_403(cliente_id)
 
     cliente = customers_repo.get_one(cliente_id, eager=True)
     base_url = current_app.config.get("BASE_URL", request.url_root.rstrip("/"))
+
+    _empty_check = lambda: {
+        "completed_at": None,
+        "responses": {},
+        "url": None,
+        "response_count": 0,
+    }
     checks_payload = {
-        "check_1": {
-            "completed_at": None,
-            "responses": {},
-            "url": None,
-            "response_count": 0,
-        },
-        "check_2": {
-            "completed_at": None,
-            "responses": {},
-            "url": None,
-            "response_count": 0,
-        },
+        "check_1": _empty_check(),
+        "check_2": _empty_check(),
+        "check_3": _empty_check(),
     }
 
     has_any_data = False
@@ -1931,7 +2018,7 @@ def api_initial_checks(cliente_id: int) -> Any:
     if cliente.original_lead:
         lead = cliente.original_lead
         source = "lead"
-        for idx in (1, 2):
+        for idx in (1, 2, 3):
             key = f"check_{idx}"
             completed_at = getattr(lead, f"check{idx}_completed_at", None)
             responses = getattr(lead, f"check{idx}_responses", None) or {}
@@ -1940,6 +2027,14 @@ def api_initial_checks(cliente_id: int) -> Any:
                 checks_payload[key]["completed_at"] = completed_at.isoformat() if completed_at else None
                 checks_payload[key]["responses"] = responses
                 checks_payload[key]["response_count"] = 1
+                # Extra metadata per check 3
+                if idx == 3:
+                    score = getattr(lead, "check3_score", None)
+                    ctype = getattr(lead, "check3_type", None)
+                    if score is not None:
+                        checks_payload[key]["score"] = score
+                    if ctype is not None:
+                        checks_payload[key]["type"] = ctype
 
     # 2) Fallback/merge da ClientCheckAssignment (es. clienti creati da GHL)
     assignments = (
@@ -1958,7 +2053,6 @@ def api_initial_checks(cliente_id: int) -> Any:
         .all()
     )
 
-    # Mappa solo Check 1 e Check 2 per nome form
     def _check_key_from_form_name(name):
         if not name:
             return None
@@ -1967,11 +2061,13 @@ def api_initial_checks(cliente_id: int) -> Any:
             return "check_1"
         if "check 2" in n or "fisico" in n:
             return "check_2"
+        if "check 3" in n or "psicolog" in n:
+            return "check_3"
         return None
 
     for ass in assignments:
         key = _check_key_from_form_name(ass.form.name if ass.form else None)
-        if key not in ("check_1", "check_2"):
+        if key not in ("check_1", "check_2", "check_3"):
             continue
 
         latest_response = ass.responses[0] if ass.responses else None
@@ -1995,6 +2091,31 @@ def api_initial_checks(cliente_id: int) -> Any:
         if source == "none":
             source = "client_check"
 
+    # 3) Allegati dal Lead (foto, analisi, ecc.)
+    if cliente.original_lead:
+        lead = cliente.original_lead
+        if lead.form_attachments and isinstance(lead.form_attachments, list):
+            for att in lead.form_attachments:
+                check_num = att.get("check_number")
+                if check_num is None:
+                    continue
+                key = f"check_{check_num}"
+                if key not in checks_payload:
+                    continue
+                if "attachments" not in checks_payload[key]:
+                    checks_payload[key]["attachments"] = []
+                att_path = att.get("path", "")
+                # Estrai solo il filename (senza lead_files/{id}/ prefix)
+                filename = att_path.split("/")[-1] if att_path else ""
+                checks_payload[key]["attachments"].append({
+                    "field_name": att.get("field_name", ""),
+                    "filename": att.get("filename", filename),
+                    "download_url": f"/v1/customers/{cliente_id}/initial-checks/attachment/{lead.id}/{filename}",
+                    "size": att.get("size"),
+                    "uploaded_at": att.get("uploaded_at"),
+                })
+                has_any_data = True
+
     if not has_any_data and not assignments:
         return jsonify({
             "has_data": False,
@@ -2006,6 +2127,59 @@ def api_initial_checks(cliente_id: int) -> Any:
         "source": source,
         "checks": checks_payload
     })
+
+
+@api_bp.route("/<int:cliente_id>/initial-checks/attachment/<int:lead_id>/<path:filename>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -> Any:
+    """Scarica un allegato (foto/file) dai check iniziali di un cliente."""
+    from flask import send_file
+    import os
+
+    _require_cliente_scope_or_403(cliente_id)
+
+    # Verifica che il lead appartenga a questo cliente
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+    if not cliente.original_lead or cliente.original_lead.id != lead_id:
+        abort(403, description="Lead non associato a questo cliente")
+
+    # I file lead possono trovarsi in diverse posizioni:
+    # 1) {root_path}/uploads/  (dove sales_form li salva)
+    # 2) UPLOAD_FOLDER/        (PVC montato in produzione)
+    # 3) UPLOAD_FOLDER/corposostenibile/uploads/ (copia migrata del vecchio sistema)
+    upload_folder = current_app.config.get("UPLOAD_FOLDER", "uploads")
+    lead_subpath = os.path.join("lead_files", str(lead_id), filename)
+    candidates = [
+        os.path.join(current_app.root_path, "uploads", lead_subpath),
+        os.path.join(upload_folder, lead_subpath),
+        os.path.join(upload_folder, "corposostenibile", "uploads", lead_subpath),
+    ]
+
+    file_path = None
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            file_path = candidate
+            break
+
+    if not file_path:
+        logger.error(f"Lead attachment not found. Tried: {candidates}")
+        abort(404, description="File non trovato")
+
+    # Path traversal protection
+    real_path = os.path.realpath(file_path)
+    base_dir = os.path.dirname(real_path)
+    if not base_dir.endswith(str(lead_id)):
+        abort(403, description="Accesso negato")
+
+    file_ext = filename.rsplit(".", 1)[1].lower() if "." in filename else ""
+    is_image = file_ext in ("jpg", "jpeg", "png", "gif", "webp")
+
+    return send_file(
+        file_path,
+        as_attachment=not is_image,
+        download_name=filename,
+        mimetype=f"image/{file_ext}" if is_image else None,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -2408,6 +2582,7 @@ def get_professionisti_history(cliente_id: int):
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
 
     # Ottieni storico tracciato
@@ -2560,7 +2735,10 @@ def assign_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
     data = request.get_json() or {}
 
     # Validazione campi obbligatori
@@ -2587,6 +2765,7 @@ def assign_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     # Parse data
     try:
@@ -2645,12 +2824,16 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     history = db.session.query(ClienteProfessionistaHistory).filter_by(
         id=history_id,
         cliente_id=cliente_id,
         is_active=True
     ).first_or_404()
+    _require_team_leader_assignment_scope_or_403(current_user, history.tipo_professionista, int(history.user_id))
 
     data = request.get_json() or {}
     motivazione = data.get("motivazione_interruzione")
@@ -2712,7 +2895,10 @@ def interrupt_legacy_professionista(cliente_id: int):
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
 
+    _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+        return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     data = request.get_json() or {}
 
     user_id = data.get("user_id")
@@ -2728,6 +2914,7 @@ def interrupt_legacy_professionista(cliente_id: int):
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
         return jsonify({"ok": False, "error": "Utente non trovato"}), 404
+    _require_team_leader_assignment_scope_or_403(current_user, tipo_professionista, int(user_id))
 
     try:
         today = date.today()
@@ -3295,6 +3482,7 @@ def api_training_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -3399,6 +3587,7 @@ def api_training_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -3504,6 +3693,7 @@ def api_training_change(cliente_id: int):
 def api_training_history(cliente_id: int):
     """Restituisce lo storico completo dei piani allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plans = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id).order_by(TrainingPlan.start_date.desc()).all()
 
     def _serialize(plan: TrainingPlan):
@@ -3557,6 +3747,7 @@ def api_training_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_training_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3645,6 +3836,7 @@ def api_training_download(cliente_id: int, plan_id: int):
     import os
     from flask import current_app, send_from_directory
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il cliente e il piano esistano e siano collegati
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3685,6 +3877,7 @@ def api_training_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -3771,6 +3964,7 @@ def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3809,6 +4003,7 @@ def api_training_extra_file_download(cliente_id: int, plan_id: int, file_id: int
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
         id=plan_id,
@@ -3853,7 +4048,21 @@ def api_storico_stati(cliente_id: int, servizio: str):
     """
     from corposostenibile.models import StatoServizioLog
 
-    # Verifica che il cliente esista
+    # Verifica scope servizio (chat_* mappate al servizio principale)
+    servizio_scope_map = {
+        "nutrizione": "nutrizione",
+        "chat_nutrizione": "nutrizione",
+        "coach": "coaching",
+        "chat_coaching": "coaching",
+        "psicologia": "psicologia",
+        "chat_psicologia": "psicologia",
+    }
+    servizio_scope = servizio_scope_map.get(servizio)
+    if not servizio_scope:
+        return jsonify({"ok": False, "error": "Servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, servizio_scope)
+
+    # Verifica che il cliente esista (coerenza con API legacy)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
@@ -3892,6 +4101,7 @@ def api_storico_patologie(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaLog.query.filter_by(
@@ -3930,6 +4140,7 @@ def api_storico_patologie_psico(cliente_id: int):
 
     # Verifica che il cliente esista
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "psicologia")
 
     # Recupera lo storico ordinato per data (dal più recente al più vecchio)
     storico = PatologiaPsicoLog.query.filter_by(
@@ -3967,6 +4178,7 @@ def api_storico_patologie_psico(cliente_id: int):
 def api_location_add(cliente_id: int):
     """Aggiunge un nuovo storico luogo allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4040,6 +4252,7 @@ def api_location_add(cliente_id: int):
 def api_location_change(cliente_id: int, loc_id: int):
     """Cambia storico luogo allenamento esistente."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
         abort(403)
 
@@ -4097,6 +4310,7 @@ def api_location_change(cliente_id: int, loc_id: int):
 def api_location_history(cliente_id: int):
     """Restituisce lo storico completo dei luoghi allenamento."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
     locations = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
 
     def _serialize(loc: TrainingLocation):
@@ -4137,6 +4351,7 @@ def api_location_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_location_versions(cliente_id: int, location_id: int):
     """Restituisce lo storico delle versioni di un luogo allenamento specifico."""
+    _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il luogo appartenga al cliente
     location = db.session.query(TrainingLocation).filter_by(
         id=location_id,
@@ -4227,6 +4442,7 @@ def api_nutrition_add(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -4331,6 +4547,7 @@ def api_nutrition_change(cliente_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     if not _can_manage_meal_plans(cliente):
         abort(403)
 
@@ -4436,6 +4653,7 @@ def api_nutrition_change(cliente_id: int):
 def api_nutrition_history(cliente_id: int):
     """Restituisce lo storico completo dei piani alimentari."""
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plans = db.session.query(MealPlan).filter_by(cliente_id=cliente_id).order_by(MealPlan.start_date.desc()).all()
 
     def _serialize(plan: MealPlan):
@@ -4489,6 +4707,7 @@ def api_nutrition_history(cliente_id: int):
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_versions(cliente_id: int, plan_id: int):
     """Restituisce lo storico delle versioni di un piano alimentare specifico."""
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4575,6 +4794,7 @@ def api_nutrition_download(cliente_id: int, plan_id: int):
     from flask import send_file, current_app
     import os
 
+    cliente = _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4613,6 +4833,7 @@ def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
     from flask import current_app
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
         cliente_id=cliente_id
@@ -4700,6 +4921,7 @@ def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int)
     import os
     from flask import current_app
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -4738,6 +4960,7 @@ def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: in
     from flask import send_file, current_app
     import os
 
+    _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
         id=plan_id,
@@ -5067,7 +5290,7 @@ def api_search_clienti():
         return jsonify({"success": True, "clienti": []}), HTTPStatus.OK
 
     # Ricerca per nome, email o telefono
-    clienti = Cliente.query.filter(
+    clienti = apply_role_filtering(Cliente.query).filter(
         db.or_(
             Cliente.nome_cognome.ilike(f"%{q}%"),
             Cliente.mail.ilike(f"%{q}%"),
@@ -5335,6 +5558,7 @@ def get_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     anamnesi = ServiceAnamnesi.query.filter_by(
         cliente_id=cliente_id,
@@ -5365,6 +5589,7 @@ def save_anamnesi(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -5416,6 +5641,7 @@ def get_diary_entries(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entries = ServiceDiaryEntry.query.filter_by(
         cliente_id=cliente_id,
@@ -5444,6 +5670,7 @@ def create_diary_entry(cliente_id: int, service_type: str):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     data = request.get_json()
     content = data.get('content', '').strip()
@@ -5496,6 +5723,7 @@ def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     entry = ServiceDiaryEntry.query.filter_by(
         id=entry_id,
@@ -5547,6 +5775,7 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     if not current_user.is_admin:
         return jsonify({"success": False, "error": "Solo gli amministratori possono eliminare le note del diario"}), HTTPStatus.FORBIDDEN
@@ -5585,6 +5814,7 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
     
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
         return jsonify({"success": False, "error": "Tipo servizio non valido"}), HTTPStatus.BAD_REQUEST
+    _require_service_scope_or_403(cliente_id, service_type)
 
     ServiceDiaryEntryVersion = version_class(ServiceDiaryEntry)
     
@@ -5619,14 +5849,166 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 # --------------------------------------------------------------------------- #
 
 def _is_assigned_to_cliente(user, cliente) -> bool:
-    """Verifica se l'utente è assegnato al paziente come professionista (o admin)."""
+    """Verifica se l'utente è assegnato al paziente come professionista (o admin).
+    Include anche professionisti con call bonus attive (status=accettata).
+    """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
-    return (
-        user in cliente.nutrizionisti_multipli
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "team_leader":
+        try:
+            scoped_query = apply_role_filtering(db.session.query(Cliente.cliente_id))
+            return scoped_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
+    if (
+        getattr(cliente, "nutrizionista_id", None) == user.id
+        or getattr(cliente, "coach_id", None) == user.id
+        or getattr(cliente, "psicologa_id", None) == user.id
+        or getattr(cliente, "consulente_alimentare_id", None) == user.id
+        or getattr(cliente, "health_manager_id", None) == user.id
+        or user in cliente.nutrizionisti_multipli
         or user in cliente.coaches_multipli
         or user in cliente.psicologi_multipli
-    )
+        or user in cliente.consulenti_multipli
+    ):
+        return True
+    # Professionista assegnato tramite call bonus attiva
+    from corposostenibile.models import CallBonus
+    has_active_cb = db.session.query(CallBonus.id).filter(
+        CallBonus.cliente_id == cliente.cliente_id,
+        CallBonus.professionista_id == user.id,
+        CallBonus.status == CallBonusStatusEnum.accettata,
+    ).first()
+    return has_active_cb is not None
+
+
+def _is_professionista_standard(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "professionista"
+
+
+def _is_health_manager_user(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    return (not getattr(user, "is_admin", False)) and role_value == "health_manager"
+
+
+def _normalize_specialty_group_for_rbac(user) -> str | None:
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value in ("nutrizionista", "nutrizione"):
+        return "nutrizione"
+    if specialty_value in ("psicologo", "psicologia", "psicologa"):
+        return "psicologia"
+    if specialty_value == "coach":
+        return "coach"
+    if specialty_value == "medico":
+        return "medico"
+    return None
+
+
+def _is_team_leader_health_manager_scope(user) -> bool:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return False
+    teams_led = getattr(user, "teams_led", []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
+        if str(team_type or "").strip().lower() == "health_manager":
+            return True
+    specialty = getattr(user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    specialty_value = specialty_value.strip().lower()
+    if specialty_value == "health_manager":
+        return True
+    department_name = getattr(getattr(user, "department", None), "name", "")
+    department_name = str(department_name or "").strip().lower()
+    return ("health" in department_name) or ("customer success" in department_name)
+
+
+def _team_leader_visible_member_ids(user) -> set[int]:
+    visible_ids = {getattr(user, "id", None)}
+    for team in getattr(user, "teams_led", []) or []:
+        if not getattr(team, "is_active", True):
+            continue
+        for member in getattr(team, "members", []) or []:
+            visible_ids.add(member.id)
+    return {uid for uid in visible_ids if uid is not None}
+
+
+def _team_leader_can_manage_assignment_type(user, tipo_professionista: str | None) -> bool:
+    tipo = (tipo_professionista or "").strip().lower()
+    if tipo == "health_manager":
+        return _is_team_leader_health_manager_scope(user)
+    allowed_by_specialty = {
+        "nutrizione": {"nutrizionista"},
+        "coach": {"coach"},
+        "psicologia": {"psicologa"},
+        "medico": {"medico"},
+    }
+    specialty_group = _normalize_specialty_group_for_rbac(user)
+    if not specialty_group:
+        return False
+    return tipo in allowed_by_specialty.get(specialty_group, set())
+
+
+def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str, target_user_id: int) -> None:
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return
+    if not _team_leader_can_manage_assignment_type(user, tipo_professionista):
+        abort(HTTPStatus.FORBIDDEN, description="Tipo professionista non gestibile per la tua specialità.")
+    if int(target_user_id) not in _team_leader_visible_member_ids(user):
+        abort(HTTPStatus.FORBIDDEN, description="Professionista fuori dal perimetro del tuo team.")
+
+
+def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:
+    """Scope granulare per i professionisti sulle sezioni servizio-specifiche."""
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value == "admin":
+        return True
+    if role_value == "team_leader":
+        # TL: almeno cliente nel perimetro dei team gestiti (specialità gestita lato UI / altri filtri)
+        try:
+            from corposostenibile.blueprints.client_checks.rbac import get_accessible_clients_query
+            accessible_query = get_accessible_clients_query()
+            if accessible_query is None:
+                return True
+            return accessible_query.filter(Cliente.cliente_id == cliente.cliente_id).first() is not None
+        except Exception:
+            logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
+            return False
+    if role_value == "health_manager":
+        return getattr(cliente, "health_manager_id", None) == user.id
+    if role_value != "professionista":
+        return False
+
+    if service_type == "nutrizione":
+        return getattr(cliente, "nutrizionista_id", None) == user.id or user in (cliente.nutrizionisti_multipli or [])
+    if service_type == "coaching":
+        return getattr(cliente, "coach_id", None) == user.id or user in (cliente.coaches_multipli or [])
+    if service_type == "psicologia":
+        return getattr(cliente, "psicologa_id", None) == user.id or user in (cliente.psicologi_multipli or [])
+    return False
+
+
+def _require_service_scope_or_403(cliente_id: int, service_type: str) -> "Cliente":
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente_for_service(current_user, cliente, service_type):
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato per questo servizio del paziente.")
+    return cliente
 
 
 @api_bp.route("/<int:cliente_id>/call-bonus-history", methods=["GET"])
@@ -5638,6 +6020,8 @@ def api_call_bonus_history(cliente_id: int):
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
 
     import json as _json
 
@@ -5668,15 +6052,64 @@ def api_call_bonus_history(cliente_id: int):
             "professionista_nome": prof_name,
             "professionista_id": cb.professionista_id,
             "is_assigned_professional": cb.professionista_id == current_user.id if cb.professionista_id else False,
+            "is_requester": cb.created_by_id == current_user.id,
             "status": cb.status.value if cb.status else None,
             "created_by_nome": cb.created_by.full_name if cb.created_by else None,
+            "created_by_id": cb.created_by_id,
             "note_richiesta": cb.note_richiesta,
             "booking_confirmed": cb.booking_confirmed or False,
+            "hm_booking_confirmed": cb.hm_booking_confirmed or False,
             "hm_name": hm_name,
             "hm_calendar_link": hm_calendar_link,
         })
 
     return jsonify({"data": data})
+
+
+@api_bp.route("/call-bonus-interest/<int:call_bonus_id>", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_bonus_interest(call_bonus_id: int):
+    """Professionista assegnato risponde sull'interesse del paziente."""
+    from corposostenibile.models import CallBonus
+    from .call_bonus_webhooks import dispatch_call_bonus_webhook
+
+    call_bonus = db.session.get(CallBonus, call_bonus_id)
+    if not call_bonus:
+        abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+
+    if call_bonus.professionista_id != current_user.id:
+        abort(HTTPStatus.FORBIDDEN, description="Non sei il professionista assegnato a questa call bonus.")
+
+    if call_bonus.status != CallBonusStatusEnum.accettata:
+        abort(HTTPStatus.CONFLICT, description="Questa call bonus non è in stato 'accettata'.")
+
+    payload = request.get_json() or {}
+    interested = payload.get("interested")
+    if interested is None:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'interested' obbligatorio.")
+
+    if interested:
+        call_bonus.status = CallBonusStatusEnum.interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        call_bonus.hm_booking_confirmed = True
+        call_bonus.data_hm_booking_confirmed = datetime.utcnow()
+        db.session.flush()
+        dispatch_call_bonus_webhook(call_bonus)
+    else:
+        call_bonus.status = CallBonusStatusEnum.non_interessato
+        call_bonus.data_interesse = datetime.utcnow()
+        motivazione = payload.get("motivazione", "").strip()
+        if motivazione:
+            call_bonus.motivazione_rifiuto = motivazione
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "call_bonus_id": call_bonus.id,
+        "status": call_bonus.status.value,
+        "message": "Interesse confermato." if interested else "Paziente non interessato.",
+    })
 
 
 @api_bp.route("/<int:cliente_id>/call-bonus-request", methods=["POST"])
@@ -5799,6 +6232,11 @@ def api_call_bonus_select_professional(call_bonus_id: int):
     call_bonus = db.session.get(CallBonus, call_bonus_id)
     if not call_bonus:
         abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
 
     payload = request.get_json() or {}
     professional_id = payload.get("professional_id")
@@ -5842,6 +6280,19 @@ def api_call_bonus_confirm_booking(call_bonus_id: int):
     call_bonus = db.session.get(CallBonus, call_bonus_id)
     if not call_bonus:
         abort(HTTPStatus.NOT_FOUND, description="Call bonus non trovata.")
+    cliente = db.session.get(Cliente, call_bonus.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    is_internal_owner = (
+        getattr(current_user, "is_admin", False)
+        or call_bonus.created_by_id == current_user.id
+        or call_bonus.professionista_id == current_user.id
+    )
+    if not is_internal_owner:
+        role = getattr(current_user, "role", None)
+        role_value = role.value if hasattr(role, "value") else str(role or "")
+        if role_value == "professionista" or not _is_assigned_to_cliente(current_user, cliente):
+            abort(HTTPStatus.FORBIDDEN, description="Non autorizzato a confermare questa call bonus.")
 
     call_bonus.booking_confirmed = True
     call_bonus.data_booking_confirmed = datetime.utcnow()

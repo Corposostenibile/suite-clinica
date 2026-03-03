@@ -254,6 +254,47 @@ class ReviewService:
         return round(total_brec, 4)
 
     @staticmethod
+    def get_brec_for_professionals(
+        professionista_ids: List[int],
+        week_start: date
+    ) -> Dict[int, float]:
+        """
+        Calcola il bonus BRec per più professionisti in una sola passata.
+
+        Args:
+            professionista_ids: Lista ID professionisti
+            week_start: Data inizio settimana
+
+        Returns:
+            Dict {professionista_id: bonus_brec}
+        """
+        if not professionista_ids:
+            return {}
+
+        target_ids = set(professionista_ids)
+        totals = {pid: 0.0 for pid in target_ids}
+
+        reviews = db.session.query(TrustpilotReview).filter(
+            TrustpilotReview.pubblicata == True,
+            TrustpilotReview.applied_to_week_start == week_start
+        ).all()
+
+        for review in reviews:
+            dist = review.bonus_distribution or {}
+            richiedente_id = dist.get('richiedente_id')
+            if richiedente_id in target_ids:
+                totals[richiedente_id] += dist.get('richiedente_bonus', 0.0)
+
+            team_ids = dist.get('team_ids', []) or []
+            team_bonus_each = dist.get('team_bonus_each', 0.0)
+            if team_bonus_each:
+                for pid in team_ids:
+                    if pid in target_ids:
+                        totals[pid] += team_bonus_each
+
+        return {pid: round(value, 4) for pid, value in totals.items()}
+
+    @staticmethod
     def get_reviews_for_quarter(
         quarter_string: str,
         professionista_id: Optional[int] = None

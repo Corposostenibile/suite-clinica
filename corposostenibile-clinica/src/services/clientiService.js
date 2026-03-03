@@ -946,6 +946,21 @@ const clientiService = {
     const response = await api.post(`${API_BASE}/call-bonus-decline/${callBonusId}`);
     return response.data;
   },
+
+  /**
+   * Respond to call bonus interest (professionista assegnato conferma/rifiuta interesse paziente)
+   * @param {number} callBonusId - Call Bonus ID
+   * @param {boolean} interested - true if patient is interested, false otherwise
+   * @param {string} motivazione - Optional motivation (for non-interested)
+   * @returns {Promise} - { success, call_bonus_id, status, message }
+   */
+  async respondCallBonusInterest(callBonusId, interested, motivazione = '') {
+    const response = await api.post(`${API_BASE}/call-bonus-interest/${callBonusId}`, {
+      interested,
+      motivazione,
+    });
+    return response.data;
+  },
 };
 
 export default clientiService;

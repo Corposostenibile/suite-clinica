@@ -51,6 +51,9 @@ _DEFAULT_EAGER_LOAD = (
     selectinload(Cliente.coaches_multipli),
     selectinload(Cliente.psicologi_multipli),
     selectinload(Cliente.health_manager_user),
+    # Piani attivi per colonne "Piano Dieta" / "Piano Allenamento" nelle visuali
+    selectinload(Cliente.meal_plans),
+    selectinload(Cliente.training_plans),
 )
 
 
@@ -107,6 +110,7 @@ class CustomerRepository:
             TipologiaClienteEnum, UserRoleEnum,
             cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
             CallBonus, CallBonusStatusEnum,
+            ClienteProfessionistaHistory,
         )
         from flask_login import current_user
 
@@ -159,6 +163,7 @@ class CustomerRepository:
                             Cliente.nutrizionista_id.in_(member_ids_list),
                             Cliente.coach_id.in_(member_ids_list),
                             Cliente.psicologa_id.in_(member_ids_list),
+                            Cliente.consulente_alimentare_id.in_(member_ids_list),
                             # Assegnato a nutrizionista del team (M2M)
                             exists(
                                 select(cliente_nutrizionisti.c.cliente_id)
@@ -183,6 +188,14 @@ class CustomerRepository:
                                 .where(cliente_consulenti.c.cliente_id == Cliente.cliente_id)
                                 .where(cliente_consulenti.c.user_id.in_(member_ids_list))
                             ),
+                            # Assegnazione tramite history (es. Medico nel team)
+                            exists(
+                                select(ClienteProfessionistaHistory.cliente_id).where(
+                                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                    ClienteProfessionistaHistory.user_id.in_(member_ids_list),
+                                    ClienteProfessionistaHistory.is_active.is_(True),
+                                )
+                            ),
                         )
                     )
                 else:
@@ -198,6 +211,7 @@ class CustomerRepository:
                         Cliente.nutrizionista_id == user_id,
                         Cliente.coach_id == user_id,
                         Cliente.psicologa_id == user_id,
+                        Cliente.consulente_alimentare_id == user_id,
                         # Pazienti assegnati come nutrizionista (M2M)
                         exists(
                             select(cliente_nutrizionisti.c.cliente_id)
@@ -230,8 +244,18 @@ class CustomerRepository:
                                 CallBonus.status == CallBonusStatusEnum.accettata,
                             )
                         ),
+                        # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
+                        exists(
+                            select(ClienteProfessionistaHistory.cliente_id).where(
+                                ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                                ClienteProfessionistaHistory.user_id == user_id,
+                                ClienteProfessionistaHistory.is_active.is_(True),
+                            )
+                        ),
                     )
                 )
+            elif user_role == UserRoleEnum.health_manager:
+                qry = qry.filter(Cliente.health_manager_id == current_user.id)
         
         # SEMPRE applica l'ordinamento prioritario per tipologia
         # Ordina prima per tipologia (C, B, A hanno priorità), poi per nome

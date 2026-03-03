@@ -1,0 +1,1093 @@
+/* Welcome Dashboard - Suite Clinica
+   Design coerente con GlobalSearchPage + Novita */
+
+:root {
+    --welcome-primary: #25B36A;
+    --welcome-primary-light: rgba(37, 179, 106, 0.08);
+    --welcome-primary-border: rgba(37, 179, 106, 0.2);
+    --welcome-text-main: #1e293b;
+    --welcome-text-secondary: #334155;
+    --welcome-text-muted: #64748b;
+    --welcome-text-light: #94a3b8;
+    --welcome-border: #e2e8f0;
+    --welcome-border-light: #f1f5f9;
+    --welcome-bg-subtle: #f8fafc;
+}
+
+/* ===================================================================
+   PAGE & HEADER
+   =================================================================== */
+
+.welcome-page {
+    animation: welcomeFadeIn 0.3s ease-out;
+}
+
+.welcome-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.welcome-header h4 {
+    font-weight: 700;
+    color: var(--welcome-text-main);
+    margin-bottom: 4px;
+}
+
+.welcome-header p {
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+}
+
+.welcome-refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 10px;
+    color: var(--welcome-text-muted);
+    font-weight: 500;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.welcome-refresh-btn:hover {
+    border-color: var(--welcome-primary-border);
+    color: var(--welcome-primary);
+    background: var(--welcome-primary-light);
+}
+
+/* ===================================================================
+   TAB BAR — Segmented Control
+   =================================================================== */
+
+.welcome-tabs-container {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    padding: 6px;
+    margin-bottom: 24px;
+}
+
+.welcome-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.welcome-tab {
+    background: none;
+    border: none;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--welcome-text-muted);
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.welcome-tab:hover {
+    color: var(--welcome-text-main);
+    background: var(--welcome-border-light);
+}
+
+.welcome-tab.active {
+    background: white;
+    color: var(--welcome-primary);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.welcome-tabs-container:has(.welcome-tab.active) {
+    background: var(--welcome-border-light);
+}
+
+/* ===================================================================
+   KPI CARDS — White bg, colored icon circle
+   =================================================================== */
+
+.welcome-kpi-card {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: welcomeFadeIn 0.3s ease-out backwards;
+}
+
+.welcome-kpi-card:hover {
+    border-color: var(--welcome-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+    transform: translateY(-2px);
+}
+
+.welcome-kpi-card .kpi-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.welcome-kpi-card .kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--welcome-text-main);
+    margin-bottom: 0;
+    line-height: 1.2;
+}
+
+.welcome-kpi-card .kpi-label {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-kpi-card .kpi-subtitle {
+    font-size: 11px;
+    color: var(--welcome-text-light);
+    margin-top: 2px;
+}
+
+.welcome-kpi-card .kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.welcome-kpi-card .kpi-icon i {
+    font-size: 1.25rem;
+}
+
+/* ===================================================================
+   GENERIC CARD
+   =================================================================== */
+
+.welcome-card {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: welcomeFadeIn 0.3s ease-out backwards;
+}
+
+.welcome-card:hover {
+    border-color: var(--welcome-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+}
+
+.welcome-card-header {
+    padding: 16px 20px 8px;
+    border-bottom: none;
+    background: transparent;
+}
+
+.welcome-card-header h6,
+.welcome-card-header h5 {
+    font-weight: 600;
+    color: var(--welcome-text-main);
+    margin-bottom: 0;
+}
+
+.welcome-card-header .card-subtitle {
+    font-size: 11px;
+    color: var(--welcome-text-light);
+}
+
+.welcome-card-body {
+    padding: 8px 20px 20px;
+}
+
+/* Colored header variant */
+.welcome-card-header-colored {
+    padding: 16px 20px;
+    border-bottom: none;
+}
+
+.welcome-card-header-colored h6 {
+    font-weight: 600;
+    margin-bottom: 0;
+}
+
+/* ===================================================================
+   TABLE
+   =================================================================== */
+
+.welcome-table {
+    font-size: 13px;
+    margin-bottom: 0;
+}
+
+.welcome-table thead tr {
+    background: var(--welcome-bg-subtle);
+}
+
+.welcome-table th {
+    padding: 14px 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--welcome-text-muted);
+    border-bottom: 2px solid var(--welcome-border);
+    white-space: nowrap;
+}
+
+.welcome-table td {
+    padding: 14px 20px;
+    font-size: 14px;
+    color: var(--welcome-text-secondary);
+    vertical-align: middle;
+    border-bottom: 1px solid var(--welcome-border-light);
+}
+
+.welcome-table tbody tr:hover {
+    background: var(--welcome-bg-subtle);
+}
+
+.welcome-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ===================================================================
+   BADGES
+   =================================================================== */
+
+.welcome-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.welcome-badge-success {
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #d1fae5;
+}
+
+.welcome-badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.welcome-badge-danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.welcome-badge-info {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.welcome-badge-purple {
+    background: #ede9fe;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
+
+.welcome-badge-neutral {
+    background: var(--welcome-border-light);
+    color: var(--welcome-text-muted);
+    border: 1px solid var(--welcome-border);
+}
+
+/* Pill variant (rounder) for type badges */
+.welcome-badge-pill {
+    border-radius: 12px;
+}
+
+/* ===================================================================
+   PROGRESS BARS
+   =================================================================== */
+
+.welcome-progress {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--welcome-border-light);
+    overflow: hidden;
+}
+
+.welcome-progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.welcome-progress-sm {
+    height: 4px;
+    border-radius: 2px;
+}
+
+.welcome-progress-sm .welcome-progress-bar {
+    border-radius: 2px;
+}
+
+/* ===================================================================
+   BAR CHART
+   =================================================================== */
+
+.welcome-bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 4px;
+    height: 200px;
+}
+
+.welcome-bar-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.welcome-bar-area {
+    height: 160px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.welcome-bar {
+    width: 65%;
+    max-width: 50px;
+    border-radius: 6px 6px 0 0;
+    transition: height 0.3s ease;
+}
+
+.welcome-bar-label {
+    text-align: center;
+    margin-top: 8px;
+}
+
+.welcome-bar-label .bar-month {
+    font-size: 11px;
+    color: var(--welcome-text-muted);
+    font-weight: 500;
+}
+
+.welcome-bar-label .bar-value {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--welcome-text-main);
+}
+
+.welcome-bar-legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.welcome-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.welcome-legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.welcome-legend-label {
+    font-size: 12px;
+    color: var(--welcome-text-muted);
+}
+
+/* ===================================================================
+   STAT ROW
+   =================================================================== */
+
+.welcome-stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+.welcome-stat-row .stat-label {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-stat-row .stat-value {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* ===================================================================
+   QUICK LINKS
+   =================================================================== */
+
+.welcome-quick-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.welcome-quick-link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.welcome-quick-link .link-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.welcome-quick-link .link-icon i {
+    font-size: 16px;
+}
+
+.welcome-quick-link .link-label {
+    font-weight: 500;
+    font-size: 13px;
+    color: var(--welcome-text-secondary);
+}
+
+/* ===================================================================
+   ICON CIRCLE — reusable
+   =================================================================== */
+
+.welcome-icon-circle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.welcome-icon-circle-sm {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+}
+
+.welcome-icon-circle-md {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.welcome-icon-circle-lg {
+    width: 42px;
+    height: 42px;
+}
+
+.welcome-icon-circle-xl {
+    width: 48px;
+    height: 48px;
+}
+
+.welcome-icon-circle-xxl {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+}
+
+/* ===================================================================
+   RANKING / LIST ITEMS
+   =================================================================== */
+
+.welcome-rank-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.welcome-rank-gold {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.welcome-rank-silver {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.welcome-rank-bronze {
+    background: #fed7aa;
+    color: #c2410c;
+}
+
+.welcome-rank-default {
+    background: var(--welcome-border-light);
+    color: var(--welcome-text-muted);
+}
+
+.welcome-rank-danger {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.welcome-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--welcome-border-light);
+    transition: background 0.15s ease;
+}
+
+.welcome-list-item:last-child {
+    border-bottom: none;
+}
+
+.welcome-list-item:hover {
+    background: var(--welcome-bg-subtle);
+}
+
+/* ===================================================================
+   SKELETON / LOADING
+   =================================================================== */
+
+.welcome-skeleton-card {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.welcome-skeleton-card .card-body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+}
+
+/* ===================================================================
+   EMPTY STATE
+   =================================================================== */
+
+.welcome-empty {
+    text-align: center;
+    padding: 32px 20px;
+}
+
+.welcome-empty i {
+    font-size: 32px;
+    opacity: 0.3;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-empty-lg i {
+    font-size: 48px;
+    opacity: 0.3;
+}
+
+.welcome-empty p {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+    margin-top: 8px;
+}
+
+/* ===================================================================
+   ERROR STATE
+   =================================================================== */
+
+.welcome-error {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.welcome-error i {
+    font-size: 48px;
+    opacity: 0.6;
+}
+
+.welcome-error h5 {
+    color: var(--welcome-text-muted);
+    margin-top: 12px;
+}
+
+.welcome-error p {
+    color: var(--welcome-text-muted);
+    font-size: 13px;
+}
+
+.welcome-retry-btn {
+    border-radius: 8px;
+}
+
+/* ===================================================================
+   PAGINATION
+   =================================================================== */
+
+.welcome-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--welcome-border-light);
+}
+
+.welcome-pagination .page-info {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-pagination .page-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.welcome-page-btn {
+    border-radius: 8px;
+}
+
+/* ===================================================================
+   SERVICE CARD (Nutrizione, Coach, Psicologia blocks)
+   =================================================================== */
+
+.welcome-service-block {
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.welcome-service-block .service-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.welcome-service-block .service-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.welcome-service-block .service-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.welcome-service-block .service-total {
+    font-size: 11px;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-service-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.welcome-service-row .service-row-label {
+    font-size: 12px;
+    color: var(--welcome-text-secondary);
+}
+
+.welcome-service-row .service-row-value {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+/* ===================================================================
+   PHYSICAL METRIC ROW
+   =================================================================== */
+
+.welcome-metric-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.welcome-metric-row .metric-emoji {
+    font-size: 14px;
+    width: 24px;
+    text-align: center;
+}
+
+.welcome-metric-row .metric-label {
+    font-size: 12px;
+    color: var(--welcome-text-muted);
+    width: 80px;
+}
+
+.welcome-metric-row .metric-value {
+    font-size: 13px;
+    font-weight: 700;
+    width: 30px;
+    text-align: right;
+}
+
+/* ===================================================================
+   INFO BANNER (restricted TL view)
+   =================================================================== */
+
+.welcome-info-banner {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.welcome-info-banner h6 {
+    color: var(--welcome-text-main);
+    margin-bottom: 4px;
+}
+
+.welcome-info-banner p {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+}
+
+/* ===================================================================
+   SCOPED DASHBOARD (TL / Professionista)
+   =================================================================== */
+
+.welcome-scope-card {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.welcome-scope-card h5 {
+    color: var(--welcome-text-main);
+    margin-bottom: 4px;
+}
+
+.welcome-scope-card p {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+}
+
+/* ===================================================================
+   HERO CARD — simple welcome for non-admin roles
+   =================================================================== */
+
+.welcome-hero-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 40%, #f8fafc 100%);
+    border: 1px solid var(--welcome-primary-border);
+    border-radius: 16px;
+    padding: 32px 28px;
+}
+
+.welcome-hero-inner {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.welcome-hero-logo {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.welcome-hero-greeting {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--welcome-text-main);
+    margin-bottom: 8px;
+}
+
+.welcome-hero-text {
+    font-size: 15px;
+    color: var(--welcome-text-muted);
+    margin-bottom: 0;
+    line-height: 1.6;
+}
+
+.welcome-hero-text strong {
+    color: var(--welcome-primary);
+}
+
+@media (max-width: 576px) {
+    .welcome-hero-card {
+        padding: 24px 20px;
+    }
+
+    .welcome-hero-inner {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+
+    .welcome-hero-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .welcome-hero-greeting {
+        font-size: 1.25rem;
+    }
+}
+
+/* Small KPI for scoped dashboard */
+.welcome-kpi-card-sm {
+    background: white;
+    border: 1px solid var(--welcome-border);
+    border-radius: 14px;
+    padding: 14px 16px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.welcome-kpi-card-sm:hover {
+    border-color: var(--welcome-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+    transform: translateY(-2px);
+}
+
+.welcome-kpi-card-sm .kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--welcome-text-main);
+}
+
+.welcome-kpi-card-sm .kpi-label {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+}
+
+.welcome-kpi-card-sm .kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===================================================================
+   SECTION HEADING
+   =================================================================== */
+
+.welcome-section-heading {
+    font-weight: 600;
+    color: var(--welcome-text-main);
+    margin-bottom: 12px;
+}
+
+/* ===================================================================
+   TASK ITEM
+   =================================================================== */
+
+.welcome-task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border: 1px solid var(--welcome-border);
+    border-radius: 10px;
+    transition: border-color 0.2s;
+}
+
+.welcome-task-item:hover {
+    border-color: var(--welcome-primary-border);
+}
+
+.welcome-task-item .task-title {
+    font-weight: 500;
+    color: var(--welcome-text-main);
+}
+
+.welcome-task-item .task-meta {
+    font-size: 13px;
+    color: var(--welcome-text-muted);
+}
+
+/* ===================================================================
+   NEGATIVE CHECK BADGE
+   =================================================================== */
+
+.welcome-negative-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.welcome-negative-badge span {
+    color: #991b1b;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* ===================================================================
+   PROGRAM TAGS
+   =================================================================== */
+
+.welcome-program-tag {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ===================================================================
+   TREND SUMMARY
+   =================================================================== */
+
+.welcome-trend-summary {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--welcome-border-light);
+}
+
+.welcome-trend-item {
+    text-align: center;
+    flex: 1;
+}
+
+.welcome-trend-item .trend-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.welcome-trend-item .trend-label {
+    font-size: 11px;
+    color: var(--welcome-text-light);
+}
+
+/* ===================================================================
+   ANIMATIONS
+   =================================================================== */
+
+@keyframes welcomeFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Stagger delays */
+.welcome-kpi-card:nth-child(1) { animation-delay: 0.03s; }
+.welcome-kpi-card:nth-child(2) { animation-delay: 0.06s; }
+.welcome-kpi-card:nth-child(3) { animation-delay: 0.09s; }
+.welcome-kpi-card:nth-child(4) { animation-delay: 0.12s; }
+.welcome-kpi-card:nth-child(5) { animation-delay: 0.15s; }
+
+.welcome-card:nth-child(1) { animation-delay: 0.05s; }
+.welcome-card:nth-child(2) { animation-delay: 0.10s; }
+.welcome-card:nth-child(3) { animation-delay: 0.15s; }
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+
+@media (max-width: 768px) {
+    .welcome-tabs {
+        gap: 2px;
+    }
+
+    .welcome-tab {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .welcome-card-header,
+    .welcome-card-body {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .welcome-table th,
+    .welcome-table td {
+        padding: 10px 14px;
+    }
+
+    .welcome-bar-chart {
+        height: 160px;
+    }
+
+    .welcome-bar-area {
+        height: 120px;
+    }
+
+    .welcome-list-item {
+        padding: 10px 16px;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-header h4 {
+        font-size: 18px;
+    }
+
+    .welcome-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .welcome-kpi-card {
+        padding: 12px 14px;
+    }
+
+    .welcome-kpi-card .kpi-value {
+        font-size: 1.25rem;
+    }
+
+    .welcome-kpi-card .kpi-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .welcome-bar-chart {
+        height: 140px;
+        gap: 2px;
+    }
+}

@@ -526,6 +526,135 @@ class ClientCheckService:
 
 class NotificationService:
     """Servizio per l'invio di notifiche."""
+
+    @staticmethod
+    def send_weekly_check_summary_to_patient(cliente, weekly_response) -> None:
+        """Invia al paziente una copia email con il riepilogo del Weekly Check."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+
+        recipient = getattr(cliente, "mail", None) or getattr(cliente, "email", None)
+        if not recipient or not str(recipient).strip():
+            current_app.logger.info(
+                f"[WEEKLY_CHECK] Skip email riepilogo paziente: cliente {getattr(cliente, 'cliente_id', '?')} senza email"
+            )
+            return
+
+        def _fmt(value):
+            if value is None:
+                return None
+            if isinstance(value, Decimal):
+                value = str(value)
+            text = str(value).strip()
+            return text or None
+
+        sections_raw = [
+            (
+                "Riflessioni della settimana",
+                [
+                    ("Cosa ha funzionato", getattr(weekly_response, "what_worked", None)),
+                    ("Cosa non ha funzionato", getattr(weekly_response, "what_didnt_work", None)),
+                    ("Cosa hai imparato", getattr(weekly_response, "what_learned", None)),
+                    ("Focus prossima settimana", getattr(weekly_response, "what_focus_next", None)),
+                    ("Note/infortuni", getattr(weekly_response, "injuries_notes", None)),
+                ],
+            ),
+            (
+                "Benessere (0-10)",
+                [
+                    ("Digestione", getattr(weekly_response, "digestion_rating", None)),
+                    ("Energia", getattr(weekly_response, "energy_rating", None)),
+                    ("Forza", getattr(weekly_response, "strength_rating", None)),
+                    ("Fame", getattr(weekly_response, "hunger_rating", None)),
+                    ("Sonno", getattr(weekly_response, "sleep_rating", None)),
+                    ("Umore", getattr(weekly_response, "mood_rating", None)),
+                    ("Motivazione", getattr(weekly_response, "motivation_rating", None)),
+                ],
+            ),
+            (
+                "Percorso e aderenza",
+                [
+                    ("Peso", getattr(weekly_response, "weight", None)),
+                    ("Aderenza nutrizione", getattr(weekly_response, "nutrition_program_adherence", None)),
+                    ("Aderenza allenamento", getattr(weekly_response, "training_program_adherence", None)),
+                    ("Modifiche esercizi", getattr(weekly_response, "exercise_modifications", None)),
+                    ("Passi giornalieri", getattr(weekly_response, "daily_steps", None)),
+                    ("Settimane allenamento completate", getattr(weekly_response, "completed_training_weeks", None)),
+                    ("Giorni allenamento pianificati", getattr(weekly_response, "planned_training_days", None)),
+                    ("Temi live session", getattr(weekly_response, "live_session_topics", None)),
+                ],
+            ),
+            (
+                "Valutazioni professionisti",
+                [
+                    ("Valutazione nutrizionista", getattr(weekly_response, "nutritionist_rating", None)),
+                    ("Feedback nutrizionista", getattr(weekly_response, "nutritionist_feedback", None)),
+                    ("Valutazione psicologo", getattr(weekly_response, "psychologist_rating", None)),
+                    ("Feedback psicologo", getattr(weekly_response, "psychologist_feedback", None)),
+                    ("Valutazione coach", getattr(weekly_response, "coach_rating", None)),
+                    ("Feedback coach", getattr(weekly_response, "coach_feedback", None)),
+                ],
+            ),
+            (
+                "Valutazione percorso",
+                [
+                    ("Valutazione progresso", getattr(weekly_response, "progress_rating", None)),
+                    ("Referral", getattr(weekly_response, "referral", None)),
+                    ("Commenti extra", getattr(weekly_response, "extra_comments", None)),
+                ],
+            ),
+        ]
+
+        sections: list[dict[str, object]] = []
+        for title, items in sections_raw:
+            normalized_items = []
+            for label, raw_value in items:
+                value = _fmt(raw_value)
+                if value is not None:
+                    normalized_items.append({"label": label, "value": value})
+            if normalized_items:
+                sections.append({"title": title, "items": normalized_items})
+
+        submit_dt = getattr(weekly_response, "submit_date", None)
+        submit_label = submit_dt.strftime("%d/%m/%Y %H:%M") if submit_dt else None
+        subject = f"Copia del tuo Weekly Check - {submit_label or 'Compilazione ricevuta'}"
+
+        text_lines = [
+            f"Ciao {getattr(cliente, 'nome_cognome', 'Cliente')},",
+            "",
+            "Abbiamo ricevuto il tuo Weekly Check. Ti inviamo una copia riepilogativa delle risposte.",
+        ]
+        if submit_label:
+            text_lines.extend(["", f"Data invio: {submit_label}"])
+        for section in sections:
+            text_lines.extend(["", str(section["title"])])
+            for item in section["items"]:
+                text_lines.append(f"- {item['label']}: {item['value']}")
+        text_lines.extend([
+            "",
+            "Questa email è automatica. Non rispondere a questo messaggio.",
+            "— Corpo Sostenibile Suite",
+        ])
+        text_body = "\n".join(text_lines)
+
+        html_body = render_template(
+            "client_checks/emails/weekly_summary.html",
+            cliente=cliente,
+            response=weekly_response,
+            submit_label=submit_label,
+            sections=sections,
+        )
+
+        send_mail_html(
+            subject=subject,
+            recipients=[recipient],
+            text_body=text_body,
+            html_body=html_body,
+        )
+
+        current_app.logger.info(
+            f"[WEEKLY_CHECK] Email riepilogo paziente inviata a {recipient} (response_id={getattr(weekly_response, 'id', '?')})"
+        )
     
     @staticmethod
     def send_assignment_notifications(assignments: List[ClientCheckAssignment]) -> None:

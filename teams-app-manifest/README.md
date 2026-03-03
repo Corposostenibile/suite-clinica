@@ -1,4 +1,6 @@
-# Teams App Manifest - SuiteMind Tickets
+# Teams App Manifest - SUMI
+
+**Messaging endpoint:** `https://clinica.corposostenibile.com/api/teams-bot/messages`
 
 ## Come preparare il pacchetto
 
@@ -10,7 +12,7 @@
 ```bash
 cd teams-app-manifest
 # Dopo aver modificato manifest.json:
-zip suitemind-tickets-bot.zip manifest.json color.png outline.png
+zip sumi-bot.zip manifest.json color.png outline.png
 ```
 
 ## Come installare su Teams
@@ -18,7 +20,7 @@ zip suitemind-tickets-bot.zip manifest.json color.png outline.png
 1. Apri Microsoft Teams
 2. Vai su **Apps** (barra laterale) → **Manage your apps** → **Upload an app**
 3. Seleziona **Upload a custom app** (o chiedi all'admin di pubblicarla)
-4. Carica `suitemind-tickets-bot.zip`
+4. Carica `sumi-bot.zip`
 5. Clicca **Add** per installare il bot
 
 ## File

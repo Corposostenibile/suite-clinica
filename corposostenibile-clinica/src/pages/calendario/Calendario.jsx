@@ -4,6 +4,7 @@ import calendarService, { EVENT_CATEGORIES, MEETING_STATUSES } from '../../servi
 import ghlService from '../../services/ghlService';
 import loomService from '../../services/loomService';
 import { useLoom } from '../../hooks/useLoom';
+import './Calendario.css';
 import './calendario-responsive.css';
 
 // Styles

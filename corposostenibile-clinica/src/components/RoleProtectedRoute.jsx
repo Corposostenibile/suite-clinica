@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const RoleProtectedRoute = ({ children, allowedRoles, deniedRoles }) => {
+const RoleProtectedRoute = ({ children, allowedRoles, deniedRoles, allowIf, redirectTo = '/welcome' }) => {
     const { user, loading } = useAuth();
 
     if (loading) {
@@ -30,11 +30,15 @@ const RoleProtectedRoute = ({ children, allowedRoles, deniedRoles }) => {
     }
 
     if (allowedRoles && !allowedRoles.includes(userRole)) {
-        return <Navigate to="/welcome" replace />;
+        return <Navigate to={redirectTo} replace />;
     }
 
     if (deniedRoles && deniedRoles.includes(userRole)) {
-        return <Navigate to="/welcome" replace />;
+        return <Navigate to={redirectTo} replace />;
+    }
+
+    if (typeof allowIf === 'function' && !allowIf(user)) {
+        return <Navigate to={redirectTo} replace />;
     }
 
     return children;

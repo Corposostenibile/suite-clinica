@@ -6,6 +6,11 @@ metadata:
     app: suite-clinica
 spec:
   replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   selector:
     matchLabels:
       app: suite-clinica
@@ -18,23 +23,32 @@ spec:
       - name: backend
         image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
         imagePullPolicy: Always
-        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "3", "--threads", "2", "--timeout", "600", "wsgi:app"]
+        command: ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "2", "--timeout", "600", "wsgi:app"]
         ports:
         - containerPort: 8080
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          periodSeconds: 15
+          timeoutSeconds: 20
+          failureThreshold: 40
         livenessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 30
           periodSeconds: 30
           timeoutSeconds: 30
+          failureThreshold: 3
         readinessProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 10
           periodSeconds: 20
-          timeoutSeconds: 20
+          timeoutSeconds: 30
+          failureThreshold: 6
         resources:
           requests:
             cpu: "500m"
@@ -50,15 +64,15 @@ spec:
         - name: DATABASE_URL
           value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
         - name: CELERY_BROKER_URL
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/0"
+          value: "redis://10.130.63.139:6379/0"
         - name: CELERY_RESULT_BACKEND
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/1"
+          value: "redis://10.130.63.139:6379/1"
         - name: NUTRITION_CACHE_BACKEND
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/2"
+          value: "redis://10.130.63.139:6379/2"
         - name: WEBSOCKET_QUEUE
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/3"
+          value: "redis://10.130.63.139:6379/3"
         - name: RATELIMIT_STORAGE_URI
-          value: "redis://:a2d0bf15-a09e-479a-a1fe-aa6027268ef3@10.130.63.139:6379/5"
+          value: "redis://10.130.63.139:6379/5"
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
         - name: SESSION_COOKIE_SECURE
@@ -87,8 +101,16 @@ spec:
           value: "mock"
         - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
           value: ""
+        - name: TEAMS_BOT_APP_ID
+          value: "af3b2b1c-c9ec-4179-8c07-05d636683858"
+        - name: TEAMS_BOT_APP_PASSWORD
+          value: "sL_8Q~7dckRNw3r-I-yVqScpyJLuQZ80_zVjddlh"
+        - name: TEAMS_BOT_TENANT_ID
+          value: "432c478e-1c8a-4f55-88ab-db9b9d8f0118"
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
+        - name: MAX_UPLOAD_SIZE
+          value: "20971520"
         volumeMounts:
         - name: uploads-storage
           mountPath: /var/corposostenibile/uploads

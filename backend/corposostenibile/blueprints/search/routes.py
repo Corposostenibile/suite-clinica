@@ -237,7 +237,7 @@ def global_search():
                 'title': full_name,
                 'subtitle': ' - '.join(subtitle_parts),
                 'avatar': user.avatar_path,
-                'link': f'/profilo-professionista/{user.id}',
+                'link': f'/team-dettaglio/{user.id}',
                 'metadata': {
                     'email': user.email,
                     'specialty': user.specialty.value if user.specialty and hasattr(user.specialty, 'value') else str(user.specialty) if user.specialty else None,

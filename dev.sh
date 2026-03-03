@@ -117,21 +117,25 @@ show_help() {
     echo ""
     echo "Uso: $0 [COMANDO] [SVILUPPATORE]"
     echo ""
-    echo "COMANDI FULLSTACK (Backend + Frontend):"
+    echo "AMBIENTE NORMALE / GENERICO (sviluppo locale classico):"
     echo "  fullstack [dev]                          - Avvia sia Backend Flask (5001/5002/5003) che Frontend React (3001/3002/3003)."
     echo "                                             Modalità raccomandata per lo sviluppo ibrido."
     echo "  frontend [dev]                           - Avvia solo il frontend React (Vite) sulla porta dedicata."
-    echo ""
-    echo "COMANDI BACKEND (Foreground):"
     echo "  debug [dev]                              - Avvia solo Flask con hot-reload (vecchio stile)."
-    echo ""
-    echo "COMANDI GESTIONE SERVIZIO:"
     echo "  start [dev]                              - Avvia Gunicorn in foreground."
     echo "  stop [dev]                               - Ferma il server."
     echo "  restart [dev]                            - Riavvia il server."
     echo "  status                                   - Mostra lo stato dei servizi."
     echo "  setup-firewall                           - Configura UFW per aprire le porte necessarie."
-    echo "  logs-pm2 [dev]                           - Mostra i log PM2 (tutti o per ambiente specifico)."
+    echo ""
+    echo "AMBIENTE VPS LOCALE (nostro setup DuckDNS):"
+    echo "  vps-status [dev]                         - Stato stack live (backend PM2 + frontend systemd/PM2)."
+    echo "  vps-restart-backend [dev]                - Riavvia backend PM2 (backend-<dev>)."
+    echo "  vps-watch-backend [dev]                  - Abilita auto-restart PM2 watch sul backend (sviluppo VPS)."
+    echo "  vps-unwatch-backend [dev]                - Disabilita PM2 watch sul backend."
+    echo "  vps-restart-frontend [dev]               - Riavvia frontend live attivo (systemd o PM2, auto-detect)."
+    echo "  vps-refresh [dev]                        - Applica modifiche VPS: restart backend + frontend (con build se frontend=systemd)."
+    echo "  logs-pm2 [dev]                           - Mostra log PM2 del namespace ambiente (es. manu)."
     echo ""
     echo "COMANDI GESTIONE AMBIENTE:"
     echo "  setup [dev]                              - Setup completo iniziale (dipendenze + db + admin)."
@@ -143,25 +147,9 @@ show_help() {
     echo "  $0 fullstack manu                     # Avvia tutto l'ambiente (Flask:5001 + React:3001)."
     echo "  $0 debug manu                         # Sviluppo solo backend."
     echo "  $0 setup-firewall                     # Apre le porte nel firewall."
-    echo "  $0 logs-pm2 manu                      # Log PM2 per ambiente manu."
-}
-
-# Mostra i log PM2 (per server con processi gestiti da PM2)
-logs_pm2() {
-    local dev=$1
-    if ! command -v pm2 &> /dev/null; then
-        log_error "PM2 non trovato. Installa PM2 con: npm install -g pm2"
-        exit 1
-    fi
-    if [[ -n "$dev" ]]; then
-        validate_developer "$dev"
-        local app_name="suite-clinica-$dev"
-        log_info "Avvio log PM2 per $app_name (Ctrl+C per uscire)..."
-        exec pm2 logs "$app_name"
-    else
-        log_info "Avvio log PM2 (tutte le app, Ctrl+C per uscire)..."
-        exec pm2 logs
-    fi
+    echo "  $0 vps-status manu                    # Stato stack live VPS (nostro setup)."
+    echo "  $0 vps-refresh manu                   # Restart stack VPS locale (backend PM2 + frontend auto-detect)."
+    echo "  $0 vps-watch-backend manu             # Backend auto-restart alle modifiche codice."
 }
 
 # --- FUNZIONI DI DOCUMENTAZIONE ---
@@ -758,7 +746,7 @@ setup_firewall() {
     log_success "Regole Firewall applicate! (Verifica con 'sudo ufw status')"
 }
 
-# --- GESTIONE PM2 (Background Persistente) ---
+# --- PM2 helpers ---
 
 check_pm2() {
     if ! command -v npx &> /dev/null; then
@@ -767,76 +755,157 @@ check_pm2() {
     fi
 }
 
-start_pm2() {
-    local dev=$1
-    validate_developer "$dev"
-    set_project_dir "$dev"
-    check_pm2
-
-    local info=($(get_developer_info "$dev"))
-    local be_port="${info[0]}"
-    local fe_port="${info[3]}"
-    local db_name="${info[2]}"
-
-    log_info "🚀 Avvio servizi PM2 per $dev (Backend:$be_port, Frontend:$fe_port)..."
-
-    # Aggiorna .env backend
-    cd "$PROJECT_DIR/backend"
-    update_env_database_url "$dev"
-
-    # Avvia Backend
-    # Nota: con PM2 usiamo il watch di PM2 (non il reloader Flask) per evitare
-    # processi duplicati e restart loop.
-    log_info "Avvio Backend Flask (PM2 watch/reload)..."
-    npx pm2 start "poetry run flask run --host=0.0.0.0 --port=$be_port" \
-        --name "backend-$dev" \
-        --namespace "$dev" \
-        --cwd "$PROJECT_DIR/backend" \
-        --watch \
-        --watch-delay 700 \
-        --ignore-watch "uploads logs .venv __pycache__ .pytest_cache migrations/versions .git node_modules" \
-        --time \
-        --force
-
-    # Avvia Frontend
-    log_info "Avvio Frontend React..."
-    cd "$PROJECT_DIR/corposostenibile-clinica"
-    if [ ! -d "node_modules" ]; then npm install; fi
-    npx pm2 start "npm run dev -- --port $fe_port --host" --name "frontend-$dev" --namespace "$dev" --force
-
-    log_success "Servizi avviati in background!"
-    log_info "Usa '$0 logs-pm2 $dev' per vedere i log o '$0 stop-pm2 $dev' per fermarli."
-}
-
-stop_pm2() {
-    local dev=$1
-    validate_developer "$dev"
-    check_pm2
-    
-    log_info "Fermando servizi PM2 per $dev..."
-    npx pm2 delete "backend-$dev" 2>/dev/null || true
-    npx pm2 delete "frontend-$dev" 2>/dev/null || true
-    log_success "Servizi fermati."
-}
-
-restart_pm2() {
-    local dev=$1
-    validate_developer "$dev"
-    stop_pm2 "$dev"
-    start_pm2 "$dev"
-}
-
 logs_pm2() {
     local dev=$1
-    validate_developer "$dev"
     check_pm2
-    log_info "Mostrando log per namespace $dev... (Ctrl+C per uscire)"
-    npx pm2 logs --namespace "$dev"
+    if [[ -n "$dev" ]]; then
+        validate_developer "$dev"
+        log_info "Mostrando log PM2 per namespace $dev... (Ctrl+C per uscire)"
+        npx pm2 logs --namespace "$dev"
+    else
+        log_info "Mostrando log PM2 (tutte le app)... (Ctrl+C per uscire)"
+        npx pm2 logs
+    fi
 }
 
-status_pm2() {
+# --- GESTIONE VPS LOCALE (DuckDNS) ---
+PM2_BACKEND_IGNORE_WATCH="backend/.venv backend/__pycache__ backend/.pytest_cache backend/.mypy_cache backend/htmlcov backend/instance backend/migrations/versions uploads .git node_modules"
+
+pm2_app_exists() {
+    local app_name="$1"
+    npx pm2 jlist 2>/dev/null | grep -q "\"name\":\"${app_name}\""
+}
+
+detect_vps_frontend_stack() {
+    local dev="$1"
+    local systemd_service="clinica-pwa-preview"
+    local pm2_frontend_app="frontend-$dev"
+
+    if systemctl is-active --quiet "$systemd_service" 2>/dev/null; then
+        echo "systemd:$systemd_service"
+        return 0
+    fi
+    if pm2_app_exists "$pm2_frontend_app"; then
+        echo "pm2:$pm2_frontend_app"
+        return 0
+    fi
+    echo "unknown:"
+    return 1
+}
+
+vps_status() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
     check_pm2
-    npx pm2 list
+    local backend_app="backend-$dev"
+    local frontend_detect
+    frontend_detect="$(detect_vps_frontend_stack "$dev" || true)"
+
+    log_info "Stato VPS locale (DuckDNS) per $dev"
+    echo ""
+    log_info "Backend PM2:"
+    npx pm2 describe "$backend_app" >/dev/null 2>&1 && npx pm2 describe "$backend_app" | sed -n '1,20p' || log_warning "App PM2 $backend_app non trovata"
+    echo ""
+    log_info "Frontend live:"
+    case "$frontend_detect" in
+        systemd:*)
+            local svc="${frontend_detect#systemd:}"
+            log_success "Frontend attivo via systemd ($svc)"
+            systemctl status "$svc" --no-pager -n 0 2>/dev/null || log_warning "Stato systemd non leggibile senza sudo"
+            ;;
+        pm2:*)
+            local app="${frontend_detect#pm2:}"
+            log_success "Frontend attivo via PM2 ($app)"
+            npx pm2 describe "$app" | sed -n '1,20p'
+            ;;
+        *)
+            log_warning "Frontend live non rilevato automaticamente (né systemd clinica-pwa-preview né PM2 frontend-$dev)"
+            ;;
+    esac
+}
+
+vps_restart_backend() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
+    check_pm2
+    local backend_app="backend-$dev"
+    log_info "Riavvio backend VPS locale: $backend_app"
+    npx pm2 restart "$backend_app"
+}
+
+vps_watch_backend() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
+    check_pm2
+    local backend_app="backend-$dev"
+    if ! pm2_app_exists "$backend_app"; then
+        log_error "App PM2 $backend_app non trovata. Avviala prima (es. PM2 backend attivo sul VPS)."
+        return 1
+    fi
+    log_info "Abilito PM2 watch su $backend_app (auto-restart backend alle modifiche codice)..."
+    npx pm2 restart "$backend_app" \
+        --watch \
+        --watch-delay 700 \
+        --ignore-watch "$PM2_BACKEND_IGNORE_WATCH" \
+        --update-env
+    log_success "PM2 watch abilitato su $backend_app"
+}
+
+vps_unwatch_backend() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
+    check_pm2
+    local backend_app="backend-$dev"
+    if ! pm2_app_exists "$backend_app"; then
+        log_error "App PM2 $backend_app non trovata."
+        return 1
+    fi
+    log_info "Disabilito PM2 watch su $backend_app..."
+    npx pm2 restart "$backend_app" --no-watch --update-env
+    log_success "PM2 watch disabilitato su $backend_app"
+}
+
+vps_restart_frontend() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
+    check_pm2
+    set_project_dir "$dev"
+
+    local detected
+    detected="$(detect_vps_frontend_stack "$dev" || true)"
+
+    case "$detected" in
+        systemd:*)
+            local svc="${detected#systemd:}"
+            log_info "Frontend live rilevato via systemd ($svc): build + restart"
+            (cd "$PROJECT_DIR/corposostenibile-clinica" && npm run build)
+            if sudo -n systemctl restart "$svc"; then
+                log_success "Frontend systemd riavviato: $svc"
+            else
+                log_warning "Impossibile riavviare $svc senza password sudo (TTY). Build completata comunque."
+                return 1
+            fi
+            ;;
+        pm2:*)
+            local app="${detected#pm2:}"
+            log_info "Frontend live rilevato via PM2 ($app): restart (no build necessario)"
+            npx pm2 restart "$app"
+            log_success "Frontend PM2 riavviato: $app"
+            ;;
+        *)
+            log_error "Frontend live non rilevato automaticamente. Verifica systemd/PM2 e riavvia manualmente."
+            return 1
+            ;;
+    esac
+}
+
+vps_refresh() {
+    local dev="${1:-manu}"
+    validate_developer "$dev"
+    log_info "Applico modifiche su VPS locale ($dev): backend + frontend (auto-detect stack)..."
+    vps_restart_backend "$dev"
+    vps_restart_frontend "$dev"
+    log_success "VPS refresh completato (o completato parzialmente se frontend systemd richiede sudo password)."
 }
 
 
@@ -845,7 +914,7 @@ if [[ $# -eq 0 ]]; then show_help; exit 0; fi
 
 COMMAND=$1; shift
 case "$COMMAND" in
-    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack|build-docs|start-pm2|stop-pm2|restart-pm2|logs-pm2)
+    debug|start|stop|restart|create-admin|setup|install-deps|db-init|db-upgrade|db-migrate|clear|recreate|reset-db|fullstack|build-docs)
         if [[ -z "$1" ]]; then log_error "Specificare lo sviluppatore per il comando '$COMMAND'."; exit 1; fi
         check_prerequisites "$1"
         case "$COMMAND" in
@@ -865,14 +934,25 @@ case "$COMMAND" in
             recreate) recreate_environment "$1";;
             reset-db) reset_database "$1";;
             build-docs) build_docs "$1";;
-            start-pm2) start_pm2 "$1";;
-            stop-pm2) stop_pm2 "$1";;
-            restart-pm2) restart_pm2 "$1";;
-            logs-pm2) logs_pm2 "$1";;
         esac
         ;;
-    status-pm2)
-        status_pm2
+    vps-status)
+        vps_status "${1:-manu}"
+        ;;
+    vps-restart-backend)
+        vps_restart_backend "${1:-manu}"
+        ;;
+    vps-watch-backend)
+        vps_watch_backend "${1:-manu}"
+        ;;
+    vps-unwatch-backend)
+        vps_unwatch_backend "${1:-manu}"
+        ;;
+    vps-restart-frontend)
+        vps_restart_frontend "${1:-manu}"
+        ;;
+    vps-refresh)
+        vps_refresh "${1:-manu}"
         ;;
     setup-firewall)
         setup_firewall

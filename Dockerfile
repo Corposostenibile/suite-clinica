@@ -1,5 +1,5 @@
 # ==========================================
-# STAGE 1: Frontend Build (Node.js)
+# STAGE 1a: Clinica Frontend Build (Node.js)
 # ==========================================
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
@@ -10,6 +10,16 @@ RUN npm ci
 # Copy frontend source
 COPY corposostenibile-clinica/ ./
 # Build React app
+RUN npm run build
+
+# ==========================================
+# STAGE 1b: Kanban Tab Build (Node.js)
+# ==========================================
+FROM node:20-alpine AS kanban-builder
+WORKDIR /app
+COPY teams-kanban/package*.json ./
+RUN npm ci
+COPY teams-kanban/ ./
 RUN npm run build
 
 
@@ -52,10 +62,16 @@ COPY backend/wsgi.py ./
 # Generates static HTML files in corposostenibile/blueprints/documentation/static
 RUN mkdocs build -f corposostenibile/blueprints/documentation/mkdocs.yml
 
+# Ensure upload paths exist even when uploads are provided by PVC (prod) or local volume
+RUN mkdir -p /var/corposostenibile/uploads /app/uploads
 
-# Copy built frontend assets from Stage 1
+
+# Copy built frontend assets from Stage 1a
 # We allow __init__.py to serve them via send_from_directory
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+
+# Copy built Kanban tab assets from Stage 1b
+COPY --from=kanban-builder /app/dist ./teams-kanban/dist
 
 # Expose port (GCP expects 8080 by default)
 EXPOSE 8080

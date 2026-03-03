@@ -48,7 +48,6 @@ const formatSize = (bytes) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-// Stile card che resetta height: calc(100% - 30px) del template
 const cardStyle = {
   height: 'auto',
   borderRadius: '14px',
@@ -68,15 +67,8 @@ export default function TeamTicketDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [ticket, setTicket] = useState(null);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const [uploadFiles, setUploadFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const messagesEndRef = useRef(null);
-  const fileInputRef = useRef(null);
 
   const loadTicket = useCallback(async () => {
     try {
@@ -90,69 +82,10 @@ export default function TeamTicketDetail() {
   }, [id, navigate]);
 
   useEffect(() => { loadTicket(); }, [loadTicket]);
-  useEffect(() => {
-    teamTicketsService.getAssignableUsers().then((r) => setUsers(r.users || [])).catch(() => {});
-  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [ticket?.messages]);
-
-  const handleStatusChange = async (newStatus) => {
-    try {
-      const res = await teamTicketsService.updateTicket(id, { status: newStatus });
-      setTicket(res.ticket);
-      loadTicket();
-    } catch { /* silent */ }
-  };
-
-  const handlePriorityChange = async (newPriority) => {
-    try {
-      const res = await teamTicketsService.updateTicket(id, { priority: newPriority });
-      setTicket(res.ticket);
-    } catch { /* silent */ }
-  };
-
-  const handleAssigneeToggle = async (userId) => {
-    const currentIds = (ticket.assigned_users || []).map((u) => u.id);
-    const newIds = currentIds.includes(userId)
-      ? currentIds.filter((i) => i !== userId)
-      : [...currentIds, userId];
-    try {
-      const res = await teamTicketsService.updateTicket(id, { assignee_ids: newIds });
-      setTicket(res.ticket);
-    } catch { /* silent */ }
-  };
-
-  const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
-    setSending(true);
-    try {
-      await teamTicketsService.sendMessage(id, newMessage.trim());
-      setNewMessage('');
-      loadTicket();
-    } catch { /* silent */ }
-    finally { setSending(false); }
-  };
-
-  const handleUpload = async () => {
-    if (!uploadFiles.length) return;
-    setUploading(true);
-    try {
-      await teamTicketsService.uploadAttachments(id, uploadFiles);
-      setUploadFiles([]);
-      loadTicket();
-    } catch { /* silent */ }
-    finally { setUploading(false); }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await teamTicketsService.deleteTicket(id);
-      navigate('/team-tickets');
-    } catch { /* silent */ }
-  };
 
   if (loading) {
     return (
@@ -205,21 +138,14 @@ export default function TeamTicketDetail() {
               <span style={{ color: '#94a3b8', fontSize: '12px' }}>{ticket.ticket_number}</span>
             )}
           </div>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            style={{
-              border: '1px solid #fecaca', borderRadius: '8px',
-              color: '#ef4444', padding: '4px 12px', fontSize: '12px',
-              background: 'transparent', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '4px',
-            }}
-          >
-            <i className="fas fa-trash" style={{ fontSize: '10px' }} />Elimina
-          </button>
+          <span className="text-muted small d-flex align-items-center gap-1">
+            <i className="ri-eye-line" style={{ fontSize: '14px' }} />
+            Sola lettura
+          </span>
         </div>
       </div>
 
-      {/* Due colonne - align-items: flex-start impedisce lo stretch delle colonne */}
+      {/* Due colonne */}
       <div className="row" style={{ alignItems: 'flex-start' }}>
         {/* Colonna sinistra */}
         <div className="col-lg-8">
@@ -240,7 +166,7 @@ export default function TeamTicketDetail() {
             <div className="card border-0 shadow-sm" style={cardStyle}>
               <div style={{ padding: '16px' }}>
                 <div style={sectionTitle}>
-                  <i className="ri-attachment-2 me-1" style={{ color: '#6366f1' }} />Allegati
+                  <i className="ri-attachment-2 me-1" style={{ color: '#6366f1' }} />Allegati ({ticket.attachments.length})
                 </div>
                 <div className="d-flex flex-wrap gap-2">
                   {ticket.attachments.map((att) => (
@@ -271,62 +197,14 @@ export default function TeamTicketDetail() {
             </div>
           )}
 
-          {/* Upload */}
-          <div className="card border-0 shadow-sm" style={cardStyle}>
-            <div style={{ padding: '16px' }}>
-              <div className="d-flex justify-content-between align-items-center" style={{ marginBottom: '8px' }}>
-                <div style={sectionTitle}>
-                  <i className="ri-upload-2-line me-1" style={{ color: '#6366f1' }} />Carica Allegati
-                </div>
-                {uploadFiles.length > 0 && (
-                  <button onClick={handleUpload} disabled={uploading}
-                    style={{
-                      background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                      color: '#fff', borderRadius: '6px', border: 'none', padding: '3px 12px', fontSize: '11px', cursor: 'pointer',
-                    }}>
-                    {uploading ? <span className="spinner-border spinner-border-sm" /> : 'Carica'}
-                  </button>
-                )}
-              </div>
-              <div
-                className="d-flex align-items-center justify-content-center gap-2"
-                style={{
-                  borderRadius: '8px', border: '2px dashed #cbd5e1',
-                  padding: '10px', cursor: 'pointer', background: '#fafbfc',
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                onDrop={(e) => { e.preventDefault(); setUploadFiles((p) => [...p, ...Array.from(e.dataTransfer.files)]); }}
-                onDragOver={(e) => e.preventDefault()}
-              >
-                <i className="fas fa-cloud-upload-alt" style={{ color: '#94a3b8', fontSize: '14px' }} />
-                <span style={{ color: '#94a3b8', fontSize: '12px' }}>Trascina file qui o clicca</span>
-                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
-                  onChange={(e) => setUploadFiles((p) => [...p, ...Array.from(e.target.files)])} />
-              </div>
-              {uploadFiles.length > 0 && (
-                <div className="d-flex flex-wrap gap-2" style={{ marginTop: '8px' }}>
-                  {uploadFiles.map((f, i) => (
-                    <span key={i} className="d-flex align-items-center gap-1"
-                      style={{ background: '#f1f5f9', borderRadius: '6px', padding: '2px 8px', fontSize: '11px', color: '#475569' }}>
-                      <i className="fas fa-file" style={{ fontSize: '9px', color: '#94a3b8' }} />
-                      {f.name}
-                      <button type="button" className="btn-close" style={{ fontSize: '7px', marginLeft: '4px' }}
-                        onClick={() => setUploadFiles((p) => p.filter((_, idx) => idx !== i))} />
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Messaggi */}
+          {/* Messaggi (read-only) */}
           <div className="card border-0 shadow-sm" style={cardStyle}>
             <div style={{ padding: '16px 16px 0' }}>
               <div style={sectionTitle}>
                 <i className="ri-chat-3-line me-1" style={{ color: '#6366f1' }} />Messaggi
               </div>
             </div>
-            <div style={{ padding: '0 16px', maxHeight: 350, overflowY: 'auto' }}>
+            <div style={{ padding: '0 16px 16px', maxHeight: 400, overflowY: 'auto' }}>
               {(ticket.messages || []).length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '16px 0' }}>
                   <i className="ri-chat-3-line" style={{ fontSize: '20px', color: '#94a3b8', display: 'block', marginBottom: '4px' }} />
@@ -376,34 +254,12 @@ export default function TeamTicketDetail() {
               )}
               <div ref={messagesEndRef} />
             </div>
-            <div style={{ padding: '10px 16px 16px', borderTop: '1px solid #f1f5f9' }}>
-              <form onSubmit={handleSendMessage} className="d-flex gap-2">
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Scrivi un messaggio..."
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  style={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
-                />
-                <button type="submit"
-                  disabled={sending || !newMessage.trim()}
-                  style={{
-                    width: 34, height: 34, borderRadius: '8px', border: 'none', flexShrink: 0,
-                    background: newMessage.trim() ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#e2e8f0',
-                    color: newMessage.trim() ? '#fff' : '#94a3b8',
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                  {sending ? <span className="spinner-border spinner-border-sm" /> : <i className="fas fa-paper-plane" style={{ fontSize: '12px' }} />}
-                </button>
-              </form>
-            </div>
           </div>
         </div>
 
-        {/* Colonna destra - sidebar */}
+        {/* Colonna destra - sidebar (read-only) */}
         <div className="col-lg-4">
-          {/* Stato + Priorita */}
+          {/* Stato + Priorita (read-only) */}
           <div className="card border-0 shadow-sm" style={cardStyle}>
             <div style={{ padding: '14px 16px' }}>
               <div className="d-flex gap-3">
@@ -411,31 +267,29 @@ export default function TeamTicketDetail() {
                   <label style={{ ...sectionTitle, display: 'block', marginBottom: '4px' }}>
                     <i className="ri-flag-line me-1" style={{ color: '#6366f1' }} />Stato
                   </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={ticket.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    style={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
-                  >
-                    {Object.entries(statusConfig).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: sc.color,
+                    background: sc.bg,
+                  }}>{sc.label}</span>
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ ...sectionTitle, display: 'block', marginBottom: '4px' }}>
-                    <i className="ri-fire-line me-1" style={{ color: '#6366f1' }} />Priorità
+                    <i className="ri-fire-line me-1" style={{ color: '#6366f1' }} />Priorita'
                   </label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={ticket.priority}
-                    onChange={(e) => handlePriorityChange(e.target.value)}
-                    style={{ borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }}
-                  >
-                    {Object.entries(priorityConfig).map(([k, v]) => (
-                      <option key={k} value={k}>{v.label}</option>
-                    ))}
-                  </select>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: pc.color,
+                    background: pc.bg,
+                  }}>{pc.label}</span>
                 </div>
               </div>
             </div>
@@ -450,9 +304,9 @@ export default function TeamTicketDetail() {
               {[
                 { label: 'Creato da', value: ticket.created_by_name || '-' },
                 { label: 'Paziente', value: ticket.cliente_nome || '-' },
-                { label: 'Creato il', value: formatDate(ticket.created_at) },
-                ...(ticket.resolved_at ? [{ label: 'Risolto il', value: formatDate(ticket.resolved_at) }] : []),
-                ...(ticket.closed_at ? [{ label: 'Chiuso il', value: formatDate(ticket.closed_at) }] : []),
+                { label: 'Creato il', value: `${formatDate(ticket.created_at)} (${timeAgo(ticket.created_at)})` },
+                ...(ticket.resolved_at ? [{ label: 'Risolto il', value: `${formatDate(ticket.resolved_at)} (${timeAgo(ticket.resolved_at)})` }] : []),
+                ...(ticket.closed_at ? [{ label: 'Chiuso il', value: `${formatDate(ticket.closed_at)} (${timeAgo(ticket.closed_at)})` }] : []),
               ].map((row, i) => (
                 <div key={i} className="d-flex justify-content-between align-items-center"
                   style={{ padding: '5px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -463,39 +317,35 @@ export default function TeamTicketDetail() {
             </div>
           </div>
 
-          {/* Assegnatari */}
+          {/* Assegnatari (read-only) */}
           <div className="card border-0 shadow-sm" style={cardStyle}>
             <div style={{ padding: '14px 16px' }}>
               <div style={sectionTitle}>
                 <i className="ri-team-line me-1" style={{ color: '#6366f1' }} />Assegnatari
               </div>
-              <div className="d-flex flex-wrap gap-1">
-                {users.map((u) => {
-                  const isAssigned = (ticket.assigned_users || []).some((a) => a.id === u.id);
-                  return (
-                    <button
+              {(ticket.assigned_users || []).length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '12px', margin: 0 }}>Nessun assegnatario</p>
+              ) : (
+                <div className="d-flex flex-wrap gap-1">
+                  {ticket.assigned_users.map((u) => (
+                    <span
                       key={u.id}
-                      onClick={() => handleAssigneeToggle(u.id)}
+                      className="d-inline-flex align-items-center gap-1"
                       style={{
                         borderRadius: '14px',
                         padding: '3px 10px',
-                        border: isAssigned ? 'none' : '1px solid #e2e8f0',
-                        background: isAssigned ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : '#fff',
-                        color: isAssigned ? '#fff' : '#475569',
+                        background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                        color: '#fff',
                         fontSize: '11px',
                         fontWeight: 500,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
                       }}
                     >
-                      {isAssigned && <i className="fas fa-check" style={{ fontSize: '8px' }} />}
+                      <i className="fas fa-user" style={{ fontSize: '8px' }} />
                       {u.name}
-                    </button>
-                  );
-                })}
-              </div>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -542,6 +392,11 @@ export default function TeamTicketDetail() {
                             }}>
                               {toConf.label || change.to_status}
                             </span>
+                            {change.source && (
+                              <span style={{ fontSize: '9px', color: '#94a3b8' }}>
+                                <i className={change.source === 'teams' ? 'fab fa-microsoft' : 'fas fa-desktop'} style={{ fontSize: '8px' }} />
+                              </span>
+                            )}
                           </div>
                           <div className="d-flex align-items-center gap-1">
                             <span style={{ fontSize: '10px', color: '#94a3b8' }}>{timeAgo(change.created_at)}</span>
@@ -564,42 +419,6 @@ export default function TeamTicketDetail() {
           </div>
         </div>
       </div>
-
-      {/* Delete Confirm Modal */}
-      {showDeleteConfirm && (
-        <>
-          <div className="modal-backdrop fade show" style={{ zIndex: 1050 }} onClick={() => setShowDeleteConfirm(false)} />
-          <div className="modal fade show d-block" style={{ zIndex: 1055 }} tabIndex="-1" onClick={() => setShowDeleteConfirm(false)}>
-            <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-content border-0" style={{ borderRadius: '14px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', height: 'auto' }}>
-                <div className="modal-header border-0 px-4 pt-4 pb-0">
-                  <h5 className="modal-title fw-bold" style={{ color: '#1e293b' }}>Conferma eliminazione</h5>
-                  <button className="btn-close" onClick={() => setShowDeleteConfirm(false)} />
-                </div>
-                <div className="modal-body px-4 py-3">
-                  <p className="mb-0" style={{ color: '#475569' }}>
-                    Sei sicuro di voler eliminare il ticket <strong>{ticket.ticket_number}</strong>?
-                    Questa azione non può essere annullata.
-                  </p>
-                </div>
-                <div className="modal-footer border-0 px-4 pb-4 pt-0">
-                  <button className="btn" onClick={() => setShowDeleteConfirm(false)}
-                    style={{ borderRadius: '10px', border: '1px solid #e2e8f0', color: '#475569', padding: '8px 20px' }}>
-                    Annulla
-                  </button>
-                  <button className="btn" onClick={handleDelete}
-                    style={{
-                      background: '#ef4444', color: '#fff',
-                      borderRadius: '10px', border: 'none', padding: '8px 20px', fontWeight: 500,
-                    }}>
-                    Elimina
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }

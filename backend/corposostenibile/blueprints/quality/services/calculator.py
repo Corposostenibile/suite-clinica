@@ -212,7 +212,8 @@ class QualityScoreCalculator:
     def process_check_responses_for_week(
         cls,
         week_start: date,
-        professionista_id: Optional[int] = None
+        professionista_id: Optional[int] = None,
+        professionista_ids: Optional[List[int]] = None,
     ) -> Dict[str, int]:
         """
         Trova tutti i WeeklyCheckResponse nella settimana e crea QualityClientScore.
@@ -250,10 +251,20 @@ class QualityScoreCalculator:
             week_start_date=week_start,
             eleggibile=True
         )
+        target_prof_ids = None
+        if professionista_ids:
+            target_prof_ids = list({int(pid) for pid in professionista_ids if pid is not None})
+        elif professionista_id:
+            target_prof_ids = [professionista_id]
+
         if professionista_id:
             elig_query = elig_query.filter_by(professionista_id=professionista_id)
+        elif target_prof_ids:
+            elig_query = elig_query.filter(EleggibilitaSettimanale.professionista_id.in_(target_prof_ids))
 
         eligibilities = elig_query.all()
+        if not eligibilities:
+            return stats
 
         # 2. Pre-carica professionisti per sapere la specialty
         prof_ids = list(set(e.professionista_id for e in eligibilities))
@@ -287,10 +298,18 @@ class QualityScoreCalculator:
             elif r.submit_date > wc_response_map[r.weekly_check_id].submit_date:
                 wc_response_map[r.weekly_check_id] = r
 
-        # 5. Pre-carica BRec per tutti i professionisti
-        brec_map = {}
-        for prof_id in prof_ids:
-            brec_map[prof_id] = ReviewService.get_brec_for_professional(prof_id, week_start)
+        # 5. Pre-carica BRec per tutti i professionisti (batch)
+        brec_map = ReviewService.get_brec_for_professionals(prof_ids, week_start)
+
+        # 5b. Pre-carica QualityClientScore esistenti per evitare query nel loop (N+1)
+        existing_scores = db.session.query(QualityClientScore).filter(
+            QualityClientScore.week_start_date == week_start,
+            QualityClientScore.professionista_id.in_(prof_ids),
+            QualityClientScore.cliente_id.in_(cliente_ids)
+        ).all() if prof_ids and cliente_ids else []
+        existing_scores_map = {
+            (s.cliente_id, s.professionista_id): s for s in existing_scores
+        }
 
         # 6. Processa ogni eleggibilità
         for elig in eligibilities:
@@ -335,11 +354,7 @@ class QualityScoreCalculator:
             quality_score = ((voto_prof + v_rating) / 2.0) + brec
 
             # Crea o aggiorna QualityClientScore
-            existing = db.session.query(QualityClientScore).filter_by(
-                cliente_id=cliente_id,
-                professionista_id=prof_id,
-                week_start_date=week_start
-            ).first()
+            existing = existing_scores_map.get((cliente_id, prof_id))
 
             if existing:
                 existing.voto_professionista = voto_prof
@@ -367,6 +382,7 @@ class QualityScoreCalculator:
                     check_effettuato=True
                 )
                 db.session.add(client_score)
+                existing_scores_map[(cliente_id, prof_id)] = client_score
                 stats['created'] += 1
 
             # Marca eleggibilità come check effettuato
@@ -636,7 +652,10 @@ class QualityScoreCalculator:
         """
         # 1. Calcola eleggibilità (già ottimizzato con bulk operations)
         elig_stats = EligibilityService.calculate_eligibility_for_week(
-            week_start, professionista_id, calculated_by_user_id
+            week_start,
+            professionista_id,
+            calculated_by_user_id,
+            auto_commit=False,
         )
 
         # 2. Processa check responses e crea QualityClientScore
@@ -776,10 +795,99 @@ class QualityScoreCalculator:
         return round(perc, 2)
 
     @classmethod
+    def _get_rinnovo_adj_percentages_bulk(
+        cls,
+        professionista_ids: List[int],
+        quarter: str
+    ) -> Dict[int, Optional[float]]:
+        """
+        Calcola Rinnovo Adj % per più professionisti con query aggregate.
+        """
+        from .super_malus import SuperMalusService
+        from corposostenibile.models import SubscriptionContract, SubscriptionRenewal
+
+        if not professionista_ids:
+            return {}
+
+        start_date, end_date = SuperMalusService.get_quarter_dates(quarter)
+        users = db.session.query(User).filter(User.id.in_(professionista_ids)).all()
+        users_by_id = {u.id: u for u in users}
+
+        by_field = {
+            'nutrizionista_id': [],
+            'coach_id': [],
+            'psicologa_id': [],
+        }
+        for pid in professionista_ids:
+            user = users_by_id.get(pid)
+            specialty = (user.specialty.value.lower() if user and user.specialty else '')
+            if 'nutri' in specialty:
+                by_field['nutrizionista_id'].append(pid)
+            elif 'coach' in specialty:
+                by_field['coach_id'].append(pid)
+            elif 'psic' in specialty:
+                by_field['psicologa_id'].append(pid)
+
+        scaduti_count = {pid: 0 for pid in professionista_ids}
+        rinnovati_count = {pid: 0 for pid in professionista_ids}
+
+        for field_name, pids in by_field.items():
+            if not pids:
+                continue
+
+            field_col = getattr(Cliente, field_name)
+            clienti_scaduti = db.session.query(
+                Cliente.cliente_id,
+                field_col.label('professionista_id'),
+                Cliente.data_rinnovo,
+            ).filter(
+                field_col.in_(pids),
+                Cliente.data_rinnovo.isnot(None),
+                Cliente.data_rinnovo >= start_date,
+                Cliente.data_rinnovo <= end_date
+            ).all()
+
+            if not clienti_scaduti:
+                continue
+
+            cliente_rows = {row.cliente_id: row for row in clienti_scaduti}
+            for row in clienti_scaduti:
+                scaduti_count[row.professionista_id] += 1
+
+            renewal_max_dates = db.session.query(
+                SubscriptionContract.cliente_id,
+                func.max(SubscriptionRenewal.renewal_payment_date).label('last_renewal_payment_date')
+            ).join(
+                SubscriptionRenewal,
+                SubscriptionRenewal.subscription_id == SubscriptionContract.subscription_id
+            ).filter(
+                SubscriptionContract.cliente_id.in_(list(cliente_rows.keys())),
+                SubscriptionRenewal.renewal_payment_date.isnot(None),
+            ).group_by(SubscriptionContract.cliente_id).all()
+
+            for renewal_row in renewal_max_dates:
+                cliente_row = cliente_rows.get(renewal_row.cliente_id)
+                if not cliente_row:
+                    continue
+                if renewal_row.last_renewal_payment_date and renewal_row.last_renewal_payment_date >= cliente_row.data_rinnovo:
+                    rinnovati_count[cliente_row.professionista_id] += 1
+
+        result = {}
+        for pid in professionista_ids:
+            n_scaduti = scaduti_count.get(pid, 0)
+            if n_scaduti == 0:
+                result[pid] = None
+                continue
+            result[pid] = round((rinnovati_count.get(pid, 0) / n_scaduti) * 100, 2)
+        return result
+
+    @classmethod
     def calculate_quarterly_composite_kpi(
         cls,
         weekly_score: 'QualityWeeklyScore',
-        apply_super_malus: bool = True
+        apply_super_malus: bool = True,
+        rinnovo_adj_override: Optional[float] = None,
+        use_rinnovo_adj_override: bool = False,
     ) -> None:
         """
         Calcola KPI composito trimestrale e applica Super Malus.
@@ -802,7 +910,10 @@ class QualityScoreCalculator:
         professionista_id = weekly_score.professionista_id
 
         # 1. Calcola Rinnovo Adj %
-        rinnovo_adj = cls.get_rinnovo_adj_percentage(professionista_id, quarter)
+        if use_rinnovo_adj_override:
+            rinnovo_adj = rinnovo_adj_override
+        else:
+            rinnovo_adj = cls.get_rinnovo_adj_percentage(professionista_id, quarter)
         weekly_score.rinnovo_adj_percentage = rinnovo_adj
 
         # 2. Determina fasce bonus per entrambi i KPI
@@ -879,9 +990,16 @@ class QualityScoreCalculator:
             'results': []
         }
 
+        rinnovo_adj_map = cls._get_rinnovo_adj_percentages_bulk(list(prof_latest_scores.keys()), quarter)
+
         for prof_id, weekly_score in prof_latest_scores.items():
             # Calcola KPI composito con Super Malus
-            cls.calculate_quarterly_composite_kpi(weekly_score, apply_super_malus=True)
+            cls.calculate_quarterly_composite_kpi(
+                weekly_score,
+                apply_super_malus=True,
+                rinnovo_adj_override=rinnovo_adj_map.get(prof_id),
+                use_rinnovo_adj_override=True,
+            )
 
             stats['professionisti_processati'] += 1
             if weekly_score.super_malus_applied:

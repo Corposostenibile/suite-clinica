@@ -42,6 +42,9 @@ botbuilder-core = "^4.16"
 botbuilder-schema = "^4.16"
 aiohttp = "^3.9"
 
+# Auth / JWT
+PyJWT = {extras = ["crypto"], version = "^2.8"}
+
 # Config & Utils
 python-dotenv = "^1.0"
 python-slugify = "^8.0.4"

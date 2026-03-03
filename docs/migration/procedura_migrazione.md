@@ -133,6 +133,7 @@ Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente i
 - **Errori SQL**: Nel Job è impostato `psql -v ON_ERROR_STOP=0` per permettere alla migrazione di procedere anche se alcuni record orfani o sporchi del vecchio DB violano i vincoli di integrità.
 - **Idempotenza**: Lo script usa `ON CONFLICT (...) DO NOTHING` per le tabelle principali. Se rilanciato, non duplicherà i dati esistenti.
 - **Sequenze ID**: Lo script genera automaticamente i comandi `SELECT setval(...)` alla fine per sincronizzare i contatori degli ID autoincrementali con i dati migrati.
+  - La sincronizzazione ora copre sia colonne `SERIAL` (`nextval(...)`) sia colonne `IDENTITY` (PostgreSQL 10+), per evitare errori `duplicate key ... pkey` dopo import.
 - **Import completo**: lo script importa tutte le tabelle presenti nel dump old che esistono anche nello schema target.
 - **Esclusione tabelle rumorose**: `activity_log` è esclusa di default dalla migrazione tramite `MIGRATION_EXCLUDED_TABLES` per evitare cascata di errori su FK storici non essenziali.
 - **Modalità organigramma (opzionale)**: impostando `STRICT_ORGANIGRAM=1` lo script torna al comportamento restrittivo (filtra professionisti fuori organigramma ufficiale e ricostruisce `teams`/`team_members`).
@@ -154,6 +155,20 @@ Se il Job fallisce solo nel post-check finale (es. `verify_schema_parity.py`) ma
    - snapshot conteggi finali
 
 Questo evita di rifare l'intera migrazione dati.
+
+### Verifica rapida post-migrazione (sequence autoincrement)
+
+Se dopo la migrazione compare un errore tipo `duplicate key value violates unique constraint ..._pkey` su una tabella con `id` autoincrement, verificare/riallineare la sequence della tabella.
+
+Esempio (`cliente_professionista_history`):
+
+```sql
+SELECT setval(
+  pg_get_serial_sequence('cliente_professionista_history', 'id'),
+  COALESCE((SELECT MAX(id) FROM cliente_professionista_history), 0) + 1,
+  false
+);
+```
 
 ## Hardening Operativo (obbligatorio)
 

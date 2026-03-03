@@ -5,6 +5,17 @@ import { Link } from "react-router-dom";
 import { MenuList } from './Menu';
 import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
+import {
+  canAccessAiAssignments,
+  canAccessCapacity,
+  canAccessGlobalCheckPage,
+  canAccessQualityPage,
+  canAccessTeamLists,
+  canAccessTrialPages,
+  isHealthManagerTeamLeader,
+  isHealthManagerUser,
+  isProfessionistaStandard,
+} from "../../../utils/rbacScope";
 
 const reducer = (previousState, updatedState) => ({
   ...previousState,
@@ -26,10 +37,6 @@ const SideBar = () => {
   } = useContext(ThemeContext);
 
   const { user } = useAuth();
-
-  // DEBUG: Verifica contenuto user
-  console.log('🔍 SideBar - User object:', user);
-  console.log('🔍 is_trial:', user?.is_trial, 'trial_stage:', user?.trial_stage);
 
   const [state, setState] = useReducer(reducer, initialState);
   const handleMenuActive = status => {
@@ -83,7 +90,11 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {(user?.role === 'influencer'
+          {(isHealthManagerTeamLeader(user)
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            : isHealthManagerUser(user)
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
+            : user?.role === 'influencer'
             ? MenuList.filter(item => ['Pazienti', 'Profilo', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.is_trial
               ? MenuList.filter(item => {
@@ -96,32 +107,33 @@ const SideBar = () => {
                   return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
                 } else {
                   // Stage 3+ (già promosso): menu completo
-                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
                     return false;
                   }
                   return true;
                 }
               })
               : MenuList.filter(item => {
-                // Utenti normali: nascondi Quality per non-admin
-                if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin')) {
+                if (item.title === 'Quality' && !canAccessQualityPage(user)) {
                   return false;
                 }
-                // Nascondi Assegnazioni per utenti professionisti
-                if (item.title === 'Assegnazioni' && user?.role === 'professionista' && !user?.is_admin) {
+                if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
                   return false;
                 }
-                // Capienze visibile solo ad admin/CCO/team leader
-                if (item.title === 'Capienze') {
-                  const isCco = user?.specialty === 'cco';
-                  const canViewCapacity = Boolean(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader' || isCco);
-                  return canViewCapacity;
+                if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
+                if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
+                if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
+                  return false;
                 }
                 return true;
               })
           ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
+              if (menuClass !== "menu-title" && user && isProfessionistaStandard(user) && data.title === 'TEAM') {
+                return null;
+              }
               return (
                 <li className={`nav-label  ${menuClass} ${data.extraclass}`} key={index}>{data.title}</li>
               )
@@ -190,7 +202,7 @@ const SideBar = () => {
                     >
                       {data.iconStyle}{" "}
                       <span className="nav-text">
-                        {data.isProfile && user ? user.full_name || user.first_name : data.title}
+                        {data.isProfile && user ? user.first_name || data.title : data.title}
                         <span className="badge badge-xs style-1 badge-danger ms-2">{data.update}</span>
                       </span>
                     </Link>
@@ -216,6 +228,14 @@ const SideBar = () => {
                   <span className="nav-text">Gestione Origini</span>
                 </Link>
               </li>
+              {!user?.impersonating && (
+                <li className={path === 'admin/impersonate' ? 'mm-active' : ''}>
+                  <Link to="/admin/impersonate" className={path === 'admin/impersonate' ? 'mm-active' : ''}>
+                    <i className="ri-user-shared-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                    <span className="nav-text">Accedi come</span>
+                  </Link>
+                </li>
+              )}
             </>
           )}
         </ul>

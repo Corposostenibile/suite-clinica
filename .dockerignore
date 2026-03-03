@@ -1,0 +1,38 @@
+# VCS
+.git
+.gitignore
+.gcloudignore
+
+# Local logs / screenshots / docs not required for runtime image
+logs
+screenshots
+docs
+
+# Unused apps/assets for this Dockerfile
+corposostenibile-amministrativa
+template
+
+# Frontend local artifacts
+corposostenibile-clinica/node_modules
+corposostenibile-clinica/dist
+corposostenibile-clinica/.vite
+corposostenibile-clinica/.env.local
+
+# Backend local artifacts, backups and uploads (uploads come from PVC in prod)
+backend/backups
+backend/uploads
+backend/venv
+backend/.venv
+backend/__pycache__
+backend/.pytest_cache
+backend/.mypy_cache
+backend/htmlcov
+backend/.env
+backend/*.sqlite
+backend/*.db
+
+# Python/JS cache
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+

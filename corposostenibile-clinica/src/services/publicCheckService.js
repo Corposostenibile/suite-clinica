@@ -4,6 +4,7 @@
  */
 
 import axios from 'axios';
+import { normalizeMediaUrlsDeep } from '../utils/mediaUrl';
 
 const api = axios.create({
   baseURL: '/api/client-checks',
@@ -11,6 +12,16 @@ const api = axios.create({
     'Content-Type': 'application/json',
   }
 });
+
+api.interceptors.response.use(
+  (response) => {
+    if (response?.data) {
+      normalizeMediaUrlsDeep(response.data);
+    }
+    return response;
+  },
+  (error) => Promise.reject(error)
+);
 
 const publicCheckService = {
   /**

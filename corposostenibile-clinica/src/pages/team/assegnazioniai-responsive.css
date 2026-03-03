@@ -1,0 +1,173 @@
+/* ===================================================================
+   ASSEGNAZIONI AI — Responsive Card Layout (Mobile ≤ 767px)
+   Trasforma le tabelle in card touch-friendly ed ottimizza filtri
+   =================================================================== */
+
+@media (max-width: 767.98px) {
+
+    /* ---- Layout Stat Cards (2 colonne su smartphone) ---- */
+    .row.g-3>div {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+    }
+
+    /* ---- Header & Scroll Orizzontali ---- */
+    /* Tabs */
+    .tabs-scroll-mobile {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        border-bottom: 2px solid #dee2e6;
+        /* Ripristina bordo esteso sotto le tab */
+        margin-bottom: 1rem;
+    }
+
+    .tabs-scroll-mobile .nav-item {
+        white-space: nowrap;
+    }
+
+    .tabs-scroll-mobile::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Filtri (ButtonGroup e pills) */
+    .filters-scroll-mobile {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 8px;
+        gap: 8px;
+    }
+
+    .filters-scroll-mobile::-webkit-scrollbar {
+        height: 0px;
+    }
+
+    .filters-scroll-mobile .btn {
+        white-space: nowrap;
+        flex-shrink: 0;
+        border-radius: 8px;
+        /* Unifica raggio bottoni se usati in group */
+    }
+
+    /* KPI Cards container */
+    .kpi-scroll-mobile {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 10px;
+    }
+
+    .kpi-scroll-mobile::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Forza larghezza fissa per le card in scroll orizzontale anziché 2 colonne fisse */
+    .kpi-scroll-mobile>div {
+        flex: 0 0 75% !important;
+        max-width: 75% !important;
+        min-width: 250px;
+    }
+
+
+    /* ---- Tabella → Blocco ---- */
+    .table-responsive {
+        border: none !important;
+        overflow-x: visible !important;
+    }
+
+    .table,
+    .table thead,
+    .table tbody,
+    .table tr,
+    .table th,
+    .table td {
+        display: block;
+        width: 100%;
+    }
+
+    /* ---- Nascondi intestazioni tabella ---- */
+    .table thead {
+        display: none;
+    }
+
+    /* ---- Ogni riga diventa una Card ---- */
+    .table tbody tr {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        margin-bottom: 15px;
+        padding: 12px;
+        border: 1px solid #eef2f7;
+    }
+
+    /* ---- Celle → Flex Row con etichetta ---- */
+    .table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0 !important;
+        border-bottom: 1px solid #f8f9fa !important;
+        min-height: 40px;
+        text-align: right;
+    }
+
+    .table tbody td:last-child {
+        border-bottom: none !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* ---- Etichette via pseudo-elemento ---- */
+    .table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        flex-shrink: 0;
+        margin-right: 12px;
+        text-align: left;
+    }
+
+    /* ---- Gestione specifica per Celle Principali (Nome Paziente/Prof) ---- */
+    .table tbody td[data-label="Cliente"],
+    .table tbody td[data-label="Professionista"] {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        background: #f8fafc;
+        margin: -12px -12px 10px -12px;
+        padding: 12px !important;
+        border-radius: 12px 12px 0 0;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+
+    .table tbody td[data-label="Cliente"]::before,
+    .table tbody td[data-label="Professionista"]::before {
+        display: none;
+        /* Nascondiamo label per l'elemento principale se messo come instestazione card */
+    }
+
+    /* Gestione flex per il contenuto della cella, per forzare l'allineamento a destra su mobile */
+    .table tbody td>div,
+    .table tbody td>span,
+    .table tbody td>small {
+        word-break: break-word;
+        justify-content: flex-end;
+    }
+
+    /* Override specifiche per gap o display all'interno delle celle */
+    .table tbody td[data-label="Assegnazioni"]>div,
+    .table tbody td[data-label="Criteri Specializzazione"]>div,
+    .table tbody td[data-label="Pacchetto/Info"] {
+        justify-content: flex-end;
+    }
+
+    /* Pulsanti Azioni */
+    .table tbody td[data-label="Azioni"] {
+        justify-content: flex-end;
+        gap: 8px;
+        /* Spazio tra bottoni se più di uno */
+    }
+}

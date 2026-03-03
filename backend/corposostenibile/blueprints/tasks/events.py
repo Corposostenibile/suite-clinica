@@ -13,6 +13,7 @@ from corposostenibile.models import (
     Cliente, 
     ClientCheckResponse, 
     Review, 
+    ReviewRequest,
     Task, 
     TaskCategoryEnum, 
     TaskStatusEnum, 
@@ -207,6 +208,67 @@ def trigger_training_task(mapper, connection, target):
     )
     session.add(task)
     logger.info(f"TASK CREATED: Training task for assignee {target.reviewee_id}")
+
+
+@event.listens_for(ReviewRequest, 'after_insert')
+def trigger_training_request_task(mapper, connection, target):
+    """
+    Genera un task quando un professionista invia una richiesta di training.
+    Task assegnato al destinatario della richiesta.
+    """
+    logger.info(f"EVENT: trigger_training_request_task for review_request {target.id}")
+    session = db.session
+    if not session:
+        return
+
+    priority_map = {
+        'low': TaskPriorityEnum.low,
+        'normal': TaskPriorityEnum.medium,
+        'high': TaskPriorityEnum.high,
+        'urgent': TaskPriorityEnum.urgent,
+    }
+    task_priority = priority_map.get(str(getattr(target, "priority", "normal") or "normal").lower(), TaskPriorityEnum.medium)
+
+    requester_name = None
+    try:
+        requester = getattr(target, "requester", None)
+        if requester is None and getattr(target, "requester_id", None):
+            # In after_insert la relationship puo' non essere caricata: fallback esplicito.
+            from corposostenibile.models import User
+            requester = session.get(User, target.requester_id) or User.query.get(target.requester_id)
+        requester_name = getattr(requester, "full_name", None)
+        if not requester_name and requester is not None:
+            requester_name = f"{getattr(requester, 'first_name', '')} {getattr(requester, 'last_name', '')}".strip()
+    except Exception:
+        requester_name = None
+    if not requester_name:
+        requester_name = f"Utente #{target.requester_id}"
+
+    task = Task(
+        title=f"Richiesta training: {target.subject}",
+        description=(
+            f"{requester_name} ha inviato una richiesta di training"
+            + (f": {target.description}" if getattr(target, "description", None) else ".")
+        ),
+        category=TaskCategoryEnum.formazione,
+        status=TaskStatusEnum.todo,
+        priority=task_priority,
+        assignee_id=target.requested_to_id,
+        created_at=datetime.utcnow(),
+        payload={
+            'review_request_id': target.id,
+            'requester_id': target.requester_id,
+            'requested_to_id': target.requested_to_id,
+            'priority': target.priority,
+        }
+    )
+    session.add(task)
+    logger.info(
+        "TASK CREATED: Training request task request_id=%s assignee=%s priority=%s",
+        target.id,
+        target.requested_to_id,
+        task_priority.value if hasattr(task_priority, "value") else str(task_priority),
+    )
 
 
 @event.listens_for(Session, "after_flush")

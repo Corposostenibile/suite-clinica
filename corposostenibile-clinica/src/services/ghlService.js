@@ -190,8 +190,7 @@ const ghlService = {
    * Get all opportunity data received from webhooks
    */
   async getOpportunityData() {
-    // Usa endpoint debug temporaneamente (non richiede login)
-    const response = await ghlApi.get('/opportunity-data-debug');
+    const response = await ghlApi.get('/opportunity-data');
     return response.data;
   },
 

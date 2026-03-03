@@ -1,106 +1,104 @@
 /**
  * CheckSuccess - Pagina di conferma dopo invio check
- * Versione generica per tutti i tipi di check
+ * Versione con animazione celebrativa, checkmark animato e confetti
  */
 
 import { useParams } from 'react-router-dom';
-
-const styles = {
-  card: {
-    borderRadius: '20px',
-    border: 'none',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-    overflow: 'hidden',
-    textAlign: 'center',
-  },
-  successIcon: {
-    width: '80px',
-    height: '80px',
-    borderRadius: '50%',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '40px',
-    marginBottom: '24px',
-  },
-};
+import { useMemo } from 'react';
+import './PublicChecks.css';
 
 const CHECK_CONFIG = {
   weekly: {
     title: 'Check Settimanale',
-    color: '#10b981',
-    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
     message: 'Il tuo check settimanale è stato inviato con successo!',
+    theme: 'check-theme-weekly',
   },
   dca: {
     title: 'Check Benessere',
-    color: '#3b82f6',
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
     message: 'Il tuo check benessere è stato inviato con successo!',
+    theme: 'check-theme-dca',
   },
   minor: {
     title: 'Check Minori',
-    color: '#f59e0b',
-    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
     message: 'Il questionario è stato inviato con successo!',
+    theme: 'check-theme-minor',
   },
 };
+
+const CONFETTI_COLORS = ['#22c55e', '#3b82f6', '#a855f7', '#f59e0b', '#ec4899', '#14b8a6'];
 
 function CheckSuccess() {
   const { checkType } = useParams();
   const config = CHECK_CONFIG[checkType] || CHECK_CONFIG.weekly;
 
+  const confettiPieces = useMemo(() => {
+    return Array.from({ length: 24 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      delay: `${Math.random() * 1.5}s`,
+      duration: `${2 + Math.random() * 2}s`,
+      size: 6 + Math.random() * 6,
+      rotation: Math.random() * 360,
+    }));
+  }, []);
+
   return (
-    <div className="card" style={styles.card}>
-      {/* Header */}
-      <div style={{ background: config.gradient, color: 'white', padding: '40px 24px' }}>
-        <div
-          style={{
-            ...styles.successIcon,
-            background: 'rgba(255,255,255,0.2)',
-            color: 'white'
-          }}
-        >
-          <i className="ri-check-line"></i>
+    <div className={`check-card ${config.theme} check-success`}>
+      {/* Animated Header */}
+      <div className="check-success-header">
+        {/* Confetti */}
+        <div className="check-confetti">
+          {confettiPieces.map(p => (
+            <div
+              key={p.id}
+              className="check-confetti-piece"
+              style={{
+                left: p.left,
+                top: '-10px',
+                width: p.size,
+                height: p.size,
+                background: p.color,
+                animationDelay: p.delay,
+                animationDuration: p.duration,
+                borderRadius: p.id % 3 === 0 ? '50%' : '2px',
+                transform: `rotate(${p.rotation}deg)`,
+              }}
+            />
+          ))}
         </div>
-        <h3 className="mb-0 fw-bold">Grazie!</h3>
+
+        {/* Animated Checkmark */}
+        <div className="check-success-checkmark">
+          <svg viewBox="0 0 56 56">
+            <circle className="circle" cx="28" cy="28" r="26" />
+            <path className="check" d="M16 28 L24 36 L40 20" />
+          </svg>
+        </div>
+
+        <h3 className="check-success-title">Grazie!</h3>
       </div>
 
       {/* Body */}
-      <div className="card-body p-5">
-        <div
-          style={{
-            ...styles.successIcon,
-            background: `${config.color}15`,
-            color: config.color
-          }}
-        >
-          <i className="ri-checkbox-circle-line"></i>
-        </div>
-
-        <h4 className="mb-3 fw-semibold">{config.title} Completato</h4>
-
-        <p className="text-muted mb-4" style={{ fontSize: '1.1rem' }}>
+      <div className="check-success-body">
+        <p className="check-success-message">
+          {config.title} Completato
+        </p>
+        <p className="check-success-detail">
           {config.message}
         </p>
 
-        <div
-          style={{
-            background: '#f8fafc',
-            borderRadius: '12px',
-            padding: '20px',
-            marginBottom: '24px'
-          }}
-        >
-          <p className="mb-0 text-muted">
-            <i className="ri-information-line me-2" style={{ color: config.color }}></i>
+        <div className="check-success-info">
+          <i className="ri-team-line check-success-info-icon"></i>
+          <span className="check-success-info-text">
             I tuoi professionisti riceveranno le tue risposte e le analizzeranno per supportarti al meglio nel tuo percorso.
-          </p>
+          </span>
         </div>
 
-        <p className="text-muted small mb-0">
-          Puoi chiudere questa pagina in sicurezza.
-        </p>
+        <div className="check-success-close">
+          <i className="ri-close-circle-line"></i>
+          Puoi chiudere questa pagina in sicurezza
+        </div>
       </div>
     </div>
   );

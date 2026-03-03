@@ -1,0 +1,980 @@
+/* ============================================
+   Quality Dashboard — Suite Clinica Design System
+   Accent: #25B36A
+   ============================================ */
+
+/* ── Header ── */
+.qd-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 12px;
+}
+
+.qd-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.qd-header-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── View Mode Tabs ── */
+.qd-view-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.qd-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.qd-view-tab i { font-size: 15px; }
+
+.qd-view-tab:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.04);
+}
+
+.qd-view-tab.active {
+  background: #25B36A;
+  border-color: #25B36A;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37, 179, 106, 0.25);
+}
+
+/* ── Section Header ── */
+.qd-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+.qd-section-header h4 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 2px;
+}
+
+.qd-section-sub {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Specialty Pills ── */
+.qd-specialty-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.qd-specialty-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qd-specialty-pill:hover {
+  border-color: #cbd5e1;
+}
+
+.qd-specialty-pill.active-nutrizione {
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+}
+
+.qd-specialty-pill.active-coach {
+  background: #f97316;
+  border-color: #f97316;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+}
+
+.qd-specialty-pill.active-psicologia {
+  background: #ec4899;
+  border-color: #ec4899;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+}
+
+.qd-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: none;
+  background: #25B36A;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qd-action-btn:hover {
+  background: #1e9957;
+}
+
+.qd-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Stats Row ── */
+.qd-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.qd-stat-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.qd-stat-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.qd-stat-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.qd-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.qd-stat-reduction {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 2px;
+}
+
+/* ── Filter Bar ── */
+.qd-filter-bar {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.qd-search-input {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 200px;
+  flex: 1;
+}
+
+.qd-search-input::placeholder { color: #94a3b8; }
+
+.qd-search-input:focus {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+  background: white;
+}
+
+.qd-filter-select {
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #475569;
+  background: #f8fafc;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.qd-filter-select:focus {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+}
+
+/* Week navigator */
+.qd-week-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-week-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 16px;
+}
+
+.qd-week-btn:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+}
+
+.qd-week-label {
+  padding: 8px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.qd-reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.qd-reset-btn:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+}
+
+/* ── Table Card ── */
+.qd-table-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.qd-table-wrap {
+  overflow-x: auto;
+}
+
+.qd-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0;
+}
+
+.qd-table thead {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.qd-table th {
+  padding: 14px 18px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  white-space: nowrap;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.qd-table th.center { text-align: center; }
+
+.qd-table td {
+  padding: 14px 18px;
+  font-size: 14px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.qd-table td.center { text-align: center; }
+
+.qd-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.qd-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.qd-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Cell contents ── */
+.qd-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qd-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.qd-avatar-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.qd-name-link {
+  font-weight: 600;
+  color: #25B36A;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.qd-name-link:hover {
+  color: #1e9957;
+}
+
+/* Badges */
+.qd-badge {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.qd-value-accent {
+  font-weight: 600;
+  color: #25B36A;
+}
+
+.qd-value-muted {
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+/* Malus cause badges */
+.qd-cause-badges {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.qd-cause-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.qd-cause-badge.danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.qd-cause-badge.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.qd-cause-badge.info {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+/* ── Quarterly KPI Cards ── */
+.qd-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.qd-kpi-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.qd-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.qd-kpi-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.qd-kpi-icon {
+  font-size: 22px;
+}
+
+.qd-kpi-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Quarter selector area */
+.qd-quarter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Malus section header */
+.qd-malus-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-malus-header i { color: #ef4444; }
+
+/* Empty state for quarterly */
+.qd-empty-state {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.qd-empty-icon {
+  font-size: 4rem;
+  color: #22c55e;
+  margin-bottom: 12px;
+}
+
+.qd-empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.qd-empty-desc {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Error / Alert ── */
+.qd-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  padding: 14px 20px;
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-error-retry {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 13px;
+  padding: 0;
+}
+
+.qd-alert-success {
+  background: rgba(37, 179, 106, 0.06);
+  border: 1px solid rgba(37, 179, 106, 0.2);
+  border-radius: 14px;
+  padding: 14px 20px;
+  color: #16a34a;
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-alert-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  padding: 14px 20px;
+  color: #dc2626;
+  font-size: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-alert-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  padding: 0 4px;
+}
+
+.qd-alert-close:hover { opacity: 1; }
+
+/* ── Loading ── */
+.qd-loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.qd-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #25B36A;
+  border-radius: 50%;
+  animation: qd-spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes qd-spin {
+  to { transform: rotate(360deg); }
+}
+
+.qd-loading-text {
+  margin-top: 16px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* Inline spinner */
+.qd-spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: qd-spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+/* ── Empty weekly ── */
+.qd-empty-weekly {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.qd-empty-weekly i {
+  font-size: 5rem;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+  display: block;
+}
+
+.qd-empty-weekly h5 {
+  color: #475569;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.qd-empty-weekly p {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.qd-empty-weekly-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: none;
+  background: #25B36A;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.qd-empty-weekly-btn:hover {
+  background: #1e9957;
+}
+
+/* ── Pagination ── */
+.qd-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.qd-pagination-info {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.qd-pagination-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.qd-page-btn {
+  min-width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qd-page-btn:hover:not(:disabled):not(.active) {
+  border-color: #25B36A;
+  color: #25B36A;
+}
+
+.qd-page-btn.active {
+  background: #25B36A;
+  border-color: #25B36A;
+  color: white;
+  font-weight: 600;
+}
+
+.qd-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Modal (portal) ── */
+.qd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  z-index: 99999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.qd-modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  animation: qd-modal-in 0.2s ease;
+}
+
+@keyframes qd-modal-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.qd-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.qd-modal-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qd-modal-title i { color: #25B36A; }
+
+.qd-modal-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.qd-modal-close:hover { color: #475569; }
+
+.qd-modal-close:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.qd-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Modal field group */
+.qd-modal-field {
+  margin-bottom: 20px;
+}
+
+.qd-modal-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.qd-modal-select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #475569;
+  background: white;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.qd-modal-select:focus {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+}
+
+.qd-modal-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.qd-modal-submit {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #25B36A;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.qd-modal-submit:hover { background: #1e9957; }
+.qd-modal-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Modal result */
+.qd-modal-result {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.qd-modal-result-icon {
+  font-size: 4rem;
+  margin-bottom: 12px;
+}
+
+.qd-modal-result-icon.success { color: #22c55e; }
+.qd-modal-result-icon.error { color: #ef4444; }
+
+.qd-modal-result h5 {
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.qd-modal-result p {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.qd-modal-result-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 24px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.qd-modal-result-btn:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .qd-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qd-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qd-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .qd-search-input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .qd-stats-row,
+  .qd-kpi-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .qd-modal {
+    max-width: 100%;
+    margin: 12px;
+  }
+
+  .qd-week-nav {
+    width: 100%;
+  }
+
+  .qd-week-label {
+    flex: 1;
+    text-align: center;
+  }
+
+  .qd-reset-btn {
+    margin-left: 0;
+  }
+}

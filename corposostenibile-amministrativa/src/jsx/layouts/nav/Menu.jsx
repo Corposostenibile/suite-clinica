@@ -35,6 +35,12 @@ export const MenuList = [
     adminOnly: true,
   },
   {
+    title: 'Novità',
+    iconStyle: <i className="fas fa-newspaper" />,
+    to: '/news',
+    adminOnly: true,
+  },
+  {
     title: 'Notifiche Push',
     iconStyle: <i className="fas fa-bell" />,
     to: '/admin/push-notifications',

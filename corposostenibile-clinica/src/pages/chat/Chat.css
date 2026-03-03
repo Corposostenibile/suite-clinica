@@ -1,0 +1,162 @@
+/* ============================================
+   Chat Pazienti — Coming Soon
+   Design system: Suite Clinica (#25B36A, Poppins)
+   ============================================ */
+
+.chat-coming-soon {
+  animation: chatFadeIn 0.4s ease;
+}
+
+@keyframes chatFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chat-hero {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 72px 40px;
+  min-height: 520px;
+}
+
+/* ── Icon ── */
+.chat-hero-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(37, 179, 106, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+  animation: chatIconFloat 3s ease-in-out infinite;
+}
+
+@keyframes chatIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.chat-hero-icon i {
+  font-size: 44px;
+  color: #25B36A;
+}
+
+/* ── Text ── */
+.chat-hero-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 10px;
+}
+
+.chat-hero-desc {
+  font-size: 14px;
+  color: #64748b;
+  max-width: 420px;
+  line-height: 1.7;
+  margin: 0 0 32px;
+}
+
+.chat-hero-desc strong {
+  color: #475569;
+}
+
+/* ── Feature pills ── */
+.chat-features {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 36px;
+}
+
+.chat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease;
+}
+
+.chat-pill:hover {
+  transform: translateY(-1px);
+}
+
+.chat-pill i {
+  font-size: 14px;
+}
+
+.chat-pill-green {
+  background: rgba(37, 179, 106, 0.08);
+  color: #25B36A;
+  border-color: rgba(37, 179, 106, 0.15);
+}
+
+.chat-pill-blue {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  border-color: rgba(59, 130, 246, 0.15);
+}
+
+.chat-pill-amber {
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.15);
+}
+
+.chat-pill-purple {
+  background: rgba(139, 92, 246, 0.08);
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.15);
+}
+
+/* ── Badge ── */
+.chat-soon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 24px;
+  background: #25B36A;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 14px rgba(37, 179, 106, 0.3);
+}
+
+.chat-soon-badge i {
+  font-size: 16px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 576px) {
+  .chat-hero {
+    padding: 48px 20px;
+    min-height: 400px;
+  }
+
+  .chat-hero-title {
+    font-size: 20px;
+  }
+
+  .chat-hero-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .chat-hero-icon i {
+    font-size: 36px;
+  }
+}

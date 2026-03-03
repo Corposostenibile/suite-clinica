@@ -213,6 +213,12 @@ kubectl rollout status deployment/suite-clinica-backend --timeout=300s
 Mitigazione consigliata:
 - configurare una strategia di rollout compatibile con PVC `RWO` (es. `Recreate` oppure `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`)
 
+Scelta operativa attuale (24 febbraio 2026):
+- `k8s/deployment.yaml` usa `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`
+- obiettivo: evitare rollout bloccati quando il cluster non ha RAM/capacity per tenere `vecchio pod + nuovo pod` insieme
+- tradeoff accettato: breve downtime durante il deploy del backend (1 replica)
+- piano futuro: aggiungere capacity/headroom GKE per tornare a rollout senza downtime
+
 ### 6.6 `sync_criteria_prod.py` fallisce dopo riordino script
 
 Sintomo:
@@ -232,6 +238,38 @@ kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
   ls -l /app/scripts/migration_scripts/sync_criteria_prod.py
   ls -l "/app/corposostenibile/blueprints/sales_form/assegnazioni_xlsx/Criteri Ai.xlsx"
 '
+```
+
+### 6.7 Cloud Build `FAILURE` ma build/push/deploy immagine riusciti (timeout rollout)
+
+Sintomo (caso reale 26 febbraio 2026):
+- Cloud Build fallisce allo step `kubectl rollout status ... --timeout=300s`
+- gli step precedenti (`docker build`, `docker push`, `kubectl set image`) risultano completati
+- il nuovo pod backend resta `1/2 Running` con readiness/liveness su `/health` in timeout durante il warm-up
+
+Causa:
+- il backend può impiegare più di `300s` a superare la readiness in alcuni rollout (startup lento / warm-up)
+- Cloud Build marca `FAILURE` per timeout rollout, anche se immagine e deploy sono già stati applicati
+
+Mitigazioni applicate:
+- `cloudbuild.yaml`: timeout rollout aumentato a `900s`
+- `k8s/deployment.yaml`: aggiunta `startupProbe` sul backend per evitare restart/liveness prematuri durante lo startup
+- `k8s/deployment.yaml`: `readinessProbe`/`livenessProbe` rese meno aggressive (timeout/failure threshold più tolleranti)
+
+Verifica consigliata:
+```bash
+kubectl get pods -n default | grep suite-clinica-backend
+kubectl describe pod <pod-backend>
+kubectl rollout status deployment/suite-clinica-backend --timeout=900s
+curl -I http://34.154.33.164/auth/login
+```
+
+Nota operativa:
+- se la produzione va giù durante il rollout (1 replica, `maxSurge: 0`), fare rollback immediato dell'immagine e indagare `/health`:
+
+```bash
+kubectl set image deployment/suite-clinica-backend \
+  backend=europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:<tag_stabile>
 ```
 
 ## 7) Hardening raccomandato

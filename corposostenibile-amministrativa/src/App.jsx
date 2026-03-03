@@ -17,6 +17,7 @@ import TeamTicketsDashboard from './pages/team-tickets/TeamTicketsDashboard';
 import TeamTicketDetail from './pages/team-tickets/TeamTicketDetail';
 import TeamTicketsAnalytics from './pages/team-tickets/TeamTicketsAnalytics';
 import AdminPushNotifications from './pages/admin/AdminPushNotifications';
+import NewsManager from './pages/news/NewsManager';
 
 function App() {
   return (
@@ -39,6 +40,9 @@ function App() {
             <Route path="/team-tickets" element={<TeamTicketsDashboard />} />
             <Route path="/team-tickets/analytics" element={<TeamTicketsAnalytics />} />
             <Route path="/team-tickets/:id" element={<TeamTicketDetail />} />
+
+            {/* Novità */}
+            <Route path="/news" element={<NewsManager />} />
 
             {/* Admin */}
             <Route path="/admin/push-notifications" element={<AdminPushNotifications />} />
