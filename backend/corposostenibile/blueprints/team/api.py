@@ -558,7 +558,16 @@ def get_members():
             if sv in [e.value for e in UserSpecialtyEnum]:
                 valid_specialties.append(UserSpecialtyEnum(sv))
         if valid_specialties:
-            query = query.filter(User.specialty.in_(valid_specialties))
+            # Team leaders must always see themselves in their team's dropdown
+            if _get_user_role(current_user) == 'team_leader':
+                query = query.filter(
+                    or_(
+                        User.specialty.in_(valid_specialties),
+                        User.id == current_user.id,
+                    )
+                )
+            else:
+                query = query.filter(User.specialty.in_(valid_specialties))
 
     # Order by name
     query = query.order_by(User.first_name, User.last_name)
