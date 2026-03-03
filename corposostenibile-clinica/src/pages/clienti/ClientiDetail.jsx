@@ -8790,10 +8790,14 @@ function ClientiDetail() {
                           <div key={photo.key} className="chk-photo-slot">
                             <label>{photo.label}</label>
                             {selectedCheckResponse[photo.key] ? (
-                              <img src={selectedCheckResponse[photo.key]} alt={photo.label} onClick={() => setLightboxUrl(selectedCheckResponse[photo.key])} />
-                            ) : (
-                              <div className="chk-photo-empty"><i className="ri-image-line"></i> Non caricata</div>
-                            )}
+                              <img
+                                src={selectedCheckResponse[photo.key]}
+                                alt={photo.label}
+                                onClick={() => setLightboxUrl(selectedCheckResponse[photo.key])}
+                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }}
+                              />
+                            ) : null}
+                            <div className="chk-photo-empty" style={selectedCheckResponse[photo.key] ? { display: 'none' } : {}}><i className="ri-image-line"></i> Non caricata</div>
                           </div>
                         ))}
                       </div>

@@ -3368,10 +3368,10 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "live_session_topics": resp.live_session_topics,
                 "extra_comments": resp.extra_comments,
                 "referral": resp.referral,
-                # Photos (TypeForm stores URLs directly)
-                "photo_front": resp.photo_front,
-                "photo_side": resp.photo_side,
-                "photo_back": resp.photo_back,
+                # Photos (TypeForm may store external URLs or local paths)
+                "photo_front": _photo_path_to_url(resp.photo_front),
+                "photo_side": _photo_path_to_url(resp.photo_side),
+                "photo_back": _photo_path_to_url(resp.photo_back),
             }
 
         elif response_type == 'dca':
