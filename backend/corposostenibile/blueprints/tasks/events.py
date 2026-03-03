@@ -10,14 +10,20 @@ logger = logging.getLogger(__name__)
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
-    Cliente, 
-    ClientCheckResponse, 
-    Review, 
+    Cliente,
+    ClientCheckResponse,
+    WeeklyCheck,
+    WeeklyCheckResponse,
+    DCACheck,
+    DCACheckResponse,
+    MinorCheck,
+    MinorCheckResponse,
+    Review,
     ReviewRequest,
-    Task, 
-    TaskCategoryEnum, 
-    TaskStatusEnum, 
-    TaskPriorityEnum
+    Task,
+    TaskCategoryEnum,
+    TaskStatusEnum,
+    TaskPriorityEnum,
 )
 from corposostenibile.blueprints.push_notifications.service import send_task_assigned_push
 
@@ -138,45 +144,102 @@ for attr in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli',
 # --------------------------------------------------------------------------- #
 #  2. CHECK RICEVUTO
 # --------------------------------------------------------------------------- #
-@event.listens_for(ClientCheckResponse, 'after_insert')
-def trigger_check_task(mapper, connection, target):
-    """
-    Genera un task quando un cliente invia un check.
-    """
-    logger.info(f"EVENT: trigger_check_task for response {target.id}")
-    session = db.session
-    if not session:
-        return
 
-    # Recupera il cliente e l'assegnazione
-    # target.assignment -> CheckAssignment (link to Cliente)
-    # Attenzione: related objects potrebbero non essere caricati in after_insert se non in session.
-    # Facciamo query se necessario.
-    
-    # Per sicurezza, usiamo i pulsanti id
-    # target.assignment_id
-    
-    # Nota: Task deve essere assegnato a chi ha assegnato il check (assigned_by_id in CheckAssignment)
-    # o al professionista corrente del cliente.
-    
-    # Carichiamo assignment
-    from corposostenibile.models import ClientCheckAssignment
-    assignment = session.query(ClientCheckAssignment).get(target.assignment_id)
-    
-    if assignment and assignment.cliente:
+def _create_check_tasks_for_professionals(session, cliente, check_type, response_id, prof_user_ids):
+    """
+    Crea un task per ogni professionista coinvolto quando arriva un check.
+    prof_user_ids: lista di user_id (possono essere None) a cui assegnare il task.
+    """
+    seen = set()
+    for user_id in prof_user_ids:
+        if not user_id or user_id in seen:
+            continue
+        seen.add(user_id)
         task = Task(
-            title=f"Check Ricevuto: {assignment.cliente.nome_cognome}",
-            description=f"Il cliente {assignment.cliente.nome_cognome} ha compilato il check. Leggilo!",
+            title=f"Check Ricevuto: {cliente.nome_cognome}",
+            description=f"Il cliente {cliente.nome_cognome} ha compilato il {check_type}. Leggilo!",
             category=TaskCategoryEnum.check,
             status=TaskStatusEnum.todo,
             priority=TaskPriorityEnum.high,
-            client_id=assignment.cliente_id,
-            assignee_id=assignment.assigned_by_id, # Chi ha assegnato il check
+            client_id=cliente.cliente_id,
+            assignee_id=user_id,
             created_at=datetime.utcnow(),
-            payload={'check_response_id': target.id}
+            payload={"check_response_id": response_id, "check_type": check_type},
         )
         session.add(task)
-        logger.info(f"TASK CREATED: Check task for assignee {assignment.assigned_by_id}")
+        logger.info("TASK CREATED: %s task for assignee %s (client %s)", check_type, user_id, cliente.cliente_id)
+
+
+@event.listens_for(WeeklyCheckResponse, "after_insert")
+def trigger_weekly_check_task(mapper, connection, target):
+    """Task per ogni professionista snapshot nel check settimanale."""
+    logger.info("EVENT: trigger_weekly_check_task for response %s", target.id)
+    session = db.session
+    if not session:
+        return
+    assignment = session.get(WeeklyCheck, target.weekly_check_id)
+    if not assignment or not assignment.cliente:
+        return
+    # I 3 professionisti snapshot al momento della compilazione
+    prof_ids = [
+        target.nutritionist_user_id,
+        target.psychologist_user_id,
+        target.coach_user_id,
+    ]
+    # Fallback: se nessuno snapshot, usa i professionisti assegnati al cliente
+    if not any(prof_ids):
+        cliente = assignment.cliente
+        prof_ids = [cliente.nutrizionista_id, cliente.coach_id, cliente.psicologa_id]
+    _create_check_tasks_for_professionals(session, assignment.cliente, "Check Settimanale", target.id, prof_ids)
+
+
+@event.listens_for(DCACheckResponse, "after_insert")
+def trigger_dca_check_task(mapper, connection, target):
+    """Task per nutrizionista, coach e psicologo assegnati al cliente."""
+    logger.info("EVENT: trigger_dca_check_task for response %s", target.id)
+    session = db.session
+    if not session:
+        return
+    assignment = session.get(DCACheck, target.dca_check_id)
+    if not assignment or not assignment.cliente:
+        return
+    cliente = assignment.cliente
+    _create_check_tasks_for_professionals(
+        session, cliente, "Check DCA", target.id,
+        [cliente.nutrizionista_id, cliente.coach_id, cliente.psicologa_id],
+    )
+
+
+@event.listens_for(MinorCheckResponse, "after_insert")
+def trigger_minor_check_task(mapper, connection, target):
+    """Task per nutrizionista, coach e psicologo assegnati al cliente."""
+    logger.info("EVENT: trigger_minor_check_task for response %s", target.id)
+    session = db.session
+    if not session:
+        return
+    assignment = session.get(MinorCheck, target.minor_check_id)
+    if not assignment or not assignment.cliente:
+        return
+    cliente = assignment.cliente
+    _create_check_tasks_for_professionals(
+        session, cliente, "Check Minori", target.id,
+        [cliente.nutrizionista_id, cliente.coach_id, cliente.psicologa_id],
+    )
+
+
+@event.listens_for(ClientCheckResponse, "after_insert")
+def trigger_custom_check_task(mapper, connection, target):
+    """Task per check custom form (sistema precedente)."""
+    logger.info("EVENT: trigger_custom_check_task for response %s", target.id)
+    session = db.session
+    if not session:
+        return
+    from corposostenibile.models import ClientCheckAssignment
+    assignment = session.get(ClientCheckAssignment, target.assignment_id)
+    if assignment and assignment.cliente:
+        _create_check_tasks_for_professionals(
+            session, assignment.cliente, "Check Custom", target.id, [assignment.assigned_by_id]
+        )
 
 
 # --------------------------------------------------------------------------- #

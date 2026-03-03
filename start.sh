@@ -69,6 +69,7 @@ stop_all() {
     pkill -f "vite.*3000" 2>/dev/null
     pkill -f "vite.*3001" 2>/dev/null
     pkill -f "celery.*corposostenibile" 2>/dev/null
+    pkill -f "node.*videocall-service" 2>/dev/null
 
     # Ferma Qdrant container (non lo rimuove)
     docker stop qdrant 2>/dev/null && echo -e "${CYAN}   Qdrant fermato${NC}"
@@ -209,6 +210,31 @@ else
     echo -e "${YELLOW}   ⚠ Redis non disponibile, Celery saltato${NC}"
 fi
 
+# ==================== VIDEOCALL TOKEN SERVICE ====================
+
+echo -e "${BLUE}🎥 [2.5/4] Avvio dTelecom Token Service (porta 3100)...${NC}"
+
+if check_port 3100; then
+    echo -e "${YELLOW}   ⚠ Porta 3100 già in uso. Token service potrebbe essere già avviato.${NC}"
+else
+    if [ -d "$BASE_DIR/videocall-service" ]; then
+        cd "$BASE_DIR/videocall-service"
+
+        if [ ! -d "node_modules" ]; then
+            echo -e "${CYAN}   Installazione dipendenze npm...${NC}"
+            npm install --silent
+        fi
+
+        node server.js > "$BASE_DIR/logs/videocall.log" 2>&1 &
+        VIDEOCALL_PID=$!
+        echo $VIDEOCALL_PID >> "$PID_FILE"
+
+        wait_for_service 3100 "dTelecom Token Service"
+    else
+        echo -e "${YELLOW}   ⚠ videocall-service/ non trovato, Token service saltato${NC}"
+    fi
+fi
+
 # ==================== FRONTEND CLINICA ====================
 
 echo -e "${BLUE}🏥 [3/4] Avvio Frontend Clinica (porta 3000)...${NC}"
@@ -264,6 +290,7 @@ echo -e "${GREEN}╠════════════════════
 echo -e "${GREEN}║                                                           ║${NC}"
 echo -e "${GREEN}║   🧠 Qdrant DB:        ${CYAN}http://localhost:6333${GREEN}              ║${NC}"
 echo -e "${GREEN}║   🔧 Backend API:      ${CYAN}http://127.0.0.1:5001${GREEN}             ║${NC}"
+echo -e "${GREEN}║   🎥 Video Service:    ${CYAN}http://localhost:3100${GREEN}              ║${NC}"
 echo -e "${GREEN}║   🏥 Suite Clinica:    ${CYAN}http://localhost:3000${GREEN}             ║${NC}"
 echo -e "${GREEN}║   🏢 Suite Admin:      ${CYAN}http://localhost:3001${GREEN}             ║${NC}"
 echo -e "${GREEN}║                                                           ║${NC}"

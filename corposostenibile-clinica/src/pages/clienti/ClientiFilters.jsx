@@ -465,6 +465,15 @@ const ClientiFilters = ({
                                     </select>
                                 </div>
                                 <div className="col-md-4">
+                                    <label className="form-label mb-1">Check Day</label>
+                                    <select className="form-select" value={draft.checkDay || ''} onChange={(e) => handleDraftChange('checkDay', e.target.value)}>
+                                        <option value="">Tutti</option>
+                                        {GIORNI_FULL.map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-4">
                                     <label className="form-label mb-1">Call Iniziale Psicologa</label>
                                     <select className="form-select" value={draft.callInizialePsicologa || ''} onChange={(e) => handleDraftChange('callInizialePsicologa', e.target.value)}>
                                         <option value="">Tutti</option>

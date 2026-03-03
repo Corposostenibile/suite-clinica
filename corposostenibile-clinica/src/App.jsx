@@ -80,6 +80,9 @@ import {
   isAdminOrCco,
 } from './utils/rbacScope';
 
+// Video Call pages
+import { VideoCallPage, VideoCallRoom, VideoCallPublic, VideoCallReplay } from './pages/videocall';
+
 // Public pages (no auth required)
 import {
   PublicLayout,
@@ -130,6 +133,10 @@ function App() {
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
           <Route path="/client-checks/public/:token" element={<PublicClientCheckRedirect />} />
+
+          {/* Video Call - fullscreen pages (no dashboard layout) */}
+          <Route path="/video-call-room/:sessionToken" element={<VideoCallRoom />} />
+          <Route path="/video-call/join/:sessionToken" element={<VideoCallPublic />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
@@ -216,6 +223,11 @@ function App() {
               </RoleProtectedRoute>
             } />
             <Route path="/check-da-leggere" element={<RoleProtectedRoute allowIf={canAccessGlobalCheckPage}><CheckDaLeggere /></RoleProtectedRoute>} />
+
+            {/* Video Calls (pre-call in layout, active call goes fullscreen via CSS overlay) */}
+            <Route path="/video-call" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><VideoCallPage /></RoleProtectedRoute>} />
+            <Route path="/video-call/:clienteId" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><VideoCallPage /></RoleProtectedRoute>} />
+            <Route path="/video-call/replay/:sessionId" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><VideoCallReplay /></RoleProtectedRoute>} />
 
             {/* Calendario */}
             <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />

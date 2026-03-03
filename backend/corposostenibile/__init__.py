@@ -381,6 +381,7 @@ def create_app(config_name: str | None = None) -> Flask:
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
         push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
+        video_calls,  # Video calls con dTelecom
     )
 
 
@@ -419,6 +420,7 @@ def create_app(config_name: str | None = None) -> Flask:
     sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
     team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
     push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
+    video_calls.init_app(app)  # Video calls con dTelecom
 
 
     # Sales Form Blueprint
@@ -554,6 +556,17 @@ def create_app(config_name: str | None = None) -> Flask:
             if flask_request.method not in ("GET", "HEAD"):
                 return None
 
+            # PWA-critical files must be served from React dist regardless of
+            # Accept headers (browsers request them with application/manifest+json
+            # or application/javascript, not text/html).
+            rel = path.lstrip('/')
+            if rel and not any(path.startswith(p) for p in _flask_prefixes):
+                pwa_dist = react_dist / rel
+                if pwa_dist.exists() and pwa_dist.is_file() and (
+                    rel.endswith('.js') or rel == 'manifest.webmanifest'
+                ):
+                    return send_from_directory(str(react_dist), rel)
+
             # Only serve SPA for real browser page navigations.
             accepts = flask_request.accept_mimetypes
             wants_html = accepts.accept_html and accepts["text/html"] >= accepts["application/json"]
@@ -590,6 +603,31 @@ def create_app(config_name: str | None = None) -> Flask:
         @app.get("/")
         def index():
             return redirect(url_for("auth.login"))
+
+    # ── Cache-Control headers for SPA assets ──────────────────────────
+    @app.after_request
+    def set_cache_headers(response):
+        """Set proper Cache-Control headers to avoid stale content after deploys.
+
+        • index.html / sw.js / manifest  → always revalidate (no-cache)
+        • /assets/* (content-hashed)      → immutable, cache 1 year
+        """
+        path = request.path
+
+        # Files that MUST be revalidated on every request
+        _no_cache_files = {'/', '/index.html', '/sw.js', '/manifest.webmanifest'}
+        if path in _no_cache_files or path.endswith('/sw.js'):
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        # Content-hashed assets (e.g. /assets/main-B5VrbcCU.js) → long cache
+        elif path.startswith('/assets/'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        # Service-worker.js (old Flask one) → always revalidate
+        elif path == '/service-worker.js':
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+
+        return response
 
     # Ensure CSRF cookie is set for SPA
     @app.after_request

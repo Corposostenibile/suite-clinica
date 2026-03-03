@@ -84,6 +84,7 @@ function ClientiListaPsicologia() {
       psicologa: searchParams.get('psicologa_id') || '',
       statoPsicologia: searchParams.get('stato_psicologia') || '',
       statoChatPsicologia: searchParams.get('stato_chat_psicologia') || '',
+      checkDay: searchParams.get('check_day') || '',
       reachOut: searchParams.get('reach_out_psicologia') || '',
       callInizialePsicologa: searchParams.get('call_iniziale_psicologa') || '',
     };
@@ -136,6 +137,7 @@ function ClientiListaPsicologia() {
         psicologa_id: filters.psicologa || undefined,
         stato_psicologia: filters.statoPsicologia || undefined,
         stato_chat_psicologia: filters.statoChatPsicologia || undefined,
+        check_day: filters.checkDay || undefined,
         reach_out_psicologia: filters.reachOut || undefined,
         call_iniziale_psicologa: filters.callInizialePsicologa || undefined,
       };
@@ -188,6 +190,7 @@ function ClientiListaPsicologia() {
     psicologa: 'psicologa_id',
     statoPsicologia: 'stato_psicologia',
     statoChatPsicologia: 'stato_chat_psicologia',
+    checkDay: 'check_day',
     reachOut: 'reach_out_psicologia',
     callInizialePsicologa: 'call_iniziale_psicologa',
   };
@@ -208,7 +211,7 @@ function ClientiListaPsicologia() {
   const resetFilters = () => {
     const clean = {
       search: '', stato: '', tipologia: '', psicologa: '',
-      statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
+      statoPsicologia: '', statoChatPsicologia: '', checkDay: '', reachOut: '',
       callInizialePsicologa: '',
     };
     PATOLOGIE_PSICO.forEach(p => { clean[p.key] = '0'; });

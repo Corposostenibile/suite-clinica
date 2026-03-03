@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dtelecom/components-react": "^1.0.46",
+    "@dtelecom/components-styles": "^1.0.27",
+    "@dtelecom/livekit-client": "^1.12.21",
     "@n8tb1t/use-scroll-position": "^4.0.0",
     "axios": "^1.13.2",
     "react": "^19.2.0",

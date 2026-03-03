@@ -43,6 +43,38 @@ __all__ = [
 ]
 
 # ────────────────────────────────────────────────────────────────────────────
+# GiornoEnum variant expansion (lun↔lunedi, mar↔martedi, ecc.)
+# Il DB può contenere sia la forma breve che quella completa.
+# ────────────────────────────────────────────────────────────────────────────
+_GIORNO_SIBLING: dict[GiornoEnum, GiornoEnum] = {
+    GiornoEnum.lun: GiornoEnum.lunedi,
+    GiornoEnum.lunedi: GiornoEnum.lun,
+    GiornoEnum.mar: GiornoEnum.martedi,
+    GiornoEnum.martedi: GiornoEnum.mar,
+    GiornoEnum.mer: GiornoEnum.mercoledi,
+    GiornoEnum.mercoledi: GiornoEnum.mer,
+    GiornoEnum.gio: GiornoEnum.giovedi,
+    GiornoEnum.giovedi: GiornoEnum.gio,
+    GiornoEnum.ven: GiornoEnum.venerdi,
+    GiornoEnum.venerdi: GiornoEnum.ven,
+    GiornoEnum.sab: GiornoEnum.sabato,
+    GiornoEnum.sabato: GiornoEnum.sab,
+    GiornoEnum.dom: GiornoEnum.domenica,
+    GiornoEnum.domenica: GiornoEnum.dom,
+}
+
+
+def _expand_giorni(giorni: list[GiornoEnum]) -> list[GiornoEnum]:
+    """Espande una lista di GiornoEnum includendo entrambe le varianti (breve/completa)."""
+    expanded = set()
+    for g in giorni:
+        expanded.add(g)
+        sib = _GIORNO_SIBLING.get(g)
+        if sib:
+            expanded.add(sib)
+    return list(expanded)
+
+# ────────────────────────────────────────────────────────────────────────────
 # Patch globale: len(AppenderQuery) → count()
 # ────────────────────────────────────────────────────────────────────────────
 def _aq_len(self):  # type: ignore[no-self-use]
@@ -764,17 +796,13 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         qry = qry.filter(Cliente.trasformazione_fisica_condivisa == p.trasformazione_fisica_condivisa)
     
     if p.check_day is not None:
-        qry = qry.filter(Cliente.check_day == p.check_day)
+        qry = qry.filter(Cliente.check_day.in_(_expand_giorni([p.check_day])))
     
     if p.reach_out:
-        # reach_out è un GiornoEnum, non serve lower()
         try:
-            from corposostenibile.models import GiornoEnum
-            # Prova a convertire il valore in GiornoEnum
             giorno_value = GiornoEnum(p.reach_out.lower())
-            qry = qry.filter(Cliente.reach_out == giorno_value)
+            qry = qry.filter(Cliente.reach_out.in_(_expand_giorni([giorno_value])))
         except (ValueError, AttributeError):
-            # Se non è un valore valido di GiornoEnum, ignora il filtro
             pass
 
     # -------- range -------------
@@ -1105,7 +1133,7 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     if p.data_call_iniziale_nutrizionista_to:
         qry = qry.filter(Cliente.data_call_iniziale_nutrizionista <= p.data_call_iniziale_nutrizionista_to)
     if p.reach_out_nutrizione:
-        qry = qry.filter(Cliente.reach_out_nutrizione.in_(p.reach_out_nutrizione))
+        qry = qry.filter(Cliente.reach_out_nutrizione.in_(_expand_giorni(p.reach_out_nutrizione)))
     if p.dieta_dal_from:
         qry = qry.filter(Cliente.dieta_dal >= p.dieta_dal_from)
     if p.dieta_dal_to:
@@ -1170,7 +1198,7 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     if p.data_call_iniziale_coach_to:
         qry = qry.filter(Cliente.data_call_iniziale_coach <= p.data_call_iniziale_coach_to)
     if p.reach_out_coaching:
-        qry = qry.filter(Cliente.reach_out_coaching.in_(p.reach_out_coaching))
+        qry = qry.filter(Cliente.reach_out_coaching.in_(_expand_giorni(p.reach_out_coaching)))
     if p.luogo_di_allenamento:
         qry = qry.filter(Cliente.luogo_di_allenamento.in_(p.luogo_di_allenamento))
     if p.missing_call_iniziale_coach:
@@ -1197,7 +1225,7 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     if p.data_call_iniziale_psicologia_to:
         qry = qry.filter(Cliente.data_call_iniziale_psicologia <= p.data_call_iniziale_psicologia_to)
     if p.reach_out_psicologia:
-        qry = qry.filter(Cliente.reach_out_psicologia.in_(p.reach_out_psicologia))
+        qry = qry.filter(Cliente.reach_out_psicologia.in_(_expand_giorni(p.reach_out_psicologia)))
     if p.missing_call_iniziale_psicologa:
         qry = qry.filter(
             or_(

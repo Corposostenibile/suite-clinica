@@ -14491,5 +14491,65 @@ class TeamTicketStatusChange(TimestampMixin, db.Model):
         }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  VIDEO CALLS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class VideoCallSession(db.Model):
+    """A video call session between a professional and a client."""
+    __tablename__ = 'video_call_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    room_name = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    session_token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+
+    # Participants
+    professionista_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey('clienti.cliente_id'), nullable=True)
+
+    # Status: scheduled | waiting | active | ended | cancelled
+    status = db.Column(db.String(20), default='waiting', nullable=False)
+
+    # Scheduling
+    scheduled_at = db.Column(db.DateTime, nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    started_at = db.Column(db.DateTime)
+    ended_at = db.Column(db.DateTime)
+    duration_seconds = db.Column(db.Integer)
+
+    # Metadata
+    notes = db.Column(db.Text)
+
+    # Recording
+    recording_path = db.Column(db.String(500), nullable=True)
+    transcription = db.Column(db.Text, nullable=True)
+
+    # Relationships
+    professionista = db.relationship('User', foreign_keys=[professionista_id], lazy='joined')
+    cliente = db.relationship('Cliente', foreign_keys=[cliente_id], lazy='joined')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'room_name': self.room_name,
+            'session_token': self.session_token,
+            'professionista_id': self.professionista_id,
+            'professionista_name': self.professionista.full_name if self.professionista else None,
+            'cliente_id': self.cliente_id,
+            'cliente_name': self.cliente.nome_cognome if self.cliente else None,
+            'status': self.status,
+            'scheduled_at': self.scheduled_at.isoformat() if self.scheduled_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
+            'duration_seconds': self.duration_seconds,
+            'notes': self.notes,
+            'recording_url': f'/uploads/{self.recording_path}' if self.recording_path else None,
+            'transcription': self.transcription,
+        }
+
+
 configure_mappers()          # deve vedere anche Task
 ClienteVersion = version_class(Cliente)

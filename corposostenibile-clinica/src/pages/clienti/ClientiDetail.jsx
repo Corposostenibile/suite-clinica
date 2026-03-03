@@ -22,6 +22,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
 import teamTicketsService from '../../services/teamTicketsService';
+import videoCallService from '../../services/videoCallService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -116,6 +117,7 @@ const PROFESSIONI_OPTIONS = [
 
 function ClientiDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -153,11 +155,11 @@ function ClientiDetail() {
     if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'check_iniziali', 'tickets', 'call_bonus'
+        'check_periodici', 'check_iniziali', 'tickets', 'call_bonus', 'appuntamenti'
       ]);
     }
 
-    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'check_iniziali', 'tickets', 'call_bonus']);
+    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'check_iniziali', 'tickets', 'call_bonus', 'appuntamenti']);
     if (isRestrictedTeamLeader) {
       allowed.add('team');
     }
@@ -619,7 +621,6 @@ function ClientiDetail() {
   };
 
   // Support Hub Integration: Auto-start tour if query param is set
-  const [searchParams] = useSearchParams();
   useEffect(() => {
     if (searchParams.get('startTour') === 'true' && !loading) {
         // Avvia il tour con un leggero ritardo per assicurare il rendering
@@ -815,6 +816,14 @@ function ClientiDetail() {
   const [callBonusInterestStep, setCallBonusInterestStep] = useState('ask'); // 'ask' | 'book_hm'
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [decliningCallBonus, setDecliningCallBonus] = useState(false);
+
+  // ── Appuntamenti (Video Calls) state ──
+  const [videoCalls, setVideoCalls] = useState([]);
+  const [loadingVideoCalls, setLoadingVideoCalls] = useState(false);
+  const [showNewCallModal, setShowNewCallModal] = useState(false);
+  const [newCallForm, setNewCallForm] = useState({ date: '', time: '', notes: '' });
+  const [creatingCall, setCreatingCall] = useState(false);
+  const [joiningCallId, setJoiningCallId] = useState(null);
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
@@ -1209,6 +1218,62 @@ function ClientiDetail() {
       fetchCallBonusHistory();
     }
   }, [activeTab, fetchCallBonusHistory]);
+
+  // ── Fetch Video Calls (Appuntamenti) ──
+  const fetchVideoCalls = useCallback(async () => {
+    if (!id) return;
+    setLoadingVideoCalls(true);
+    try {
+      const res = await videoCallService.getClientCalls(id, Date.now());
+      setVideoCalls(res.data?.sessions || []);
+    } catch (err) {
+      console.error('Error fetching video calls:', err);
+    } finally {
+      setLoadingVideoCalls(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'appuntamenti') {
+      fetchVideoCalls();
+    }
+  }, [activeTab, fetchVideoCalls]);
+
+  const handleCreateScheduledCall = async () => {
+    if (!newCallForm.date || !newCallForm.time) return;
+    setCreatingCall(true);
+    try {
+      const scheduledAt = new Date(`${newCallForm.date}T${newCallForm.time}`).toISOString();
+      const res = await videoCallService.createCall(id, { scheduledAt, notes: newCallForm.notes });
+      // Add the newly created session to local state immediately
+      if (res.data?.session) {
+        setVideoCalls(prev => [res.data.session, ...prev]);
+      }
+      setShowNewCallModal(false);
+      setNewCallForm({ date: '', time: '', notes: '' });
+    } catch (err) {
+      console.error('Error creating scheduled call:', err);
+      alert('Errore nella creazione della videochiamata');
+    } finally {
+      setCreatingCall(false);
+    }
+  };
+
+  const handleJoinCall = async (session) => {
+    setJoiningCallId(session.id);
+    try {
+      const res = await videoCallService.joinCall(session.id);
+      const { token, wsUrl, session: updatedSession } = res.data;
+      navigate(`/video-call-room/${session.session_token}`, {
+        state: { token, wsUrl, session: updatedSession, clienteName: cliente?.nome_cognome },
+      });
+    } catch (err) {
+      console.error('Error joining call:', err);
+      alert('Errore nell\'avvio della videochiamata');
+    } finally {
+      setJoiningCallId(null);
+    }
+  };
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
@@ -2588,6 +2653,7 @@ function ClientiDetail() {
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
+    { id: 'appuntamenti', label: 'Appuntamenti', icon: 'ri-calendar-event-line' },
   ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
 
   useEffect(() => {
@@ -2659,46 +2725,46 @@ function ClientiDetail() {
   return (
     <>
       <SupportWidget
-        pageTitle="Dettaglio Paziente"
-        pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
-        pageIcon={FaUserCircle}
-        docsSection="la-scheda-completa-del-paziente"
-        onStartTour={handleTourStart}
-        brandName="Suite Clinica"
-        logoSrc="/suitemind.png"
-        accentColor="#85FF00"
-      />
-      {/* Page Header */}
-      <div className="cd-page-header" data-tour="header-dettaglio">
-        <div>
-          <h4>Dettaglio Paziente</h4>
-          <nav aria-label="breadcrumb">
-            <ul className="cd-breadcrumb">
-              <li>
-                <Link to="/clienti-lista">Pazienti</Link>
-              </li>
-              <li className="cd-breadcrumb-sep">{c.nome}</li>
-            </ul>
-          </nav>
-        </div>
-        <div className="cd-header-actions">
-          <Link to="/clienti-lista" className="cd-btn-back">
-            <i className="ri-arrow-left-line"></i>
-            Torna alla Lista
-          </Link>
-          {canSaveGlobalClientCard && (
-            <button className="cd-btn-save" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
-              {saving ? (
-                <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
-              ) : saveSuccess ? (
-                <><i className="ri-check-line"></i>Salvato!</>
-              ) : (
-                <><i className="ri-save-line"></i>Salva Modifiche</>
+            pageTitle="Dettaglio Paziente"
+            pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
+            pageIcon={FaUserCircle}
+            docsSection="la-scheda-completa-del-paziente"
+            onStartTour={handleTourStart}
+            brandName="Suite Clinica"
+            logoSrc="/suitemind.png"
+            accentColor="#85FF00"
+          />
+          {/* Page Header */}
+          <div className="cd-page-header" data-tour="header-dettaglio">
+            <div>
+              <h4>Dettaglio Paziente</h4>
+              <nav aria-label="breadcrumb">
+                <ul className="cd-breadcrumb">
+                  <li>
+                    <Link to="/clienti-lista">Pazienti</Link>
+                  </li>
+                  <li className="cd-breadcrumb-sep">{c.nome}</li>
+                </ul>
+              </nav>
+            </div>
+            <div className="cd-header-actions">
+              <Link to="/clienti-lista" className="cd-btn-back">
+                <i className="ri-arrow-left-line"></i>
+                Torna alla Lista
+              </Link>
+              {canSaveGlobalClientCard && (
+                <button className="cd-btn-save" onClick={handleSave} disabled={saving} data-tour="salva-modifiche">
+                  {saving ? (
+                    <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
+                  ) : saveSuccess ? (
+                    <><i className="ri-check-line"></i>Salvato!</>
+                  ) : (
+                    <><i className="ri-save-line"></i>Salva Modifiche</>
+                  )}
+                </button>
               )}
-            </button>
-          )}
-        </div>
-      </div>
+            </div>
+          </div>
 
       {/* Success/Error alerts */}
       {saveSuccess && (
@@ -7257,6 +7323,182 @@ function ClientiDetail() {
                       In arrivo — v1.1
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* ==================== APPUNTAMENTI TAB ==================== */}
+              {activeTab === 'appuntamenti' && (
+                <div className="cd-tab-content">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <h5 style={{ margin: 0, fontWeight: 600 }}>
+                      <i className="ri-calendar-event-line me-2"></i>Videochiamate
+                    </h5>
+                    <button
+                      className="cd-btn cd-btn-primary"
+                      onClick={() => setShowNewCallModal(true)}
+                    >
+                      <i className="ri-video-add-line me-1"></i>
+                      Nuova Videochiamata
+                    </button>
+                  </div>
+
+                  {loadingVideoCalls ? (
+                    <div className="cd-loading">
+                      <div className="cd-spinner"></div>
+                      <p className="cd-loading-text">Caricamento...</p>
+                    </div>
+                  ) : videoCalls.length === 0 ? (
+                    <div className="cd-empty-state">
+                      <i className="ri-video-chat-line" style={{ fontSize: 48, opacity: 0.3 }}></i>
+                      <p className="text-muted mt-2">Nessuna videochiamata programmata</p>
+                    </div>
+                  ) : (
+                    <div className="cd-table-wrapper">
+                      <table className="cd-table">
+                        <thead>
+                          <tr>
+                            <th>Data / Ora</th>
+                            <th>Professionista</th>
+                            <th>Stato</th>
+                            <th>Note</th>
+                            <th>Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {videoCalls.map((vc) => {
+                            const displayDate = vc.scheduled_at || vc.created_at;
+                            const statusConfig = {
+                              scheduled: { label: 'Programmata', bg: '#dbeafe', color: '#1e40af' },
+                              waiting: { label: 'In attesa', bg: '#fef3c7', color: '#92400e' },
+                              active: { label: 'In corso', bg: '#d1fae5', color: '#065f46' },
+                              ended: { label: 'Conclusa', bg: '#f3f4f6', color: '#374151' },
+                              cancelled: { label: 'Annullata', bg: '#fee2e2', color: '#991b1b' },
+                            };
+                            const st = statusConfig[vc.status] || statusConfig.ended;
+
+                            return (
+                              <tr key={vc.id}>
+                                <td>
+                                  {displayDate
+                                    ? new Date(displayDate).toLocaleString('it-IT', {
+                                        day: '2-digit', month: '2-digit', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit',
+                                      })
+                                    : '—'}
+                                </td>
+                                <td>{vc.professionista_name || '—'}</td>
+                                <td>
+                                  <span className="cd-badge" style={{ background: st.bg, color: st.color }}>
+                                    {st.label}
+                                  </span>
+                                </td>
+                                <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {vc.notes || '—'}
+                                </td>
+                                <td>
+                                  {(vc.status === 'scheduled' || vc.status === 'waiting' || vc.status === 'active') && (
+                                    <button
+                                      className="cd-btn cd-btn-sm cd-btn-primary"
+                                      onClick={() => handleJoinCall(vc)}
+                                      disabled={joiningCallId === vc.id}
+                                    >
+                                      {joiningCallId === vc.id ? (
+                                        <><span className="spinner-border spinner-border-sm me-1"></span>Connessione...</>
+                                      ) : (
+                                        <><i className="ri-video-chat-line me-1"></i>Partecipa</>
+                                      )}
+                                    </button>
+                                  )}
+                                  {(vc.status === 'scheduled' || vc.status === 'waiting') && (
+                                    <button
+                                      className="cd-btn cd-btn-sm cd-btn-outline ms-1"
+                                      onClick={() => {
+                                        const link = `${window.location.origin}/video-call/join/${vc.session_token}`;
+                                        navigator.clipboard.writeText(link);
+                                      }}
+                                      title="Copia link cliente"
+                                    >
+                                      <i className="ri-link"></i>
+                                    </button>
+                                  )}
+                                  {vc.status === 'ended' && vc.recording_url && (
+                                    <button
+                                      className="cd-btn cd-btn-sm cd-btn-outline ms-1"
+                                      onClick={() => navigate(`/video-call/replay/${vc.id}`)}
+                                      title="Vedi registrazione"
+                                    >
+                                      <i className="ri-play-circle-line me-1"></i>Vedi call
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* ── New Call Modal ── */}
+                  {showNewCallModal && (
+                    <div className="cd-modal-backdrop" onClick={() => setShowNewCallModal(false)}>
+                      <div className="cd-modal sm" onClick={(e) => e.stopPropagation()}>
+                        <div className="cd-modal-header">
+                          <h5><i className="ri-video-add-line me-2"></i>Nuova Videochiamata</h5>
+                          <button className="cd-modal-close" onClick={() => setShowNewCallModal(false)}>
+                            <i className="ri-close-line"></i>
+                          </button>
+                        </div>
+                        <div className="cd-modal-body">
+                          <div className="cd-form-group">
+                            <label className="cd-label">Data</label>
+                            <input
+                              type="date"
+                              className="cd-input"
+                              value={newCallForm.date}
+                              onChange={(e) => setNewCallForm(f => ({ ...f, date: e.target.value }))}
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div className="cd-form-group">
+                            <label className="cd-label">Ora</label>
+                            <input
+                              type="time"
+                              className="cd-input"
+                              value={newCallForm.time}
+                              onChange={(e) => setNewCallForm(f => ({ ...f, time: e.target.value }))}
+                            />
+                          </div>
+                          <div className="cd-form-group">
+                            <label className="cd-label">Note (opzionale)</label>
+                            <textarea
+                              className="cd-input"
+                              rows={3}
+                              value={newCallForm.notes}
+                              onChange={(e) => setNewCallForm(f => ({ ...f, notes: e.target.value }))}
+                              placeholder="Note per la videochiamata..."
+                            />
+                          </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                          <button className="cd-btn cd-btn-outline" onClick={() => setShowNewCallModal(false)}>
+                            Annulla
+                          </button>
+                          <button
+                            className="cd-btn cd-btn-primary"
+                            onClick={handleCreateScheduledCall}
+                            disabled={!newCallForm.date || !newCallForm.time || creatingCall}
+                          >
+                            {creatingCall ? (
+                              <><span className="spinner-border spinner-border-sm me-1"></span>Creazione...</>
+                            ) : (
+                              <><i className="ri-calendar-check-line me-1"></i>Programma</>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
