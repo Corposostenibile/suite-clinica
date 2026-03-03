@@ -1106,7 +1106,7 @@ function ClientiDetail() {
     setShowCheckResponseModal(true);
     setLoadingCheckDetail(true);
     try {
-      const result = await checkService.getResponseDetail(response.type, response.id);
+      const result = await checkService.getResponseDetail(response.source || response.type, response.id);
       if (result.success) {
         setSelectedCheckResponse(result.response);
       }
@@ -6827,17 +6827,17 @@ function ClientiDetail() {
                                 {checkData.responses
                                   .filter(r => r.type === activePeriodiciTab)
                                   .map((response) => (
-                                  <tr key={`${response.type}-${response.id}`}>
+                                  <tr key={`${response.source || response.type}-${response.id}`}>
                                     <td>
                                       <span style={{ fontWeight: 500 }}>{response.submit_date}</span>
                                     </td>
                                     <td>
                                       <span className="cd-badge" style={{
-                                        background: CHECK_TYPES[response.type]?.bgColor || '#f1f5f9',
-                                        color: CHECK_TYPES[response.type]?.color || '#64748b',
+                                        background: response.source === 'typeform' ? '#f0f4ff' : (CHECK_TYPES[response.type]?.bgColor || '#f1f5f9'),
+                                        color: response.source === 'typeform' ? '#6366f1' : (CHECK_TYPES[response.type]?.color || '#64748b'),
                                       }}>
-                                        <i className={CHECK_TYPES[response.type]?.icon}></i>
-                                        {CHECK_TYPES[response.type]?.label || response.type}
+                                        <i className={response.source === 'typeform' ? 'ri-survey-line' : CHECK_TYPES[response.type]?.icon}></i>
+                                        {response.source === 'typeform' ? 'TypeForm' : (CHECK_TYPES[response.type]?.label || response.type)}
                                       </span>
                                     </td>
                                     <td style={{ textAlign: 'center' }}>

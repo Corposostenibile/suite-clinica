@@ -2785,7 +2785,8 @@ def api_cliente_checks(cliente_id: int):
         WeeklyCheck, WeeklyCheckResponse,
         DCACheck, DCACheckResponse,
         MinorCheck, MinorCheckResponse,
-        ClientCheckReadConfirmation
+        ClientCheckReadConfirmation,
+        TypeFormResponse,
     )
 
     try:
@@ -2894,6 +2895,36 @@ def api_cliente_checks(cliente_id: int):
                     "score_global": resp.score_global,
                     "is_read": True  # Minor checks don't track read status
                 })
+
+        # TypeForm Responses (old check system) — show as "weekly" sub-type "typeform"
+        typeform_responses = (
+            TypeFormResponse.query
+            .filter_by(cliente_id=cliente_id)
+            .order_by(TypeFormResponse.submit_date.desc())
+            .all()
+        )
+        for resp in typeform_responses:
+            result["responses"].append({
+                "id": resp.id,
+                "type": "weekly",
+                "source": "typeform",
+                "submit_date": resp.submit_date.strftime('%d/%m/%Y %H:%M') if resp.submit_date else None,
+                "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
+                "completion_percentage": None,
+                "weight": resp.weight,
+                "progress_rating": resp.progress_rating,
+                "nutritionist_rating": resp.nutritionist_rating,
+                "psychologist_rating": resp.psychologist_rating,
+                "coach_rating": resp.coach_rating,
+                "nutritionist_user_id": resp.nutritionist_user_id,
+                "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
+                "psychologist_user_id": resp.psychologist_user_id,
+                "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
+                "coach_user_id": resp.coach_user_id,
+                "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
+                "is_read": True,
+                "read_at": None,
+            })
 
         # Sort all responses by date
         result["responses"].sort(key=lambda x: x["submit_date_iso"] or "", reverse=True)
@@ -3208,7 +3239,7 @@ def api_get_response_detail(response_type: str, response_id: int):
     """
     from corposostenibile.models import (
         WeeklyCheckResponse, DCACheckResponse, MinorCheckResponse,
-        ClientCheckReadConfirmation
+        ClientCheckReadConfirmation, TypeFormResponse,
     )
 
     try:
@@ -3279,6 +3310,68 @@ def api_get_response_detail(response_type: str, response_id: int):
                 "photo_front": _photo_path_to_url(resp.photo_front),
                 "photo_side": _photo_path_to_url(resp.photo_side),
                 "photo_back": _photo_path_to_url(resp.photo_back),
+            }
+
+        elif response_type == 'typeform':
+            resp = TypeFormResponse.query.get_or_404(response_id)
+            if resp.cliente_id and not _can_access_cliente_checks(resp.cliente_id):
+                abort(HTTPStatus.FORBIDDEN, description="Non autorizzato")
+
+            data = {
+                "id": resp.id,
+                "type": "weekly",
+                "source": "typeform",
+                "cliente_id": resp.cliente_id,
+                "cliente_nome": resp.cliente.nome_cognome if resp.cliente else f"{resp.first_name} {resp.last_name}",
+                "submit_date": resp.submit_date.strftime('%d/%m/%Y %H:%M') if resp.submit_date else None,
+                "completion_percentage": None,
+                "is_read": True,
+                # Wellness ratings
+                "digestion_rating": resp.digestion_rating,
+                "energy_rating": resp.energy_rating,
+                "strength_rating": resp.strength_rating,
+                "hunger_rating": resp.hunger_rating,
+                "sleep_rating": resp.sleep_rating,
+                "mood_rating": resp.mood_rating,
+                "motivation_rating": resp.motivation_rating,
+                # Professional ratings
+                "nutritionist_rating": resp.nutritionist_rating,
+                "nutritionist_feedback": resp.nutritionist_feedback,
+                "nutritionist_user_id": resp.nutritionist_user_id,
+                "nutritionist_name": (resp.nutritionist_user.full_name or resp.nutritionist_user.email) if resp.nutritionist_user else None,
+                "psychologist_rating": resp.psychologist_rating,
+                "psychologist_feedback": resp.psychologist_feedback,
+                "psychologist_user_id": resp.psychologist_user_id,
+                "psychologist_name": (resp.psychologist_user.full_name or resp.psychologist_user.email) if resp.psychologist_user else None,
+                "coach_rating": resp.coach_rating,
+                "coach_feedback": resp.coach_feedback,
+                "coach_user_id": resp.coach_user_id,
+                "coach_name": (resp.coach_user.full_name or resp.coach_user.email) if resp.coach_user else None,
+                # Progress
+                "progress_rating": resp.progress_rating,
+                "coordinator_rating": resp.coordinator_rating,
+                "coordinator_notes": resp.coordinator_notes,
+                # Physical
+                "weight": resp.weight,
+                # Text fields
+                "what_worked": resp.what_worked,
+                "what_didnt_work": resp.what_didnt_work,
+                "what_learned": resp.what_learned,
+                "what_focus_next": resp.what_focus_next,
+                "injuries_notes": resp.injuries_notes,
+                "nutrition_program_adherence": resp.nutrition_program_adherence,
+                "training_program_adherence": resp.training_program_adherence,
+                "exercise_modifications": resp.exercise_modifications,
+                "daily_steps": resp.daily_steps,
+                "completed_training_weeks": resp.completed_training_weeks,
+                "planned_training_days": resp.planned_training_days,
+                "live_session_topics": resp.live_session_topics,
+                "extra_comments": resp.extra_comments,
+                "referral": resp.referral,
+                # Photos (TypeForm stores URLs directly)
+                "photo_front": resp.photo_front,
+                "photo_side": resp.photo_side,
+                "photo_back": resp.photo_back,
             }
 
         elif response_type == 'dca':
