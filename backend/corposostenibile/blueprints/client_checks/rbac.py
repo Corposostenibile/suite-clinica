@@ -39,7 +39,7 @@ def get_accessible_clients_query():
     # Admin: vede tutto
     if getattr(current_user, 'is_admin', False) or getattr(current_user, 'role', None) == 'admin':
         return None
-    # Team Leader: clienti dei membri dei team che guida
+    # Team Leader: clienti dei membri dei team che guida (incluso sé stesso)
     if current_user.teams_led:
         managed_team_ids = [t.id for t in current_user.teams_led]
         team_members_query = (
@@ -47,14 +47,22 @@ def get_accessible_clients_query():
             .join(User.teams)
             .filter(Team.id.in_(managed_team_ids))
         )
+        # Include the team leader themselves in the visible member IDs
+        team_member_ids_with_leader = team_members_query.union(
+            db.session.query(db.literal(current_user.id))
+        )
         return (
             db.session.query(Cliente.cliente_id)
             .filter(
                 or_(
-                    Cliente.nutrizionista_id.in_(team_members_query),
-                    Cliente.coach_id.in_(team_members_query),
-                    Cliente.psicologa_id.in_(team_members_query),
-                    Cliente.consulente_alimentare_id.in_(team_members_query),
+                    Cliente.nutrizionista_id.in_(team_member_ids_with_leader),
+                    Cliente.coach_id.in_(team_member_ids_with_leader),
+                    Cliente.psicologa_id.in_(team_member_ids_with_leader),
+                    Cliente.consulente_alimentare_id.in_(team_member_ids_with_leader),
+                    Cliente.nutrizionisti_multipli.any(User.id.in_(team_member_ids_with_leader)),
+                    Cliente.coaches_multipli.any(User.id.in_(team_member_ids_with_leader)),
+                    Cliente.psicologi_multipli.any(User.id.in_(team_member_ids_with_leader)),
+                    Cliente.consulenti_multipli.any(User.id.in_(team_member_ids_with_leader)),
                 )
             )
         )
