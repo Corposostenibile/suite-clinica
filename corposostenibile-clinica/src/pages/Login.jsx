@@ -56,7 +56,8 @@ function Login() {
       );
 
       if (response.success) {
-        const next = searchParams.get('next') || '/welcome';
+        const defaultRoute = response.user?.role === 'influencer' ? '/clienti-lista' : '/welcome';
+        const next = searchParams.get('next') || defaultRoute;
         window.location.href = next;
       }
     } catch (err) {

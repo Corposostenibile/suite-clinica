@@ -3,6 +3,20 @@
    Accent: #25B36A
    ============================================ */
 
+/* ── Read-only mode (Influencer) ── */
+.cd-readonly input,
+.cd-readonly select,
+.cd-readonly textarea {
+  pointer-events: none;
+  opacity: 0.75;
+}
+.cd-readonly button:not(.cd-btn-back) {
+  display: none;
+}
+.cd-readonly .cd-btn-save {
+  display: none;
+}
+
 /* ── Page Header ── */
 .cd-page-header {
   display: flex;

@@ -124,7 +124,8 @@ function ClientiDetail() {
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
-  const canSaveGlobalClientCard = true;
+  const isInfluencer = user?.role === 'influencer';
+  const canSaveGlobalClientCard = !isInfluencer;
   const canManageTeamAssignments = !isProfessionista && !isHealthManager;
   // La generazione dei check periodici è consentita anche al professionista:
   // il backend applica il vero controllo RBAC sul paziente.
@@ -2716,7 +2717,7 @@ function ClientiDetail() {
         </div>
       )}
 
-      <div className="cd-layout">
+      <div className={`cd-layout${isInfluencer ? ' cd-readonly' : ''}`}>
         {/* Profile Card - Left Column */}
         <div data-tour="profilo-paziente">
           <div className="cd-profile-card">

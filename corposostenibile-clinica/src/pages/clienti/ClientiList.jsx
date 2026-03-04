@@ -38,6 +38,7 @@ function ClientiList() {
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
   const isProfessionista = isProfessionistaStandard(user);
+  const isInfluencer = user?.role === 'influencer';
   const teamLeaderSpecialtyGroup = (() => {
     const s = String(user?.specialty || '').toLowerCase();
     if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
@@ -310,7 +311,9 @@ function ClientiList() {
   });
 
   // Build stat cards: professionals/TL with specialty see attivo/ghost/pausa/stop from backend KPI
+  // Influencers don't see KPI cards
   const statCards = (() => {
+    if (isInfluencer) return [];
     if (professionistaView && specialtyKpi) {
       return [
         { key: 'tot', label: 'Pazienti Totali', value: pagination.total, icon: 'ri-group-line' },
