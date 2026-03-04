@@ -186,7 +186,7 @@ function Login() {
         </div>
       </div>
 
-      <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered>
+      <Modal show={showSupportModal} onHide={() => setShowSupportModal(false)} centered dialogClassName="modal-mobile-full">
         <Modal.Header closeButton>
           <Modal.Title>Supporto Suite Clinica</Modal.Title>
         </Modal.Header>

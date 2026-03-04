@@ -106,7 +106,7 @@
     --cs-header-height: 5rem;
     /*  80px */
     --cs-bottom-nav-height: 0px;
-    /* 0 su desktop, 56px su mobile */
+    /* Riservato a eventuale bottom navigation (0 desktop; 56px su mobile). Usare per padding-bottom del content se si aggiunge una bottom bar. */
     --cs-content-padding: 1.875rem;
     /*  30px */
 

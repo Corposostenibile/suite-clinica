@@ -162,7 +162,7 @@ function DashboardContent() {
       </div>
 
       {/* Ticket Modal */}
-      <Modal show={showTicketModal} onHide={() => setShowTicketModal(false)} centered>
+      <Modal show={showTicketModal} onHide={() => setShowTicketModal(false)} centered dialogClassName="modal-mobile-full">
         <Modal.Header closeButton>
           <Modal.Title>Supporto Suite Clinica</Modal.Title>
         </Modal.Header>

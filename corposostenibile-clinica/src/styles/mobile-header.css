@@ -201,7 +201,7 @@
 }
 
 #main-wrapper.compact-topbar .content-body {
-  padding-top: calc(var(--mh-bar-height) + var(--mh-outer-margin) + 24px) !important;
+  padding-top: calc(var(--mh-bar-height) + var(--mh-outer-margin) + 24px + env(safe-area-inset-top, 0)) !important;
 }
 
 #main-wrapper.compact-topbar .deznav {

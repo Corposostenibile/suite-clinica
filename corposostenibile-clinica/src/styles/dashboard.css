@@ -49,27 +49,7 @@ body {
   background-color: var(--body-bg);
 }
 
-/* ===================================================================
-   TABS SCROLL MOBILE - scroll orizzontale con dito su viewport stretti
-   =================================================================== */
-
-.tabs-scroll-mobile {
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  /* Vincola la larghezza così il contenuto più largo crea overflow e lo scroll funziona */
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  /* Abilita esplicitamente lo scroll orizzontale con il dito */
-  touch-action: pan-x;
-}
-
-.tabs-scroll-mobile::-webkit-scrollbar {
-  display: none;
-}
+/* .tabs-scroll-mobile: definita in styles/custom-overrides.css (unica definizione) */
 
 /* ===================================================================
    NAV HEADER (Logo + Hamburger)

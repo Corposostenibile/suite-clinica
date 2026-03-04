@@ -501,6 +501,7 @@ const GlobalSearchPage = () => {
                 onHide={() => setSelectedResult(null)}
                 centered
                 className="preview-modal"
+                dialogClassName="modal-mobile-full"
             >
                 {selectedResult && (() => {
                     const typeInfo = getModalTypeInfo(selectedResult);

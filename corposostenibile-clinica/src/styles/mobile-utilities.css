@@ -49,6 +49,19 @@
         margin-bottom: 4px !important;
     }
 
+    /* ---- FORMS GLOBAL (content-body): touch target + no zoom iOS ---- */
+    .content-body input.form-control,
+    .content-body select.form-select,
+    .content-body textarea.form-control,
+    .content-body .btn:not(.btn-link) {
+        min-height: var(--cs-touch-min, 44px);
+        font-size: 16px !important;
+    }
+
+    .content-body label {
+        font-size: 13px !important;
+    }
+
     /* ---- SCROLLABLE CONTAINERS ---- */
     /* Use for tabs, badge lists, etc. */
     .mobile-scroll-x {

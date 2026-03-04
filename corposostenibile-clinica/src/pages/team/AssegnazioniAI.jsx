@@ -655,7 +655,7 @@ function AssegnazioniAI() {
         </div>
       )}
 
-      <Modal show={showCheckResponseModal} onHide={() => setShowCheckResponseModal(false)} size="lg">
+      <Modal show={showCheckResponseModal} onHide={() => setShowCheckResponseModal(false)} size="lg" dialogClassName="modal-mobile-full">
         <Modal.Header closeButton>
           <Modal.Title>Check Compilato</Modal.Title>
         </Modal.Header>
@@ -719,7 +719,7 @@ function AssegnazioniAI() {
 
 
       {/* Existing Assignment Modal */}
-      <Modal show={showModal} onHide={() => setShowModal(false)}>
+      <Modal show={showModal} onHide={() => setShowModal(false)} dialogClassName="modal-mobile-full">
          <Modal.Header closeButton><Modal.Title>Dettagli Assegnazione</Modal.Title></Modal.Header>
          <Modal.Body>
              {selectedAssignment && (

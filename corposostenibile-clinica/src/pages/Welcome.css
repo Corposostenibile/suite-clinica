@@ -1029,13 +1029,26 @@
    =================================================================== */
 
 @media (max-width: 768px) {
+    .welcome-tabs-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .welcome-tabs-container::-webkit-scrollbar {
+        display: none;
+    }
+
     .welcome-tabs {
         gap: 2px;
+        flex-wrap: nowrap;
     }
 
     .welcome-tab {
         padding: 8px 14px;
         font-size: 13px;
+        white-space: nowrap;
     }
 
     .welcome-card-header,

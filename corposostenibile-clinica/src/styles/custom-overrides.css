@@ -61,11 +61,15 @@
   }
 }
 
-/* Layout più compatto su mobile (dashboard e pagine interne) */
+/* Layout più compatto su mobile (dashboard e pagine interne) + safe area notch/home indicator */
 @media (max-width: 767.98px) {
   .content-body .container-fluid {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+  }
+
+  .content-body {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0));
   }
 }
 

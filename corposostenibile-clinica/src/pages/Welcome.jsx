@@ -16,6 +16,7 @@ import {
   normalizeSpecialtyGroup,
 } from '../utils/rbacScope';
 import './Welcome.css';
+import './dashboard/dashboard-responsive.css';
 
 // Tab configuration
 const TABS = [
@@ -541,7 +542,7 @@ function LegacyWelcomeDashboard() {
   }, [visibleTabs, activeTab]);
 
   return (
-    <>
+    <div className="dashboard-page-container">
       {/* Header */}
       <div className="welcome-header">
         <div>
@@ -816,7 +817,7 @@ function LegacyWelcomeDashboard() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -930,7 +931,7 @@ function ProfessionistaDashboard({ user }) {
   ];
 
   return (
-    <>
+    <div className="dashboard-page-container">
       {/* Header */}
       <div className="welcome-header">
         <div>
@@ -1196,7 +1197,7 @@ function ProfessionistaDashboard({ user }) {
       {!loading && checkDashData?.recentResponses && checkDashData.recentResponses.length > 0 && (
         <ProfCheckRecent data={checkDashData} specialtyGroup={specialtyGroup} meta={meta} />
       )}
-    </>
+    </div>
   );
 }
 
