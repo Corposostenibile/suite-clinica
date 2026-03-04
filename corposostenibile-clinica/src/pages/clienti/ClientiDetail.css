@@ -207,6 +207,13 @@
   justify-content: center;
 }
 
+.cd-profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .cd-profile-avatar-text {
   font-size: 2rem;
   font-weight: 700;

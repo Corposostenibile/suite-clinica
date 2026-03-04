@@ -2740,7 +2740,15 @@ function ClientiDetail() {
               {/* Avatar */}
               <div className="cd-profile-avatar-wrap">
                 <div className="cd-profile-avatar">
-                  <span className="cd-profile-avatar-text">
+                  {cliente?.latest_photo_front ? (
+                    <img
+                      src={cliente.latest_photo_front}
+                      alt={c.nome}
+                      className="cd-profile-avatar-img"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                    />
+                  ) : null}
+                  <span className="cd-profile-avatar-text" style={cliente?.latest_photo_front ? { display: 'none' } : {}}>
                     {getInitials(c.nome)}
                   </span>
                 </div>

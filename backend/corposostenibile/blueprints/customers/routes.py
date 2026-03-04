@@ -1567,7 +1567,35 @@ def api_detail(cliente_id: int) -> Any:
     
     _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id, eager=True)
-    return jsonify({"data": cliente_schema.dump(cliente)})
+    result = cliente_schema.dump(cliente)
+
+    # Latest front photo from weekly checks or typeform as client avatar
+    from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck, TypeFormResponse
+    from corposostenibile.blueprints.client_checks.routes import _photo_path_to_url
+    latest_photo = None
+    # Try WeeklyCheckResponse first (newer system)
+    wc = (
+        db.session.query(WeeklyCheckResponse.photo_front)
+        .join(WeeklyCheck)
+        .filter(WeeklyCheck.cliente_id == cliente_id, WeeklyCheckResponse.photo_front.isnot(None))
+        .order_by(WeeklyCheckResponse.submit_date.desc())
+        .first()
+    )
+    if wc and wc[0]:
+        latest_photo = _photo_path_to_url(wc[0])
+    else:
+        # Fallback to TypeFormResponse
+        tf = (
+            db.session.query(TypeFormResponse.photo_front)
+            .filter(TypeFormResponse.cliente_id == cliente_id, TypeFormResponse.photo_front.isnot(None))
+            .order_by(TypeFormResponse.submit_date.desc())
+            .first()
+        )
+        if tf and tf[0]:
+            latest_photo = _photo_path_to_url(tf[0])
+    result['latest_photo_front'] = latest_photo
+
+    return jsonify({"data": result})
 
 @api_bp.route("/", methods=["POST"])
 @permission_required(CustomerPerm.CREATE)
