@@ -136,6 +136,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing, FaVideo } from 'react-icons/fa';
+import Swal from 'sweetalert2';
 import useLoom from '../hooks/useLoom';
 import loomService from '../services/loomService';
 
@@ -172,6 +173,18 @@ function SupportWidget({
     isInitialized: isLoomInitialized,
     isSupported: isLoomSupported,
   } = useLoom();
+
+  const showToast = (icon, title) => {
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon,
+      title,
+      showConfirmButton: false,
+      timer: 2600,
+      timerProgressBar: true,
+    });
+  };
 
   useEffect(() => {
     console.info('[LoomWidget] state changed', {
@@ -270,12 +283,12 @@ function SupportWidget({
 
   const handleSaveLoomDecision = async () => {
     if (!loomDraftVideo?.sharedUrl) {
-      alert('Link Loom non disponibile.');
+      showToast('error', 'Link Loom non disponibile');
       return;
     }
 
     if (associatePatient && !selectedPatientId) {
-      alert('Seleziona un paziente oppure disattiva l\'associazione.');
+      showToast('warning', 'Seleziona un paziente o disattiva l\'associazione');
       return;
     }
 
@@ -291,12 +304,12 @@ function SupportWidget({
         clienteId: associatePatient ? selectedPatientId : null,
       });
       console.info('[LoomWidget] recording saved successfully');
-      alert('Loom salvato nella tua libreria.');
+      showToast('success', 'Loom salvato nella tua libreria');
       resetLoomDecisionState();
     } catch (err) {
       console.error('[LoomWidget] save error', err);
       const message = err?.response?.data?.message || err?.message || 'Errore salvataggio Loom';
-      alert(message);
+      showToast('error', message);
     } finally {
       setIsSavingLoom(false);
     }
@@ -321,7 +334,7 @@ function SupportWidget({
         loomError,
         origin: window.location.origin,
       });
-      alert(loomError || 'Loom non pronto. Verifica APP_ID e ricarica la pagina.');
+      showToast('error', loomError || 'Loom non pronto. Verifica APP_ID e ricarica la pagina.');
       return;
     }
     setIsOpen(false);
@@ -329,7 +342,7 @@ function SupportWidget({
       console.info('[LoomWidget] recording callback received', video);
       if (!video?.sharedUrl) {
         console.warn('[LoomWidget] missing sharedUrl in callback payload');
-        alert('Registrazione completata ma link Loom non disponibile.');
+        showToast('error', 'Registrazione completata ma link Loom non disponibile');
         return;
       }
       setLoomDraftVideo(video);

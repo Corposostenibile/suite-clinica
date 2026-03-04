@@ -209,7 +209,6 @@ export function useLoom() {
       setIsRecording(false);
       console.error('[Loom] Errore durante la registrazione:', err);
       setError(message);
-      alert('Errore Loom: ' + message);
     }
   }, [loomSDK, initializeSdk]);
 
