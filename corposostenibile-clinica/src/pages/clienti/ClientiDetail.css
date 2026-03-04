@@ -10,7 +10,7 @@
   pointer-events: none;
   opacity: 0.75;
 }
-.cd-readonly button:not(.cd-btn-back) {
+.cd-readonly button:not(.cd-btn-back):not(.cd-tab):not(.cd-subtab):not(.cd-tabs-arrow) {
   display: none;
 }
 .cd-readonly .cd-btn-save {
