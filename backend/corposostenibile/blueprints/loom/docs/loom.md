@@ -1,55 +1,67 @@
-# Integrazione Loom (stato attuale)
+# Blueprint Loom: Nuovo Flusso Support Widget
 
-Questa pagina riassume come è gestita oggi l'integrazione Loom nel progetto, lato backend e collegamento con frontend.
+## Contesto: prima vs ora
 
-## Dove vive l'integrazione
+### Prima (esistente, non toccato)
+- `calendar` e `ghl_integration` già gestiscono casi Loom legati a meeting/eventi (`loom_link` su `Meeting`).
+- Quella logica resta attiva e invariata per compatibilità operativa.
 
-- Frontend React clinica: SDK Loom caricato, ma calendario React non ancora integrato con eventi reali (stato "coming soon").
-- Backend calendario (fonte eventi): Google Calendar resta la fonte primaria degli eventi.
-- Backend GHL: esiste un flusso separato per salvare/leggere `loom_link` usando `ghl_event_id`.
-- DB locale: il campo `loom_link` è un arricchimento dati del meeting, non la fonte primaria del calendario.
+### Ora (nuovo, separato)
+- In `blueprints/loom` stiamo costruendo un flusso indipendente per il widget di supporto.
+- Questo flusso non dipende da calendario/GHL.
+- Salva registrazioni Loom in una libreria dedicata, con:
+  - `submitter` obbligatorio (utente che invia),
+  - `cliente` opzionale (associazione paziente),
+  - visibilità governata da permessi ruolo/team.
 
-## Cosa è già presente nel codice
+## UX target del widget
 
-- Hook/client React esistenti:
-  - `src/hooks/useLoom.js`
-  - `src/services/loomService.js`
-- Endpoint backend esistenti per GHL:
-  - `POST /api/meeting/loom`
-  - `GET /api/meeting/loom/<ghl_event_id>`
-- Dashboard calendario legacy (template backend) con gestione Loom già implementata.
+1. L’utente clicca **Registra Loom** nel widget di supporto.
+2. A registrazione completata, la suite chiede se associare il Loom a un paziente.
+3. Se sì, l’utente seleziona il paziente via ricerca (select con search).
+4. Il backend salva la registrazione nella libreria personale/team/admin.
 
-## Cosa puoi fare con Loom SDK
+## Permessi libreria Loom
 
-- Avviare la registrazione in pagina (pre-record panel / button).
-- Gestire gli eventi principali (`insert-click`, `cancel`, `recording-start`, `complete`).
-- Ottenere il link condivisibile (`sharedUrl`) e salvarlo nel DB.
-- Usare embed/oEmbed per anteprima video e metadati base.
+- `professionista` (coach/psicologo/nutrizionista): vede solo i propri Loom.
+- `team_leader`: vede i Loom dei membri del proprio team (scope team).
+- `admin`: vede tutti i Loom.
 
-## Limiti attuali (con sola Record SDK)
+## Modello dati dedicato
 
-- Nessuna gestione media backend avanzata (editing/processing lifecycle completo lato server).
-- Transcript affidabile completo non garantito via sola Record SDK (per casi avanzati serve API dedicata).
-- Nessuna sincronizzazione automatica Loom -> Google Calendar come fonte primaria: Google resta master degli eventi.
+Tabella: `loom_recordings` (nuovo modello `LoomRecording`)
 
-## Blueprint coinvolti lato server
+Campi chiave:
+- `loom_link` (obbligatorio)
+- `submitter_user_id` (obbligatorio)
+- `cliente_id` (opzionale)
+- `title`, `note`, `source`
+- timestamp (`created_at`, `updated_at`)
 
-- `calendar`: gestione meeting/eventi e arricchimenti (incluso `loom_link`).
-- `ghl_integration`: salvataggio/lettura `loom_link` su `ghl_event_id`.
-- `loom`: blueprint dedicato dove centralizziamo la documentazione e la futura logica Loom.
+## API attuali nel blueprint `loom`
 
-## Fonti ufficiali Loom
+Prefix blueprint: `/loom`
 
-- https://www.loom.com/sdk
-- https://dev.loom.com/docs/record-sdk/details
-- https://www.npmjs.com/package/@loomhq/record-sdk
-- https://www.npmjs.com/package/@loomhq/embed-sdk
+- `POST /loom/api/recordings`
+  - crea registrazione
+  - `submitter_user_id` = utente corrente
+  - `cliente_id` opzionale, validato con ACL
 
-## Nota per i prossimi step frontend
+- `GET /loom/api/recordings`
+  - lista libreria con scope permessi
+  - filtri base: `cliente_id`, `with_cliente`, `submitter_user_id` (se autorizzato)
 
-Quando integriamo il widget/flow React definitivo:
+- `GET /loom/api/recordings/<id>`
+  - dettaglio singola registrazione con controllo ACL
 
-1. trigger registrazione da UI contestuale,
-2. cattura `sharedUrl` al completamento,
-3. persistenza via endpoint backend coerente col dominio evento (Google Calendar vs GHL),
-4. visualizzazione link in dettaglio evento e libreria.
+- `PUT /loom/api/recordings/<id>/association`
+  - aggiorna/rimuove associazione paziente (`cliente_id` nullable)
+
+- `GET /loom/api/patients/search?q=...`
+  - ricerca pazienti per la select nel widget
+  - risultati già filtrati per permessi utente
+
+## Nota implementativa
+
+Questa è la base backend per il nuovo flusso separato.
+Nel frontend React andrà collegata la UX del widget (trigger registrazione, scelta paziente, submit API, vista libreria).

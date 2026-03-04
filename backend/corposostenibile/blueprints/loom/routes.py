@@ -1,247 +1,310 @@
-from datetime import datetime, timedelta
+from __future__ import annotations
+
+from types import SimpleNamespace
 
 from flask import current_app, jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy import or_
 
 from corposostenibile.extensions import csrf, db
-from corposostenibile.models import Cliente, Meeting, User
+from corposostenibile.models import (
+    Cliente,
+    LoomRecording,
+    Team,
+    UserRoleEnum,
+    team_members,
+)
 
 from . import loom_bp
 
 
 @loom_bp.get("/health")
 def health():
-    """Health endpoint del blueprint Loom."""
     return jsonify({"success": True, "service": "loom", "status": "ok"})
 
 
-@loom_bp.route("/api/meeting/loom", methods=["POST"])
+@loom_bp.route("/api/recordings", methods=["POST"])
 @csrf.exempt
 @login_required
-def save_meeting_loom():
+def create_recording():
     """
-    Salva link Loom per un evento GHL.
-    Crea o aggiorna record Meeting locale associato all'evento GHL.
+    Crea una registrazione Loom del widget supporto.
+    - submitter: obbligatorio (utente corrente)
+    - cliente_id: opzionale
     """
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
 
-        if not data:
-            return jsonify({"success": False, "message": "Dati non forniti"}), 400
-
-        ghl_event_id = data.get("ghl_event_id")
-        loom_link = data.get("loom_link")
-
-        if not ghl_event_id:
-            return jsonify({"success": False, "message": "ghl_event_id richiesto"}), 400
-
+        loom_link = (data.get("loom_link") or "").strip()
         if not loom_link:
             return jsonify({"success": False, "message": "loom_link richiesto"}), 400
 
-        title = data.get("title", "Meeting GHL")
-        start_time_str = data.get("start_time")
-        end_time_str = data.get("end_time")
+        if "loom.com" not in loom_link:
+            return jsonify({"success": False, "message": "URL Loom non valido"}), 400
+
         cliente_id = data.get("cliente_id")
+        cliente = None
+        if cliente_id:
+            cliente = Cliente.query.filter_by(cliente_id=cliente_id).first()
+            if not cliente:
+                return jsonify({"success": False, "message": "Cliente non trovato"}), 404
+            if not _can_access_cliente(current_user, cliente):
+                return jsonify({"success": False, "message": "Non autorizzato per questo cliente"}), 403
 
-        meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
-
-        if meeting:
-            meeting.loom_link = loom_link
-            current_app.logger.info(f"[Loom] Updated loom_link for meeting {meeting.id}")
-        else:
-            start_time = _parse_datetime_or_default(start_time_str, datetime.utcnow())
-            end_time = _parse_datetime_or_default(
-                end_time_str, start_time + timedelta(minutes=30)
-            )
-
-            meeting = Meeting(
-                ghl_event_id=ghl_event_id,
-                title=title,
-                start_time=start_time,
-                end_time=end_time,
-                cliente_id=cliente_id if cliente_id else None,
-                user_id=current_user.id,
-                loom_link=loom_link,
-                status="completed",
-            )
-            db.session.add(meeting)
-            current_app.logger.info(f"[Loom] Created meeting for GHL event {ghl_event_id}")
-
+        recording = LoomRecording(
+            loom_link=loom_link,
+            title=(data.get("title") or "").strip() or None,
+            note=(data.get("note") or "").strip() or None,
+            source="support_widget",
+            submitter_user_id=current_user.id,
+            cliente_id=cliente.cliente_id if cliente else None,
+        )
+        db.session.add(recording)
         db.session.commit()
 
-        return jsonify(
-            {
-                "success": True,
-                "meeting_id": meeting.id,
-                "message": "Link Loom salvato con successo",
-            }
-        )
+        return jsonify({"success": True, "recording": _serialize_recording(recording)}), 201
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"[Loom] Error saving loom link: {e}")
+        current_app.logger.error(f"[Loom] Error creating recording: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-@loom_bp.route("/api/meeting/loom/<ghl_event_id>", methods=["GET"])
+@loom_bp.route("/api/recordings", methods=["GET"])
 @login_required
-def get_meeting_loom(ghl_event_id):
-    """Ottiene il link Loom per un evento GHL."""
-    meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
+def list_recordings():
+    """
+    Libreria Loom (JSON) con permessi:
+    - Admin: tutti
+    - Team leader: membri del proprio team (+ se stesso)
+    - Professionista/altro: solo propri
+    """
+    query = _recordings_scope_query(current_user)
 
-    if meeting:
-        return jsonify(
-            {
-                "success": True,
-                "meeting_id": meeting.id,
-                "loom_link": meeting.loom_link,
-                "has_loom": bool(meeting.loom_link),
-            }
-        )
+    cliente_id = request.args.get("cliente_id", type=int)
+    if cliente_id:
+        query = query.filter(LoomRecording.cliente_id == cliente_id)
 
+    only_with_cliente = request.args.get("with_cliente")
+    if only_with_cliente == "true":
+        query = query.filter(LoomRecording.cliente_id.isnot(None))
+    elif only_with_cliente == "false":
+        query = query.filter(LoomRecording.cliente_id.is_(None))
+
+    submitter_user_id = request.args.get("submitter_user_id", type=int)
+    if submitter_user_id:
+        if _can_view_submitter_id(current_user, submitter_user_id):
+            query = query.filter(LoomRecording.submitter_user_id == submitter_user_id)
+        else:
+            return jsonify({"success": False, "message": "Filtro submitter non autorizzato"}), 403
+
+    results = query.order_by(LoomRecording.created_at.desc()).all()
     return jsonify(
         {
             "success": True,
-            "meeting_id": None,
-            "loom_link": None,
-            "has_loom": False,
+            "count": len(results),
+            "recordings": [_serialize_recording(r) for r in results],
         }
     )
 
 
-@loom_bp.route("/api/meeting/<int:meeting_id>/loom", methods=["GET", "PUT"])
+@loom_bp.route("/api/recordings/<int:recording_id>", methods=["GET"])
 @login_required
-def meeting_loom_by_meeting_id(meeting_id):
-    """
-    Recupera o aggiorna il campo loom_link di un meeting esistente.
-    """
-    meeting = Meeting.query.get_or_404(meeting_id)
-
-    if not current_user.is_admin and meeting.user_id != current_user.id:
+def get_recording(recording_id: int):
+    recording = LoomRecording.query.get_or_404(recording_id)
+    if not _can_view_recording(current_user, recording):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
+    return jsonify({"success": True, "recording": _serialize_recording(recording)})
 
-    if request.method == "GET":
-        return jsonify(
-            {
-                "success": True,
-                "meeting_id": meeting.id,
-                "loom_link": meeting.loom_link,
-                "has_loom": bool(meeting.loom_link),
-            }
-        )
+
+@loom_bp.route("/api/recordings/<int:recording_id>/association", methods=["PUT"])
+@csrf.exempt
+@login_required
+def update_recording_association(recording_id: int):
+    """
+    Aggiorna associazione paziente di una registrazione.
+    - cliente_id = null => rimuove associazione
+    """
+    recording = LoomRecording.query.get_or_404(recording_id)
+    if not _can_manage_recording(current_user, recording):
+        return jsonify({"success": False, "message": "Non autorizzato"}), 403
 
     try:
         data = request.get_json() or {}
-        meeting.loom_link = data.get("loom_link")
+        cliente_id = data.get("cliente_id")
+
+        if cliente_id in (None, "", 0):
+            recording.cliente_id = None
+        else:
+            cliente = Cliente.query.filter_by(cliente_id=cliente_id).first()
+            if not cliente:
+                return jsonify({"success": False, "message": "Cliente non trovato"}), 404
+            if not _can_access_cliente(current_user, cliente):
+                return jsonify({"success": False, "message": "Non autorizzato per questo cliente"}), 403
+            recording.cliente_id = cliente.cliente_id
+
         db.session.commit()
-        return jsonify(
-            {
-                "success": True,
-                "meeting_id": meeting.id,
-                "loom_link": meeting.loom_link,
-                "has_loom": bool(meeting.loom_link),
-                "message": "Loom link aggiornato",
-            }
-        )
+        return jsonify({"success": True, "recording": _serialize_recording(recording)})
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"[Loom] Error updating meeting loom link: {e}")
+        current_app.logger.error(f"[Loom] Error updating association: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 
-@loom_bp.route("/api/library", methods=["GET"])
+@loom_bp.route("/api/patients/search", methods=["GET"])
 @login_required
-def api_loom_library():
+def search_patients():
     """
-    Libreria Loom in formato JSON.
-    Replica la logica filtri della pagina calendar/loom-library.
+    Ricerca pazienti per la select associata al widget Loom.
+    Scope in base ai permessi utente.
     """
-    query = Meeting.query.filter(Meeting.loom_link.isnot(None), Meeting.loom_link != "")
+    query_text = (request.args.get("q") or "").strip()
+    limit = min(max(request.args.get("limit", default=20, type=int), 1), 50)
 
-    if not current_user.is_admin:
-        query = query.filter(Meeting.user_id == current_user.id)
-    else:
-        user_id_filter = request.args.get("user_id", type=int)
-        if user_id_filter:
-            query = query.filter(Meeting.user_id == user_id_filter)
+    query = _clienti_scope_query(current_user)
+    if query_text:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{query_text}%"))
 
-    cliente_filter = request.args.get("cliente", "").strip()
-    if cliente_filter:
-        query = query.join(Cliente, Meeting.cliente_id == Cliente.cliente_id, isouter=True)
-        query = query.filter(Cliente.nome_cognome.ilike(f"%{cliente_filter}%"))
-
-    categoria_filter = request.args.get("categoria", "").strip()
-    if categoria_filter:
-        query = query.filter(Meeting.event_category == categoria_filter)
-
-    date_from = request.args.get("date_from")
-    if date_from:
-        try:
-            from_date = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(Meeting.start_time >= from_date)
-        except ValueError:
-            pass
-
-    date_to = request.args.get("date_to")
-    if date_to:
-        try:
-            to_date = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
-            query = query.filter(Meeting.start_time < to_date)
-        except ValueError:
-            pass
-
-    meetings = query.order_by(Meeting.start_time.desc()).all()
-
-    payload = []
-    for meeting in meetings:
-        payload.append(
-            {
-                "id": meeting.id,
-                "title": meeting.title,
-                "loom_link": meeting.loom_link,
-                "google_event_id": meeting.google_event_id,
-                "ghl_event_id": meeting.ghl_event_id,
-                "start_time": meeting.start_time.isoformat() if meeting.start_time else None,
-                "end_time": meeting.end_time.isoformat() if meeting.end_time else None,
-                "event_category": meeting.event_category,
-                "status": meeting.status,
-                "cliente_id": meeting.cliente_id,
-                "cliente_name": meeting.cliente.nome_cognome if meeting.cliente else None,
-                "user_id": meeting.user_id,
-                "user_name": meeting.user.full_name if meeting.user else None,
-            }
-        )
-
-    now = datetime.utcnow()
-    first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    this_month_count = sum(
-        1 for meeting in meetings if meeting.start_time and meeting.start_time >= first_of_month
-    )
-
-    users = []
-    if current_user.is_admin:
-        users = [
-            {"id": u.id, "full_name": u.full_name}
-            for u in User.query.filter(User.is_active == True)
-            .order_by(User.first_name, User.last_name)
-            .all()
-        ]
-
+    rows = query.order_by(Cliente.nome_cognome.asc()).limit(limit).all()
     return jsonify(
         {
             "success": True,
-            "count": len(payload),
-            "this_month_count": this_month_count,
-            "meetings": payload,
-            "users": users,
+            "items": [{"cliente_id": c.cliente_id, "nome_cognome": c.nome_cognome} for c in rows],
         }
     )
 
 
-def _parse_datetime_or_default(value, default_dt):
-    if not value:
-        return default_dt
-    try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    except ValueError:
-        return default_dt
+def _serialize_recording(recording: LoomRecording) -> dict:
+    return {
+        "id": recording.id,
+        "loom_link": recording.loom_link,
+        "title": recording.title,
+        "note": recording.note,
+        "source": recording.source,
+        "submitter_user_id": recording.submitter_user_id,
+        "submitter_user_name": recording.submitter_user.full_name if recording.submitter_user else None,
+        "cliente_id": recording.cliente_id,
+        "cliente_name": recording.cliente.nome_cognome if recording.cliente else None,
+        "created_at": recording.created_at.isoformat() if recording.created_at else None,
+    }
+
+
+def _role_value(user) -> str:
+    role = getattr(user, "role", None)
+    return role.value if hasattr(role, "value") else str(role or "")
+
+
+def _is_admin_user(user) -> bool:
+    return bool(getattr(user, "is_admin", False) or _role_value(user) == UserRoleEnum.admin.value)
+
+
+def _is_team_leader_user(user) -> bool:
+    return _role_value(user) == UserRoleEnum.team_leader.value
+
+
+def _team_member_ids_for_leader(leader_id: int) -> set[int]:
+    team_ids = db.session.query(Team.id).filter(Team.head_id == leader_id, Team.is_active == True)
+    rows = (
+        db.session.query(team_members.c.user_id)
+        .filter(team_members.c.team_id.in_(team_ids))
+        .distinct()
+        .all()
+    )
+    return {int(row[0]) for row in rows}
+
+
+def _allowed_submitter_ids(user) -> set[int] | None:
+    if _is_admin_user(user):
+        return None
+    if _is_team_leader_user(user):
+        ids = _team_member_ids_for_leader(user.id)
+        ids.add(user.id)
+        return ids
+    return {user.id}
+
+
+def _can_view_submitter_id(user, submitter_user_id: int) -> bool:
+    return can_view_submitter_id_for_role(
+        SimpleNamespace(id=user.id, is_admin=getattr(user, "is_admin", False), role=_role_value(user)),
+        submitter_user_id,
+        _allowed_submitter_ids(user),
+    )
+
+
+def _can_view_recording(user, recording: LoomRecording) -> bool:
+    return _can_view_submitter_id(user, recording.submitter_user_id)
+
+
+def _can_manage_recording(user, recording: LoomRecording) -> bool:
+    if _is_admin_user(user):
+        return True
+    if recording.submitter_user_id == user.id:
+        return True
+    if _is_team_leader_user(user):
+        return recording.submitter_user_id in (_allowed_submitter_ids(user) or set())
+    return False
+
+
+def _recordings_scope_query(user):
+    allowed_ids = _allowed_submitter_ids(user)
+    if allowed_ids is None:
+        return LoomRecording.query
+    return LoomRecording.query.filter(LoomRecording.submitter_user_id.in_(list(allowed_ids)))
+
+
+def _can_access_cliente(user, cliente: Cliente) -> bool:
+    if _is_admin_user(user):
+        return True
+
+    assignee_ids = {
+        cliente.nutrizionista_id,
+        cliente.coach_id,
+        cliente.psicologa_id,
+        cliente.consulente_alimentare_id,
+        cliente.health_manager_id,
+    }
+    assignee_ids.discard(None)
+
+    if _is_team_leader_user(user):
+        allowed = _allowed_submitter_ids(user) or set()
+        return any(uid in allowed for uid in assignee_ids)
+
+    return user.id in assignee_ids
+
+
+def _clienti_scope_query(user):
+    if _is_admin_user(user):
+        return Cliente.query
+
+    if _is_team_leader_user(user):
+        allowed_ids = _allowed_submitter_ids(user) or set()
+        return Cliente.query.filter(
+            or_(
+                Cliente.nutrizionista_id.in_(list(allowed_ids)),
+                Cliente.coach_id.in_(list(allowed_ids)),
+                Cliente.psicologa_id.in_(list(allowed_ids)),
+                Cliente.consulente_alimentare_id.in_(list(allowed_ids)),
+                Cliente.health_manager_id.in_(list(allowed_ids)),
+            )
+        )
+
+    return Cliente.query.filter(
+        or_(
+            Cliente.nutrizionista_id == user.id,
+            Cliente.coach_id == user.id,
+            Cliente.psicologa_id == user.id,
+            Cliente.consulente_alimentare_id == user.id,
+            Cliente.health_manager_id == user.id,
+        )
+    )
+
+
+def can_view_submitter_id_for_role(user_like, submitter_user_id: int, allowed_ids: set[int] | None) -> bool:
+    """
+    Helper puro (testabile senza DB) per verificare scope visibilità.
+    """
+    if getattr(user_like, "is_admin", False) or getattr(user_like, "role", "") == UserRoleEnum.admin.value:
+        return True
+    if allowed_ids is None:
+        return False
+    return submitter_user_id in allowed_ids
