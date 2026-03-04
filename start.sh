@@ -205,6 +205,11 @@ if redis-cli ping > /dev/null 2>&1; then
     CELERY_PID=$!
     echo $CELERY_PID >> "$PID_FILE"
     echo -e "${GREEN}   ✓ Celery Worker avviato (PID: $CELERY_PID)${NC}"
+
+    poetry run celery -A corposostenibile.celery_app beat --loglevel=warning > "$BASE_DIR/logs/celery-beat.log" 2>&1 &
+    CELERY_BEAT_PID=$!
+    echo $CELERY_BEAT_PID >> "$PID_FILE"
+    echo -e "${GREEN}   ✓ Celery Beat avviato (PID: $CELERY_BEAT_PID)${NC}"
 else
     echo -e "${YELLOW}   ⚠ Redis non disponibile, Celery saltato${NC}"
 fi

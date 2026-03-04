@@ -71,6 +71,7 @@ steps:
       - --filename=k8s/managed-certificate.yaml
       - --filename=k8s/ingress.yaml
       - --filename=k8s/hpa.yaml
+      - --filename=k8s/celery-deployment.yaml
       - --location=europe-west8
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
@@ -92,6 +93,28 @@ steps:
       - rollout
       - status
       - deployment/suite-clinica-backend
+      - --timeout=900s
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  # 3c. Enforce celery image rollout
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - set
+      - image
+      - deployment/suite-clinica-celery
+      - celery-worker=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
+      - celery-beat=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - rollout
+      - status
+      - deployment/suite-clinica-celery
       - --timeout=900s
     env:
       - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'

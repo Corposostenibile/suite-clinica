@@ -9,6 +9,7 @@ from corposostenibile.extensions import celery
 # Import all tasks to register them with Celery
 from corposostenibile.blueprints.respond_io import followup_tasks, tasks
 from corposostenibile.blueprints.respond_io import pre_assignment_tasks
+from corposostenibile.blueprints.respond_io import webhook_tasks
 from corposostenibile.blueprints.tasks import tasks as general_tasks
 
 # Export celery instance

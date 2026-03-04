@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suite-clinica-celery
+  labels:
+    app: suite-clinica-celery
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: suite-clinica-celery
+  template:
+    metadata:
+      labels:
+        app: suite-clinica-celery
+    spec:
+      containers:
+      - name: celery-worker
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
+        imagePullPolicy: Always
+        command: ["celery", "-A", "corposostenibile.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+        livenessProbe:
+          exec:
+            command:
+              - celery
+              - -A
+              - corposostenibile.celery_app
+              - inspect
+              - ping
+              - --timeout=10
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 15
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "1"
+            memory: "2Gi"
+        env:
+        - name: FLASK_APP
+          value: "corposostenibile"
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
+        - name: CELERY_BROKER_URL
+          value: "redis://10.130.63.139:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://10.130.63.139:6379/1"
+        - name: NUTRITION_CACHE_BACKEND
+          value: "redis://10.130.63.139:6379/2"
+        - name: WEBSOCKET_QUEUE
+          value: "redis://10.130.63.139:6379/3"
+        - name: RATELIMIT_STORAGE_URI
+          value: "redis://10.130.63.139:6379/5"
+        - name: SECRET_KEY
+          value: "temp-secret-key-prod-change-me"
+        - name: VAPID_PUBLIC_KEY
+          value: "CHANGE_ME_VAPID_PUBLIC_KEY"
+        - name: VAPID_PRIVATE_KEY
+          value: "CHANGE_ME_VAPID_PRIVATE_KEY"
+        - name: VAPID_CLAIMS_SUB
+          value: "mailto:it@corposostenibile.com"
+        - name: RESPOND_IO_API_TOKEN
+          value: "CHANGE_ME_RESPOND_IO_API_TOKEN"
+        - name: RESPOND_IO_API_BASE_URL
+          value: "https://api.respond.io/v2"
+        - name: RESPOND_IO_DEFAULT_CHANNEL_ID
+          value: ""
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_MODE
+          value: "mock"
+        - name: GHL_GLOBAL_STATUS_WEBHOOK_URL
+          value: ""
+        - name: TEAMS_BOT_APP_ID
+          value: "af3b2b1c-c9ec-4179-8c07-05d636683858"
+        - name: TEAMS_BOT_APP_PASSWORD
+          value: "sL_8Q~7dckRNw3r-I-yVqScpyJLuQZ80_zVjddlh"
+        - name: TEAMS_BOT_TENANT_ID
+          value: "432c478e-1c8a-4f55-88ab-db9b9d8f0118"
+      - name: celery-beat
+        image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
+        imagePullPolicy: Always
+        command: ["celery", "-A", "corposostenibile.celery_app", "beat", "--loglevel=info"]
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        env:
+        - name: FLASK_APP
+          value: "corposostenibile"
+        - name: FLASK_ENV
+          value: "production"
+        - name: DATABASE_URL
+          value: "postgresql://suite_clinica:i1%5Bi%2FY%25y%5DD%25Ihg%2Bh@127.0.0.1:5432/suite_clinica_prod"
+        - name: CELERY_BROKER_URL
+          value: "redis://10.130.63.139:6379/0"
+        - name: CELERY_RESULT_BACKEND
+          value: "redis://10.130.63.139:6379/1"
+        - name: SECRET_KEY
+          value: "temp-secret-key-prod-change-me"
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
+        args:
+          - "--port=5432"
+          - "--credentials-file=/secrets/cloudsql/credentials.json"
+          - "suite-clinica:europe-west8:suite-clinica-db-prod"
+        securityContext:
+          runAsNonRoot: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: sql-proxy-key
+          mountPath: /secrets/cloudsql
+          readOnly: true
+      volumes:
+      - name: sql-proxy-key
+        secret:
+          secretName: sql-proxy-key

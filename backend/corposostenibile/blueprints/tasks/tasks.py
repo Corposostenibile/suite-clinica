@@ -10,6 +10,7 @@ from corposostenibile.models import (
     TaskPriorityEnum,
     GiornoEnum,
     WeeklyCheck, WeeklyCheckResponse,
+    DCACheck, DCACheckResponse,
     TypeFormResponse,
     User,
 )
@@ -20,21 +21,20 @@ from corposostenibile.models import (
 @celery.task
 def generate_solicitations_task():
     """
-    Task periodico (giornaliero) per generare solleciti
-    se un cliente ha il check_day IERI (o oggi) e non ha inviato nulla.
-    
-    Logica modificata per Celery:
-    - Eseguito ogni mattina (es. 10:00).
-    - Cerca clienti con check_day = IERI (per dare tempo fino a fine giornata) o OGGI?
-    - Se iteriamo su "ieri", siamo sicuri che la giornata è finita.
-    - Se iteriamo su "oggi", controlliamo se hanno mandato il check la SETTIMANA SCORSA (come da richiesta originale).
-    
-    Richiesta originale: "Oggi è 26 lunedi, il checkday è lunedi. il 19 non è stato inviato il check quindi scatta task".
-    Quindi controlliamo i check mancati della settimana precedente nel giorno stesso del check.
+    Task periodico (giornaliero) per generare solleciti check mancati.
+
+    Logica:
+    - Gira ogni mattina.
+    - Cerca clienti attivi con check_day = IERI.
+    - Se il cliente NON ha inviato nessun check IERI, genera task sollecito
+      ai professionisti il cui stato specifico è 'attivo':
+        - nutrizionista  → stato_nutrizione == attivo
+        - coach          → stato_coach == attivo
+        - psicologa      → stato_psicologia == attivo
+      (consulente alimentare escluso)
     """
     session = db.session
-    
-    # Mappa giorni python (0=Lun) a GiornoEnum
+
     weekday_map = {
         0: [GiornoEnum.lun, GiornoEnum.lunedi],
         1: [GiornoEnum.mar, GiornoEnum.martedi],
@@ -44,102 +44,123 @@ def generate_solicitations_task():
         5: [GiornoEnum.sab, GiornoEnum.sabato],
         6: [GiornoEnum.dom, GiornoEnum.domenica],
     }
-    
-    today = datetime.utcnow().date()
-    today_week_day = today.weekday()
-    target_days = weekday_map.get(today_week_day, [])
-    
-    if not target_days:
-        return f"Nessun GiornoEnum mappato per {today_week_day}"
 
-    # Trova clienti attivi che hanno check_day OGGI
+    today = datetime.utcnow().date()
+    yesterday = today - timedelta(days=1)
+    yesterday_weekday = yesterday.weekday()
+    target_days = weekday_map.get(yesterday_weekday, [])
+
+    if not target_days:
+        return f"Nessun GiornoEnum mappato per {yesterday_weekday}"
+
+    # Clienti attivi con check_day = IERI
     clients = Cliente.query.filter(
         Cliente.stato_cliente == 'attivo',
         Cliente.check_day.in_(target_days)
     ).all()
-    
+
     count_created = 0
-    
+
     for client in clients:
-        # Verifica se ha inviato check negli ultimi 7 giorni (o meglio, dalla settimana scorsa)
-        last_check_date = _get_last_check_date(client)
-        
-        should_trigger = False
-        if not last_check_date:
-            should_trigger = True # Mai mandato
-        else:
-            days_diff = (today - last_check_date).days
-            # Se l'ultimo check è più vecchio di 7 giorni (es. 8, 14...) significa che ha saltato l'ultimo
-            # Se l'ha mandato oggi (diff=0) o ieri non scatta.
-            # Se check_day è oggi, ci aspettiamo che l'ultimo check sia < 7 giorni fa (es. settimana scorsa).
-            # Se days_diff >= 7, vuol dire che settimana scorsa non l'ha mandato (o l'ha mandato >7 gg fa).
-            if days_diff >= 7:
-                should_trigger = True
+        # Verifica se ha inviato un check IERI
+        if _has_check_on_date(client, yesterday):
+            continue
 
-        if should_trigger:
-            # Task a TUTTI i professionisti assegnati al cliente
-            prof_ids = set()
-            for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id'):
-                uid = getattr(client, attr, None)
-                if uid:
-                    prof_ids.add(uid)
-            for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli'):
-                for u in (getattr(client, rel, None) or []):
-                    prof_ids.add(u.id)
+        # Professionisti filtrati per stato attivo
+        prof_ids = set()
 
-            if not prof_ids:
-                continue
+        stato_n = str(client.stato_nutrizione.value) if client.stato_nutrizione else ''
+        stato_c = str(client.stato_coach.value) if client.stato_coach else ''
+        stato_p = str(client.stato_psicologia.value) if client.stato_psicologia else ''
 
-            for assignee_id in prof_ids:
-                # Evita duplicati (task creato oggi per questo motivo)
-                existing_task = Task.query.filter(
-                    Task.category == TaskCategoryEnum.sollecito,
-                    Task.client_id == client.cliente_id,
-                    Task.assignee_id == assignee_id,
-                    Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
-                ).first()
+        if stato_n == 'attivo':
+            if client.nutrizionista_id:
+                prof_ids.add(client.nutrizionista_id)
+            for u in (client.nutrizionisti_multipli or []):
+                prof_ids.add(u.id)
 
-                if not existing_task:
-                    task = Task(
-                        title=f"Sollecito Check: {client.nome_cognome}",
-                        description=f"Il paziente {client.nome_cognome} ha check day oggi ma non risulta check settimana scorsa. Sollecitalo!",
-                        category=TaskCategoryEnum.sollecito,
-                        status=TaskStatusEnum.todo,
-                        priority=TaskPriorityEnum.high,
-                        client_id=client.cliente_id,
-                        assignee_id=assignee_id,
-                        created_at=datetime.utcnow()
-                    )
-                    session.add(task)
-                    count_created += 1
-    
+        if stato_c == 'attivo':
+            if client.coach_id:
+                prof_ids.add(client.coach_id)
+            for u in (client.coaches_multipli or []):
+                prof_ids.add(u.id)
+
+        if stato_p == 'attivo':
+            if client.psicologa_id:
+                prof_ids.add(client.psicologa_id)
+            for u in (client.psicologi_multipli or []):
+                prof_ids.add(u.id)
+
+        if not prof_ids:
+            continue
+
+        for assignee_id in prof_ids:
+            existing_task = Task.query.filter(
+                Task.category == TaskCategoryEnum.sollecito,
+                Task.client_id == client.cliente_id,
+                Task.assignee_id == assignee_id,
+                Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+            ).first()
+
+            if not existing_task:
+                task = Task(
+                    title=f"Sollecito Check: {client.nome_cognome}",
+                    description=f"Il paziente {client.nome_cognome} aveva check day ieri ({yesterday}) ma non ha inviato il check. Sollecitalo!",
+                    category=TaskCategoryEnum.sollecito,
+                    status=TaskStatusEnum.todo,
+                    priority=TaskPriorityEnum.high,
+                    client_id=client.cliente_id,
+                    assignee_id=assignee_id,
+                    created_at=datetime.utcnow()
+                )
+                session.add(task)
+                count_created += 1
+
     session.commit()
     return f"Generated {count_created} solicitation tasks."
 
 
-def _get_last_check_date(client):
-    """Ritorna la data dell'ultimo check settimanale inviato dal cliente."""
-    # Cerca in WeeklyCheckResponse (nuovo sistema)
-    last_weekly = (
-        db.session.query(WeeklyCheckResponse.submit_date)
+def _has_check_on_date(client, target_date):
+    """Verifica se il cliente ha inviato almeno un check nella data indicata."""
+    # WeeklyCheckResponse
+    weekly = (
+        db.session.query(WeeklyCheckResponse.id)
         .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-        .filter(WeeklyCheck.cliente_id == client.cliente_id)
-        .order_by(WeeklyCheckResponse.submit_date.desc())
+        .filter(
+            WeeklyCheck.cliente_id == client.cliente_id,
+            func.date(WeeklyCheckResponse.submit_date) == target_date
+        )
         .first()
     )
-    # Cerca anche in TypeFormResponse (vecchio sistema)
-    last_tf = (
-        db.session.query(TypeFormResponse.submit_date)
-        .filter(TypeFormResponse.cliente_id == client.cliente_id)
-        .order_by(TypeFormResponse.submit_date.desc())
+    if weekly:
+        return True
+
+    # DCACheckResponse
+    dca = (
+        db.session.query(DCACheckResponse.id)
+        .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
+        .filter(
+            DCACheck.cliente_id == client.cliente_id,
+            func.date(DCACheckResponse.submit_date) == target_date
+        )
         .first()
     )
-    dates = []
-    if last_weekly and last_weekly[0]:
-        dates.append(last_weekly[0].date() if hasattr(last_weekly[0], 'date') else last_weekly[0])
-    if last_tf and last_tf[0]:
-        dates.append(last_tf[0].date() if hasattr(last_tf[0], 'date') else last_tf[0])
-    return max(dates) if dates else None
+    if dca:
+        return True
+
+    # TypeFormResponse (vecchio sistema)
+    tf = (
+        db.session.query(TypeFormResponse.id)
+        .filter(
+            TypeFormResponse.cliente_id == client.cliente_id,
+            func.date(TypeFormResponse.submit_date) == target_date
+        )
+        .first()
+    )
+    if tf:
+        return True
+
+    return False
 
 
 # --------------------------------------------------------------------------- #
