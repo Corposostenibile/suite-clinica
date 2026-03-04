@@ -206,12 +206,12 @@ def init_app(app):  # noqa: D401
     celery.app = app                            # type: ignore[attr-defined]
     celery.flask_app = app
 
+    _flask_app = app  # capture in closure for Celery worker context
+
     class _ContextTask(celery.Task):  # type: ignore[misc]  # pragma: no cover
         """Esegue ogni task dentro un app-context automatico."""
 
         def __call__(self, *args, **kwargs):  # noqa: ANN001
-            from flask import current_app as _flask_app
-
             with _flask_app.app_context():
                 return super().__call__(*args, **kwargs)
 
