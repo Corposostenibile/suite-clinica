@@ -74,8 +74,10 @@ backend/backups
 # AGENTS.md
 AGENTS.md
 
-# .agent/rules/clinica.md
-./agent/rules/*
+# .agent folder
+.agent/*
 
 # root screenshots folder for agent screenshots
 screenshots/
+# Codex agent workspace
+.agent/
