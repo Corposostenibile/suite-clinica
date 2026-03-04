@@ -10,14 +10,18 @@ logger = logging.getLogger(__name__)
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
-    Cliente, 
-    ClientCheckResponse, 
-    Review, 
+    Cliente,
+    ClientCheckResponse,
+    WeeklyCheckResponse, WeeklyCheck,
+    DCACheckResponse, DCACheck,
+    MinorCheckResponse, MinorCheck,
+    Review,
     ReviewRequest,
-    Task, 
-    TaskCategoryEnum, 
-    TaskStatusEnum, 
-    TaskPriorityEnum
+    Task,
+    TaskCategoryEnum,
+    TaskStatusEnum,
+    TaskPriorityEnum,
+    User,
 )
 from corposostenibile.blueprints.push_notifications.service import send_task_assigned_push
 
@@ -177,6 +181,77 @@ def trigger_check_task(mapper, connection, target):
         )
         session.add(task)
         logger.info(f"TASK CREATED: Check task for assignee {assignment.assigned_by_id}")
+
+
+def _get_cliente_professional_ids(cliente) -> set[int]:
+    """Restituisce tutti gli ID dei professionisti assegnati al cliente."""
+    prof_ids = set()
+    for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id', 'health_manager_id'):
+        uid = getattr(cliente, attr, None)
+        if uid:
+            prof_ids.add(uid)
+    for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli'):
+        for u in (getattr(cliente, rel, None) or []):
+            prof_ids.add(u.id)
+    return prof_ids
+
+
+def _create_check_tasks_for_professionals(session, cliente, check_type_label, response_type, response_id):
+    """Crea un task per ogni professionista assegnato al cliente."""
+    prof_ids = _get_cliente_professional_ids(cliente)
+    if not prof_ids:
+        logger.warning(f"No professionals found for cliente {cliente.cliente_id}, skipping task creation")
+        return
+    for pid in prof_ids:
+        task = Task(
+            title=f"Check {check_type_label} Ricevuto: {cliente.nome_cognome}",
+            description=f"Il cliente {cliente.nome_cognome} ha compilato il check {check_type_label.lower()}. Leggilo!",
+            category=TaskCategoryEnum.check,
+            status=TaskStatusEnum.todo,
+            priority=TaskPriorityEnum.high,
+            client_id=cliente.cliente_id,
+            assignee_id=pid,
+            created_at=datetime.utcnow(),
+            payload={'response_type': response_type, 'response_id': response_id},
+        )
+        session.add(task)
+    logger.info(f"TASK CREATED: {check_type_label} check tasks for {len(prof_ids)} professionals (cliente {cliente.cliente_id})")
+
+
+@event.listens_for(WeeklyCheckResponse, 'after_insert')
+def trigger_weekly_check_task(mapper, connection, target):
+    """Genera task per ogni professionista quando un cliente compila il check settimanale."""
+    logger.info(f"EVENT: trigger_weekly_check_task for response {target.id}")
+    session = db.session
+    if not session:
+        return
+    check = session.get(WeeklyCheck, target.weekly_check_id)
+    if check and check.cliente:
+        _create_check_tasks_for_professionals(session, check.cliente, 'Settimanale', 'weekly', target.id)
+
+
+@event.listens_for(DCACheckResponse, 'after_insert')
+def trigger_dca_check_task(mapper, connection, target):
+    """Genera task per ogni professionista quando un cliente compila il check DCA."""
+    logger.info(f"EVENT: trigger_dca_check_task for response {target.id}")
+    session = db.session
+    if not session:
+        return
+    check = session.get(DCACheck, target.dca_check_id)
+    if check and check.cliente:
+        _create_check_tasks_for_professionals(session, check.cliente, 'DCA', 'dca', target.id)
+
+
+@event.listens_for(MinorCheckResponse, 'after_insert')
+def trigger_minor_check_task(mapper, connection, target):
+    """Genera task per ogni professionista quando un cliente compila il check minore."""
+    logger.info(f"EVENT: trigger_minor_check_task for response {target.id}")
+    session = db.session
+    if not session:
+        return
+    check = session.get(MinorCheck, target.minor_check_id)
+    if check and check.cliente:
+        _create_check_tasks_for_professionals(session, check.cliente, 'Minore', 'minor', target.id)
 
 
 # --------------------------------------------------------------------------- #

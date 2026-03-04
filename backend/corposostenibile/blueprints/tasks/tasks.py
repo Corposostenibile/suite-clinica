@@ -3,14 +3,15 @@ from sqlalchemy import or_, and_, func
 
 from corposostenibile.extensions import celery, db
 from corposostenibile.models import (
-    Cliente, 
-    Task, 
-    TaskCategoryEnum, 
-    TaskStatusEnum, 
+    Cliente,
+    Task,
+    TaskCategoryEnum,
+    TaskStatusEnum,
     TaskPriorityEnum,
     GiornoEnum,
-    ClientCheckResponse,
-    ClientCheckAssignment
+    WeeklyCheck, WeeklyCheckResponse,
+    TypeFormResponse,
+    User,
 )
 
 # --------------------------------------------------------------------------- #
@@ -76,51 +77,69 @@ def generate_solicitations_task():
                 should_trigger = True
 
         if should_trigger:
-            # Identifica a chi assegnare il task (Nutrizionista > Coach > Psicologa? O tutti?)
-            # Solitamente il Nutrizionista è il principale, o chi segue il cliente.
-            # Creiamo un task per il Nutrizionista se presente, altrimenti Coach.
-            assignee_id = client.nutrizionista_id or client.coach_id or client.psicologa_id
-            
-            if not assignee_id:
+            # Task a TUTTI i professionisti assegnati al cliente
+            prof_ids = set()
+            for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id'):
+                uid = getattr(client, attr, None)
+                if uid:
+                    prof_ids.add(uid)
+            for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli'):
+                for u in (getattr(client, rel, None) or []):
+                    prof_ids.add(u.id)
+
+            if not prof_ids:
                 continue
 
-            # Evita duplicati (task creato oggi per questo motivo)
-            existing_task = Task.query.filter(
-                Task.category == TaskCategoryEnum.sollecito,
-                Task.client_id == client.cliente_id,
-                Task.assignee_id == assignee_id,
-                Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
-            ).first()
-            
-            if not existing_task:
-                task = Task(
-                    title=f"Sollecito Check: {client.nome_cognome}",
-                    description=f"Il paziente {client.nome_cognome} ha check day oggi ma non risulta check settimana scorsa. Sollecitalo!",
-                    category=TaskCategoryEnum.sollecito,
-                    status=TaskStatusEnum.todo,
-                    priority=TaskPriorityEnum.high,
-                    client_id=client.cliente_id,
-                    assignee_id=assignee_id,
-                    created_at=datetime.utcnow()
-                )
-                session.add(task)
-                count_created += 1
+            for assignee_id in prof_ids:
+                # Evita duplicati (task creato oggi per questo motivo)
+                existing_task = Task.query.filter(
+                    Task.category == TaskCategoryEnum.sollecito,
+                    Task.client_id == client.cliente_id,
+                    Task.assignee_id == assignee_id,
+                    Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+                ).first()
+
+                if not existing_task:
+                    task = Task(
+                        title=f"Sollecito Check: {client.nome_cognome}",
+                        description=f"Il paziente {client.nome_cognome} ha check day oggi ma non risulta check settimana scorsa. Sollecitalo!",
+                        category=TaskCategoryEnum.sollecito,
+                        status=TaskStatusEnum.todo,
+                        priority=TaskPriorityEnum.high,
+                        client_id=client.cliente_id,
+                        assignee_id=assignee_id,
+                        created_at=datetime.utcnow()
+                    )
+                    session.add(task)
+                    count_created += 1
     
     session.commit()
     return f"Generated {count_created} solicitation tasks."
 
 
 def _get_last_check_date(client):
-    """Ritorna la data dell'ultimo check inviato dal cliente."""
-    last_check = db.session.query(ClientCheckResponse.created_at)\
-        .join(ClientCheckAssignment, ClientCheckResponse.assignment_id == ClientCheckAssignment.id)\
-        .filter(ClientCheckAssignment.cliente_id == client.cliente_id)\
-        .order_by(ClientCheckResponse.created_at.desc())\
+    """Ritorna la data dell'ultimo check settimanale inviato dal cliente."""
+    # Cerca in WeeklyCheckResponse (nuovo sistema)
+    last_weekly = (
+        db.session.query(WeeklyCheckResponse.submit_date)
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(WeeklyCheck.cliente_id == client.cliente_id)
+        .order_by(WeeklyCheckResponse.submit_date.desc())
         .first()
-        
-    if last_check:
-        return last_check[0].date()
-    return None
+    )
+    # Cerca anche in TypeFormResponse (vecchio sistema)
+    last_tf = (
+        db.session.query(TypeFormResponse.submit_date)
+        .filter(TypeFormResponse.cliente_id == client.cliente_id)
+        .order_by(TypeFormResponse.submit_date.desc())
+        .first()
+    )
+    dates = []
+    if last_weekly and last_weekly[0]:
+        dates.append(last_weekly[0].date() if hasattr(last_weekly[0], 'date') else last_weekly[0])
+    if last_tf and last_tf[0]:
+        dates.append(last_tf[0].date() if hasattr(last_tf[0], 'date') else last_tf[0])
+    return max(dates) if dates else None
 
 
 # --------------------------------------------------------------------------- #

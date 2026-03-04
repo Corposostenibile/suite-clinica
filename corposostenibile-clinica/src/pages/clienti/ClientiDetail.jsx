@@ -6951,6 +6951,7 @@ function ClientiDetail() {
                           const SKIP_KEYS = new Set([
                             'email', 'phone', 'last_name', 'first_name',
                             'privacy_accepted[]', 'privacy_accepted',
+                            'gender', 'indirizzo', 'paese', 'professione',
                           ]);
                           const formatLabel = (key) => {
                             return key
