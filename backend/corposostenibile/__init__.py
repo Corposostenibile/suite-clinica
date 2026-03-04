@@ -377,6 +377,7 @@ def create_app(config_name: str | None = None) -> Flask:
         appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
         documentation,  # AGGIUNTO: Import del blueprint documentation
+        loom,  # AGGIUNTO: Import del blueprint loom
         search,  # AGGIUNTO: Import del blueprint search
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
@@ -446,6 +447,7 @@ def create_app(config_name: str | None = None) -> Flask:
     
     # Documentation Blueprint
     app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
+    app.register_blueprint(loom.loom_bp, url_prefix='/loom')
 
     # Quality Score
     from corposostenibile.blueprints.quality import bp as quality_bp
