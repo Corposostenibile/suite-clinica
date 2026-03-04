@@ -68,11 +68,26 @@
   color: #ef4444;
 }
 
+/* ── Overlay backdrop ── */
+.dp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999998;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: dp-overlay-in 0.15s ease;
+}
+
+@keyframes dp-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* ── Calendar dropdown ── */
 .dp-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: relative;
   z-index: 99999999;
   background: white;
   border: 1px solid #e2e8f0;
@@ -83,14 +98,15 @@
   animation: dp-in 0.15s ease;
 }
 
-.dp-dropdown.dp-drop-up {
+.dp-dropdown.dp-centered {
+  position: relative;
   top: auto;
-  bottom: calc(100% + 4px);
+  left: auto;
 }
 
 @keyframes dp-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 /* ── Navigation ── */

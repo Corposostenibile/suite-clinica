@@ -173,41 +173,43 @@ export default function DatePicker({
       </div>
 
       {open && (
-        <div className={`dp-dropdown${dropUp ? ' dp-drop-up' : ''}`} ref={calRef}>
-          <div className="dp-nav">
-            <button type="button" className="dp-nav-btn" onClick={prevMonth}><i className="ri-arrow-left-s-line"></i></button>
-            <span className="dp-nav-label">{MONTHS_IT[viewMonth]} {viewYear}</span>
-            <button type="button" className="dp-nav-btn" onClick={nextMonth}><i className="ri-arrow-right-s-line"></i></button>
-          </div>
-          <div className="dp-grid dp-days-header">
-            {DAYS_IT.map(d => <span key={d} className="dp-day-label">{d}</span>)}
-          </div>
-          <div className="dp-grid dp-days">
-            {cells.map((day, i) => {
-              if (day === null) return <span key={`e-${i}`} className="dp-cell dp-empty"></span>;
-              const iso = toISODate(new Date(viewYear, viewMonth, day));
-              const isSelected = selectedDate && iso === toISODate(selectedDate);
-              const isToday = iso === todayISO;
-              const dayDisabled = isDisabledDay(day);
-              return (
-                <button
-                  type="button"
-                  key={day}
-                  className={`dp-cell${isSelected ? ' dp-selected' : ''}${isToday ? ' dp-today' : ''}${dayDisabled ? ' dp-day-disabled' : ''}`}
-                  onClick={() => { if (!dayDisabled) handleSelect(day); }}
-                  disabled={dayDisabled}
-                >
-                  {day}
-                </button>
-              );
-            })}
-          </div>
-          <div className="dp-footer">
-            <button type="button" className="dp-today-btn" onClick={() => {
-              setViewYear(today.getFullYear());
-              setViewMonth(today.getMonth());
-              handleSelect(today.getDate());
-            }}>Oggi</button>
+        <div className="dp-overlay" onClick={() => setOpen(false)}>
+          <div className="dp-dropdown dp-centered" ref={calRef} onClick={(e) => e.stopPropagation()}>
+            <div className="dp-nav">
+              <button type="button" className="dp-nav-btn" onClick={prevMonth}><i className="ri-arrow-left-s-line"></i></button>
+              <span className="dp-nav-label">{MONTHS_IT[viewMonth]} {viewYear}</span>
+              <button type="button" className="dp-nav-btn" onClick={nextMonth}><i className="ri-arrow-right-s-line"></i></button>
+            </div>
+            <div className="dp-grid dp-days-header">
+              {DAYS_IT.map(d => <span key={d} className="dp-day-label">{d}</span>)}
+            </div>
+            <div className="dp-grid dp-days">
+              {cells.map((day, i) => {
+                if (day === null) return <span key={`e-${i}`} className="dp-cell dp-empty"></span>;
+                const iso = toISODate(new Date(viewYear, viewMonth, day));
+                const isSelected = selectedDate && iso === toISODate(selectedDate);
+                const isToday = iso === todayISO;
+                const dayDisabled = isDisabledDay(day);
+                return (
+                  <button
+                    type="button"
+                    key={day}
+                    className={`dp-cell${isSelected ? ' dp-selected' : ''}${isToday ? ' dp-today' : ''}${dayDisabled ? ' dp-day-disabled' : ''}`}
+                    onClick={() => { if (!dayDisabled) handleSelect(day); }}
+                    disabled={dayDisabled}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="dp-footer">
+              <button type="button" className="dp-today-btn" onClick={() => {
+                setViewYear(today.getFullYear());
+                setViewMonth(today.getMonth());
+                handleSelect(today.getDate());
+              }}>Oggi</button>
+            </div>
           </div>
         </div>
       )}
