@@ -28,6 +28,7 @@ import SupportWidget from '../../components/SupportWidget';
 import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 import DatePicker from '../../components/DatePicker';
 import api from '../../services/api';
+import ProgressoTab from './ProgressoTab';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import { createPortal } from 'react-dom';
@@ -154,11 +155,11 @@ function ClientiDetail() {
     if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'check_iniziali', 'tickets', 'call_bonus'
+        'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
       ]);
     }
 
-    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'check_iniziali', 'tickets', 'call_bonus']);
+    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus']);
     if (isRestrictedTeamLeader) {
       allowed.add('team');
     }
@@ -1051,7 +1052,7 @@ function ClientiDetail() {
   // Fetch check data when check tab is active
   useEffect(() => {
     // Fetch check data when check tab is active
-    if ((activeTab === 'check_periodici' || activeTab === 'check_iniziali') && id) {
+    if ((activeTab === 'check_periodici' || activeTab === 'progresso' || activeTab === 'check_iniziali') && id) {
       fetchCheckData();
       // Also fetch professionisti history for showing avatars in check responses
       if (professionistiHistory.length === 0) {
@@ -2587,6 +2588,7 @@ function ClientiDetail() {
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
     { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
+    { id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
@@ -7167,6 +7169,11 @@ function ClientiDetail() {
                     </div>
                   </div>
                 </div>
+              )}
+
+              {/* ========== PROGRESSO TAB ========== */}
+              {activeTab === 'progresso' && (
+                <ProgressoTab responses={checkData.responses} loading={loadingChecks} />
               )}
 
               {/* ========== TICKETS TAB ========== */}
