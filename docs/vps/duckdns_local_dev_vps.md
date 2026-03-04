@@ -266,6 +266,27 @@ Atteso:
 - senza login: `401` (corretto)
 - con sessione utente: JSON con `enabled: true`
 
+### 6.2 Import DB produzione in locale (script ufficiale)
+
+Per clonare il DB produzione nel DB locale VPS usare lo script:
+
+```bash
+cd /home/manu/suite-clinica/backend
+poetry run python scripts/local_db_ops/import_cached_migrated_sql.py \
+  --dump-file /home/manu/suite-clinica/backend/backups/prod_db_local/prod_db.sql
+```
+
+Note operative:
+- lo script è `backend/scripts/local_db_ops/import_cached_migrated_sql.py`
+- il dump custom `.dump` può fallire se la versione locale di `pg_restore` è più vecchia (`unsupported version in file header`)
+- in quel caso usare il dump plain `.sql` come nell'esempio sopra
+- dopo import eseguire sempre:
+
+```bash
+cd /home/manu/suite-clinica/backend
+poetry run flask db upgrade
+```
+
 ## 7) Deploy completo
 
 ```bash
