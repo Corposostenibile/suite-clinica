@@ -157,7 +157,7 @@ def _is_health_manager_team_leader(user) -> bool:
 
 
 def _get_team_leader_member_ids(user_id: int) -> set[int]:
-    """Ritorna ID membri dei team guidati dal team leader."""
+    """Ritorna ID membri dei team guidati dal team leader (incluso il TL stesso)."""
     team_ids = db.session.query(Team.id).filter(
         Team.head_id == user_id,
         Team.is_active == True
@@ -165,7 +165,9 @@ def _get_team_leader_member_ids(user_id: int) -> set[int]:
     rows = db.session.query(team_members.c.user_id).filter(
         team_members.c.team_id.in_(team_ids)
     ).distinct().all()
-    return {row[0] for row in rows}
+    result = {row[0] for row in rows}
+    result.add(user_id)  # Il TL deve vedere anche i propri pazienti
+    return result
 
 
 def _can_access_member_scoped_data(requesting_user, target_user_id: int) -> bool:

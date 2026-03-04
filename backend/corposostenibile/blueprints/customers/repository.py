@@ -148,8 +148,9 @@ class CustomerRepository:
             
             # Team Leader: vede i pazienti assegnati ai membri del suo team
             elif user_role == UserRoleEnum.team_leader:
-                # Raccoglie tutti i member_ids dei team guidati
+                # Raccoglie tutti i member_ids dei team guidati + il team leader stesso
                 team_member_ids = set()
+                team_member_ids.add(current_user.id)  # Il TL deve vedere anche i propri pazienti
                 for team in (current_user.teams_led or []):
                     for member in (team.members or []):
                         team_member_ids.add(member.id)
