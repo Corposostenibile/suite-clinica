@@ -508,7 +508,7 @@ def create_app(config_name: str | None = None) -> Flask:
         @app.login_manager.unauthorized_handler
         def unauthorized():
             """Redirect to React login for pages, 401 for API calls."""
-            if flask_request.path.startswith('/api/'):
+            if flask_request.path.startswith('/api/') or flask_request.path.startswith('/loom/api/'):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
             return redirect('/auth/login')
 
@@ -526,6 +526,7 @@ def create_app(config_name: str | None = None) -> Flask:
         # Paths that should NOT be intercepted (handled by Flask)
         _flask_prefixes = [
             '/api/',
+            '/loom/',
             '/client-checks/',
             '/customers/',
             '/uploads/',

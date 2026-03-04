@@ -75,50 +75,40 @@ Nel frontend React andrà collegata la UX del widget (trigger registrazione, sce
   - `submitter_user_id` obbligatorio (utente loggato),
   - `cliente_id` non ancora richiesto nello step corrente (arriverà dopo).
 
-## Configurazione ambiente (VPS dev/stage)
-
-### Variabili frontend
-
-Nel frontend React (`corposostenibile-clinica`) servono:
-
-- `VITE_LOOM_PUBLIC_APP_ID=<public_app_id_loom>`
-- opzionale: `VITE_LOOM_SDK_SCRIPT_URL=/static/js/loom-sdk.bundle.js`
-
-Note:
-- `VITE_LOOM_PUBLIC_APP_ID` deve essere l'App ID Loom con dominio autorizzato.
-- Su VPS locale/stage (`https://suite-clinica.duckdns.org`) usare l'app Loom che include quel dominio in allowlist (es. sandbox).
-
-### Proxy dev Vite
-
-In sviluppo il dev server deve proxyare il blueprint:
-- `/loom -> backendUrl`
-
-Senza questo proxy, la `POST /loom/api/recordings` risponde `404` dal frontend.
-
-### Come farlo provare a un collaboratore
-
-1. Creare/fornire un account Loom autorizzato all'uso del Record SDK.
-2. Verificare nel Loom Developer Portal che il dominio usato dal collaboratore sia autorizzato:
-   - `localhost` e/o `127.0.0.1` per test locale,
-   - `suite-clinica.duckdns.org` per VPS stage.
-3. Consegnare al collaboratore:
-   - valore di `VITE_LOOM_PUBLIC_APP_ID`,
-   - URL ambiente da usare.
-4. Il collaboratore deve:
-   - fare login su Loom nello stesso browser,
-   - consentire cookie necessari (no blocco terze parti per Loom),
-   - disattivare eventuali estensioni che bloccano script/cookie Loom durante il test.
-
-Non è necessario usare una “sandbox” applicativa del progetto: serve una app Loom con domini corretti + account Loom autorizzato.
-
 ## Produzione GCP
 
-Per produzione su `http://34.154.33.164/` (da validare su dominio finale):
+Per produzione su `http://34.154.33.164/` (da validare su dominio finale), fare solo i seguenti passaggi:
 
 1. Creare un'app Loom dedicata produzione (consigliato separata da sandbox/stage).
 2. Inserire in allowlist i domini reali di produzione (non solo IP, appena definiti).
 3. Impostare nel frontend build di produzione:
    - `VITE_LOOM_PUBLIC_APP_ID=<public_app_id_production>`
+   - opzionale: `VITE_LOOM_SDK_SCRIPT_URL=/static/js/loom-sdk.bundle.js`
 4. Verificare che il backend serva `/static/js/loom-sdk.bundle.js` anche in produzione.
 5. Verificare end-to-end:
    - Record -> Insert -> `POST /loom/api/recordings` -> record presente in libreria con ACL corretta.
+
+## Nota tecnica attuale (dipendenza temporanea)
+
+- Al momento l'integrazione React clinica dipende da:
+  - `/static/js/loom-sdk.bundle.js`
+- Motivo: con stack frontend React 19, la versione npm ufficiale `@loomhq/record-sdk` non è ancora compatibile in modo nativo.
+
+## Cosa monitorare per passare a npm ufficiale
+
+Monitorare periodicamente:
+
+1. `@loomhq/record-sdk` su npm:
+   - changelog/versione con peer dependency compatibile React 19 (`react`/`react-dom`).
+   - link: https://www.npmjs.com/package/@loomhq/record-sdk
+2. Documentazione ufficiale Loom Record SDK:
+   - update espliciti su supporto React 19.
+   - link: https://dev.loom.com/docs/record-sdk/getting-started
+   - link: https://www.loom.com/sdk
+3. Test interno di smoke:
+   - install package ufficiale,
+   - init SDK senza errori runtime,
+   - `openPreRecordPanel` + `insert` + salvataggio backend OK.
+
+Criterio di uscita dalla dipendenza al bundle:
+- appena package npm è ufficialmente compatibile con React 19 **e** smoke test interno è verde end-to-end.

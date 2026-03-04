@@ -8,6 +8,21 @@ let sdkLoadPromise = null;
 
 const getLoomSDK = () => window.loom || window.LoomSDK || null;
 
+const normalizeVideoPayload = (video) => {
+  if (!video || typeof video !== 'object') return null;
+
+  const sharedUrl = video.sharedUrl || video.shared_url || video.url || video.permalink || null;
+  if (!sharedUrl) return null;
+
+  return {
+    sharedUrl,
+    embedUrl: video.embedUrl || video.embed_url || null,
+    title: video.title || video.name || null,
+    id: video.id || video.videoId || null,
+    providerUrl: video.providerUrl || video.provider_url || null,
+  };
+};
+
 const loadLoomScript = () => {
   const existingSdk = getLoomSDK();
   if (existingSdk) {
@@ -136,40 +151,52 @@ export function useLoom() {
       const tempButton = document.createElement('button');
       tempButton.style.display = 'none';
       document.body.appendChild(tempButton);
+      let hasFiredComplete = false;
+
+      const emitCompleteOnce = (rawVideo, eventName) => {
+        const video = normalizeVideoPayload(rawVideo);
+        console.info(`[LoomHook] ${eventName}`, rawVideo);
+        if (!video) {
+          return false;
+        }
+        if (hasFiredComplete) {
+          return true;
+        }
+        hasFiredComplete = true;
+        setIsRecording(false);
+        if (onComplete) onComplete(video);
+        return true;
+      };
+
+      const cleanupTempButton = () => {
+        if (document.body.contains(tempButton)) {
+          document.body.removeChild(tempButton);
+        }
+      };
 
       const sdkButton = configureButton({
         element: tempButton,
         hooks: {
           onInsertClicked: (video) => {
-            console.info('[LoomHook] onInsertClicked', video);
-            setIsRecording(false);
-
-            if (video?.sharedUrl && onComplete) {
-              onComplete({
-                sharedUrl: video.sharedUrl,
-                embedUrl: video.embedUrl,
-                title: video.title,
-                id: video.id,
-                providerUrl: video.providerUrl,
-              });
-            }
-
-            if (document.body.contains(tempButton)) {
-              document.body.removeChild(tempButton);
-            }
+            emitCompleteOnce(video, 'onInsertClicked');
+            cleanupTempButton();
           },
           onCancel: () => {
             console.info('[LoomHook] onCancel');
             setIsRecording(false);
-            if (document.body.contains(tempButton)) {
-              document.body.removeChild(tempButton);
-            }
+            cleanupTempButton();
           },
           onRecordingStarted: () => {
             console.info('[LoomHook] onRecordingStarted');
           },
-          onComplete: () => {
-            console.info('[LoomHook] onComplete');
+          onComplete: (video) => {
+            emitCompleteOnce(video, 'onComplete');
+          },
+          onRecordingComplete: (video) => {
+            emitCompleteOnce(video, 'onRecordingComplete');
+          },
+          onUploadComplete: (video) => {
+            emitCompleteOnce(video, 'onUploadComplete');
           },
         },
       });

@@ -156,6 +156,13 @@ function SupportWidget({
   // =========================================================================
   const [isOpen, setIsOpen] = useState(false);  // Controlla apertura pannello
   const [isSavingLoom, setIsSavingLoom] = useState(false);
+  const [isLoomDecisionOpen, setIsLoomDecisionOpen] = useState(false);
+  const [loomDraftVideo, setLoomDraftVideo] = useState(null);
+  const [associatePatient, setAssociatePatient] = useState(false);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
+  const [patientOptions, setPatientOptions] = useState([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false);
   const navigate = useNavigate();
   const {
     startRecording,
@@ -173,9 +180,43 @@ function SupportWidget({
       isLoomReady,
       isRecording,
       isSavingLoom,
+      isLoomDecisionOpen,
       loomError,
     });
-  }, [isLoomSupported, isLoomInitialized, isLoomReady, isRecording, isSavingLoom, loomError]);
+  }, [isLoomSupported, isLoomInitialized, isLoomReady, isRecording, isSavingLoom, isLoomDecisionOpen, loomError]);
+
+  useEffect(() => {
+    if (!isLoomDecisionOpen || !associatePatient) {
+      setPatientOptions([]);
+      setIsLoadingPatients(false);
+      return;
+    }
+
+    let isActive = true;
+    const timerId = window.setTimeout(async () => {
+      try {
+        setIsLoadingPatients(true);
+        const items = await loomService.searchPatients(patientQuery, 20);
+        if (isActive) {
+          setPatientOptions(items);
+        }
+      } catch (err) {
+        if (isActive) {
+          console.error('[LoomWidget] patients search error', err);
+          setPatientOptions([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingPatients(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timerId);
+    };
+  }, [isLoomDecisionOpen, associatePatient, patientQuery]);
 
 
   // =========================================================================
@@ -217,7 +258,51 @@ function SupportWidget({
     navigate('/supporto');
   };
 
-  // Registra Loom dal widget e salva il link lato backend
+  const resetLoomDecisionState = () => {
+    setIsLoomDecisionOpen(false);
+    setLoomDraftVideo(null);
+    setAssociatePatient(false);
+    setPatientQuery('');
+    setSelectedPatientId(null);
+    setPatientOptions([]);
+    setIsLoadingPatients(false);
+  };
+
+  const handleSaveLoomDecision = async () => {
+    if (!loomDraftVideo?.sharedUrl) {
+      alert('Link Loom non disponibile.');
+      return;
+    }
+
+    if (associatePatient && !selectedPatientId) {
+      alert('Seleziona un paziente oppure disattiva l\'associazione.');
+      return;
+    }
+
+    try {
+      setIsSavingLoom(true);
+      console.info('[LoomWidget] saving recording to backend...', {
+        associatePatient,
+        selectedPatientId,
+      });
+      await loomService.saveSupportRecording({
+        loomLink: loomDraftVideo.sharedUrl,
+        title: loomDraftVideo.title || pageTitle || 'Registrazione supporto',
+        clienteId: associatePatient ? selectedPatientId : null,
+      });
+      console.info('[LoomWidget] recording saved successfully');
+      alert('Loom salvato nella tua libreria.');
+      resetLoomDecisionState();
+    } catch (err) {
+      console.error('[LoomWidget] save error', err);
+      const message = err?.response?.data?.message || err?.message || 'Errore salvataggio Loom';
+      alert(message);
+    } finally {
+      setIsSavingLoom(false);
+    }
+  };
+
+  // Registra Loom dal widget e apre modale suite per conferma salvataggio
   const handleRecordLoom = () => {
     console.info('[LoomWidget] click Registra Loom', {
       isRecording,
@@ -247,23 +332,8 @@ function SupportWidget({
         alert('Registrazione completata ma link Loom non disponibile.');
         return;
       }
-
-      try {
-        setIsSavingLoom(true);
-        console.info('[LoomWidget] saving recording to backend...');
-        await loomService.saveSupportRecording({
-          loomLink: video.sharedUrl,
-          title: video.title || pageTitle || 'Registrazione supporto',
-        });
-        console.info('[LoomWidget] recording saved successfully');
-        alert('Loom salvato nella tua libreria.');
-      } catch (err) {
-        console.error('[LoomWidget] save error', err);
-        const message = err?.response?.data?.message || err?.message || 'Errore salvataggio Loom';
-        alert(message);
-      } finally {
-        setIsSavingLoom(false);
-      }
+      setLoomDraftVideo(video);
+      setIsLoomDecisionOpen(true);
     });
   };
 
@@ -512,11 +582,11 @@ function SupportWidget({
               <OpzioneAiuto
                 icon={<FaVideo size={18} color="#DC2626" />}
                 iconBg="linear-gradient(135deg, #FEE2E2, #FECACA)"
-                titolo={isRecording || isSavingLoom ? 'Registrazione in corso...' : 'Registra Loom'}
+                titolo={isRecording || isSavingLoom ? 'Registrazione in corso...' : isLoomDecisionOpen ? 'Conferma salvataggio...' : 'Registra Loom'}
                 descrizione="Registra e salva un Loom nella tua libreria"
                 onClick={handleRecordLoom}
                 accentColor={accentColor}
-                disabled={isRecording || isSavingLoom}
+                disabled={isRecording || isSavingLoom || isLoomDecisionOpen}
               />
 
               {/* Opzione 1: Tour Guidato */}
@@ -565,6 +635,167 @@ function SupportWidget({
             </div>
           </div>
         </div>
+      )}
+
+      {/* =====================================================================
+          MODALE DECISIONE SALVATAGGIO LOOM
+          ===================================================================== */}
+      {isLoomDecisionOpen && (
+        <>
+          <div
+            onClick={() => {
+              if (!isSavingLoom) resetLoomDecisionState();
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 10000,
+              animation: 'fadeIn 0.2s ease'
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '560px',
+              maxWidth: 'calc(100vw - 32px)',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 18px 80px rgba(0,0,0,0.35)',
+              zIndex: 10001,
+              overflow: 'hidden'
+            }}
+          >
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>Salva registrazione Loom</div>
+              <button
+                onClick={() => {
+                  if (!isSavingLoom) resetLoomDecisionState();
+                }}
+                disabled={isSavingLoom}
+                style={{ border: 'none', background: 'transparent', cursor: isSavingLoom ? 'not-allowed' : 'pointer', color: '#6B7280' }}
+              >
+                <FaTimes size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>Video registrato</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                  {loomDraftVideo?.title || 'Registrazione supporto'}
+                </div>
+                <a
+                  href={loomDraftVideo?.sharedUrl || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: '13px', color: '#2563EB', wordBreak: 'break-all' }}
+                >
+                  {loomDraftVideo?.sharedUrl}
+                </a>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#111827' }}>
+                <input
+                  type="checkbox"
+                  checked={associatePatient}
+                  disabled={isSavingLoom}
+                  onChange={(e) => {
+                    const nextValue = e.target.checked;
+                    setAssociatePatient(nextValue);
+                    if (!nextValue) {
+                      setPatientQuery('');
+                      setSelectedPatientId(null);
+                      setPatientOptions([]);
+                    }
+                  }}
+                />
+                Associa a un paziente
+              </label>
+
+              {associatePatient && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Cerca paziente..."
+                    value={patientQuery}
+                    disabled={isSavingLoom}
+                    onChange={(e) => setPatientQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '14px'
+                    }}
+                  />
+                  <select
+                    value={selectedPatientId || ''}
+                    disabled={isSavingLoom || isLoadingPatients || patientOptions.length === 0}
+                    onChange={(e) => setSelectedPatientId(e.target.value ? Number(e.target.value) : null)}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      background: 'white'
+                    }}
+                  >
+                    <option value="">
+                      {isLoadingPatients ? 'Ricerca in corso...' : patientOptions.length ? 'Seleziona un paziente' : 'Nessun paziente trovato'}
+                    </option>
+                    {patientOptions.map((patient) => (
+                      <option key={patient.cliente_id} value={patient.cliente_id}>
+                        {patient.nome_cognome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={resetLoomDecisionState}
+                disabled={isSavingLoom}
+                style={{
+                  border: '1px solid #D1D5DB',
+                  background: 'white',
+                  color: '#111827',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  cursor: isSavingLoom ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleSaveLoomDecision}
+                disabled={isSavingLoom || !loomDraftVideo?.sharedUrl || (associatePatient && !selectedPatientId)}
+                style={{
+                  border: 'none',
+                  background: '#2563EB',
+                  color: 'white',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  fontWeight: 600,
+                  cursor: isSavingLoom ? 'not-allowed' : 'pointer',
+                  opacity: (isSavingLoom || !loomDraftVideo?.sharedUrl || (associatePatient && !selectedPatientId)) ? 0.6 : 1
+                }}
+              >
+                {isSavingLoom ? 'Salvataggio...' : 'Salva'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* =====================================================================

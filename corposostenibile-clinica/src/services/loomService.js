@@ -56,6 +56,7 @@ const loomService = {
    * @param {string} payload.loomLink - URL share Loom
    * @param {string} [payload.title] - Titolo opzionale
    * @param {string} [payload.note] - Nota opzionale
+   * @param {number|null} [payload.clienteId] - Paziente opzionale
    * @returns {Promise<Object>}
    */
   saveSupportRecording: async (payload) => {
@@ -66,6 +67,7 @@ const loomService = {
         loom_link: payload.loomLink,
         title: payload.title,
         note: payload.note,
+        cliente_id: payload.clienteId ?? null,
       },
       {
         withCredentials: true,
@@ -77,6 +79,24 @@ const loomService = {
       }
     );
     return response.data;
+  },
+
+  /**
+   * Ricerca pazienti per associazione registrazione Loom.
+   *
+   * @param {string} query
+   * @param {number} [limit=20]
+   * @returns {Promise<Array<{cliente_id:number,nome_cognome:string}>>}
+   */
+  searchPatients: async (query, limit = 20) => {
+    const response = await axios.get('/loom/api/patients/search', {
+      params: {
+        q: query || '',
+        limit,
+      },
+      withCredentials: true,
+    });
+    return response?.data?.items || [];
   },
 
   /**
