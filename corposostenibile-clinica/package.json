@@ -10,6 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@atlaskit/icon": "^32.0.0",
+    "@atlaskit/icon-lab": "^5.17.0",
+    "@atlaskit/react-ufo": "^5.4.2",
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@loomhq/loom-embed": "^1.7.0",
+    "@loomhq/record-sdk": "^4.9.1",
     "@n8tb1t/use-scroll-position": "^4.0.0",
     "axios": "^1.13.2",
     "react": "^19.2.0",

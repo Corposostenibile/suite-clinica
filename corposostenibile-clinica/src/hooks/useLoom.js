@@ -1,18 +1,51 @@
-/**
- * useLoom Hook
- *
- * Hook React per l'integrazione con Loom SDK.
- * Permette di registrare video direttamente dall'applicazione.
- */
-
 import { useState, useEffect, useCallback } from 'react';
 
-// Ottieni l'app ID dalle variabili d'ambiente
 const LOOM_PUBLIC_APP_ID = import.meta.env.VITE_LOOM_PUBLIC_APP_ID;
+const LOOM_SDK_SCRIPT_URL = import.meta.env.VITE_LOOM_SDK_SCRIPT_URL || '/static/js/loom-sdk.bundle.js';
+const LOOM_SCRIPT_ID = 'loom-record-sdk-script';
 
-// Funzione per ottenere l'SDK Loom (può essere window.loom o window.LoomSDK)
-const getLoomSDK = () => {
-  return window.loom || window.LoomSDK || null;
+let sdkLoadPromise = null;
+
+const getLoomSDK = () => window.loom || window.LoomSDK || null;
+
+const loadLoomScript = () => {
+  const existingSdk = getLoomSDK();
+  if (existingSdk) {
+    return Promise.resolve(existingSdk);
+  }
+
+  if (sdkLoadPromise) {
+    return sdkLoadPromise;
+  }
+
+  sdkLoadPromise = new Promise((resolve, reject) => {
+    const existingScript = document.getElementById(LOOM_SCRIPT_ID);
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(getLoomSDK()), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Errore caricamento Loom SDK script esistente')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = LOOM_SCRIPT_ID;
+    script.src = LOOM_SDK_SCRIPT_URL;
+    script.async = true;
+    script.onload = () => {
+      const sdk = getLoomSDK();
+      if (sdk) {
+        console.info('[LoomHook] script loaded, window.LoomSDK disponibile');
+        resolve(sdk);
+      } else {
+        reject(new Error('Script Loom caricato ma SDK non trovato su window'));
+      }
+    };
+    script.onerror = () => reject(new Error(`Errore caricamento Loom SDK script: ${LOOM_SDK_SCRIPT_URL}`));
+
+    document.head.appendChild(script);
+    console.info('[LoomHook] loading Loom SDK script from', LOOM_SDK_SCRIPT_URL);
+  });
+
+  return sdkLoadPromise;
 };
 
 export function useLoom() {
@@ -22,99 +55,84 @@ export function useLoom() {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState(null);
 
-  // Inizializza Loom SDK
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    async function initLoom() {
-      const sdk = getLoomSDK();
-
-      // Se l'SDK non è ancora caricato, riprova dopo un po'
-      if (!sdk) {
-        attempts++;
-        if (attempts < maxAttempts) {
-          console.log(`[Loom] SDK non ancora disponibile, tentativo ${attempts}/${maxAttempts}...`);
-          setTimeout(initLoom, 500);
-          return;
-        }
-        console.warn('[Loom] SDK non disponibile dopo tutti i tentativi');
-        setError('Loom SDK non caricato');
-        // Impostiamo comunque isSupported a true per mostrare il pulsante
-        // L'errore verrà mostrato quando l'utente prova a registrare
-        setIsSupported(true);
-        return;
-      }
-
-      if (!LOOM_PUBLIC_APP_ID) {
-        console.warn('[Loom] VITE_LOOM_PUBLIC_APP_ID non configurato');
-        setError('Loom non configurato');
-        // Mostra comunque il pulsante per debug
-        setIsSupported(true);
-        return;
-      }
-
-      try {
-        // Verifica supporto browser
-        const { supported } = await sdk.isSupported();
-        setIsSupported(supported);
-
-        if (!supported) {
-          setError('Browser non supportato per Loom');
-          return;
-        }
-
-        // Inizializza SDK
-        const { configureButton } = await sdk.setup({
-          publicAppId: LOOM_PUBLIC_APP_ID,
-        });
-
-        setLoomSDK({ configureButton, sdk });
-        setIsInitialized(true);
-        setError(null);
-
-        console.log('[Loom] SDK inizializzato con successo');
-      } catch (err) {
-        console.error('[Loom] Errore inizializzazione:', err);
-        setError(err.message || 'Errore inizializzazione Loom');
-        // Mostra comunque il pulsante
-        setIsSupported(true);
-      }
-    }
-
-    // Avvia l'inizializzazione dopo un breve delay per permettere al DOM di caricare l'SDK
-    setTimeout(initLoom, 100);
-  }, []);
-
-  /**
-   * Avvia una registrazione Loom
-   * @param {Function} onComplete - Callback chiamata al termine della registrazione con i dati del video
-   */
-  const startRecording = useCallback(async (onComplete) => {
-    const sdk = getLoomSDK();
-
-    if (!sdk) {
-      alert('Loom SDK non disponibile. Ricarica la pagina e riprova.');
-      setError('Loom SDK non disponibile');
-      return;
-    }
+  const initializeSdk = useCallback(async () => {
+    console.info('[LoomHook] initializeSdk called');
 
     if (!LOOM_PUBLIC_APP_ID) {
-      alert('Loom non configurato. Contatta l\'amministratore.');
-      setError('Loom non configurato');
-      return;
+      const msg = 'VITE_LOOM_PUBLIC_APP_ID non configurato';
+      console.warn('[LoomHook] missing VITE_LOOM_PUBLIC_APP_ID');
+      setError(msg);
+      setIsSupported(true);
+      return null;
     }
 
     try {
-      setIsRecording(true);
-      setError(null);
+      const sdk = await loadLoomScript();
+      console.info('[LoomHook] runtime context', {
+        origin: window.location.origin,
+        hasAppId: Boolean(LOOM_PUBLIC_APP_ID),
+      });
 
-      // Usa l'SDK per aprire il pannello di registrazione
-      const { configureButton } = await sdk.setup({
+      const supportResult = typeof sdk?.isSupported === 'function'
+        ? await sdk.isSupported()
+        : { supported: true };
+      console.info('[LoomHook] support result:', supportResult);
+
+      if (!supportResult?.supported) {
+        const msg = `Browser non supportato per Loom (${supportResult?.error || 'unknown'})`;
+        setIsSupported(false);
+        setError(msg);
+        return null;
+      }
+
+      setIsSupported(true);
+
+      const setupResult = await sdk.setup({
         publicAppId: LOOM_PUBLIC_APP_ID,
       });
 
-      // Crea un pulsante temporaneo invisibile per gestire la registrazione
+      if (!setupResult || typeof setupResult.configureButton !== 'function') {
+        throw new Error('Loom setup non valido: configureButton mancante');
+      }
+
+      setLoomSDK({ sdk, configureButton: setupResult.configureButton });
+      setIsInitialized(true);
+      setError(null);
+      console.info('[LoomHook] SDK initialized successfully');
+
+      return setupResult;
+    } catch (err) {
+      const message = err?.message || 'Errore inizializzazione Loom';
+      console.error('[Loom] Errore inizializzazione:', err);
+      setError(message);
+      setIsInitialized(false);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    initializeSdk();
+  }, [initializeSdk]);
+
+  const startRecording = useCallback(async (onComplete) => {
+    try {
+      console.info('[LoomHook] startRecording called');
+      setIsRecording(true);
+      setError(null);
+
+      let configureButton = loomSDK?.configureButton;
+      if (!configureButton) {
+        const setupResult = await initializeSdk();
+        configureButton = setupResult?.configureButton;
+      }
+
+      if (!configureButton) {
+        const msg = 'Loom SDK non pronta. Controlla APP_ID e dominio autorizzato.';
+        console.warn('[LoomHook] no configureButton available, aborting startRecording');
+        setError(msg);
+        throw new Error(msg);
+      }
+
       const tempButton = document.createElement('button');
       tempButton.style.display = 'none';
       document.body.appendChild(tempButton);
@@ -123,60 +141,54 @@ export function useLoom() {
         element: tempButton,
         hooks: {
           onInsertClicked: (video) => {
-            // Registrazione completata
+            console.info('[LoomHook] onInsertClicked', video);
             setIsRecording(false);
 
-            if (video && video.sharedUrl) {
-              console.log('[Loom] Registrazione completata:', video);
-              if (onComplete) {
-                onComplete({
-                  sharedUrl: video.sharedUrl,
-                  embedUrl: video.embedUrl,
-                  title: video.title,
-                  id: video.id,
-                  providerUrl: video.providerUrl,
-                });
-              }
+            if (video?.sharedUrl && onComplete) {
+              onComplete({
+                sharedUrl: video.sharedUrl,
+                embedUrl: video.embedUrl,
+                title: video.title,
+                id: video.id,
+                providerUrl: video.providerUrl,
+              });
             }
 
-            // Rimuovi il pulsante temporaneo
             if (document.body.contains(tempButton)) {
               document.body.removeChild(tempButton);
             }
           },
           onCancel: () => {
+            console.info('[LoomHook] onCancel');
             setIsRecording(false);
-            console.log('[Loom] Registrazione annullata');
             if (document.body.contains(tempButton)) {
               document.body.removeChild(tempButton);
             }
           },
-          onComplete: (video) => {
-            // Questo viene chiamato quando la registrazione finisce ma prima dell'insert
-            console.log('[Loom] Recording complete, waiting for insert...', video);
+          onRecordingStarted: () => {
+            console.info('[LoomHook] onRecordingStarted');
+          },
+          onComplete: () => {
+            console.info('[LoomHook] onComplete');
           },
         },
       });
 
-      // Simula il click sul pulsante per aprire il pannello
+      console.info('[LoomHook] opening pre-record panel...');
       sdkButton.openPreRecordPanel();
-
+      console.info('[LoomHook] openPreRecordPanel invoked');
     } catch (err) {
+      const message = err?.message || 'Errore durante la registrazione';
       setIsRecording(false);
       console.error('[Loom] Errore durante la registrazione:', err);
-      alert('Errore Loom: ' + (err.message || 'Errore sconosciuto'));
-      setError(err.message || 'Errore durante la registrazione');
+      setError(message);
+      alert('Errore Loom: ' + message);
     }
-  }, []);
+  }, [loomSDK, initializeSdk]);
 
-  /**
-   * Configura un elemento HTML come pulsante Loom
-   * @param {HTMLElement} element - Elemento da configurare
-   * @param {Object} hooks - Callbacks per gli eventi
-   */
   const configureButton = useCallback((element, hooks = {}) => {
-    if (!loomSDK || !loomSDK.configureButton) {
-      console.warn('[Loom] SDK non inizializzato');
+    if (!loomSDK?.configureButton) {
+      console.warn('[LoomHook] configureButton chiamato ma SDK non inizializzato');
       return null;
     }
 
@@ -206,7 +218,6 @@ export function useLoom() {
     startRecording,
     configureButton,
     error,
-    // Indica se Loom è pronto per l'uso
     isReady: isSupported && isInitialized && !error,
   };
 }

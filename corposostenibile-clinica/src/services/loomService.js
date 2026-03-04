@@ -50,6 +50,36 @@ loomApi.interceptors.response.use(
 
 const loomService = {
   /**
+   * Salva una registrazione Loom creata dal widget di supporto.
+   *
+   * @param {Object} payload
+   * @param {string} payload.loomLink - URL share Loom
+   * @param {string} [payload.title] - Titolo opzionale
+   * @param {string} [payload.note] - Nota opzionale
+   * @returns {Promise<Object>}
+   */
+  saveSupportRecording: async (payload) => {
+    const csrfToken = getCsrfToken() || '';
+    const response = await axios.post(
+      '/loom/api/recordings',
+      {
+        loom_link: payload.loomLink,
+        title: payload.title,
+        note: payload.note,
+      },
+      {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+          'X-CSRF-Token': csrfToken,
+        },
+      }
+    );
+    return response.data;
+  },
+
+  /**
    * Salva link Loom per un evento GHL
    * Crea o aggiorna il record Meeting locale associato
    *

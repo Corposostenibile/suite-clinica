@@ -133,9 +133,11 @@
  * =============================================================================
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing } from 'react-icons/fa';
+import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing, FaVideo } from 'react-icons/fa';
+import useLoom from '../hooks/useLoom';
+import loomService from '../services/loomService';
 
 function SupportWidget({
   pageTitle,
@@ -153,7 +155,27 @@ function SupportWidget({
   // STATO DEL COMPONENTE
   // =========================================================================
   const [isOpen, setIsOpen] = useState(false);  // Controlla apertura pannello
+  const [isSavingLoom, setIsSavingLoom] = useState(false);
   const navigate = useNavigate();
+  const {
+    startRecording,
+    isRecording,
+    error: loomError,
+    isReady: isLoomReady,
+    isInitialized: isLoomInitialized,
+    isSupported: isLoomSupported,
+  } = useLoom();
+
+  useEffect(() => {
+    console.info('[LoomWidget] state changed', {
+      isLoomSupported,
+      isLoomInitialized,
+      isLoomReady,
+      isRecording,
+      isSavingLoom,
+      loomError,
+    });
+  }, [isLoomSupported, isLoomInitialized, isLoomReady, isRecording, isSavingLoom, loomError]);
 
 
   // =========================================================================
@@ -193,6 +215,56 @@ function SupportWidget({
   const handleGoToSupport = () => {
     setIsOpen(false);
     navigate('/supporto');
+  };
+
+  // Registra Loom dal widget e salva il link lato backend
+  const handleRecordLoom = () => {
+    console.info('[LoomWidget] click Registra Loom', {
+      isRecording,
+      isSavingLoom,
+      isLoomReady,
+      isLoomInitialized,
+      isLoomSupported,
+      loomError,
+      pageTitle,
+    });
+    if (!isLoomReady) {
+      console.warn('[LoomWidget] Loom non pronto al click', {
+        isLoomReady,
+        isLoomInitialized,
+        isLoomSupported,
+        loomError,
+        origin: window.location.origin,
+      });
+      alert(loomError || 'Loom non pronto. Verifica APP_ID e ricarica la pagina.');
+      return;
+    }
+    setIsOpen(false);
+    startRecording(async (video) => {
+      console.info('[LoomWidget] recording callback received', video);
+      if (!video?.sharedUrl) {
+        console.warn('[LoomWidget] missing sharedUrl in callback payload');
+        alert('Registrazione completata ma link Loom non disponibile.');
+        return;
+      }
+
+      try {
+        setIsSavingLoom(true);
+        console.info('[LoomWidget] saving recording to backend...');
+        await loomService.saveSupportRecording({
+          loomLink: video.sharedUrl,
+          title: video.title || pageTitle || 'Registrazione supporto',
+        });
+        console.info('[LoomWidget] recording saved successfully');
+        alert('Loom salvato nella tua libreria.');
+      } catch (err) {
+        console.error('[LoomWidget] save error', err);
+        const message = err?.response?.data?.message || err?.message || 'Errore salvataggio Loom';
+        alert(message);
+      } finally {
+        setIsSavingLoom(false);
+      }
+    });
   };
 
   // Icona della pagina (usa quella passata o quella default)
@@ -436,6 +508,16 @@ function SupportWidget({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {/* Opzione: Registra Loom */}
+              <OpzioneAiuto
+                icon={<FaVideo size={18} color="#DC2626" />}
+                iconBg="linear-gradient(135deg, #FEE2E2, #FECACA)"
+                titolo={isRecording || isSavingLoom ? 'Registrazione in corso...' : 'Registra Loom'}
+                descrizione="Registra e salva un Loom nella tua libreria"
+                onClick={handleRecordLoom}
+                accentColor={accentColor}
+                disabled={isRecording || isSavingLoom}
+              />
 
               {/* Opzione 1: Tour Guidato */}
               {onStartTour && (
@@ -521,10 +603,11 @@ function SupportWidget({
  * Renderizza una singola opzione nel menu di aiuto.
  * Usato internamente da SupportWidget.
  */
-function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor }) {
+function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -536,13 +619,16 @@ function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor 
         cursor: 'pointer',
         transition: 'all 0.2s',
         textAlign: 'left',
-        width: '100%'
+        width: '100%',
+        opacity: disabled ? 0.6 : 1
       }}
       onMouseEnter={(e) => {
+        if (disabled) return;
         e.currentTarget.style.borderColor = accentColor;
         e.currentTarget.style.background = `${accentColor}0D`; // 5% opacità
       }}
       onMouseLeave={(e) => {
+        if (disabled) return;
         e.currentTarget.style.borderColor = '#E5E7EB';
         e.currentTarget.style.background = 'white';
       }}

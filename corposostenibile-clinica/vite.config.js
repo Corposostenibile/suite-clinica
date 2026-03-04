@@ -126,6 +126,11 @@ export default defineConfig(({ mode }) => {
               target: backendUrl,
               changeOrigin: true,
             },
+            // Proxy Loom blueprint routes
+            '/loom': {
+              target: backendUrl,
+              changeOrigin: true,
+            },
           },
         }
       : undefined,
