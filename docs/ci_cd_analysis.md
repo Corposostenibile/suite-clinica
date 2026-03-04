@@ -17,6 +17,7 @@ Questo documento descrive la pipeline attuale e i manifest necessari per esporre
 - `k8s/frontendconfig.yaml`
 - `k8s/managed-certificate.yaml`
 - `k8s/ingress.yaml`
+- `k8s/hpa.yaml`
 6. Post-deploy:
 - migrazioni DB (`flask db upgrade` via `kubectl exec`)
 - seed check iniziali (`seed_initial_checks.py` via `kubectl exec`, automatico in `cloudbuild.yaml`)
@@ -51,10 +52,10 @@ Punti chiave:
 ### 2.3 Ingress (`k8s/ingress.yaml`)
 
 - classe: `gce`
-- host: `suite-clinica.duckdns.org`
+- host: `clinica.corposostenibile.com`
 - path `/*` verso `suite-clinica-service:80`
 - annoto:
-  - managed certificate
+  - managed certificate (`clinica-corposostenibile-cert`)
   - frontend config (redirect HTTPS)
 
 ### 2.4 Managed Certificate (`k8s/managed-certificate.yaml`)
@@ -96,6 +97,7 @@ API backend sullo stesso host:
     - --filename=k8s/frontendconfig.yaml
     - --filename=k8s/managed-certificate.yaml
     - --filename=k8s/ingress.yaml
+    - --filename=k8s/hpa.yaml
     - --location=europe-west8
     - --cluster=suite-clinica-cluster-prod
     - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
@@ -207,17 +209,17 @@ Comandi utili:
 kubectl describe pod <nuovo-pod>
 kubectl scale deploy/suite-clinica-backend --replicas=0
 kubectl scale deploy/suite-clinica-backend --replicas=1
-kubectl rollout status deployment/suite-clinica-backend --timeout=300s
+kubectl rollout status deployment/suite-clinica-backend --timeout=900s
 ```
 
 Mitigazione consigliata:
 - configurare una strategia di rollout compatibile con PVC `RWO` (es. `Recreate` oppure `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`)
 
-Scelta operativa attuale (24 febbraio 2026):
-- `k8s/deployment.yaml` usa `RollingUpdate` con `maxSurge: 0` e `maxUnavailable: 1`
-- obiettivo: evitare rollout bloccati quando il cluster non ha RAM/capacity per tenere `vecchio pod + nuovo pod` insieme
-- tradeoff accettato: breve downtime durante il deploy del backend (1 replica)
-- piano futuro: aggiungere capacity/headroom GKE per tornare a rollout senza downtime
+Stato attuale su `main` (4 marzo 2026):
+- `k8s/deployment.yaml` è a `replicas: 1` e usa `RollingUpdate` con `maxSurge: 1` e `maxUnavailable: 0`
+- `k8s/hpa.yaml` è presente ma con `minReplicas: 1` e `maxReplicas: 1` (nessun autoscaling effettivo)
+- con PVC `uploads-pvc` in `ReadWriteOnce`, questa combinazione può riattivare il rischio `Multi-Attach` nei rollout
+- mitigazione consigliata: tornare a `maxSurge: 0`/`maxUnavailable: 1` oppure usare `Recreate` finché `uploads-pvc` resta `RWO`
 
 ### 6.6 `sync_criteria_prod.py` fallisce dopo riordino script
 
@@ -245,7 +247,7 @@ kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
 Sintomo (caso reale 26 febbraio 2026):
 - Cloud Build fallisce allo step `kubectl rollout status ... --timeout=300s`
 - gli step precedenti (`docker build`, `docker push`, `kubectl set image`) risultano completati
-- il nuovo pod backend resta `1/2 Running` con readiness/liveness su `/health` in timeout durante il warm-up
+- il nuovo pod backend non raggiunge `Ready` entro timeout durante il warm-up
 
 Causa:
 - il backend può impiegare più di `300s` a superare la readiness in alcuni rollout (startup lento / warm-up)
@@ -261,11 +263,11 @@ Verifica consigliata:
 kubectl get pods -n default | grep suite-clinica-backend
 kubectl describe pod <pod-backend>
 kubectl rollout status deployment/suite-clinica-backend --timeout=900s
-curl -I http://34.154.33.164/auth/login
+curl -I https://clinica.corposostenibile.com/auth/login
 ```
 
 Nota operativa:
-- se la produzione va giù durante il rollout (1 replica, `maxSurge: 0`), fare rollback immediato dell'immagine e indagare `/health`:
+- se la produzione va giù durante il rollout (1 replica), fare rollback immediato dell'immagine e indagare `/health`:
 
 ```bash
 kubectl set image deployment/suite-clinica-backend \

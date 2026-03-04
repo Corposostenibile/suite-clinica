@@ -128,6 +128,25 @@ kubectl logs -f job/suite-clinica-uploads-migration
 
 Il job scarica l'archivio `.tar.gz` tramite pipe ed estrae i file direttamente in `/var/corposostenibile/uploads/` nel PVC, evitando di occupare spazio temporaneo sul disco del pod.
 
+### 4.1 Migrazione Ticket Legacy -> Kanban Teams (opzionale ma consigliata)
+Dopo la migrazione DB e prima del go-live definitivo, se il sistema legacy contiene ticket ancora aperti (`nuovo`, `in_lavorazione`, `in_attesa`), eseguire la migrazione applicativa verso `team_tickets`.
+
+Script:
+- `backend/scripts/migration_scripts/migrate_old_tickets.py`
+
+Esecuzione nel pod backend:
+
+```bash
+kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
+  set -euo pipefail
+  PYTHONPATH=/app python /app/scripts/migration_scripts/migrate_old_tickets.py
+'
+```
+
+Note:
+- Lo script è idempotente: se rilanciato, salta i ticket già migrati.
+- Migra solo i ticket non chiusi; i ticket chiusi restano nel sistema legacy come archivio.
+
 ## Note Tecniche Importanti
 - **Ordine di import FK-aware**: lo script genera SQL ordinando le tabelle per dipendenze foreign key (prima principali, poi dipendenti) per ridurre errori FK non necessari.
 - **Errori SQL**: Nel Job è impostato `psql -v ON_ERROR_STOP=0` per permettere alla migrazione di procedere anche se alcuni record orfani o sporchi del vecchio DB violano i vincoli di integrità.
@@ -213,7 +232,7 @@ Comandi:
 ```bash
 kubectl scale deploy/suite-clinica-backend --replicas=0
 kubectl scale deploy/suite-clinica-backend --replicas=1
-kubectl rollout status deployment/suite-clinica-backend --timeout=300s
+kubectl rollout status deployment/suite-clinica-backend --timeout=900s
 ```
 
 Mitigazione raccomandata:
