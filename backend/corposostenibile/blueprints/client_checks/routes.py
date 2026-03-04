@@ -3075,6 +3075,8 @@ def api_da_leggere():
                 db.session.query(User.id)
                 .join(User.teams)
                 .filter(Team.id.in_(managed_team_ids))
+            ).union(
+                db.session.query(db.literal(current_user.id))  # Includi il TL stesso
             )
             my_clienti_query = (
                 db.session.query(Cliente.cliente_id)
@@ -4153,7 +4155,14 @@ def api_get_professionisti_by_type(prof_type: str):
 
             led_team_ids = [t.id for t in (getattr(current_user, 'teams_led', None) or [])]
             if led_team_ids:
-                professionals_query = professionals_query.filter(User.teams.any(Team.id.in_(led_team_ids)))
+                # Includi sia i membri del team che il team leader stesso
+                led_head_ids = [t.head_id for t in current_user.teams_led if t.head_id]
+                professionals_query = professionals_query.filter(
+                    db.or_(
+                        User.teams.any(Team.id.in_(led_team_ids)),
+                        User.id.in_(led_head_ids)
+                    )
+                )
             else:
                 professionals_query = professionals_query.filter(User.id == -1)
 
