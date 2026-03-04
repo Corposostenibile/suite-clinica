@@ -5888,6 +5888,9 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
         except Exception:
             logger.exception("Errore verifica scope team_leader su cliente %s", getattr(cliente, "cliente_id", None))
             return False
+    if role_value == "influencer":
+        client_origin = getattr(cliente, "origine_id", None)
+        return client_origin is not None and client_origin in [o.id for o in (user.influencer_origins or [])]
     if (
         getattr(cliente, "nutrizionista_id", None) == user.id
         or getattr(cliente, "coach_id", None) == user.id
@@ -6015,6 +6018,10 @@ def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> boo
             return False
     if role_value == "health_manager":
         return getattr(cliente, "health_manager_id", None) == user.id
+    if role_value == "influencer":
+        # Influencer: accesso read-only ai clienti delle proprie origini
+        client_origin = getattr(cliente, "origine_id", None)
+        return client_origin is not None and client_origin in [o.id for o in (user.influencer_origins or [])]
     if role_value != "professionista":
         return False
 
