@@ -2926,7 +2926,7 @@ def interrupt_legacy_professionista(cliente_id: int):
             tipo_professionista=tipo_professionista,
             data_dal=today,  # Non conosciamo la data reale di inizio
             motivazione_aggiunta="Assegnazione legacy (data inizio sconosciuta)",
-            assegnato_da_id=None,
+            assegnato_da_id=current_user.id,
             is_active=False,
             data_al=today,
             motivazione_interruzione=motivazione,
