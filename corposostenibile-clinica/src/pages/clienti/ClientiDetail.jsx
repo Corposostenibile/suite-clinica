@@ -2273,7 +2273,8 @@ function ClientiDetail() {
       await fetchProfessionistiHistory();
     } catch (err) {
       console.error('Error interrupting assignment:', err);
-      setError('Errore nell\'interruzione dell\'assegnazione');
+      const msg = err.response?.data?.description || err.response?.data?.error || 'Errore nell\'interruzione dell\'assegnazione';
+      setError(msg);
     } finally {
       setAssignLoading(false);
     }
