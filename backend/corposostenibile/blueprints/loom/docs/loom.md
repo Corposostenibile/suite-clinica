@@ -71,9 +71,36 @@ Nel frontend React andrà collegata la UX del widget (trigger registrazione, sce
 - Il bottone `Registra Loom` nel Support Widget è attivo.
 - Il recorder Loom viene aperto e, su `insert`, viene chiamata:
   - `POST /loom/api/recordings`
-- Il salvataggio iniziale è con:
-  - `submitter_user_id` obbligatorio (utente loggato),
-  - `cliente_id` non ancora richiesto nello step corrente (arriverà dopo).
+- Dopo la registrazione viene mostrata UI nativa suite (non modale Loom):
+  - salvataggio/conferma nella suite,
+  - ricerca paziente (`/loom/api/patients/search`) e associazione opzionale.
+
+## Libreria Loom frontend (nuova pagina)
+
+- Nuova pagina React: `Libreria Loom` con route dedicata.
+- Collegamento inserito nel menu laterale.
+- Fonte dati: `GET /loom/api/recordings`.
+- Azioni disponibili in lista:
+  - `Apri` link Loom,
+  - `Copia` link.
+
+### UX per ruoli
+
+- Admin:
+  - vista in stile Capienza,
+  - filtri `Tutti / Nutrizione / Coach / Psicologia`,
+  - filtro `Team`,
+  - raggruppamento per team (come Capienza).
+- Team leader:
+  - vista tabellare coerente con Capienza, scope già limitato dal backend al proprio team.
+- Professionista:
+  - vista tabellare semplificata, scope ai propri Loom.
+
+## Compatibilità API lato autenticazione
+
+- Corretto comportamento non autorizzato per rotte `/loom/api/*`:
+  - risposta JSON `401`,
+  - evita ritorno HTML login page su chiamate AJAX frontend.
 
 ## Produzione GCP
 
@@ -92,7 +119,14 @@ Per produzione su `http://34.154.33.164/` (da validare su dominio finale), fare 
 
 - Al momento l'integrazione React clinica dipende da:
   - `/static/js/loom-sdk.bundle.js`
-- Motivo: con stack frontend React 19, la versione npm ufficiale `@loomhq/record-sdk` non è ancora compatibile in modo nativo.
+- Motivo: con stack frontend React 19, la versione npm ufficiale `@loomhq/record-sdk` genera incompatibilità runtime.
+
+## Nota operativa SW/PWA (ambiente DuckDNS locale VPS)
+
+- L'ambiente `https://suite-clinica.duckdns.org` è locale/shared con PWA attiva.
+- Per limitare il problema "versione vecchia finché non hard refresh":
+  - service worker configurato con update check periodico,
+  - apply update automatico quando disponibile.
 
 ## Cosa monitorare per passare a npm ufficiale
 

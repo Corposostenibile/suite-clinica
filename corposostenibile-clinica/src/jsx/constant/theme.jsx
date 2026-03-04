@@ -1,6 +1,7 @@
 export const SVGICON = {
     Dashboard:    <i className="ri-dashboard-line sidebar-ri-icon"></i>,
     Calendar:     <i className="ri-calendar-2-line sidebar-ri-icon"></i>,
+    Loom:         <i className="ri-video-line sidebar-ri-icon"></i>,
     Chat:         <i className="ri-chat-3-line sidebar-ri-icon"></i>,
     Task:         <i className="ri-task-line sidebar-ri-icon"></i>,
     Learning:     <i className="ri-graduation-cap-line sidebar-ri-icon"></i>,

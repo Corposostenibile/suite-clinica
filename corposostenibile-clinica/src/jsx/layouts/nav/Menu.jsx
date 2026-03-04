@@ -19,6 +19,12 @@ export const MenuList = [
         iconStyle: SVGICON.Calendar,
         to: 'calendario',
     },
+    // Libreria Loom
+    {
+        title: 'Libreria Loom',
+        iconStyle: SVGICON.Loom,
+        to: 'loom-library',
+    },
     // Chat
     {
         title: 'Chat',

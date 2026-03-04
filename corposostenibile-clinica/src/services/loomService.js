@@ -100,6 +100,27 @@ const loomService = {
   },
 
   /**
+   * Lista libreria Loom visibile per utente corrente.
+   *
+   * @param {Object} [params]
+   * @param {number} [params.clienteId]
+   * @param {boolean} [params.withCliente]
+   * @param {number} [params.submitterUserId]
+   * @returns {Promise<Array>}
+   */
+  getRecordings: async (params = {}) => {
+    const response = await axios.get('/loom/api/recordings', {
+      params: {
+        cliente_id: params.clienteId,
+        with_cliente: typeof params.withCliente === 'boolean' ? String(params.withCliente) : undefined,
+        submitter_user_id: params.submitterUserId,
+      },
+      withCredentials: true,
+    });
+    return response?.data?.recordings || [];
+  },
+
+  /**
    * Salva link Loom per un evento GHL
    * Crea o aggiorna il record Meeting locale associato
    *

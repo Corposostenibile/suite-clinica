@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const backendUrl = env.VITE_BACKEND_URL || 'http://127.0.0.1:5001'
   const isDevMode = mode === 'development'
+  const enablePwa = env.VITE_ENABLE_PWA === 'true' || !isDevMode
 
   return {
     // Keep canonical URLs at root (/auth/login, /clienti-lista, ...)
@@ -15,6 +16,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       VitePWA({
+        disable: !enablePwa,
         registerType: 'autoUpdate',
         injectRegister: null,
         includeAssets: ['suitemind.png'],

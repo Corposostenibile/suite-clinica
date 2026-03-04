@@ -55,6 +55,7 @@ import GlobalSearchPage from './pages/GlobalSearchPage';
 
 // Documentation
 import Documentation from './pages/documentation/Documentation';
+import LoomLibrary from './pages/loom/LoomLibrary';
 
 // Novità
 import Novita from './pages/Novita';
@@ -219,6 +220,7 @@ function App() {
 
             {/* Calendario */}
             <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />
+            <Route path="/loom-library" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><LoomLibrary /></RoleProtectedRoute>} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
             <Route path="/profilo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Profilo /></RoleProtectedRoute>} />
 
