@@ -1447,12 +1447,9 @@ def api_list() -> Any:
     
     params = parse_filter_args(request.args)
 
-    # Filtro per Influencer: vincola all'origine assegnata
+    # Filtro per Influencer: vincola alle origini assegnate (M2M)
     if current_user.role == UserRoleEnum.influencer:
-        if current_user.influencer_origin:
-            origine_ids = [current_user.influencer_origin.id]
-        else:
-            origine_ids = []
+        origine_ids = [o.id for o in current_user.influencer_origins]
         params = replace(params, origine_ids=origine_ids)
 
     # Apply trial user filter to query

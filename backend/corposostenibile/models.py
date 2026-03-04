@@ -1107,8 +1107,12 @@ class Origine(TimestampMixin, db.Model):
     name = db.Column(db.String(255), unique=True, nullable=False, index=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
-    influencer_id = db.Column(db.Integer, db.ForeignKey("users.id"), unique=True)
-    influencer = db.relationship("User", back_populates="influencer_origin")
+    influencers = db.relationship(
+        "User",
+        secondary="influencer_origins",
+        back_populates="influencer_origins",
+        lazy="selectin",
+    )
 
     def __repr__(self) -> str:
         return f"<Origine {self.name!r}>"
@@ -1117,7 +1121,11 @@ class Origine(TimestampMixin, db.Model):
 # ---------------------------------------------------------------------------- #
 #  Tabella ponte User (Influencer) ⇄ Origine (M2M)
 # ---------------------------------------------------------------------------- #
-# user_origins table removed provided 1:1 implementation
+influencer_origins = db.Table(
+    "influencer_origins",
+    db.Column("user_id", db.Integer, db.ForeignKey("users.id"), primary_key=True),
+    db.Column("origin_id", db.Integer, db.ForeignKey("origins.id"), primary_key=True),
+)
 
 # --------------------------------------------------------------------------- #
 #  User  (profili interni) – DEFINITIVO
@@ -1509,13 +1517,12 @@ class User(UserMixin, TimestampMixin, db.Model):
     def get_roles(self) -> List[str]:
         return ["admin"] if self.is_admin else []
 
-    # ────────────────────────── Influencer Origins ────────────────────────────
-    # ────────────────────────── Influencer Origins ────────────────────────────
-    influencer_origin = relationship(
+    # ────────────────────────── Influencer Origins (M2M) ──────────────────────
+    influencer_origins = relationship(
         "Origine",
-        back_populates="influencer",
-        uselist=False,
-        lazy="selectin"
+        secondary="influencer_origins",
+        back_populates="influencers",
+        lazy="selectin",
     )
 
     # ────────────────────────── Repr ───────────────────────────────────────

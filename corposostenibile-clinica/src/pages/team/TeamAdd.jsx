@@ -32,7 +32,7 @@ function TeamAdd() {
   });
 
   const [allOrigins, setAllOrigins] = useState([]);
-  const [selectedOrigin, setSelectedOrigin] = useState('');
+  const [selectedOrigins, setSelectedOrigins] = useState([]);
 
   // Fetch origins on component mount
   useEffect(() => {
@@ -71,8 +71,8 @@ function TeamAdd() {
         specialty: data.specialty || '',
         max_clients: data.max_clients || '',
       });
-      if (data.role === 'influencer' && data.influencer_origin) {
-        setSelectedOrigin(data.influencer_origin.id);
+      if (data.role === 'influencer' && data.influencer_origins?.length) {
+        setSelectedOrigins(data.influencer_origins.map(o => o.id));
       }
       if (data.avatar_path) {
         setAvatarPreview(data.avatar_path);
@@ -95,8 +95,12 @@ function TeamAdd() {
   };
 
 
-  const handleOriginChange = (e) => {
-    setSelectedOrigin(e.target.value);
+  const handleOriginToggle = (originId) => {
+    setSelectedOrigins(prev =>
+      prev.includes(originId)
+        ? prev.filter(id => id !== originId)
+        : [...prev, originId]
+    );
   };
 
   const handleAvatarClick = () => {
@@ -185,7 +189,7 @@ function TeamAdd() {
 
         specialty: formData.specialty || null,
         max_clients: formData.max_clients !== '' ? parseInt(formData.max_clients) : null,
-        origin_id: formData.role === 'influencer' ? (selectedOrigin || null) : null,
+        origin_ids: formData.role === 'influencer' ? selectedOrigins : [],
       };
 
       // Only include password if provided
@@ -492,29 +496,33 @@ function TeamAdd() {
                 {/* Origins Selection for Influencers */}
                 {formData.role === 'influencer' && (
                   <div className="mt-4 animate__animated animate__fadeIn">
-                    <h6 className="mb-3">Assegna Origine</h6>
+                    <h6 className="mb-3">Assegna Origini</h6>
                     <div className="card bg-light border-0">
                       <div className="card-body">
                         {allOrigins.length === 0 ? (
                           <p className="text-muted mb-0">Nessuna origine disponibile.</p>
                         ) : (
-                          <select
-                            className="form-select"
-                            value={selectedOrigin}
-                            onChange={handleOriginChange}
-                          >
-                            <option value="">Seleziona un'origine...</option>
+                          <div className="d-flex flex-column gap-2">
                             {allOrigins
                               .filter(o => o.active)
                               .map(origin => (
-                                <option key={origin.id} value={origin.id}>
-                                  {origin.name}
-                                </option>
+                                <div className="form-check" key={origin.id}>
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id={`origin-${origin.id}`}
+                                    checked={selectedOrigins.includes(origin.id)}
+                                    onChange={() => handleOriginToggle(origin.id)}
+                                  />
+                                  <label className="form-check-label" htmlFor={`origin-${origin.id}`}>
+                                    {origin.name}
+                                  </label>
+                                </div>
                               ))}
-                          </select>
+                          </div>
                         )}
                         <small className="text-muted d-block mt-2">
-                          Seleziona l'origine dei clienti visibili a questo influencer.
+                          Seleziona le origini dei clienti visibili a questo influencer.
                         </small>
                       </div>
                     </div>
