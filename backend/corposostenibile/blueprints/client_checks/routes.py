@@ -3481,6 +3481,7 @@ def api_azienda_stats():
         WeeklyCheck, WeeklyCheckResponse,
         DCACheck, DCACheckResponse,
         MinorCheck, MinorCheckResponse,
+        TypeFormResponse,
         Team
     )
 
@@ -3557,6 +3558,21 @@ def api_azienda_stats():
             weekly_base = _apply_prof_filters(weekly_base)
             weekly_count = weekly_base.count()
 
+        # TypeForm responses (old weekly system) — counted together with weekly
+        typeform_count = 0
+        if include_weekly:
+            tf_base = (
+                TypeFormResponse.query
+                .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+                .filter(TypeFormResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                tf_base = tf_base.filter(TypeFormResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                tf_base = tf_base.filter(Cliente.cliente_id.in_(accessible_query))
+            tf_base = _apply_prof_filters(tf_base)
+            typeform_count = tf_base.count()
+
         dca_count = 0
         dca_responses_raw = []
         if include_dca:
@@ -3589,10 +3605,10 @@ def api_azienda_stats():
             minor_base = _apply_prof_filters(minor_base)
             minor_count = minor_base.count()
 
-        total_count = weekly_count + dca_count + minor_count
+        total_count = weekly_count + typeform_count + dca_count + minor_count
 
         # ============================================================
-        # 2) STATS — always from weekly (only type with ratings)
+        # 2) STATS — from weekly + typeform (types with ratings)
         # ============================================================
         stats_query = (
             db.session.query(
@@ -3610,13 +3626,40 @@ def api_azienda_stats():
         stats_query = _apply_prof_filters(stats_query)
         if accessible_query is not None:
             stats_query = stats_query.filter(Cliente.cliente_id.in_(accessible_query))
-
         stats_result = stats_query.first()
 
-        avg_nutrizionista = round(float(stats_result.avg_nutrizionista), 1) if stats_result.avg_nutrizionista else None
-        avg_psicologo = round(float(stats_result.avg_psicologo), 1) if stats_result.avg_psicologo else None
-        avg_coach = round(float(stats_result.avg_coach), 1) if stats_result.avg_coach else None
-        avg_progresso = round(float(stats_result.avg_progresso), 1) if stats_result.avg_progresso else None
+        # TypeForm stats (same rating fields)
+        tf_stats_query = (
+            db.session.query(
+                db.func.avg(TypeFormResponse.nutritionist_rating).label('avg_nutrizionista'),
+                db.func.avg(TypeFormResponse.psychologist_rating).label('avg_psicologo'),
+                db.func.avg(TypeFormResponse.coach_rating).label('avg_coach'),
+                db.func.avg(TypeFormResponse.progress_rating).label('avg_progresso')
+            )
+            .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+            .filter(TypeFormResponse.submit_date >= start_date)
+        )
+        if period == 'custom':
+            tf_stats_query = tf_stats_query.filter(TypeFormResponse.submit_date <= end_date)
+        tf_stats_query = _apply_prof_filters(tf_stats_query)
+        if accessible_query is not None:
+            tf_stats_query = tf_stats_query.filter(Cliente.cliente_id.in_(accessible_query))
+        tf_stats_result = tf_stats_query.first()
+
+        # Combine averages (weighted by count)
+        def _combined_avg(wc_avg, tf_avg, wc_n, tf_n):
+            if wc_avg and tf_avg and (wc_n + tf_n) > 0:
+                return round((float(wc_avg) * wc_n + float(tf_avg) * tf_n) / (wc_n + tf_n), 1)
+            if wc_avg:
+                return round(float(wc_avg), 1)
+            if tf_avg:
+                return round(float(tf_avg), 1)
+            return None
+
+        avg_nutrizionista = _combined_avg(stats_result.avg_nutrizionista, tf_stats_result.avg_nutrizionista, weekly_count, typeform_count)
+        avg_psicologo = _combined_avg(stats_result.avg_psicologo, tf_stats_result.avg_psicologo, weekly_count, typeform_count)
+        avg_coach = _combined_avg(stats_result.avg_coach, tf_stats_result.avg_coach, weekly_count, typeform_count)
+        avg_progresso = _combined_avg(stats_result.avg_progresso, tf_stats_result.avg_progresso, weekly_count, typeform_count)
         all_avgs = [x for x in [avg_nutrizionista, avg_psicologo, avg_coach, avg_progresso] if x is not None]
         avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
 
@@ -3645,6 +3688,20 @@ def api_azienda_stats():
             weekly_dates = _apply_prof_filters(weekly_dates)
             for row in weekly_dates.all():
                 all_items.append((row.submit_date, 'weekly', row.id))
+
+        if include_weekly and typeform_count > 0:
+            tf_dates = (
+                db.session.query(TypeFormResponse.id, TypeFormResponse.submit_date)
+                .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+                .filter(TypeFormResponse.submit_date >= start_date)
+            )
+            if period == 'custom':
+                tf_dates = tf_dates.filter(TypeFormResponse.submit_date <= end_date)
+            if accessible_query is not None:
+                tf_dates = tf_dates.filter(Cliente.cliente_id.in_(accessible_query))
+            tf_dates = _apply_prof_filters(tf_dates)
+            for row in tf_dates.all():
+                all_items.append((row.submit_date, 'typeform', row.id))
 
         if include_dca and dca_count > 0:
             dca_dates = (
@@ -3682,6 +3739,7 @@ def api_azienda_stats():
 
         # Group IDs by type for batch loading
         weekly_ids_page = [item[2] for item in page_items if item[1] == 'weekly']
+        typeform_ids_page = [item[2] for item in page_items if item[1] == 'typeform']
         dca_ids_page = [item[2] for item in page_items if item[1] == 'dca']
         minor_ids_page = [item[2] for item in page_items if item[1] == 'minor']
 
@@ -3717,6 +3775,32 @@ def api_azienda_stats():
                 .all()
             )
             weekly_by_id = {r.id: r for r in weekly_loaded}
+
+        # ── Batch load TypeForm ──
+        typeform_by_id = {}
+        if typeform_ids_page:
+            tf_loaded = (
+                TypeFormResponse.query
+                .filter(TypeFormResponse.id.in_(typeform_ids_page))
+                .options(
+                    joinedload(TypeFormResponse.cliente)
+                    .defer(Cliente.check_saltati),
+                    joinedload(TypeFormResponse.cliente)
+                    .selectinload(Cliente.nutrizionisti_multipli),
+                    joinedload(TypeFormResponse.cliente)
+                    .selectinload(Cliente.coaches_multipli),
+                    joinedload(TypeFormResponse.cliente)
+                    .selectinload(Cliente.psicologi_multipli),
+                    joinedload(TypeFormResponse.cliente)
+                    .joinedload(Cliente.nutrizionista_user),
+                    joinedload(TypeFormResponse.cliente)
+                    .joinedload(Cliente.coach_user),
+                    joinedload(TypeFormResponse.cliente)
+                    .joinedload(Cliente.psicologa_user),
+                )
+                .all()
+            )
+            typeform_by_id = {r.id: r for r in tf_loaded}
 
         # ── Batch load DCA ──
         dca_by_id = {}
@@ -3886,6 +3970,32 @@ def api_azienda_stats():
                     "coaches": coaches,
                 })
 
+            elif item_type == 'typeform':
+                resp = typeform_by_id.get(item_id)
+                if not resp:
+                    continue
+                cliente = resp.cliente
+                if not cliente:
+                    continue
+                nutrizionisti, psicologi, coaches = _get_profs(cliente, set())
+                responses_data.append({
+                    "id": resp.id,
+                    "type": "weekly",
+                    "source": "typeform",
+                    "cliente_id": cliente.cliente_id,
+                    "cliente_nome": cliente.nome_cognome or "Sconosciuto",
+                    "programma": cliente.tipologia_cliente.value if cliente.tipologia_cliente else None,
+                    "submit_date": resp.submit_date.strftime('%d/%m/%Y') if resp.submit_date else None,
+                    "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
+                    "nutritionist_rating": resp.nutritionist_rating,
+                    "psychologist_rating": resp.psychologist_rating,
+                    "coach_rating": resp.coach_rating,
+                    "progress_rating": resp.progress_rating,
+                    "nutrizionisti": nutrizionisti,
+                    "psicologi": psicologi,
+                    "coaches": coaches,
+                })
+
             elif item_type == 'dca':
                 resp = dca_by_id.get(item_id)
                 if not resp:
@@ -3945,7 +4055,7 @@ def api_azienda_stats():
             },
             "stats": {
                 "total_responses": total_count,
-                "weekly_count": weekly_count,
+                "weekly_count": weekly_count + typeform_count,
                 "dca_count": dca_count,
                 "minor_count": minor_count,
                 "avg_nutrizionista": avg_nutrizionista,

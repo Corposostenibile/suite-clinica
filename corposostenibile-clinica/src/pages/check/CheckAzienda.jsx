@@ -291,7 +291,7 @@ function CheckAzienda() {
     setShowCheckResponseModal(true);
     setLoadingCheckDetail(true);
     try {
-      const result = await checkService.getResponseDetail(response.type || 'weekly', response.id);
+      const result = await checkService.getResponseDetail(response.source || response.type || 'weekly', response.id);
       if (result.success) {
         setSelectedCheckResponse({
           ...result.response,
