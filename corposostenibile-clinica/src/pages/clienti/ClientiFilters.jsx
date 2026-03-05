@@ -45,6 +45,7 @@ const ClientiFilters = ({
         nutrizione: true,
         coach: true,
         psicologia: true,
+        health_manager: false,
     },
     open,
     onClose,
@@ -71,6 +72,7 @@ const ClientiFilters = ({
     const psicologi = mode === 'psicologia'
         ? professionisti
         : professionisti.filter(p => p.specialty === 'psicologia' || p.specialty === 'psicologo');
+    const healthManagers = professionisti.filter(p => p.role === 'health_manager');
 
     const handleDraftChange = (key, value) => {
         setDraft(prev => ({ ...prev, [key]: value }));
@@ -144,7 +146,7 @@ const ClientiFilters = ({
                     </div>
 
                     {/* ── Professional Filters ── */}
-                    {(visibleProfessionalFilters.nutrizione || visibleProfessionalFilters.coach || visibleProfessionalFilters.psicologia) && (
+                    {(visibleProfessionalFilters.nutrizione || visibleProfessionalFilters.coach || visibleProfessionalFilters.psicologia || visibleProfessionalFilters.health_manager) && (
                         <>
                             <h6 className="cl-advanced-heading">
                                 <RiUserStarLine /> Professionista
@@ -190,6 +192,21 @@ const ClientiFilters = ({
                                         >
                                             <option value="">Tutti</option>
                                             {psicologi.map(p => (
+                                                <option key={p.id} value={p.id}>{p.full_name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                {visibleProfessionalFilters.health_manager && (
+                                    <div className="col-md-4">
+                                        <label className="form-label mb-1">Health Manager</label>
+                                        <select
+                                            className="form-select"
+                                            value={draft.health_manager || ''}
+                                            onChange={(e) => handleDraftChange('health_manager', e.target.value)}
+                                        >
+                                            <option value="">Tutti</option>
+                                            {healthManagers.map(p => (
                                                 <option key={p.id} value={p.id}>{p.full_name}</option>
                                             ))}
                                         </select>

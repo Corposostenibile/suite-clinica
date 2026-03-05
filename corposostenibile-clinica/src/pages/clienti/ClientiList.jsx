@@ -137,6 +137,7 @@ function ClientiList() {
     nutrizionista: searchParams.get('nutrizionista') || '',
     coach: searchParams.get('coach') || '',
     psicologa: searchParams.get('psicologa') || '',
+    health_manager: searchParams.get('health_manager') || '',
     check_day: searchParams.get('check_day') || '',
     reach_out: searchParams.get('reach_out') || '',
     trasformazione_fisica: searchParams.get('trasformazione_fisica') || '',
@@ -207,6 +208,7 @@ function ClientiList() {
         nutrizionista_id: filters.nutrizionista || undefined,
         coach_id: filters.coach || undefined,
         psicologa_id: filters.psicologa || undefined,
+        health_manager_id: filters.health_manager || undefined,
         check_day: filters.check_day || undefined,
         reach_out: filters.reach_out || undefined,
         trasformazione_fisica: filters.trasformazione_fisica || undefined,
@@ -279,7 +281,7 @@ function ClientiList() {
 
   const resetFilters = () => {
     setFilters({
-      search: '', stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '',
+      search: '', stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '', health_manager: '',
       check_day: '', reach_out: '', trasformazione_fisica: '', trasformazione_fisica_condivisa: '',
       allenamento_dal_from: '', allenamento_dal_to: '', nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
       marketing_usabile: '', marketing_stories: '', marketing_carosello: '', marketing_videofeedback: '',
@@ -292,10 +294,12 @@ function ClientiList() {
     setSearchParams(new URLSearchParams());
   };
 
+  const isHealthManager = user?.role === 'health_manager';
   const visibleProfessionalFilters = {
-    nutrizione: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione'),
-    coach: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach'),
-    psicologia: !isProfessionista && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia'),
+    nutrizione: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione'),
+    coach: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach'),
+    psicologia: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia'),
+    health_manager: isAdminOrCco || isHealthManager,
   };
 
   const visualButtons = [
@@ -305,6 +309,7 @@ function ClientiList() {
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
   ].filter((btn) => {
     if (isInfluencer) return btn.key === 'generale';
+    if (user?.role === 'health_manager') return btn.key === 'generale';
     if (isProfessionista) return btn.key === 'generale' || btn.key === teamLeaderSpecialtyGroup;
     if (!isTeamLeaderRestricted) return true;
     if (btn.key === 'generale') return true;

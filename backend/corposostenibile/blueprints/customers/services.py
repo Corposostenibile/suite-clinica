@@ -1278,8 +1278,8 @@ def apply_role_filtering(query):
         specialty = specialty.value
     is_cco = str(specialty).strip().lower() == 'cco' if specialty else False
 
-    # Admin/CCO: vede tutto
-    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco:
+    # Admin/CCO/Health Manager: vede tutto e modifica tutto
+    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco or user_role == UserRoleEnum.health_manager:
         return query
     
     # Team Leader: vede i pazienti assegnati ai membri del suo team
@@ -1348,10 +1348,8 @@ def apply_role_filtering(query):
             )
         )
 
-    # Health Manager: solo pazienti assegnati a lui
-    elif user_role == UserRoleEnum.health_manager:
-        return query.filter(Cliente.health_manager_id == current_user.id)
-        
+    # health_manager: gestito sopra con admin/CCO (vede e modifica tutti i clienti)
+
     return query
 
 

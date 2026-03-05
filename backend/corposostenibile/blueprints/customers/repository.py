@@ -138,8 +138,8 @@ class CustomerRepository:
         if current_user.is_authenticated and not current_user.is_trial:
             user_role = getattr(current_user, 'role', None)
             
-            # Admin/CCO: vede tutto (nessun filtro)
-            if user_role == UserRoleEnum.admin or current_user.is_admin or _is_cco_user(current_user):
+            # Admin/CCO/Health Manager: vede tutto (nessun filtro)
+            if user_role == UserRoleEnum.admin or current_user.is_admin or _is_cco_user(current_user) or user_role == UserRoleEnum.health_manager:
                 pass  # Nessun filtro aggiuntivo
             
             # Influencer: già gestito in routes.py
@@ -255,8 +255,7 @@ class CustomerRepository:
                         ),
                     )
                 )
-            elif user_role == UserRoleEnum.health_manager:
-                qry = qry.filter(Cliente.health_manager_id == current_user.id)
+            # health_manager: gestito sopra con admin/CCO (vede tutti i clienti)
         
         # SEMPRE applica l'ordinamento prioritario per tipologia
         # Ordina prima per tipologia (C, B, A hanno priorità), poi per nome
