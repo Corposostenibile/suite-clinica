@@ -22,6 +22,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
 import teamTicketsService from '../../services/teamTicketsService';
+import loomService from '../../services/loomService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -155,11 +156,11 @@ function ClientiDetail() {
     if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
+        'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus'
       ]);
     }
 
-    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus']);
+    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus']);
     if (isRestrictedTeamLeader) {
       allowed.add('team');
     }
@@ -793,6 +794,8 @@ function ClientiDetail() {
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
   const [initialChecksData, setInitialChecksData] = useState(null);
   const [loadingInitialChecks, setLoadingInitialChecks] = useState(false);
+  const [patientLoomRecordings, setPatientLoomRecordings] = useState([]);
+  const [loadingLoomRecordings, setLoadingLoomRecordings] = useState(false);
 
   // ==================== TICKETS STATE ====================
   const [patientTickets, setPatientTickets] = useState([]);
@@ -1153,6 +1156,26 @@ function ClientiDetail() {
       fetchInitialChecks();
     }
   }, [activeTab, fetchInitialChecks]);
+
+  const fetchPatientLoomRecordings = useCallback(async () => {
+    if (!id) return;
+    setLoadingLoomRecordings(true);
+    try {
+      const rows = await loomService.getRecordings({ clienteId: id, withCliente: true });
+      setPatientLoomRecordings(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      console.error('Error fetching patient loom recordings:', err);
+      setPatientLoomRecordings([]);
+    } finally {
+      setLoadingLoomRecordings(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'loom') {
+      fetchPatientLoomRecordings();
+    }
+  }, [activeTab, fetchPatientLoomRecordings]);
 
   // ── Fetch Tickets ──
   const fetchPatientTickets = useCallback(async () => {
@@ -2590,6 +2613,7 @@ function ClientiDetail() {
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
+    { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
   ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
@@ -7174,6 +7198,81 @@ function ClientiDetail() {
               {/* ========== PROGRESSO TAB ========== */}
               {activeTab === 'progresso' && (
                 <ProgressoTab responses={checkData.responses} loading={loadingChecks} />
+              )}
+
+              {/* ========== LOOM TAB ========== */}
+              {activeTab === 'loom' && (
+                <div>
+                  {loadingLoomRecordings ? (
+                    <div className="cd-loading">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento Loom...</p>
+                    </div>
+                  ) : patientLoomRecordings.length === 0 ? (
+                    <div className="cd-empty">
+                      <i className="ri-video-line cd-empty-icon"></i>
+                      <p className="cd-empty-text">Nessun Loom associato a questo paziente</p>
+                    </div>
+                  ) : (
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
+                          <tr>
+                            <th>Titolo</th>
+                            <th>Autore</th>
+                            <th>Data</th>
+                            <th style={{ textAlign: 'right' }}>Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {patientLoomRecordings.map((recording) => (
+                            <tr key={recording.id}>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                  {recording.title || 'Registrazione Loom'}
+                                </div>
+                                <div className="cd-empty-text">
+                                  {recording.note || 'Nessuna nota'}
+                                </div>
+                              </td>
+                              <td>{recording.submitter_user_name || '—'}</td>
+                              <td>{recording.created_at ? new Date(recording.created_at).toLocaleString('it-IT') : '—'}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                  <a
+                                    className="cd-btn-back"
+                                    href={recording.loom_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ padding: '6px 10px' }}
+                                  >
+                                    <i className="ri-external-link-line"></i>
+                                    Apri
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="cd-btn-back"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(recording.loom_link || '');
+                                      } catch (copyErr) {
+                                        console.error('Error copying loom link:', copyErr);
+                                      }
+                                    }}
+                                  >
+                                    <i className="ri-file-copy-line"></i>
+                                    Copia
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* ========== TICKETS TAB ========== */}
