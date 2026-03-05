@@ -243,6 +243,10 @@ function Calendario() {
                   className="cal-search-input"
                   placeholder="Cerca membro del team..."
                   value={memberSearch}
+                  autoComplete="off"
+                  name="cal-member-search"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   onChange={(e) => {
                     setMemberSearch(e.target.value);
                     setSearchOpen(true);

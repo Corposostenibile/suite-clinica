@@ -1,16 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import postitService, { POSTIT_COLORS, isPostitWrongEntrypointError } from "../../services/postitService";
 import taskService, { TASK_PRIORITIES, TASK_CATEGORIES } from "../../services/taskService";
+import ghlService from "../../services/ghlService";
 import './ChatBox.css';
 
 const TABS = [
-   { key: "chat", label: "Chat", icon: "ri-chat-3-line" },
-   { key: "postit", label: "Post-it", icon: "ri-sticky-note-line" },
-   { key: "task", label: "Task", icon: "ri-task-line" },
+   { key: "chat", icon: "ri-chat-3-line", title: "Chat" },
+   { key: "postit", icon: "ri-sticky-note-line", title: "Post-it" },
+   { key: "task", icon: "ri-task-line", title: "Task" },
+   { key: "calendario", icon: "ri-calendar-line", title: "Calendario" },
 ];
 
 const ChatBox = ({ onClick, toggle }) => {
+   const { user } = useAuth();
    const [activeTab, setActiveTab] = useState("chat");
 
    // Post-it state
@@ -29,6 +33,19 @@ const ChatBox = ({ onClick, toggle }) => {
 
    // Task modal
    const [selectedTask, setSelectedTask] = useState(null);
+
+   // Calendario state
+   const [calEvents, setCalEvents] = useState([]);
+   const [loadingCal, setLoadingCal] = useState(false);
+   const loadingCalRef = useRef(false);
+   const [calTeamMembers, setCalTeamMembers] = useState([]);
+   const [calSearch, setCalSearch] = useState('');
+   const [calSearchOpen, setCalSearchOpen] = useState(false);
+   const [calSelectedMemberId, setCalSelectedMemberId] = useState(null);
+   const [calSelectedMemberName, setCalSelectedMemberName] = useState('');
+   const calSearchRef = useRef(null);
+
+   const isAdmin = user?.is_admin || user?.role === 'admin';
 
    const postitWrongEntrypointMessage = 'I post-it non sono disponibili su questo endpoint. Apri la Suite dall\'indirizzo corretto della clinica.';
 
@@ -144,6 +161,76 @@ const ChatBox = ({ onClick, toggle }) => {
       loadTasks();
    };
 
+   // ── Calendario logic ──
+   const todayStr = () => {
+      const d = new Date();
+      return d.toISOString().split('T')[0];
+   };
+
+   const loadCalEvents = useCallback(async () => {
+      if (loadingCalRef.current) return;
+      loadingCalRef.current = true;
+      setLoadingCal(true);
+      try {
+         const today = todayStr();
+         const res = await ghlService.getEvents(today, today, calSelectedMemberId);
+         const sorted = (res.events || []).sort(
+            (a, b) => new Date(a.start) - new Date(b.start)
+         );
+         setCalEvents(sorted);
+      } catch (err) {
+         console.error('Errore caricamento eventi calendario:', err);
+         setCalEvents([]);
+      } finally {
+         setLoadingCal(false);
+         loadingCalRef.current = false;
+      }
+   }, [calSelectedMemberId]);
+
+   // Load team members for admin search
+   useEffect(() => {
+      if (!isAdmin) return;
+      ghlService.getCalendarTeamMembers().then((res) => {
+         if (res.success && res.members?.length > 0) {
+            setCalTeamMembers(res.members);
+         }
+      }).catch(() => {});
+   }, [isAdmin]);
+
+   useEffect(() => {
+      if (activeTab === 'calendario' && toggle === 'chatbox') loadCalEvents();
+   }, [activeTab, toggle, loadCalEvents]);
+
+   // Close search dropdown on click outside
+   useEffect(() => {
+      const handler = (e) => {
+         if (calSearchRef.current && !calSearchRef.current.contains(e.target)) {
+            setCalSearchOpen(false);
+         }
+      };
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+   }, []);
+
+   const formatCalTime = (dateStr) => {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+   };
+
+   const calendarColors = {
+      'call 1to1 iniziale': '#f59e0b',
+      'call 1to1': '#3b82f6',
+   };
+
+   const getCalEventColor = (ev) => {
+      const calName = (ev.ghl_calendar_name || '').toLowerCase().trim();
+      for (const [key, color] of Object.entries(calendarColors)) {
+         if (calName.includes(key)) return color;
+      }
+      return '#25B36A';
+   };
+
    // ── Helpers ──
    const formatDate = (dateStr) => {
       if (!dateStr) return '';
@@ -179,9 +266,9 @@ const ChatBox = ({ onClick, toggle }) => {
                      key={tab.key}
                      className={`cb-tab-btn${activeTab === tab.key ? ' active' : ''}`}
                      onClick={() => setActiveTab(tab.key)}
+                     title={tab.title}
                   >
                      <i className={tab.icon}></i>
-                     {tab.label}
                   </button>
                ))}
             </div>
@@ -386,6 +473,159 @@ const ChatBox = ({ onClick, toggle }) => {
                            })}
                            <Link to="/task" className="cb-task-link">
                               <i className="ri-arrow-right-line"></i> Gestisci tutte le attività
+                           </Link>
+                        </div>
+                     )}
+                  </div>
+               </div>
+
+               {/* ═══ CALENDARIO TAB ═══ */}
+               <div className={`cb-tab-pane${activeTab === "calendario" ? " active" : ""}`}>
+                  <div className="cb-section-header">
+                     <div className="cb-section-header-left">
+                        <div className="cb-section-icon" style={{ background: 'linear-gradient(135deg, #25B36A, #1a8a50)' }}>
+                           <i className="ri-calendar-line"></i>
+                        </div>
+                        <div>
+                           <div className="cb-section-title">
+                              {calSelectedMemberName || 'I tuoi appuntamenti'}
+                           </div>
+                           <div className="cb-section-subtitle">
+                              {calEvents.length} oggi
+                           </div>
+                        </div>
+                     </div>
+                     <button className="cb-icon-btn" onClick={loadCalEvents} title="Aggiorna">
+                        <i className={`ri-refresh-line${loadingCal ? ' cb-spin' : ''}`}></i>
+                     </button>
+                  </div>
+
+                  {/* Admin search */}
+                  {isAdmin && calTeamMembers.length > 0 && (
+                     <div className="cb-cal-search-wrap" ref={calSearchRef}>
+                        <div className="cb-cal-search-input-wrap">
+                           <i className="ri-search-line cb-cal-search-icon"></i>
+                           <input
+                              type="text"
+                              className="cb-cal-search-input"
+                              placeholder="Cerca membro del team..."
+                              value={calSearch}
+                              onChange={(e) => {
+                                 setCalSearch(e.target.value);
+                                 setCalSearchOpen(true);
+                              }}
+                              onFocus={() => setCalSearchOpen(true)}
+                              autoComplete="off"
+                              name="cb-cal-member-search"
+                              data-lpignore="true"
+                              data-1p-ignore="true"
+                           />
+                           {calSelectedMemberId && (
+                              <button
+                                 className="cb-cal-search-clear"
+                                 onClick={() => {
+                                    setCalSelectedMemberId(null);
+                                    setCalSelectedMemberName('');
+                                    setCalSearch('');
+                                    setCalSearchOpen(false);
+                                 }}
+                                 title="Torna ai miei appuntamenti"
+                              >
+                                 <i className="ri-close-line"></i>
+                              </button>
+                           )}
+                        </div>
+                        {calSearchOpen && calSearch.trim().length > 0 && (() => {
+                           const q = calSearch.toLowerCase();
+                           const filtered = calTeamMembers.filter((m) =>
+                              m.full_name.toLowerCase().includes(q)
+                           );
+                           return filtered.length > 0 ? (
+                              <div className="cb-cal-search-dropdown">
+                                 {filtered.map((m) => (
+                                    <div
+                                       key={m.id}
+                                       className={`cb-cal-search-item ${m.id === calSelectedMemberId ? 'active' : ''}`}
+                                       onClick={() => {
+                                          setCalSelectedMemberId(m.id);
+                                          setCalSelectedMemberName(m.full_name);
+                                          setCalSearch(m.full_name);
+                                          setCalSearchOpen(false);
+                                       }}
+                                    >
+                                       {m.avatar_path ? (
+                                          <img src={m.avatar_path} alt="" className="cb-cal-search-avatar cb-cal-search-avatar-img" />
+                                       ) : (
+                                          <span className="cb-cal-search-avatar">
+                                             {m.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                                          </span>
+                                       )}
+                                       <span className="cb-cal-search-name">{m.full_name}</span>
+                                    </div>
+                                 ))}
+                              </div>
+                           ) : null;
+                        })()}
+                     </div>
+                  )}
+
+                  <div className="cb-scroll-body">
+                     {loadingCal ? (
+                        <div className="cb-loading">
+                           <div className="cb-spinner"></div>
+                           <p>Caricamento eventi...</p>
+                        </div>
+                     ) : calEvents.length === 0 ? (
+                        <div className="cb-empty">
+                           <div className="cb-empty-icon">
+                              <i className="ri-calendar-check-line"></i>
+                           </div>
+                           <h6>Nessun appuntamento</h6>
+                           <p>Non ci sono appuntamenti per oggi</p>
+                           <Link to="/calendario" className="cb-task-link" style={{ maxWidth: '200px' }}>
+                              <i className="ri-arrow-right-line"></i> Vai al calendario
+                           </Link>
+                        </div>
+                     ) : (
+                        <div className="cb-cal-list">
+                           {calEvents.map((ev) => {
+                              const evColor = getCalEventColor(ev);
+                              return (
+                                 <div key={ev.id} className="cb-cal-card">
+                                    <div className="cb-cal-card-left">
+                                       <span className="cb-cal-dot" style={{ background: evColor }}></span>
+                                       <div className="cb-cal-card-time">
+                                          {formatCalTime(ev.start)}
+                                       </div>
+                                    </div>
+                                    <div className="cb-cal-card-body">
+                                       <div className="cb-cal-card-title">{ev.title || 'Senza titolo'}</div>
+                                       {ev.cliente && ev.cliente_matched && (
+                                          <div className="cb-cal-card-client">
+                                             <i className="ri-user-heart-line"></i> {ev.cliente.nome_cognome}
+                                          </div>
+                                       )}
+                                       {ev.ghl_calendar_name && (
+                                          <div className="cb-cal-card-calendar">{ev.ghl_calendar_name}</div>
+                                       )}
+                                    </div>
+                                    {ev.meetingLink && (
+                                       <a
+                                          href={ev.meetingLink}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="cb-cal-card-meet"
+                                          title="Entra nel meeting"
+                                          onClick={(e) => e.stopPropagation()}
+                                       >
+                                          <i className="ri-video-chat-line"></i>
+                                       </a>
+                                    )}
+                                 </div>
+                              );
+                           })}
+                           <Link to="/calendario" className="cb-task-link">
+                              <i className="ri-arrow-right-line"></i> Vai al calendario completo
                            </Link>
                         </div>
                      )}
