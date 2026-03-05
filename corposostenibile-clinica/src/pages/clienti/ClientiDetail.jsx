@@ -152,23 +152,12 @@ function ClientiDetail() {
   }, [canManageTeamAssignments, isRestrictedTeamLeader, specialtyGroup]);
 
   const getAllowedMainTabsForUser = useCallback(() => {
-    if (!isSpecialtyRestrictedRole) {
-      return new Set([
-        'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
-      ]);
-    }
-
-    const allowed = new Set(['anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus']);
-    if (isRestrictedTeamLeader) {
-      allowed.add('team');
-    }
-    if (specialtyGroup === 'nutrizione') allowed.add('nutrizione');
-    if (specialtyGroup === 'coach') allowed.add('coaching');
-    if (specialtyGroup === 'psicologia') allowed.add('psicologia');
-    if (specialtyGroup === 'medico') allowed.add('medico');
-    return allowed;
-  }, [isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
+    // Tutti i ruoli vedono tutte le tab della scheda paziente
+    return new Set([
+      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+      'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
+    ]);
+  }, []);
 
   // State
   const [cliente, setCliente] = useState(null);
