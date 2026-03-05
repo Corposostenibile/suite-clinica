@@ -95,7 +95,7 @@ const SideBar = () => {
             : isHealthManagerUser(user)
             ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Libreria Loom', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
-            ? MenuList.filter(item => ['Pazienti', 'Libreria Loom', 'CLIENTI'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
             : user?.is_trial
               ? MenuList.filter(item => {
                 // Trial users - filtra per stage

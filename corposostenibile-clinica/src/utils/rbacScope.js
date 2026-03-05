@@ -93,3 +93,9 @@ export function canAccessTrainingPage(user) {
 export function canAccessSecondaryModules(user) {
   return !isHealthManagerScopeUser(user);
 }
+
+export function canAccessLoomLibrary(user) {
+  if (!user) return false;
+  if (user.role === 'influencer') return false;
+  return true;
+}

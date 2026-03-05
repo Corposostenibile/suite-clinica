@@ -153,6 +153,13 @@ function ClientiDetail() {
   }, [canManageTeamAssignments, isRestrictedTeamLeader, specialtyGroup]);
 
   const getAllowedMainTabsForUser = useCallback(() => {
+    if (isInfluencer) {
+      return new Set([
+        'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+        'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
+      ]);
+    }
+
     if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
@@ -169,7 +176,7 @@ function ClientiDetail() {
     if (specialtyGroup === 'psicologia') allowed.add('psicologia');
     if (specialtyGroup === 'medico') allowed.add('medico');
     return allowed;
-  }, [isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
+  }, [isInfluencer, isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
 
   // State
   const [cliente, setCliente] = useState(null);

@@ -72,6 +72,7 @@ import {
   canAccessGlobalCheckPage,
   canAccessQualityPage,
   canAccessSecondaryModules,
+  canAccessLoomLibrary,
   canAccessSpecializzazione,
   canAccessTaskPage,
   canAccessTeamLists,
@@ -220,7 +221,7 @@ function App() {
 
             {/* Calendario */}
             <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />
-            <Route path="/loom-library" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><LoomLibrary /></RoleProtectedRoute>} />
+            <Route path="/loom-library" element={<RoleProtectedRoute allowIf={canAccessLoomLibrary}><LoomLibrary /></RoleProtectedRoute>} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
             <Route path="/profilo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Profilo /></RoleProtectedRoute>} />
 

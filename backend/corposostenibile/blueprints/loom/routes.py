@@ -202,6 +202,10 @@ def _is_team_leader_user(user) -> bool:
     return _role_value(user) == UserRoleEnum.team_leader.value
 
 
+def _is_health_manager_user(user) -> bool:
+    return _role_value(user) == UserRoleEnum.health_manager.value
+
+
 def _team_member_ids_for_leader(leader_id: int) -> set[int]:
     team_ids = db.session.query(Team.id).filter(Team.head_id == leader_id, Team.is_active == True)
     rows = (
@@ -232,6 +236,8 @@ def _can_view_submitter_id(user, submitter_user_id: int) -> bool:
 
 
 def _can_view_recording(user, recording: LoomRecording) -> bool:
+    if _is_health_manager_user(user):
+        return bool(recording.cliente_id and recording.cliente and recording.cliente.health_manager_id == user.id)
     return _can_view_submitter_id(user, recording.submitter_user_id)
 
 
@@ -246,6 +252,11 @@ def _can_manage_recording(user, recording: LoomRecording) -> bool:
 
 
 def _recordings_scope_query(user):
+    if _is_health_manager_user(user):
+        return LoomRecording.query.filter(
+            LoomRecording.cliente_id.isnot(None),
+            LoomRecording.cliente.has(Cliente.health_manager_id == user.id),
+        )
     allowed_ids = _allowed_submitter_ids(user)
     if allowed_ids is None:
         return LoomRecording.query
