@@ -139,14 +139,23 @@ const ghlService = {
   // =========================================================================
 
   /**
-   * Get calendar events for current user
+   * Get calendar events for a user
    * @param {string} start - Start date (YYYY-MM-DD)
    * @param {string} end - End date (YYYY-MM-DD)
+   * @param {number} [userId] - Optional user ID (admin/team_leader only)
    */
-  async getEvents(start, end) {
-    const response = await ghlApi.get('/calendar/events', {
-      params: { start, end }
-    });
+  async getEvents(start, end, userId = null) {
+    const params = { start, end };
+    if (userId) params.user_id = userId;
+    const response = await ghlApi.get('/calendar/events', { params });
+    return response.data;
+  },
+
+  /**
+   * Get team members visible for calendar filtering
+   */
+  async getCalendarTeamMembers() {
+    const response = await ghlApi.get('/calendar/team-members');
     return response.data;
   },
 
