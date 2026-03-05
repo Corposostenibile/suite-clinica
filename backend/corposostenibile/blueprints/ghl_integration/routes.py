@@ -1088,22 +1088,106 @@ def api_update_mapping_bulk():
 # CALENDAR EVENTS API (per il frontend calendario)
 # ============================================================================
 
+@bp.route('/api/calendar/team-members', methods=['GET'])
+@login_required
+def api_get_calendar_team_members():
+    """
+    Restituisce i membri del team visibili dall'utente corrente per il filtro calendario.
+
+    - admin / cco: tutti gli utenti con ghl_user_id
+    - team_leader: solo i membri dei propri team (+ se stesso)
+    - professionista: solo se stesso (nessun filtro mostrato)
+    """
+    is_admin = current_user.is_admin
+    is_tl = _is_team_leader_user(current_user)
+
+    if not is_admin and not is_tl:
+        # Professionista normale: nessun membro da mostrare
+        return jsonify({'success': True, 'members': []})
+
+    if is_admin:
+        # Admin vede tutti gli utenti con GHL configurato
+        users = User.query.filter(
+            User.is_active == True,
+            User.ghl_user_id.isnot(None),
+            User.ghl_user_id != '',
+        ).order_by(User.first_name, User.last_name).all()
+    else:
+        # Team leader: membri dei propri team + se stesso
+        member_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        users = User.query.filter(
+            User.id.in_(member_ids),
+            User.is_active == True,
+            User.ghl_user_id.isnot(None),
+            User.ghl_user_id != '',
+        ).order_by(User.first_name, User.last_name).all()
+
+    members = []
+    for u in users:
+        role_val = u.role.value if u.role and hasattr(u.role, 'value') else str(u.role or '')
+        spec_val = u.specialty.value if u.specialty and hasattr(u.specialty, 'value') else str(u.specialty or '')
+        members.append({
+            'id': u.id,
+            'full_name': u.full_name or f"{u.first_name} {u.last_name}".strip(),
+            'avatar_path': u.avatar_path,
+            'role': role_val,
+            'specialty': spec_val,
+        })
+
+    return jsonify({'success': True, 'members': members})
+
+
 @bp.route('/api/calendar/events', methods=['GET'])
 @login_required
 def api_get_calendar_events():
     """
-    Ottiene gli eventi calendario per l'utente corrente.
+    Ottiene gli eventi calendario.
+    Accetta ?user_id= opzionale per admin e team_leader.
     Con auto-match clienti Suite Clinica.
     """
     # Parametri date
     start = request.args.get('start')
     end = request.args.get('end')
+    target_user_id = request.args.get('user_id', type=int)
 
     if not start or not end:
         # Default: mese corrente
         today = datetime.utcnow()
         start = today.replace(day=1).strftime('%Y-%m-%d')
         end = (today.replace(day=1) + timedelta(days=32)).replace(day=1).strftime('%Y-%m-%d')
+
+    # Determina per quale utente caricare gli eventi
+    if target_user_id and target_user_id != current_user.id:
+        # Verifica permesso di visualizzare il calendario di un altro utente
+        is_admin = current_user.is_admin
+        is_tl = _is_team_leader_user(current_user)
+
+        if not is_admin and not is_tl:
+            return jsonify({
+                'success': False,
+                'message': 'Non hai i permessi per vedere questo calendario',
+                'events': []
+            }), 403
+
+        if is_tl and not is_admin:
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            if target_user_id not in allowed_ids:
+                return jsonify({
+                    'success': False,
+                    'message': 'Utente non nel tuo team',
+                    'events': []
+                }), 403
+
+        view_user = User.query.get(target_user_id)
+        if not view_user:
+            return jsonify({
+                'success': False,
+                'message': 'Utente non trovato',
+                'events': []
+            }), 404
+    else:
+        view_user = current_user
+        target_user_id = current_user.id
 
     try:
         from .calendar_service import get_ghl_calendar_service
@@ -1116,8 +1200,8 @@ def api_get_calendar_events():
                 'events': []
             })
 
-        # Verifica che l'utente abbia un calendario O un utente GHL associato
-        if not current_user.ghl_calendar_id and not current_user.ghl_user_id:
+        # Verifica che l'utente target abbia un calendario O un utente GHL associato
+        if not view_user.ghl_calendar_id and not view_user.ghl_user_id:
             return jsonify({
                 'success': False,
                 'message': 'Calendario GHL non configurato per questo utente',
@@ -1125,7 +1209,7 @@ def api_get_calendar_events():
             })
 
         # Ottieni eventi
-        events = service.get_events_for_user(current_user.id, start, end)
+        events = service.get_events_for_user(target_user_id, start, end)
 
         return jsonify({
             'success': True,

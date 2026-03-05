@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ghlService from '../../services/ghlService';
 import './GHLSettings.css';
@@ -6,7 +6,6 @@ import './GHLSettings.css';
 function GHLSettings() {
   const { user } = useOutletContext();
 
-  // Config state
   const [config, setConfig] = useState({
     api_key: '', location_id: '', is_active: false, has_api_key: false
   });
@@ -14,32 +13,15 @@ function GHLSettings() {
   const [configSaving, setConfigSaving] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
-  // Mapping state
   const [mapping, setMapping] = useState([]);
   const [ghlUsers, setGhlUsers] = useState([]);
   const [mappingLoading, setMappingLoading] = useState(false);
 
-  // Tab + filters
   const [activeTab, setActiveTab] = useState('config');
   const [calendarSearch, setCalendarSearch] = useState({});
   const [userFilter, setUserFilter] = useState('');
 
-  if (!user?.is_admin) {
-    return (
-      <div className="gs-unauthorized">
-        <i className="ri-lock-line"></i>
-        Accesso non autorizzato. Solo gli admin possono accedere a questa pagina.
-      </div>
-    );
-  }
-
-  useEffect(() => { loadConfig(); }, []);
-
-  useEffect(() => {
-    if (activeTab === 'mapping' && config.is_active) loadMappingData();
-  }, [activeTab, config.is_active]);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       setConfigLoading(true);
       const result = await ghlService.getConfig();
@@ -55,10 +37,12 @@ function GHLSettings() {
       }
     } catch (error) {
       console.error('Error loading config:', error);
-    } finally { setConfigLoading(false); }
-  };
+    } finally {
+      setConfigLoading(false);
+    }
+  }, []);
 
-  const loadMappingData = async () => {
+  const loadMappingData = useCallback(async () => {
     try {
       setMappingLoading(true);
       const [mappingResult, usersResult] = await Promise.all([
@@ -69,12 +53,30 @@ function GHLSettings() {
       if (usersResult.success) setGhlUsers(usersResult.users);
     } catch (error) {
       console.error('Error loading mapping data:', error);
-    } finally { setMappingLoading(false); }
-  };
+    } finally {
+      setMappingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadConfig(); }, [loadConfig]);
+
+  useEffect(() => {
+    if (activeTab === 'mapping' && config.is_active) loadMappingData();
+  }, [activeTab, config.is_active, loadMappingData]);
+
+  if (!user?.is_admin) {
+    return (
+      <div className="gs-unauthorized">
+        <i className="ri-lock-line"></i>
+        Accesso non autorizzato. Solo gli admin possono accedere a questa pagina.
+      </div>
+    );
+  }
 
   const saveConfig = async () => {
     try {
-      setConfigSaving(true); setTestResult(null);
+      setConfigSaving(true);
+      setTestResult(null);
       const dataToSave = { location_id: config.location_id, is_active: config.is_active };
       if (config.api_key) dataToSave.api_key = config.api_key;
       const result = await ghlService.updateConfig(dataToSave);
@@ -86,18 +88,23 @@ function GHLSettings() {
       }
     } catch (error) {
       setTestResult({ success: false, message: error.message });
-    } finally { setConfigSaving(false); }
+    } finally {
+      setConfigSaving(false);
+    }
   };
 
   const testConnection = async () => {
     try {
-      setConfigSaving(true); setTestResult(null);
+      setConfigSaving(true);
+      setTestResult(null);
       const result = await ghlService.testConnection();
       setTestResult(result);
       if (result.success) loadConfig();
     } catch (error) {
       setTestResult({ success: false, message: error.message });
-    } finally { setConfigSaving(false); }
+    } finally {
+      setConfigSaving(false);
+    }
   };
 
   const updateUserMapping = async (userId, ghlUserId) => {
@@ -115,30 +122,47 @@ function GHLSettings() {
     if (specialty === 'nutrizionista' || specialty === 'nutrizione') return 'nutrizionista';
     if (specialty === 'coach') return 'coach';
     if (specialty === 'psicologo' || specialty === 'psicologia') return 'psicologo';
+    if (specialty === 'health_manager') return 'hm';
     return 'default';
   };
 
+  const connectedCount = mapping.filter(m => m.ghl_user_id).length;
+
   return (
-    <div className="container-fluid p-0">
+    <div className="gs-page">
       {/* Header */}
       <div className="gs-header">
-        <div>
-          <h4>Impostazioni Go High Level</h4>
+        <div className="gs-header-left">
+          <h4 className="gs-header-title">
+            <i className="ri-settings-4-line"></i>
+            Impostazioni Go High Level
+          </h4>
           <p className="gs-header-sub">Configura l'integrazione calendario con GHL</p>
         </div>
+        {config.is_active && config.has_api_key && (
+          <div className="gs-header-badge">
+            <i className="ri-checkbox-circle-fill"></i> Integrazione attiva
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
       <div className="gs-tabs">
-        <button className={`gs-tab${activeTab === 'config' ? ' active' : ''}`} onClick={() => setActiveTab('config')}>
+        <button
+          className={`gs-tab ${activeTab === 'config' ? 'active' : ''}`}
+          onClick={() => setActiveTab('config')}
+        >
           <i className="ri-key-line"></i> Configurazione API
         </button>
         <button
-          className={`gs-tab${activeTab === 'mapping' ? ' active' : ''}`}
+          className={`gs-tab ${activeTab === 'mapping' ? 'active' : ''}`}
           onClick={() => setActiveTab('mapping')}
           disabled={!config.is_active}
         >
           <i className="ri-links-line"></i> Mapping Calendari
+          {connectedCount > 0 && (
+            <span className="gs-tab-count">{connectedCount}</span>
+          )}
         </button>
       </div>
 
@@ -156,36 +180,40 @@ function GHLSettings() {
                 <i className="ri-key-2-line"></i> Credenziali Go High Level
               </div>
 
-              {/* API Key */}
-              <div className="gs-field">
-                <label className="gs-label">API Key / Access Token</label>
-                <input
-                  type="password" className="gs-input"
-                  placeholder={config.has_api_key ? '••••••••••••••••••••' : 'Inserisci API Key'}
-                  value={config.api_key}
-                  onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
-                />
-                <div className="gs-hint">
-                  Trova la API Key in GHL: Settings &rarr; API Keys
-                  {config.has_api_key && (
-                    <span className="gs-hint-success">
-                      <i className="ri-checkbox-circle-fill"></i> API Key configurata
-                    </span>
-                  )}
+              <div className="gs-form-grid">
+                {/* API Key */}
+                <div className="gs-field">
+                  <label className="gs-label">API Key / Access Token</label>
+                  <input
+                    type="password"
+                    className="gs-input"
+                    placeholder={config.has_api_key ? '••••••••••••••••••••' : 'Inserisci API Key'}
+                    value={config.api_key}
+                    onChange={(e) => setConfig({ ...config, api_key: e.target.value })}
+                  />
+                  <div className="gs-hint">
+                    Trova la API Key in GHL: Settings &rarr; API Keys
+                    {config.has_api_key && (
+                      <span className="gs-hint-success">
+                        <i className="ri-checkbox-circle-fill"></i> Configurata
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Location ID */}
-              <div className="gs-field">
-                <label className="gs-label">Location ID</label>
-                <input
-                  type="text" className="gs-input"
-                  placeholder="es. abc123XYZ"
-                  value={config.location_id}
-                  onChange={(e) => setConfig({ ...config, location_id: e.target.value })}
-                />
-                <div className="gs-hint">
-                  Trova il Location ID nell'URL di GHL: app.gohighlevel.com/location/<strong>XXXXX</strong>
+                {/* Location ID */}
+                <div className="gs-field">
+                  <label className="gs-label">Location ID</label>
+                  <input
+                    type="text"
+                    className="gs-input"
+                    placeholder="es. abc123XYZ"
+                    value={config.location_id}
+                    onChange={(e) => setConfig({ ...config, location_id: e.target.value })}
+                  />
+                  <div className="gs-hint">
+                    Trova il Location ID nell'URL: app.gohighlevel.com/location/<strong>XXXXX</strong>
+                  </div>
                 </div>
               </div>
 
@@ -202,37 +230,42 @@ function GHLSettings() {
                 <span className="gs-toggle-label">Integrazione Attiva</span>
               </div>
 
-              {/* Last Sync */}
+              {/* Alerts */}
               {config.last_sync_at && (
-                <div className="gs-alert info">
+                <div className="gs-alert gs-alert-info">
                   <i className="ri-time-line"></i>
                   Ultima sincronizzazione: {new Date(config.last_sync_at).toLocaleString('it-IT')}
                 </div>
               )}
 
-              {/* Last Error */}
               {config.last_error && (
-                <div className="gs-alert danger">
+                <div className="gs-alert gs-alert-danger">
                   <i className="ri-error-warning-line"></i>
                   Ultimo errore: {config.last_error}
                 </div>
               )}
 
-              {/* Test Result */}
               {testResult && (
-                <div className={`gs-alert ${testResult.success ? 'success' : 'danger'}`}>
+                <div className={`gs-alert ${testResult.success ? 'gs-alert-success' : 'gs-alert-danger'}`}>
                   <i className={testResult.success ? 'ri-checkbox-circle-line' : 'ri-close-circle-line'}></i>
                   {testResult.message}
+                  {testResult.calendars_count !== undefined && (
+                    <span className="gs-alert-detail"> — {testResult.calendars_count} calendari trovati</span>
+                  )}
                 </div>
               )}
 
               {/* Buttons */}
               <div className="gs-btn-group">
-                <button className="gs-btn-save" onClick={saveConfig} disabled={configSaving}>
+                <button className="gs-btn gs-btn-primary" onClick={saveConfig} disabled={configSaving}>
                   {configSaving ? <span className="gs-spinner-sm"></span> : <i className="ri-save-line"></i>}
                   Salva Configurazione
                 </button>
-                <button className="gs-btn-outline" onClick={testConnection} disabled={configSaving || !config.location_id}>
+                <button
+                  className="gs-btn gs-btn-outline"
+                  onClick={testConnection}
+                  disabled={configSaving || !config.location_id}
+                >
                   <i className="ri-wifi-line"></i> Testa Connessione
                 </button>
               </div>
@@ -252,36 +285,57 @@ function GHLSettings() {
           ) : (
             <>
               <div className="gs-mapping-header">
-                <h5 className="gs-mapping-title">
-                  <i className="ri-calendar-line"></i> Associa Calendari GHL agli Utenti
-                </h5>
-                <button className="gs-refresh-btn" onClick={loadMappingData}>
+                <div>
+                  <h5 className="gs-section-title" style={{ marginBottom: 4 }}>
+                    <i className="ri-calendar-line"></i> Associa Utenti GHL ai Professionisti
+                  </h5>
+                  <p className="gs-header-sub">
+                    Seleziona l'utente GHL corrispondente per ogni professionista
+                  </p>
+                </div>
+                <button className="gs-btn gs-btn-outline gs-btn-sm" onClick={loadMappingData}>
                   <i className="ri-refresh-line"></i> Aggiorna
                 </button>
               </div>
 
+              {/* Stats */}
+              <div className="gs-mapping-stats">
+                <div className="gs-stat-item">
+                  <span className="gs-stat-value">{ghlUsers.length}</span>
+                  <span className="gs-stat-label">Utenti GHL</span>
+                </div>
+                <div className="gs-stat-item">
+                  <span className="gs-stat-value">{mapping.length}</span>
+                  <span className="gs-stat-label">Utenti Suite</span>
+                </div>
+                <div className="gs-stat-item">
+                  <span className="gs-stat-value gs-stat-green">{connectedCount}</span>
+                  <span className="gs-stat-label">Collegati</span>
+                </div>
+                <div className="gs-stat-item">
+                  <span className="gs-stat-value gs-stat-gray">{mapping.length - connectedCount}</span>
+                  <span className="gs-stat-label">Da collegare</span>
+                </div>
+              </div>
+
               {ghlUsers.length === 0 ? (
-                <div className="gs-alert warning">
+                <div className="gs-alert gs-alert-warning">
                   <i className="ri-information-line"></i>
                   Nessun utente (team member) trovato in GHL. Verifica la configurazione.
                 </div>
               ) : (
                 <>
-                  {/* Info */}
-                  <div className="gs-alert info">
-                    <div>
-                      <strong>Utenti GHL (team members):</strong> {ghlUsers.length} | <strong>Utenti Suite:</strong> {mapping.length}
-                      <small>Seleziona l'utente GHL corrispondente per ogni professionista. Verranno mostrati tutti i calendari di quell'utente.</small>
-                    </div>
-                  </div>
-
                   {/* Filter */}
-                  <input
-                    type="text" className="gs-filter-input"
-                    placeholder="Filtra utenti per nome o email..."
-                    value={userFilter}
-                    onChange={(e) => setUserFilter(e.target.value)}
-                  />
+                  <div className="gs-filter-wrap">
+                    <i className="ri-search-line"></i>
+                    <input
+                      type="text"
+                      className="gs-filter-input"
+                      placeholder="Filtra utenti per nome o email..."
+                      value={userFilter}
+                      onChange={(e) => setUserFilter(e.target.value)}
+                    />
+                  </div>
 
                   {/* Table */}
                   <div className="gs-table-wrap">
@@ -290,7 +344,7 @@ function GHLSettings() {
                         <tr>
                           <th>Utente Suite Clinica</th>
                           <th>Ruolo</th>
-                          <th>Utente GHL <small>(tutti i calendari)</small></th>
+                          <th>Utente GHL</th>
                           <th>Stato</th>
                         </tr>
                       </thead>
@@ -305,7 +359,7 @@ function GHLSettings() {
                             <tr key={u.user_id}>
                               <td>
                                 <div className="gs-user-cell">
-                                  <div className="gs-user-initials">
+                                  <div className="gs-user-avatar">
                                     {u.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                                   </div>
                                   <div>
@@ -320,48 +374,52 @@ function GHLSettings() {
                                 </span>
                               </td>
                               <td className="gs-ghl-cell">
-                                <input
-                                  type="text" className="gs-ghl-search"
-                                  placeholder="Cerca utente GHL..."
-                                  value={calendarSearch[u.user_id] || ''}
-                                  onChange={(e) => setCalendarSearch({ ...calendarSearch, [u.user_id]: e.target.value })}
-                                />
-                                <select
-                                  className="gs-ghl-select"
-                                  value={u.ghl_user_id || ''}
-                                  onChange={(e) => updateUserMapping(u.user_id, e.target.value || null)}
-                                  size={calendarSearch[u.user_id] ? 5 : 1}
-                                >
-                                  <option value="">-- Nessun utente GHL --</option>
-                                  {ghlUsers
-                                    .filter(ghlUser => {
-                                      const search = (calendarSearch[u.user_id] || '').toLowerCase();
-                                      if (!search) return true;
-                                      const fullName = ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`;
-                                      return fullName.toLowerCase().includes(search) ||
-                                        (ghlUser.email || '').toLowerCase().includes(search) ||
-                                        (ghlUser.calendarName || '').toLowerCase().includes(search);
-                                    })
-                                    .map((ghlUser) => {
-                                      const displayName = ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`.trim() || ghlUser.calendarName || ghlUser.id;
-                                      const emailPart = ghlUser.email ? ` (${ghlUser.email})` : '';
-                                      return <option key={ghlUser.id} value={ghlUser.id}>{displayName}{emailPart}</option>;
-                                    })}
-                                </select>
-                                {u.ghl_user_id && (
-                                  <div className="gs-ghl-linked">
-                                    <i className="ri-check-line"></i>
-                                    {(() => {
-                                      const ghlUser = ghlUsers.find(x => x.id === u.ghl_user_id);
-                                      if (!ghlUser) return u.ghl_user_id;
-                                      return ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`.trim() || ghlUser.calendarName || u.ghl_user_id;
-                                    })()}
-                                  </div>
-                                )}
+                                <div className="gs-ghl-select-wrap">
+                                  <input
+                                    type="text"
+                                    className="gs-ghl-search"
+                                    placeholder="Cerca utente GHL..."
+                                    value={calendarSearch[u.user_id] || ''}
+                                    onChange={(e) => setCalendarSearch({ ...calendarSearch, [u.user_id]: e.target.value })}
+                                  />
+                                  <select
+                                    className="gs-ghl-select"
+                                    value={u.ghl_user_id || ''}
+                                    onChange={(e) => updateUserMapping(u.user_id, e.target.value || null)}
+                                    size={calendarSearch[u.user_id] ? 5 : 1}
+                                  >
+                                    <option value="">-- Nessun utente GHL --</option>
+                                    {ghlUsers
+                                      .filter(ghlUser => {
+                                        const search = (calendarSearch[u.user_id] || '').toLowerCase();
+                                        if (!search) return true;
+                                        const fullName = ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`;
+                                        return fullName.toLowerCase().includes(search) ||
+                                          (ghlUser.email || '').toLowerCase().includes(search);
+                                      })
+                                      .map((ghlUser) => {
+                                        const displayName = ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`.trim() || ghlUser.id;
+                                        const emailPart = ghlUser.email ? ` (${ghlUser.email})` : '';
+                                        return <option key={ghlUser.id} value={ghlUser.id}>{displayName}{emailPart}</option>;
+                                      })}
+                                  </select>
+                                  {u.ghl_user_id && (
+                                    <div className="gs-ghl-linked">
+                                      <i className="ri-check-line"></i>
+                                      {(() => {
+                                        const ghlUser = ghlUsers.find(x => x.id === u.ghl_user_id);
+                                        if (!ghlUser) return u.ghl_user_id;
+                                        return ghlUser.name || `${ghlUser.firstName || ''} ${ghlUser.lastName || ''}`.trim() || u.ghl_user_id;
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td>
                                 {u.ghl_user_id ? (
-                                  <span className="gs-status-badge linked"><i className="ri-check-line"></i> Collegato</span>
+                                  <span className="gs-status-badge linked">
+                                    <i className="ri-check-line"></i> Collegato
+                                  </span>
                                 ) : (
                                   <span className="gs-status-badge unlinked">Non collegato</span>
                                 )}

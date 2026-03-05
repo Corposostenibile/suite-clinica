@@ -692,15 +692,36 @@ class GHLCalendarService:
         calendar_id = appointment.get("calendarId")
         calendar_name = calendars_map.get(calendar_id, "")
 
-        # Estrai nome cliente direttamente dall'appuntamento (senza chiamata API extra)
-        contact_name = appointment.get("title") or appointment.get("contactName") or ""
+        # Cerca cliente: prima match veloce per ghl_contact_id, poi match completo
         cliente_data = None
         cliente = None
 
-        # Cerca match veloce nel DB per contact_id (senza chiamata API GHL)
         if contact_id:
             try:
+                # 1. Match veloce per ghl_contact_id
                 cliente = Cliente.query.filter_by(ghl_contact_id=contact_id).first()
+
+                # 2. Se non trovato, prova match per email/nome dal contatto GHL
+                if not cliente:
+                    contact_info = {
+                        "id": contact_id,
+                        "firstName": appointment.get("firstName", ""),
+                        "lastName": appointment.get("lastName", ""),
+                        "email": appointment.get("email", ""),
+                    }
+                    # Prova con i dati dell'appuntamento
+                    if contact_info.get("email") or contact_info.get("firstName"):
+                        cliente = self.match_contact_to_cliente(contact_info)
+
+                    # 3. Se ancora non trovato, fetch contatto da GHL e riprova
+                    if not cliente:
+                        try:
+                            ghl_contact = self.get_contact(contact_id)
+                            if ghl_contact:
+                                cliente = self.match_contact_to_cliente(ghl_contact)
+                        except Exception:
+                            pass  # Non bloccare se l'API contatti fallisce
+
                 if cliente:
                     cliente_data = {
                         "cliente_id": cliente.cliente_id,
@@ -724,6 +745,18 @@ class GHLCalendarService:
             except Exception as e:
                 current_app.logger.warning(f"[GHL] Error fetching meeting for event {ghl_event_id}: {e}")
 
+        # Determina meeting link: campo dedicato o URL nel campo address
+        address = appointment.get("address", "")
+        meeting_link = appointment.get("meetingLink", "")
+        location = address
+
+        if not meeting_link and address and any(
+            domain in address.lower() for domain in
+            ["meet.google.com", "zoom.us", "teams.microsoft.com", "whereby.com"]
+        ):
+            meeting_link = address
+            location = ""  # Non mostrare URL anche come luogo
+
         # Costruisci evento arricchito
         return {
             "id": appointment.get("id"),
@@ -732,8 +765,8 @@ class GHLCalendarService:
             "end": appointment.get("endTime"),
             "status": appointment.get("appointmentStatus", "scheduled"),
             "notes": appointment.get("notes", ""),
-            "location": appointment.get("address", ""),
-            "meetingLink": appointment.get("meetingLink", ""),
+            "location": location,
+            "meetingLink": meeting_link,
 
             # Dati GHL
             "ghl_contact_id": contact_id,
