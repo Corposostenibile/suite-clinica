@@ -17,6 +17,13 @@ const getDisplayTitle = (recording) => {
   return 'Registrazione Loom';
 };
 
+const getLoomEmbedUrl = (loomLink) => {
+  const value = String(loomLink || '').trim();
+  if (!value) return '';
+  if (value.includes('/embed/')) return value;
+  return value.replace('/share/', '/embed/');
+};
+
 const LoomLibrary = () => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -26,8 +33,12 @@ const LoomLibrary = () => {
   const [associationFilter, setAssociationFilter] = useState('all');
   const [specialtyFilter, setSpecialtyFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [page, setPage] = useState(1);
+  const [previewLink, setPreviewLink] = useState('');
   const [recordings, setRecordings] = useState([]);
   const [capacityRows, setCapacityRows] = useState([]);
+  const pageSize = 12;
 
   const role = String(user?.role || '');
   const isAdmin = Boolean(user?.is_admin || role === 'admin');
@@ -124,6 +135,31 @@ const LoomLibrary = () => {
     });
   }, [query, associationFilter, canUseCapienzaStyleFilters, specialtyFilter, teamFilter, submitterMeta, specialtyGroups, recordings]);
 
+  const sortedRecordings = useMemo(() => {
+    const rows = [...filteredRecordings];
+    rows.sort((a, b) => {
+      const aTs = new Date(a?.created_at || 0).getTime();
+      const bTs = new Date(b?.created_at || 0).getTime();
+      if (sortOrder === 'oldest') return aTs - bTs;
+      return bTs - aTs;
+    });
+    return rows;
+  }, [filteredRecordings, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRecordings.length / pageSize));
+  const pagedRecordings = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return sortedRecordings.slice(start, start + pageSize);
+  }, [sortedRecordings, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, associationFilter, specialtyFilter, teamFilter, sortOrder]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const stats = useMemo(() => {
     const associated = recordings.filter((r) => Boolean(r?.cliente_id)).length;
     return {
@@ -136,11 +172,11 @@ const LoomLibrary = () => {
   const showTeamGrouping = canUseCapienzaStyleFilters && teamFilter === 'all';
   const groupedRecordings = useMemo(() => {
     if (!showTeamGrouping) {
-      return [{ key: 'filtered', title: 'Registrazioni Filtrate', rows: filteredRecordings }];
+      return [{ key: 'filtered', title: 'Registrazioni Filtrate', rows: pagedRecordings }];
     }
     const groups = [];
     teamOptions.forEach((team) => {
-      const teamRows = filteredRecordings.filter((recording) => {
+      const teamRows = pagedRecordings.filter((recording) => {
         const meta = submitterMeta.get(Number(recording?.submitter_user_id));
         return (meta?.teams || []).some((memberTeam) => Number(memberTeam.id) === Number(team.id));
       });
@@ -152,7 +188,7 @@ const LoomLibrary = () => {
         });
       }
     });
-    const noTeamRows = filteredRecordings.filter((recording) => {
+    const noTeamRows = pagedRecordings.filter((recording) => {
       const meta = submitterMeta.get(Number(recording?.submitter_user_id));
       return !meta?.teams || meta.teams.length === 0;
     });
@@ -160,7 +196,7 @@ const LoomLibrary = () => {
       groups.push({ key: 'no-team', title: 'Senza Team', rows: noTeamRows });
     }
     return groups;
-  }, [showTeamGrouping, teamOptions, filteredRecordings, submitterMeta]);
+  }, [showTeamGrouping, teamOptions, pagedRecordings, submitterMeta]);
 
   const handleCopyLink = async (loomLink) => {
     if (!loomLink) return;
@@ -274,6 +310,14 @@ const LoomLibrary = () => {
             placeholder="Cerca per titolo, paziente, autore o link"
             onChange={(e) => setQuery(e.target.value)}
           />
+          <select
+            className="loomlib-filter-select"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+          >
+            <option value="newest">Più recenti</option>
+            <option value="oldest">Meno recenti</option>
+          </select>
         </div>
       </div>
 
@@ -281,7 +325,7 @@ const LoomLibrary = () => {
         <div className="loomlib-state">Caricamento libreria Loom in corso...</div>
       ) : error ? (
         <div className="loomlib-state loomlib-state-error">{error}</div>
-      ) : filteredRecordings.length === 0 ? (
+      ) : sortedRecordings.length === 0 ? (
         <div className="loomlib-state">Nessun video Loom trovato.</div>
       ) : (
         <div className="loomlib-table-card">
@@ -340,6 +384,13 @@ const LoomLibrary = () => {
                               >
                                 <i className="ri-file-copy-line"></i> Copia
                               </button>
+                              <button
+                                type="button"
+                                className="loomlib-copy-btn"
+                                onClick={() => setPreviewLink(recording.loom_link)}
+                              >
+                                <i className="ri-play-circle-line"></i> Anteprima
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -351,6 +402,50 @@ const LoomLibrary = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {sortedRecordings.length > 0 && (
+        <div className="loomlib-pagination">
+          <button
+            type="button"
+            className="loomlib-page-btn"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page <= 1}
+          >
+            <i className="ri-arrow-left-s-line"></i> Precedente
+          </button>
+          <span>Pagina {page} / {totalPages}</span>
+          <button
+            type="button"
+            className="loomlib-page-btn"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page >= totalPages}
+          >
+            Successiva <i className="ri-arrow-right-s-line"></i>
+          </button>
+        </div>
+      )}
+
+      {previewLink && (
+        <>
+          <div className="loomlib-preview-backdrop" onClick={() => setPreviewLink('')}></div>
+          <div className="loomlib-preview-modal">
+            <div className="loomlib-preview-header">
+              <span>Anteprima Loom</span>
+              <button type="button" className="loomlib-preview-close" onClick={() => setPreviewLink('')}>
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+            <div className="loomlib-preview-body">
+              <iframe
+                src={getLoomEmbedUrl(previewLink)}
+                title="Loom preview"
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
