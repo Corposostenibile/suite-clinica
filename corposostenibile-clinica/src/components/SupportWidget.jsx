@@ -140,6 +140,13 @@ import Swal from 'sweetalert2';
 import useLoom from '../hooks/useLoom';
 import loomService from '../services/loomService';
 
+let pageWidgetInstances = 0;
+const pageWidgetListeners = new Set();
+
+const emitPageWidgetInstances = () => {
+  pageWidgetListeners.forEach((listener) => listener(pageWidgetInstances));
+};
+
 function SupportWidget({
   pageTitle,
   pageDescription,
@@ -150,7 +157,9 @@ function SupportWidget({
   onContactSupport,
   logoSrc,
   brandName = 'Pitch Partner',
-  accentColor = '#85FF00'
+  accentColor = '#85FF00',
+  variant = 'page',
+  minimal = false,
 }) {
   // =========================================================================
   // STATO DEL COMPONENTE
@@ -164,6 +173,7 @@ function SupportWidget({
   const [selectedPatientId, setSelectedPatientId] = useState(null);
   const [patientOptions, setPatientOptions] = useState([]);
   const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+  const [hasPageScopedWidget, setHasPageScopedWidget] = useState(pageWidgetInstances > 0);
   const navigate = useNavigate();
   const {
     startRecording,
@@ -185,6 +195,27 @@ function SupportWidget({
       timerProgressBar: true,
     });
   };
+
+  useEffect(() => {
+    const listener = (count) => {
+      setHasPageScopedWidget(count > 0);
+    };
+    pageWidgetListeners.add(listener);
+    listener(pageWidgetInstances);
+    return () => {
+      pageWidgetListeners.delete(listener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (variant !== 'page') return undefined;
+    pageWidgetInstances += 1;
+    emitPageWidgetInstances();
+    return () => {
+      pageWidgetInstances = Math.max(0, pageWidgetInstances - 1);
+      emitPageWidgetInstances();
+    };
+  }, [variant]);
 
   useEffect(() => {
     console.info('[LoomWidget] state changed', {
@@ -356,6 +387,10 @@ function SupportWidget({
   // =========================================================================
   // RENDER COMPONENTE
   // =========================================================================
+  if (variant === 'global' && hasPageScopedWidget) {
+    return null;
+  }
+
   return (
     <>
       {/* =====================================================================
@@ -516,79 +551,85 @@ function SupportWidget({
             </button>
           </div>
 
-          {/* Informazioni Pagina Corrente */}
-          <div style={{ padding: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '14px',
-              marginBottom: '20px'
-            }}>
-              {/* Icona Pagina */}
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <PageIcon size={20} color="#6366F1" />
-              </div>
-              {/* Titolo Pagina */}
-              <div>
+          {!minimal && (
+            <>
+              {/* Informazioni Pagina Corrente */}
+              <div style={{ padding: '24px' }}>
                 <div style={{
-                  fontSize: '13px',
-                  color: '#6B7280',
-                  marginBottom: '4px'
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '14px',
+                  marginBottom: '20px'
                 }}>
-                  Ti trovi nella pagina
+                  {/* Icona Pagina */}
+                  <div style={{
+                    width: '44px',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <PageIcon size={20} color="#6366F1" />
+                  </div>
+                  {/* Titolo Pagina */}
+                  <div>
+                    <div style={{
+                      fontSize: '13px',
+                      color: '#6B7280',
+                      marginBottom: '4px'
+                    }}>
+                      Ti trovi nella pagina
+                    </div>
+                    <div style={{
+                      fontSize: '17px',
+                      fontWeight: 700,
+                      color: '#1A1A1A',
+                      lineHeight: '1.3'
+                    }}>
+                      {pageTitle || 'Pagina Corrente'}
+                    </div>
+                  </div>
                 </div>
-                <div style={{
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  color: '#1A1A1A',
-                  lineHeight: '1.3'
-                }}>
-                  {pageTitle || 'Pagina Corrente'}
-                </div>
-              </div>
-            </div>
 
-            {/* Descrizione Pagina */}
-            {pageDescription && (
+                {/* Descrizione Pagina */}
+                {pageDescription && (
+                  <div style={{
+                    background: '#F9FAFB',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    color: '#4B5563'
+                  }}>
+                    {pageDescription}
+                  </div>
+                )}
+              </div>
+
+              {/* Linea Separatore */}
               <div style={{
-                background: '#F9FAFB',
-                borderRadius: '12px',
-                padding: '16px',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                color: '#4B5563'
-              }}>
-                {pageDescription}
-              </div>
-            )}
-          </div>
-
-          {/* Linea Separatore */}
-          <div style={{
-            height: '1px',
-            background: '#E5E7EB',
-            margin: '0 24px'
-          }} />
+                height: '1px',
+                background: '#E5E7EB',
+                margin: '0 24px'
+              }} />
+            </>
+          )}
 
           {/* Opzioni di Aiuto */}
           <div style={{ padding: '24px' }}>
-            <div style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#1A1A1A',
-              marginBottom: '16px'
-            }}>
-              Hai bisogno?
-            </div>
+            {!minimal && (
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                color: '#1A1A1A',
+                marginBottom: '16px'
+              }}>
+                Hai bisogno?
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {/* Opzione: Registra Loom */}
@@ -602,48 +643,52 @@ function SupportWidget({
                 disabled={isRecording || isSavingLoom || isLoomDecisionOpen}
               />
 
-              {/* Opzione 1: Tour Guidato */}
-              {onStartTour && (
-                <OpzioneAiuto
-                  icon={<FaRoute size={18} color="#059669" />}
-                  iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
-                  titolo="Tour Guidato"
-                  descrizione="Scopri le funzionalità passo dopo passo"
-                  onClick={handleStartTour}
-                  accentColor={accentColor}
-                />
-              )}
+              {!minimal && (
+                <>
+                  {/* Opzione 1: Tour Guidato */}
+                  {onStartTour && (
+                    <OpzioneAiuto
+                      icon={<FaRoute size={18} color="#059669" />}
+                      iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
+                      titolo="Tour Guidato"
+                      descrizione="Scopri le funzionalità passo dopo passo"
+                      onClick={handleStartTour}
+                      accentColor={accentColor}
+                    />
+                  )}
 
-              {/* Opzione 2: Pagina Supporto */}
-              <OpzioneAiuto
-                icon={<FaLifeRing size={18} color="#8B5CF6" />}
-                iconBg="linear-gradient(135deg, #F3E8FF, #E9D5FF)"
-                titolo="Pagina Supporto"
-                descrizione="Accedi al centro assistenza completo"
-                onClick={handleGoToSupport}
-                accentColor={accentColor}
-              />
+                  {/* Opzione 2: Pagina Supporto */}
+                  <OpzioneAiuto
+                    icon={<FaLifeRing size={18} color="#8B5CF6" />}
+                    iconBg="linear-gradient(135deg, #F3E8FF, #E9D5FF)"
+                    titolo="Pagina Supporto"
+                    descrizione="Accedi al centro assistenza completo"
+                    onClick={handleGoToSupport}
+                    accentColor={accentColor}
+                  />
 
-              {/* Opzione 3: Documentazione */}
-              <OpzioneAiuto
-                icon={<FaBook size={18} color="#6366F1" />}
-                iconBg="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
-                titolo="Documentazione Ufficiale"
-                descrizione="Guide e manuali dettagliati"
-                onClick={handleOpenDocs}
-                accentColor={accentColor}
-              />
+                  {/* Opzione 3: Documentazione */}
+                  <OpzioneAiuto
+                    icon={<FaBook size={18} color="#6366F1" />}
+                    iconBg="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
+                    titolo="Documentazione Ufficiale"
+                    descrizione="Guide e manuali dettagliati"
+                    onClick={handleOpenDocs}
+                    accentColor={accentColor}
+                  />
 
-              {/* Opzione 4: Contatta Supporto */}
-              {onContactSupport && (
-                <OpzioneAiuto
-                  icon={<FaHeadset size={18} color="#D97706" />}
-                  iconBg="linear-gradient(135deg, #FEF3C7, #FDE68A)"
-                  titolo="Hai Bisogno di Assistenza?"
-                  descrizione="Contatta il nostro team di supporto"
-                  onClick={handleContactSupport}
-                  accentColor={accentColor}
-                />
+                  {/* Opzione 4: Contatta Supporto */}
+                  {onContactSupport && (
+                    <OpzioneAiuto
+                      icon={<FaHeadset size={18} color="#D97706" />}
+                      iconBg="linear-gradient(135deg, #FEF3C7, #FDE68A)"
+                      titolo="Hai Bisogno di Assistenza?"
+                      descrizione="Contatta il nostro team di supporto"
+                      onClick={handleContactSupport}
+                      accentColor={accentColor}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
