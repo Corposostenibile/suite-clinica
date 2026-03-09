@@ -67,6 +67,7 @@ steps:
       - run
       - --filename=k8s/deployment.yaml
       - --filename=k8s/celery-deployment.yaml
+      - --filename=k8s/uploads-backup-cronjob.yaml
       - --filename=k8s/service.yaml
       - --filename=k8s/frontendconfig.yaml
       - --filename=k8s/managed-certificate.yaml

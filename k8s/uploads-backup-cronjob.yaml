@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: suite-clinica-uploads-backup
+  labels:
+    app: suite-clinica
+spec:
+  # 01:30 UTC (02:30 Europe/Rome in inverno, 03:30 in estate)
+  schedule: "30 1 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: uploads-backup
+            image: google/cloud-sdk:slim
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              set -euo pipefail
+              echo "[uploads-backup] Activating service account..."
+              gcloud auth activate-service-account --key-file=/secrets/cloudsql/credentials.json
+
+              echo "[uploads-backup] Sync uploads PVC -> GCS (incremental mirror)..."
+              gsutil -m rsync -r /var/corposostenibile/uploads gs://suite-clinica-backups/app_uploads
+
+              echo "[uploads-backup] Completed."
+            resources:
+              requests:
+                cpu: "250m"
+                memory: "512Mi"
+              limits:
+                cpu: "1"
+                memory: "1Gi"
+            volumeMounts:
+            - name: uploads-storage
+              mountPath: /var/corposostenibile/uploads
+            - name: service-account-key
+              mountPath: /secrets/cloudsql
+              readOnly: true
+          volumes:
+          - name: uploads-storage
+            persistentVolumeClaim:
+              claimName: uploads-pvc
+          - name: service-account-key
+            secret:
+              secretName: sql-proxy-key
