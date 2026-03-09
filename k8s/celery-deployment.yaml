@@ -23,13 +23,7 @@ spec:
         command: ["celery", "-A", "corposostenibile.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
         livenessProbe:
           exec:
-            command:
-              - celery
-              - -A
-              - corposostenibile.celery_app
-              - inspect
-              - ping
-              - --timeout=10
+            command: ["celery", "-A", "corposostenibile.celery_app", "inspect", "ping", "--timeout=10"]
           initialDelaySeconds: 30
           periodSeconds: 60
           timeoutSeconds: 15
@@ -82,6 +76,7 @@ spec:
           value: "sL_8Q~7dckRNw3r-I-yVqScpyJLuQZ80_zVjddlh"
         - name: TEAMS_BOT_TENANT_ID
           value: "432c478e-1c8a-4f55-88ab-db9b9d8f0118"
+
       - name: celery-beat
         image: europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:latest
         imagePullPolicy: Always
@@ -89,10 +84,10 @@ spec:
         resources:
           requests:
             cpu: "100m"
-            memory: "128Mi"
-          limits:
-            cpu: "250m"
             memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
         env:
         - name: FLASK_APP
           value: "corposostenibile"
@@ -106,6 +101,13 @@ spec:
           value: "redis://10.130.63.139:6379/1"
         - name: SECRET_KEY
           value: "temp-secret-key-prod-change-me"
+        - name: WEBSOCKET_QUEUE
+          value: "redis://10.130.63.139:6379/3"
+        - name: NUTRITION_CACHE_BACKEND
+          value: "redis://10.130.63.139:6379/2"
+        - name: RATELIMIT_STORAGE_URI
+          value: "redis://10.130.63.139:6379/5"
+
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.2
         args:
@@ -125,6 +127,7 @@ spec:
         - name: sql-proxy-key
           mountPath: /secrets/cloudsql
           readOnly: true
+
       volumes:
       - name: sql-proxy-key
         secret:

@@ -66,12 +66,12 @@ steps:
     args:
       - run
       - --filename=k8s/deployment.yaml
+      - --filename=k8s/celery-deployment.yaml
       - --filename=k8s/service.yaml
       - --filename=k8s/frontendconfig.yaml
       - --filename=k8s/managed-certificate.yaml
       - --filename=k8s/ingress.yaml
       - --filename=k8s/hpa.yaml
-      - --filename=k8s/celery-deployment.yaml
       - --location=europe-west8
       - --cluster=suite-clinica-cluster-prod
       - --image=europe-west8-docker.pkg.dev/$PROJECT_ID/suite-clinica-repo/backend:$COMMIT_SHA
