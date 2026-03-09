@@ -28,7 +28,7 @@ spec:
               gcloud auth activate-service-account --key-file=/secrets/cloudsql/credentials.json
 
               echo "[uploads-backup] Sync uploads PVC -> GCS (incremental mirror)..."
-              gsutil -m rsync -r /var/corposostenibile/uploads gs://suite-clinica-backups/app_uploads
+              gsutil -m rsync -r /var/corposostenibile/uploads gs://suite-clinica-backups/uploads_daily
 
               echo "[uploads-backup] Completed."
             resources:
