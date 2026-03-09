@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: suite-clinica-uploads-snapshot
+  labels:
+    app: suite-clinica
+spec:
+  # Domenica 02:30 UTC
+  schedule: "30 2 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 604800
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+          - name: uploads-snapshot
+            image: google/cloud-sdk:slim
+            command: ["/bin/bash", "-c"]
+            args:
+            - |
+              set -euo pipefail
+              TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+              SNAPSHOT_DIR="backup_${TIMESTAMP}"
+              ARCHIVE_NAME="uploads_backup_${TIMESTAMP}.tar.gz"
+              TMP_ARCHIVE="/tmp/${ARCHIVE_NAME}"
+
+              echo "[uploads-snapshot] Activating service account..."
+              gcloud auth activate-service-account --key-file=/secrets/cloudsql/credentials.json
+
+              echo "[uploads-snapshot] Creating archive..."
+              tar -czf "${TMP_ARCHIVE}" -C /var/corposostenibile uploads
+
+              echo "[uploads-snapshot] Uploading archive to GCS..."
+              gsutil cp "${TMP_ARCHIVE}" "gs://suite-clinica-backups/${SNAPSHOT_DIR}/${ARCHIVE_NAME}"
+
+              echo "[uploads-snapshot] Completed."
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "4Gi"
+            volumeMounts:
+            - name: uploads-storage
+              mountPath: /var/corposostenibile/uploads
+            - name: service-account-key
+              mountPath: /secrets/cloudsql
+              readOnly: true
+          volumes:
+          - name: uploads-storage
+            persistentVolumeClaim:
+              claimName: uploads-pvc
+          - name: service-account-key
+            secret:
+              secretName: sql-proxy-key
