@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
-import teamService, { ROLE_LABELS, SPECIALTY_LABELS } from '../../services/teamService';
+import { ROLE_LABELS, SPECIALTY_LABELS } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import {
@@ -35,12 +35,16 @@ function Task() {
     });
     const [adminFilterOptions, setAdminFilterOptions] = useState({
         teams: [],
-        members: [],
+        assignees: [],
+        roles: [],
+        specialties: [],
     });
     const [teamLeaderAssigneeId, setTeamLeaderAssigneeId] = useState('');
     const [detailTask, setDetailTask] = useState(null);
 
     const PAGE_SIZE = 15;
+    const deferredSearchTerm = useDeferredValue(searchTerm.trim());
+    const filterOptionsLoadedRef = useRef(false);
     const [pagination, setPagination] = useState({
         page: 1,
         per_page: PAGE_SIZE,
@@ -153,15 +157,6 @@ function Task() {
         return true;
     });
 
-    const fetchStats = useCallback(async () => {
-        try {
-            const data = await taskService.getStats();
-            setStats(data);
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-        }
-    }, []);
-
     const fetchTasks = useCallback(async () => {
         setLoading(true);
         try {
@@ -170,9 +165,10 @@ function Task() {
                 paginate: 'true',
                 page: currentPage,
                 per_page: PAGE_SIZE,
+                include_summary: 'true',
             };
             if (activeTab !== 'all') params.category = activeTab;
-            if (searchTerm.trim()) params.q = searchTerm.trim();
+            if (deferredSearchTerm) params.q = deferredSearchTerm;
             if (isGlobalTaskViewer) {
                 if (adminFilters.team_id) params.team_id = Number(adminFilters.team_id);
                 if (adminFilters.assignee_id) params.assignee_id = Number(adminFilters.assignee_id);
@@ -199,51 +195,45 @@ function Task() {
                     pages: 1,
                 });
             }
+            if (data?.summary) {
+                setStats(data.summary);
+            }
         } catch (error) {
             console.error('Error fetching tasks:', error);
         } finally {
             setLoading(false);
         }
-    }, [activeTab, showCompleted, currentPage, searchTerm, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
+    }, [activeTab, showCompleted, currentPage, deferredSearchTerm, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
 
-    const fetchAdminFilterOptions = useCallback(async () => {
+    const fetchFilterOptions = useCallback(async () => {
         if (!isGlobalTaskViewer && !isTeamLeaderTaskViewer) return;
+        if (filterOptionsLoadedRef.current) return;
         setFilterOptionsLoading(true);
         try {
-            const requests = [teamService.getTeamMembers({ per_page: 5000, active: '1' })];
-            if (isGlobalTaskViewer) {
-                requests.unshift(teamService.getTeams({ per_page: 500, active: '1' }));
-            }
-            const results = await Promise.all(requests);
-            const teamsRes = isGlobalTaskViewer ? results[0] : { teams: [] };
-            const membersRes = isGlobalTaskViewer ? results[1] : results[0];
+            const data = await taskService.getFilterOptions();
             setAdminFilterOptions({
-                teams: teamsRes.teams || [],
-                members: membersRes.members || [],
+                teams: data.teams || [],
+                assignees: data.assignees || [],
+                roles: data.roles || [],
+                specialties: data.specialties || [],
             });
+            filterOptionsLoadedRef.current = true;
         } catch (error) {
-            console.error('Error fetching task admin filter options:', error);
-            setAdminFilterOptions({ teams: [], members: [] });
+            console.error('Error fetching task filter options:', error);
         } finally {
             setFilterOptionsLoading(false);
         }
     }, [isGlobalTaskViewer, isTeamLeaderTaskViewer]);
 
     useEffect(() => {
-        fetchStats();
-    }, [fetchStats]);
-
-    useEffect(() => {
         fetchTasks();
     }, [fetchTasks]);
 
     useEffect(() => {
-        fetchAdminFilterOptions();
-    }, [fetchAdminFilterOptions]);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeTab, showCompleted, searchTerm, adminFilters, teamLeaderAssigneeId]);
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+    }, [activeTab, showCompleted, deferredSearchTerm, adminFilters, teamLeaderAssigneeId]);
 
     useEffect(() => {
         if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -253,7 +243,6 @@ function Task() {
         setTasks(prev => prev.map(task => task.id === taskId ? { ...task, completed: !task.completed } : task));
         try {
             await taskService.toggleComplete(taskId, !currentStatus);
-            fetchStats();
             if (!showCompleted) fetchTasks();
         } catch (error) {
             console.error('Error updating task:', error);
@@ -298,17 +287,19 @@ function Task() {
 
     const getPriorityColor = (priority) => TASK_PRIORITIES[priority]?.color || '#6c757d';
     const getCategoryInfo = (catKey) => TASK_CATEGORIES[catKey] || { label: catKey, color: '#6c757d', bg: 'secondary' };
+    const ensureFilterOptionsLoaded = useCallback(() => {
+        if (filterOptionsLoadedRef.current || filterOptionsLoading) return;
+        fetchFilterOptions();
+    }, [fetchFilterOptions, filterOptionsLoading]);
     const roleOptions = useMemo(() => {
-        const roles = new Set((adminFilterOptions.members || []).map((m) => m.role).filter(Boolean));
-        return Array.from(roles).sort();
-    }, [adminFilterOptions.members]);
+        return adminFilterOptions.roles || [];
+    }, [adminFilterOptions.roles]);
     const specialtyOptions = useMemo(() => {
-        const specs = new Set((adminFilterOptions.members || []).map((m) => m.specialty).filter(Boolean));
-        return Array.from(specs).sort();
-    }, [adminFilterOptions.members]);
+        return adminFilterOptions.specialties || [];
+    }, [adminFilterOptions.specialties]);
     const filteredMemberOptions = useMemo(() => {
         if (!isGlobalTaskViewer) return [];
-        return (adminFilterOptions.members || []).filter((m) => {
+        return (adminFilterOptions.assignees || []).filter((m) => {
             if (adminFilters.assignee_role && m.role !== adminFilters.assignee_role) return false;
             if (adminFilters.assignee_specialty && m.specialty !== adminFilters.assignee_specialty) return false;
             if (adminFilters.team_id) {
@@ -317,11 +308,11 @@ function Task() {
             }
             return true;
         });
-    }, [adminFilterOptions.members, adminFilters, isGlobalTaskViewer]);
+    }, [adminFilterOptions.assignees, adminFilters, isGlobalTaskViewer]);
     const teamLeaderMemberOptions = useMemo(() => {
         if (!isTeamLeaderTaskViewer) return [];
-        return (adminFilterOptions.members || []).filter((m) => m.role !== 'admin');
-    }, [adminFilterOptions.members, isTeamLeaderTaskViewer]);
+        return (adminFilterOptions.assignees || []).filter((m) => m.role !== 'admin');
+    }, [adminFilterOptions.assignees, isTeamLeaderTaskViewer]);
 
     const completedCount = stats.total_completed || 0;
     const totalTaskCount = (stats.total_open || 0) + completedCount;
@@ -404,11 +395,18 @@ function Task() {
                             Reset filtri
                         </button>
                     </div>
+                    {filterOptionsLoading && (
+                        <div className="task-filter-hint" style={{ marginBottom: '10px' }}>
+                            Caricamento filtri in corso...
+                        </div>
+                    )}
                     <div className="task-filter-grid">
                         <select
                             className="task-filter-select"
                             value={adminFilters.team_id}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, team_id: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti i team</option>
@@ -420,6 +418,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_role}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_role: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti i ruoli</option>
@@ -431,6 +431,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_specialty}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_specialty: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutte le specialit&agrave;</option>
@@ -442,6 +444,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_id}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_id: e.target.value }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti gli assegnatari</option>
@@ -464,11 +468,18 @@ function Task() {
                             Reset filtro
                         </button>
                     </div>
+                    {filterOptionsLoading && (
+                        <div className="task-filter-hint" style={{ marginBottom: '10px' }}>
+                            Caricamento filtri in corso...
+                        </div>
+                    )}
                     <div className="task-filter-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                         <select
                             className="task-filter-select"
                             value={teamLeaderAssigneeId}
                             onChange={(e) => setTeamLeaderAssigneeId(e.target.value)}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutto il team</option>

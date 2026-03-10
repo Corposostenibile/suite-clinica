@@ -18,6 +18,11 @@ const taskService = {
         return response.data;
     },
 
+    getFilterOptions: async () => {
+        const response = await api.get('/tasks/filter-options');
+        return response.data;
+    },
+
     /**
      * Crea un nuovo task (manuale)
      * @param {Object} data 

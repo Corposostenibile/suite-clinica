@@ -2,8 +2,9 @@ from flask import Blueprint, jsonify, request, abort, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, date
 from sqlalchemy import desc, func, or_
+from sqlalchemy.orm import joinedload
 
-from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, db
+from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, Team, db, team_members
 
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
@@ -130,42 +131,175 @@ def _can_view_all_tasks(user) -> bool:
     return bool(user.is_admin or user_role == UserRoleEnum.admin or _is_cco_user(user))
 
 
+def _apply_visibility_scope(query, user, mine_only: bool = False):
+    user_role = getattr(user, 'role', None)
+
+    if mine_only:
+        return query.filter(Task.assignee_id == user.id)
+    if _can_view_all_tasks(user):
+        return query
+    if user_role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        team_member_ids.add(user.id)
+        if team_member_ids:
+            return query.filter(Task.assignee_id.in_(list(team_member_ids)))
+    return query.filter(Task.assignee_id == user.id)
+
+
+def _apply_admin_filters(query):
+    assignee_id = request.args.get('assignee_id', type=int)
+    if assignee_id:
+        query = query.filter(Task.assignee_id == assignee_id)
+
+    assignee_role = request.args.get('assignee_role', '').strip()
+    if assignee_role:
+        query = query.filter(Task.assignee.has(User.role == assignee_role))
+
+    assignee_specialty = request.args.get('assignee_specialty', '').strip()
+    if assignee_specialty:
+        query = query.filter(Task.assignee.has(User.specialty == assignee_specialty))
+
+    team_id = request.args.get('team_id', type=int)
+    if team_id:
+        query = query.filter(Task.assignee.has(User.teams.any(id=team_id)))
+
+    return query
+
+
+def _build_stats(scope_query):
+    open_counts_query = (
+        scope_query
+        .filter(Task.status != TaskStatusEnum.done)
+        .filter(Task.status != TaskStatusEnum.archived)
+        .with_entities(Task.category, func.count(Task.id))
+        .group_by(Task.category)
+    )
+    completed_total = (
+        scope_query
+        .filter(Task.status == TaskStatusEnum.done)
+        .with_entities(func.count(Task.id))
+        .scalar()
+        or 0
+    )
+
+    cat_counts = {c.value: 0 for c in TaskCategoryEnum}
+    total_open = 0
+    for cat, count in open_counts_query.all():
+        val = cat.value if hasattr(cat, 'value') else cat
+        cat_counts[val] = count
+        total_open += count
+
+    return {
+        'by_category': cat_counts,
+        'total_open': total_open,
+        'total_completed': completed_total,
+    }
+
+
+def _build_filter_options():
+    if not (_can_view_all_tasks(current_user) or getattr(current_user, 'role', None) == UserRoleEnum.team_leader):
+        return None
+
+    member_query = User.query.filter(User.role.isnot(None), User.is_active == True)
+    if _can_view_all_tasks(current_user):
+        pass
+    elif getattr(current_user, 'role', None) == UserRoleEnum.team_leader:
+        visible_ids = {current_user.id}
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                visible_ids.add(member.id)
+        member_query = member_query.filter(User.id.in_(list(visible_ids)))
+    else:
+        member_query = member_query.filter(User.id == current_user.id)
+
+    members = (
+        member_query
+        .with_entities(
+            User.id,
+            User.first_name,
+            User.last_name,
+            User.email,
+            User.role,
+            User.specialty,
+        )
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+    member_ids = [member.id for member in members]
+
+    team_map = {member_id: [] for member_id in member_ids}
+    if member_ids:
+        memberships = (
+            db.session.query(team_members.c.user_id, Team.id, Team.name)
+            .join(Team, Team.id == team_members.c.team_id)
+            .filter(team_members.c.user_id.in_(member_ids), Team.is_active == True)
+            .all()
+        )
+        for user_id, team_id, team_name in memberships:
+            team_map[user_id].append({'id': team_id, 'name': team_name})
+
+    roles = sorted({
+        m.role.value if hasattr(m.role, 'value') else m.role
+        for m in members
+        if m.role
+    })
+    specialties = sorted({
+        m.specialty.value if hasattr(m.specialty, 'value') else m.specialty
+        for m in members
+        if m.specialty
+    })
+
+    teams = []
+    if _can_view_all_tasks(current_user):
+        team_rows = (
+            Team.query
+            .filter_by(is_active=True)
+            .order_by(Team.name)
+            .all()
+        )
+        teams = [{'id': team.id, 'name': team.name} for team in team_rows]
+
+    assignees = [
+        {
+            'id': member.id,
+            'full_name': ' '.join(part for part in [member.first_name, member.last_name] if part).strip() or member.email,
+            'email': member.email,
+            'role': member.role.value if hasattr(member.role, 'value') else member.role,
+            'specialty': member.specialty.value if hasattr(member.specialty, 'value') else member.specialty,
+            'teams': team_map.get(member.id, []),
+        }
+        for member in members
+    ]
+
+    return {
+        'teams': teams,
+        'assignees': assignees,
+        'roles': roles,
+        'specialties': specialties,
+    }
+
+
 @bp.route('/', methods=['GET'])
 @login_required
 def list_tasks():
     """Ritorna la lista dei task, filtrata in base al ruolo."""
-    query = Task.query
+    scope_query = _apply_visibility_scope(Task.query, current_user, mine_only=request.args.get('mine', '').lower() == 'true')
     page = max(request.args.get('page', 1, type=int) or 1, 1)
     requested_per_page = request.args.get('per_page', type=int)
     page_size = max(1, min(requested_per_page, 100)) if requested_per_page else 15
     legacy_limit = max(1, min(requested_per_page, 100)) if requested_per_page else 100
     use_paginated_response = request.args.get('paginate', '').lower() == 'true'
-    
-    user_role = getattr(current_user, 'role', None)
-    
-    # Parametro mine=true → forza solo task dell'utente corrente (usato dalla sidebar)
-    mine_only = request.args.get('mine', '').lower() == 'true'
+    include_summary = request.args.get('include_summary', '').lower() == 'true'
+    include_filter_options = request.args.get('include_filter_options', '').lower() == 'true'
 
-    if mine_only:
-        query = query.filter(Task.assignee_id == current_user.id)
-    elif _can_view_all_tasks(current_user):
-        # Admin / CCO: vede tutto
-        pass
-    elif user_role == UserRoleEnum.team_leader:
-        # Team Leader: vede task propri e dei membri del team
-        team_member_ids = set()
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        team_member_ids.add(current_user.id)
-
-        if team_member_ids:
-            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
-        else:
-            query = query.filter(Task.assignee_id == current_user.id)
-    else:
-        # Professionista o altro: solo i propri task
-        query = query.filter(Task.assignee_id == current_user.id)
+    scope_query = _apply_admin_filters(scope_query)
+    query = scope_query.options(
+        joinedload(Task.assignee),
+        joinedload(Task.client),
+    )
 
     # Filtri
     category = request.args.get('category')
@@ -182,22 +316,6 @@ def list_tasks():
         query = query.filter(Task.status == TaskStatusEnum.done)
     elif completed == 'false':
         query = query.filter(Task.status != TaskStatusEnum.done)
-
-    assignee_id = request.args.get('assignee_id', type=int)
-    if assignee_id:
-        query = query.filter(Task.assignee_id == assignee_id)
-
-    assignee_role = request.args.get('assignee_role', '').strip()
-    if assignee_role:
-        query = query.filter(Task.assignee.has(User.role == assignee_role))
-
-    assignee_specialty = request.args.get('assignee_specialty', '').strip()
-    if assignee_specialty:
-        query = query.filter(Task.assignee.has(User.specialty == assignee_specialty))
-
-    team_id = request.args.get('team_id', type=int)
-    if team_id:
-        query = query.filter(Task.assignee.has(User.teams.any(id=team_id)))
 
     search_query = request.args.get('q', '').strip()
     if search_query:
@@ -223,7 +341,7 @@ def list_tasks():
         total = query.order_by(None).count()
         items = query.offset((page - 1) * page_size).limit(page_size).all()
         total_pages = max(1, (total + page_size - 1) // page_size)
-        return jsonify({
+        payload = {
             'items': [_serialize_task(t) for t in items],
             'pagination': {
                 'page': page,
@@ -231,7 +349,12 @@ def list_tasks():
                 'total': total,
                 'pages': total_pages,
             }
-        })
+        }
+        if include_summary:
+            payload['summary'] = _build_stats(scope_query)
+        if include_filter_options:
+            payload['filter_options'] = _build_filter_options()
+        return jsonify(payload)
 
     # Compatibilità legacy: endpoint che si aspettano una lista semplice.
     tasks = query.limit(legacy_limit).all()
@@ -321,47 +444,18 @@ def update_task(task_id):
 @login_required
 def get_stats():
     """Ritorna conteggi per la dashboard."""
-    query = db.session.query(Task.category, func.count(Task.id))
-    
-    user_role = getattr(current_user, 'role', None) 
-    
-    # Appliciamo la stessa logica di filtraggio di list_tasks
-    if _can_view_all_tasks(current_user):
-        pass
-    elif user_role == UserRoleEnum.team_leader:
-        team_member_ids = set()
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        team_member_ids.add(current_user.id)
-        
-        if team_member_ids:
-            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
-        else:
-            query = query.filter(Task.assignee_id == current_user.id)
-    else:
-        query = query.filter(Task.assignee_id == current_user.id)
-    
-    # Filtri standard
-    query = query.filter(Task.status != TaskStatusEnum.done).\
-                  filter(Task.status != TaskStatusEnum.archived).\
-                  group_by(Task.category)
+    scope_query = _apply_visibility_scope(Task.query, current_user)
+    scope_query = _apply_admin_filters(scope_query)
+    return jsonify(_build_stats(scope_query))
 
-    categories = query.all()
-    
-    cat_counts = {c.value: 0 for c in TaskCategoryEnum}
-    
-    # Fill con i dati reali
-    total_open = 0
-    for cat, count in categories:
-        val = cat.value if hasattr(cat, 'value') else cat
-        cat_counts[val] = count
-        total_open += count
 
-    return jsonify({
-        'by_category': cat_counts,
-        'total_open': total_open
-    })
+@bp.route('/filter-options', methods=['GET'])
+@login_required
+def get_filter_options():
+    payload = _build_filter_options()
+    if payload is None:
+        return jsonify({'teams': [], 'assignees': [], 'roles': [], 'specialties': []})
+    return jsonify(payload)
 
 def _serialize_task(task):
     return {

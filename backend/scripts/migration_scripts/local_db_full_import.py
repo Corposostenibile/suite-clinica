@@ -164,6 +164,9 @@ def run_schema_comparator(
     env["NEW_SUITE_BACKUP"] = str(new_schema_backup)
     env["OLD_SUITE_BACKUP"] = str(old_suite_backup)
     env["OUTPUT_FILE"] = str(output_sql)
+    # The effective target schema is already dumped by this script.
+    # Avoid comparator-side schema refresh requiring PG* env variables.
+    env.setdefault("MIGRATION_REFRESH_NEW_SCHEMA", "0")
 
     cmd = [sys.executable, str(comparator_script)]
     if dry_run:

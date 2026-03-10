@@ -75,10 +75,11 @@ def generate_admin_user_sql():
     admin_password_hash = generate_password_hash("Dev123?")
     return f"""
     INSERT INTO public.users (
-        email, password_hash, first_name, last_name,
+        id, email, password_hash, first_name, last_name,
         is_admin, is_active, role, is_external, is_trial,
         created_at, updated_at
     ) VALUES (
+        (SELECT COALESCE(MAX(id), 0) + 1 FROM public.users),
         '{admin_email}', '{admin_password_hash}', 'Dev', 'Admin',
         true, true, 'admin', false, false,
         NOW(), NOW()
@@ -304,6 +305,7 @@ ENUM_ALIASES = {
     'statoclienteenum': {
         'freeze': 'pausa',
         'insoluto': 'stop',
+        'unassigned': 'attivo',
     },
 }
 
@@ -586,6 +588,11 @@ def apply_default_value(table, col, value, row):
         # Old dumps can reference supervisors that are not imported in users.
         # Keep migration progressing by nulling this self-FK.
         return None
+    if table == 'clienti' and col == 'show_in_clienti_lista':
+        # New schema requires this flag NOT NULL; old data can have NULL.
+        if value is None or str(value).strip() == '':
+            return False
+        return value
     if table == 'sales_leads' and col == 'form_link_id':
         # Break circular FK load dependency with sales_form_links during import.
         return None
@@ -822,6 +829,13 @@ def generate_migrated_dump_streaming(old_dump_path, output_path, new_schema_def,
                         extra_team_cols = ['team_type', 'is_active']
                         mapped_names = {name for name, _ in mapped_cols}
                         for extra_col in extra_team_cols:
+                            if extra_col in new_schema_def[tbl] and extra_col not in mapped_names:
+                                mapped_cols.append((extra_col, new_schema_def[tbl].get(extra_col, '')))
+                    if current_table == 'clienti':
+                        # Legacy dumps may miss mandatory visibility flag.
+                        extra_client_cols = ['show_in_clienti_lista']
+                        mapped_names = {name for name, _ in mapped_cols}
+                        for extra_col in extra_client_cols:
                             if extra_col in new_schema_def[tbl] and extra_col not in mapped_names:
                                 mapped_cols.append((extra_col, new_schema_def[tbl].get(extra_col, '')))
                     if current_table == 'sales_form_links':

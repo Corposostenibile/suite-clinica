@@ -1,0 +1,210 @@
+.docs-shell {
+    display: grid;
+    grid-template-columns: 360px minmax(0, 1fr);
+    gap: 20px;
+    min-height: calc(100vh - 180px);
+}
+
+.docs-sidebar {
+    background: linear-gradient(180deg, #f7faf8 0%, #eef6f2 100%);
+    border: 1px solid #dbe9e1;
+    border-radius: 24px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.docs-hero h1 {
+    font-size: 1.45rem;
+    line-height: 1.2;
+    margin: 8px 0 10px;
+    color: #11382b;
+}
+
+.docs-hero p {
+    margin: 0;
+    color: #4e685d;
+    line-height: 1.55;
+}
+
+.docs-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #11382b;
+    color: #f5fff9;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.docs-audience-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: #dbe9e1;
+    border-radius: 14px;
+    padding: 4px;
+}
+
+.docs-audience-switch button {
+    border: 0;
+    background: transparent;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-weight: 700;
+    color: #315445;
+}
+
+.docs-audience-switch button.active {
+    background: #ffffff;
+    color: #11382b;
+    box-shadow: 0 8px 20px rgba(17, 56, 43, 0.08);
+}
+
+.docs-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+}
+
+.docs-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.docs-group-label {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #5f7f72;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.docs-guide-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.docs-guide-card {
+    text-align: left;
+    border: 1px solid #d8e7df;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.86);
+    padding: 14px 15px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.docs-guide-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 24px rgba(17, 56, 43, 0.08);
+    border-color: #aacdbd;
+}
+
+.docs-guide-card.active {
+    border-color: #11382b;
+    background: linear-gradient(135deg, #11382b 0%, #1e5a44 100%);
+    box-shadow: 0 18px 30px rgba(17, 56, 43, 0.16);
+}
+
+.docs-guide-title {
+    display: block;
+    font-weight: 800;
+    color: #163f32;
+    margin-bottom: 4px;
+}
+
+.docs-guide-description {
+    display: block;
+    color: #5c776c;
+    font-size: 0.93rem;
+    line-height: 1.45;
+}
+
+.docs-guide-card.active .docs-guide-title,
+.docs-guide-card.active .docs-guide-description {
+    color: #f6fff9;
+}
+
+.docs-viewer {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.docs-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-end;
+    background: #ffffff;
+    border: 1px solid #edf1ee;
+    border-radius: 24px;
+    padding: 20px 24px;
+    box-shadow: 0 16px 40px rgba(16, 33, 25, 0.05);
+}
+
+.docs-viewer-header h2 {
+    margin: 4px 0 0;
+    font-size: 1.4rem;
+    color: #193c31;
+}
+
+.docs-viewer-header p {
+    margin: 0;
+    max-width: 520px;
+    color: #5d7168;
+    line-height: 1.5;
+}
+
+.docs-viewer-kicker {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #769284;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.docs-iframe-frame {
+    flex: 1;
+    min-height: 0;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid #edf1ee;
+    background: #ffffff;
+    box-shadow: 0 20px 50px rgba(16, 33, 25, 0.06);
+}
+
+.docs-iframe {
+    width: 100%;
+    height: calc(100vh - 280px);
+    min-height: 720px;
+    border: 0;
+    display: block;
+}
+
+@media (max-width: 991px) {
+    .docs-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .docs-sidebar {
+        border-radius: 20px;
+    }
+
+    .docs-viewer-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .docs-iframe {
+        height: 72vh;
+        min-height: 560px;
+    }
+}
