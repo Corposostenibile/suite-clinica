@@ -2,6 +2,18 @@
 
 Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti. Qui puoi vedere a colpo d'occhio come stanno andando i percorsi e dove c'è bisogno di intervenire.
 
+## Percorso Team Leader {#team-leader}
+
+- Filtra per professionista e individua rapidamente punti di miglioramento del team.
+- Monitora i check non letti per garantire tempi di risposta coerenti.
+- Usa KPI + dettaglio risposte per allineare azioni correttive settimanali.
+
+## Percorso Professionista {#professionista}
+
+- Concentrati sulla tua area di specialità e sui feedback dei tuoi pazienti.
+- Prioritizza i check con voto basso e quelli non letti.
+- Usa il dettaglio per trasformare feedback in azioni operative concrete.
+
 ## 🏠 A Cosa Serve Questa Pagina
 *   **Monitorare la soddisfazione**: Vedi i voti che i pazienti danno al servizio ogni settimana.
 *   **Controllare i progressi**: Scopri chi sta ottenendo risultati e chi è bloccato.

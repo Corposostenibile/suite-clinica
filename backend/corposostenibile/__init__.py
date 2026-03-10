@@ -446,6 +446,11 @@ def create_app(config_name: str | None = None) -> Flask:
     
     # Documentation Blueprint
     app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
+    app.register_blueprint(
+        documentation.documentation_bp,
+        url_prefix='/api/documentation',
+        name='documentation_api',
+    )
 
     # Quality Score
     from corposostenibile.blueprints.quality import bp as quality_bp

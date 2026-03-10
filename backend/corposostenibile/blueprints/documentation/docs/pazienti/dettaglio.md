@@ -2,6 +2,18 @@
 
 Questa è la "casa" di ogni paziente. Qui trovi TUTTO quello che devi sapere e puoi fare per seguire il suo percorso. È come avere tutte le cartelle cliniche, i diari, i piani e le comunicazioni in un unico posto.
 
+## Percorso Team Leader {#team-leader}
+
+- Usa la scheda per supervisionare casi complessi e qualità delle note del team.
+- Verifica coerenza tra stato operativo, piani attivi e cronologia interventi.
+- Supporta il professionista con decisioni rapide su pause, rinnovi e priorità.
+
+## Percorso Professionista {#professionista}
+
+- Usa i tab clinici per gestire operatività quotidiana e continuità terapeutica.
+- Aggiorna diari, piani e note in tempo reale dopo ogni interazione.
+- Tieni allineati stato paziente e prossime azioni per evitare task in sospeso.
+
 ## 🏠 Come Arrivare Qui
 
 ### Da "Lista Pazienti"

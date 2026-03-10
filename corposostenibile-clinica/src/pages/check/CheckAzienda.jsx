@@ -90,11 +90,11 @@ function CheckAzienda() {
     }
   }, [searchParams]);
 
-  const tourSteps = [
-    { target: '[data-tour="header"]', title: 'Torre di Controllo', content: 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+  const tourSteps = useMemo(() => ([
+    { target: '[data-tour="header"]', title: 'Torre di Controllo', content: isTeamLeaderRestricted ? 'Questa pagina ti aiuta a monitorare qualità e tempi di feedback del tuo team.' : 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
     { target: '[data-tour="kpi-dashboard"]', title: 'I Numeri Chiave (KPI)', content: '🟢 Verde (>= 8): Ottimo! 🟡 Giallo (7-7.9): Migliorabile. 🔴 Rosso (< 7): Attenzione.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
     { target: '[data-tour="period-filters"]', title: 'Periodo Temporale', content: 'Scegli l\'orizzonte temporale: Settimana, Mese, Trimestre o date Custom.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { target: '[data-tour="prof-filters"]', title: 'Filtri Professionisti', content: 'Filtra per area (Nutrizione, Coach, Psicologia) o singolo professionista.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="prof-filters"]', title: isTeamLeaderRestricted ? 'Filtro Area Team' : 'Filtri Professionisti', content: isTeamLeaderRestricted ? 'Per il tuo ruolo la vista è focalizzata sulla tua area di competenza.' : 'Filtra per area (Nutrizione, Coach, Psicologia) o singolo professionista.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="status-filters"]', title: 'Filtri Rapidi (Stato)', content: 'Individua criticità con "Voto Negativo" o check non letti (⏳).', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
     { target: '[data-tour="responses-table"]', title: 'Tabella Risposte', content: 'Ogni riga è un check. ✓ = letto, ⏳ = in attesa di feedback.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
     { target: '[data-tour="check-record"]', title: 'Vedi Dettagli', content: 'Cliccando su una riga si apre il dettaglio completo.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
@@ -102,7 +102,7 @@ function CheckAzienda() {
     { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Foto caricate dal paziente. Cliccaci sopra per ingrandirle.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="check-ratings"]', title: 'Valutazioni e Feedback', content: 'Voti ai professionisti e i feedback testuali.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
     { target: '[data-tour="check-reflections"]', title: 'Riflessioni', content: 'Note del paziente su cosa ha funzionato e obiettivi.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
-  ];
+  ]), [isTeamLeaderRestricted]);
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);

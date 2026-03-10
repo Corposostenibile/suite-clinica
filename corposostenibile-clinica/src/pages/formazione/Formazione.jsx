@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import DatePicker from '../../components/DatePicker';
@@ -93,13 +93,54 @@ function Formazione() {
         if (searchParams.get('startTour') === 'true') setMostraTour(true);
     }, [searchParams]);
 
-    const tourSteps = [
-        { target: '[data-tour="header"]', title: 'Area Formazione', content: 'Qui puoi gestire il tuo percorso di crescita professionale, visualizzare i training assegnati e richiedere formazione specifica.', placement: 'bottom', icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)' },
-        { target: '[data-tour="stats-cards"]', title: 'Dashboard Rapida', content: "Tieni d'occhio le metriche principali: training ricevuti, erogati (se sei Team Leader) e lo stato delle tue richieste.", placement: 'bottom', icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)' },
-        { target: '[data-tour="tabs-navigation"]', title: 'Organizzazione', content: 'Usa i tab per navigare tra i training che ti sono stati assegnati, quelli che hai erogato e le richieste di formazione.', placement: 'bottom', icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)' },
-        { target: '[data-tour="content-list"]', title: 'I Tuoi Training', content: 'Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione.', placement: 'top', icon: <i className="ri-list-check" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10B981, #34D399)' },
-        { target: '[data-tour="request-btn"]', title: 'Richiedi Formazione', content: 'Hai bisogno di supporto su un tema specifico? Invia una richiesta di training al tuo responsabile o a un collega esperto.', placement: 'left', icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)' },
-    ];
+    const tourSteps = useMemo(() => ([
+        {
+            target: '[data-tour="header"]',
+            title: 'Area Formazione',
+            content: canManageTeamTraining
+                ? 'Qui puoi gestire crescita personale e coordinare la formazione del team.'
+                : 'Qui puoi gestire il tuo percorso di crescita professionale e richiedere formazione specifica.',
+            placement: 'bottom',
+            icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+        },
+        {
+            target: '[data-tour="stats-cards"]',
+            title: 'Dashboard Rapida',
+            content: canManageTeamTraining
+                ? "Tieni d'occhio training ricevuti, erogati e richieste del team."
+                : "Tieni d'occhio training ricevuti e stato delle tue richieste.",
+            placement: 'bottom',
+            icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+        },
+        {
+            target: '[data-tour="tabs-navigation"]',
+            title: 'Organizzazione',
+            content: canManageTeamTraining
+                ? 'Usa i tab per passare tra training assegnati, erogati e richieste ricevute/inviate.'
+                : 'Usa i tab per navigare tra training assegnati e richieste formazione.',
+            placement: 'bottom',
+            icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+        },
+        {
+            target: '[data-tour="content-list"]',
+            title: 'I Tuoi Training',
+            content: 'Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione.',
+            placement: 'top',
+            icon: <i className="ri-list-check" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+        },
+        {
+            target: '[data-tour="request-btn"]',
+            title: 'Richiedi Formazione',
+            content: 'Hai bisogno di supporto su un tema specifico? Invia una richiesta di training al tuo responsabile o a un collega esperto.',
+            placement: 'left',
+            icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
+        },
+    ]), [canManageTeamTraining]);
 
     // Pagination per sezioni
     const ITEMS_PER_SECTION = 10;

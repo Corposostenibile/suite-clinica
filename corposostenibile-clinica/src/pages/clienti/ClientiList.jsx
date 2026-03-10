@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
@@ -76,11 +76,13 @@ function ClientiList() {
     }
   }, [searchParams]);
 
-  const tourSteps = [
+  const tourSteps = useMemo(() => ([
     {
       target: '[data-tour="header"]',
       title: 'Benvenuto in Lista Pazienti',
-      content: 'Questa è la tua centrale operativa per la gestione dei pazienti. Da qui puoi monitorare lo stato di tutti i percorsi in corso.',
+      content: isTeamLeaderRestricted
+        ? 'Da qui puoi monitorare rapidamente lo stato dei percorsi del tuo team.'
+        : 'Questa è la tua centrale operativa per la gestione dei pazienti.',
       placement: 'bottom',
       icon: <FaUserFriends size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -97,7 +99,9 @@ function ClientiList() {
     {
       target: '[data-tour="filters"]',
       title: 'Ricerca e Filtri',
-      content: 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato, tipologia o professionista assegnato.',
+      content: isTeamLeaderRestricted
+        ? 'Filtra i pazienti per stato e priorità per pianificare le azioni del team.'
+        : 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato e tipologia.',
       placement: 'bottom',
       icon: <FaFilter size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -128,7 +132,7 @@ function ClientiList() {
       icon: <FaArrowRight size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
     }
-  ];
+  ]), [isTeamLeaderRestricted]);
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',

@@ -2,6 +2,18 @@
 
 Il sistema Formazione è la tua piattaforma di apprendimento continuo, dove ricevi feedback, training personalizzati e puoi richiedere sessioni formative specifiche. È progettato per supportare la tua crescita professionale attraverso valutazioni strutturate e percorsi di apprendimento.
 
+## Percorso Team Leader {#team-leader}
+
+- Oltre ai training personali, monitora training erogati e richieste ricevute.
+- Gestisci le priorità del team e rispondi rapidamente alle richieste in attesa.
+- Usa la vista team per seguire avanzamento e presa visione dei membri.
+
+## Percorso Professionista {#professionista}
+
+- Concentrati su training ricevuti, conferma lettura e discussione con il reviewer.
+- Usa le richieste formazione per colmare gap specifici su casi reali.
+- Mantieni storico ordinato per periodo e priorità.
+
 ## 🏠 Come Arrivare Qui
 
 - Dal menu principale: "Formazione" o "La tua Formazione"

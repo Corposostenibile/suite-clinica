@@ -133,9 +133,10 @@
  * =============================================================================
  */
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing } from 'react-icons/fa';
+import AuthContext from '../context/AuthContext';
 
 function SupportWidget({
   pageTitle,
@@ -154,6 +155,16 @@ function SupportWidget({
   // =========================================================================
   const [isOpen, setIsOpen] = useState(false);  // Controlla apertura pannello
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
+  const currentUser = auth?.user || null;
+  const isAdminOrCco = Boolean(
+    currentUser?.is_admin === true ||
+    currentUser?.role === 'admin' ||
+    String(currentUser?.specialty || '').toLowerCase() === 'cco'
+  );
+  const guideAudience = (currentUser?.role === 'team_leader' && !isAdminOrCco)
+    ? 'team_leader'
+    : 'professionista';
 
 
   // =========================================================================
@@ -176,7 +187,9 @@ function SupportWidget({
       onOpenDocs();
     } else {
       // Comportamento default: naviga alla pagina docs
-      const docsUrl = docsSection ? `/documentazione#${docsSection}` : '/documentazione';
+      const docsUrl = docsSection
+        ? `/documentazione?audience=${guideAudience}#${docsSection}`
+        : `/documentazione?audience=${guideAudience}`;
       navigate(docsUrl);
     }
   };

@@ -71,56 +71,82 @@ function Task() {
         (t) => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url)))
     );
 
-    const tourSteps = [
-        {
-            target: '[data-tour="header"]',
-            title: 'Benvenuto al Sistema Task',
-            content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
-            placement: 'bottom',
-            icon: <FaTasks size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
-        },
-        {
-            target: '[data-tour="stats-cards"]',
-            title: 'Dashboard Task',
-            content: 'Le card mostrano il numero di attività aperte per categoria.',
-            placement: 'bottom',
-            icon: <FaStream size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
-        },
-        {
-            target: '[data-tour="task-table"]',
-            title: 'La Tua Lista Attività',
-            content: 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
-            placement: 'top',
-            icon: <FaClipboardList size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
-        },
-        {
-            target: '[data-tour="task-checkbox"]',
-            title: 'Completamento Task',
-            content: 'Clicca la checkbox quando hai finito l’attività.',
-            placement: 'right',
-            icon: <FaCheckCircle size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
-        },
-        {
-            target: '[data-tour="task-action"]',
-            title: 'Navigazione Intelligente',
-            content: 'Il pulsante Vai ti porta direttamente nel punto operativo.',
-            placement: 'left',
-            icon: <FaArrowRight size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
-        },
-        {
-            target: '[data-tour="task-tabs"]',
-            title: 'Filtri Comodi',
-            content: 'Usa tab, ricerca e switch completate per restringere la vista.',
-            placement: 'bottom',
-            icon: <FaFilter size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+    const tourSteps = useMemo(() => {
+        const base = [
+            {
+                target: '[data-tour="header"]',
+                title: 'Benvenuto al Sistema Task',
+                content: isTeamLeaderTaskViewer
+                    ? 'Questa è la tua console per monitorare e supportare il team sulle attività quotidiane.'
+                    : 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
+                placement: 'bottom',
+                icon: <FaTasks size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+            },
+            {
+                target: '[data-tour="stats-cards"]',
+                title: 'Dashboard Task',
+                content: 'Le card mostrano il numero di attività aperte per categoria.',
+                placement: 'bottom',
+                icon: <FaStream size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+            },
+            {
+                target: '[data-tour="task-table"]',
+                title: 'La Tua Lista Attività',
+                content: 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
+                placement: 'top',
+                icon: <FaClipboardList size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+            },
+            {
+                target: '[data-tour="task-checkbox"]',
+                title: 'Completamento Task',
+                content: 'Clicca la checkbox quando hai finito l’attività.',
+                placement: 'right',
+                icon: <FaCheckCircle size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+            },
+            {
+                target: '[data-tour="task-action"]',
+                title: 'Navigazione Intelligente',
+                content: 'Il pulsante Vai ti porta direttamente nel punto operativo.',
+                placement: 'left',
+                icon: <FaArrowRight size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+            },
+            {
+                target: '[data-tour="task-tabs"]',
+                title: 'Filtri Comodi',
+                content: 'Usa tab, ricerca e switch completate per restringere la vista.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+            }
+        ];
+
+        if (isGlobalTaskViewer) {
+            base.push({
+                target: '[data-tour="task-admin-filters"]',
+                title: 'Filtri Admin',
+                content: 'Puoi filtrare per team, ruolo, specialità e assegnatario per analisi trasversali.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
+            });
+        } else if (isTeamLeaderTaskViewer) {
+            base.push({
+                target: '[data-tour="task-team-filters"]',
+                title: 'Filtro Team Leader',
+                content: 'Seleziona un professionista del tuo team per fare focus su carico e avanzamento.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
+            });
         }
-    ];
+
+        return base;
+    }, [isGlobalTaskViewer, isTeamLeaderTaskViewer]);
 
     const filteredTourSteps = tourSteps.filter(step => {
         if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) return false;
@@ -368,7 +394,7 @@ function Task() {
 
             {/* --- ADMIN FILTERS --- */}
             {isGlobalTaskViewer && (
-                <div className="task-filter-card">
+                <div className="task-filter-card" data-tour="task-admin-filters">
                     <div className="task-filter-header">
                         <h6>Filtri Admin</h6>
                         <button
@@ -431,7 +457,7 @@ function Task() {
 
             {/* --- TEAM LEADER FILTERS --- */}
             {isTeamLeaderTaskViewer && (
-                <div className="task-filter-card">
+                <div className="task-filter-card" data-tour="task-team-filters">
                     <div className="task-filter-header">
                         <h6>Filtri Team</h6>
                         <button className="task-filter-reset-btn" onClick={() => setTeamLeaderAssigneeId('')}>
