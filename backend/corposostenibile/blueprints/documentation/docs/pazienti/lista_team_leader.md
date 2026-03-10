@@ -1,18 +1,22 @@
+# 👥 Lista Pazienti — Guida Team Leader
+
+Questa pagina per un Team Leader e una dashboard di coordinamento. Serve a capire dove il carico del team e sbilanciato, quali pazienti stanno uscendo dal flusso corretto e dove serve un intervento di supervisione.
+
+## Cosa fai qui come Team Leader
+
+- Controlli pazienti ghost, pause lunghe, rinnovi imminenti e casi scoperti.
+- Verifichi se il carico e distribuito in modo sensato tra ruoli e specialita.
+- Apri la scheda paziente quando devi fare escalation, riallocazione o coaching operativo.
+
+## Cosa non dovresti fare qui
+
+- Gestire manualmente tutta l'operativita quotidiana al posto del professionista.
+- Usare la lista come archivio passivo senza definire priorita e follow-up.
+- Valutare il team senza partire dai casi concreti che stanno creando backlog.
+
 # 👥 Lista Pazienti — Guida completa per professionisti
 
 Questa pagina è il tuo centro operativo principale: qui gestisci tutti i pazienti, applichi filtri rapidi e accedi alle azioni quotidiane. È progettata per essere efficiente e sicura, con tutto quello che serve per lavorare al meglio.
-
-## Percorso Team Leader {#team-leader}
-
-- Usa i filtri per ruolo/specialità per monitorare equilibrio carichi e casi critici del team.
-- Controlla stati "Ghost", "Pausa" e rinnovi in scadenza per definire priorità giornaliere.
-- Apri rapidamente la scheda dettaglio per supportare i professionisti sui casi complessi.
-
-## Percorso Professionista {#professionista}
-
-- Lavora su ricerca rapida + filtri stato per costruire la tua to-do clinica.
-- Entra in scheda dettaglio dai casi urgenti (scadenze, ghost, insoluti).
-- Usa la paginazione per mantenere focus operativo senza caricare tutto insieme.
 
 ## 🏠 Come Arrivare Qui
 

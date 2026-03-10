@@ -198,7 +198,40 @@ function ClientiDetail() {
   }, []);
 
   // Tour Steps Definitions
-  const commonSteps = [
+  const commonSteps = isRestrictedTeamLeader ? [
+    {
+      target: '[data-tour="header-dettaglio"]',
+      title: 'Scheda Paziente Team Leader',
+      content: 'Qui entri quando devi supervisionare un caso, verificare coerenza operativa o sbloccare una decisione.',
+      placement: 'bottom',
+      icon: <FaUserCircle size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+    },
+    {
+      target: '[data-tour="profilo-rapido"]',
+      title: 'Segnali da Leggere Subito',
+      content: 'Stato, rinnovo e team assegnato ti dicono se il paziente e preso bene in carico o se sta entrando in zona critica.',
+      placement: 'right',
+      icon: <FaIdCard size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+    },
+    {
+      target: '[data-tour="nav-tabs-dettaglio"]',
+      title: 'Aree di Supervisione',
+      content: 'Usa i tab per verificare note, piani e operativita nelle varie aree del percorso.',
+      placement: 'bottom',
+      icon: <FaLayerGroup size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+    },
+    {
+      target: '[data-tour="salva-modifiche"]',
+      title: 'Conferma le Decisioni',
+      content: 'Quando modifichi stato o note di coordinamento, salva subito per lasciare traccia chiara al team.',
+      placement: 'bottom',
+      icon: <FaSave size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
+    }
+  ] : [
     {
       target: '[data-tour="header-dettaglio"]',
       title: 'Scheda Paziente',
@@ -584,7 +617,7 @@ function ClientiDetail() {
               className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-2"
               onClick={() => handleTourSelection('general')}
             >
-              <FaLayerGroup /> Panoramica Generale
+              <FaLayerGroup /> {isRestrictedTeamLeader ? 'Panoramica Team Leader' : 'Panoramica Generale'}
             </button>
             <button
               className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-2"

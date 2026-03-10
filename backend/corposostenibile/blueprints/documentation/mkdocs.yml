@@ -20,10 +20,20 @@ markdown_extensions:
 nav:
   - Benvenuto: index.md
   - Gestione Pazienti:
-    - Lista Pazienti: pazienti/lista.md
-    - Scheda Dettaglio: pazienti/dettaglio.md
+    - Lista Pazienti:
+      - Team Leader: pazienti/lista_team_leader.md
+      - Professionista: pazienti/lista_professionista.md
+    - Scheda Dettaglio:
+      - Team Leader: pazienti/dettaglio_team_leader.md
+      - Professionista: pazienti/dettaglio_professionista.md
   - Gestione Professionisti:
-    - Task: professionisti/task.md
-    - Formazione: professionisti/formazione.md
+    - Task:
+      - Team Leader: professionisti/task_team_leader.md
+      - Professionista: professionisti/task_professionista.md
+    - Formazione:
+      - Team Leader: professionisti/formazione_team_leader.md
+      - Professionista: professionisti/formazione_professionista.md
   - Gestione Azienda:
-    - Check Azienda: azienda/check_azienda.md
+    - Check Azienda:
+      - Team Leader: azienda/check_azienda_team_leader.md
+      - Professionista: azienda/check_azienda_professionista.md

@@ -11,8 +11,10 @@ const GUIDE_GROUPS = [
             {
                 key: 'lista-pazienti',
                 label: 'Lista Pazienti',
-                path: 'pazienti/lista/',
-                roleAnchors: { team_leader: 'team-leader', professionista: 'professionista' },
+                pathsByAudience: {
+                    team_leader: 'pazienti/lista_team_leader/',
+                    professionista: 'pazienti/lista_professionista/',
+                },
                 descriptions: {
                     team_leader: 'Monitora carico, scadenze e pazienti che richiedono coordinamento del team.',
                     professionista: 'Gestisci il tuo portafoglio pazienti, i filtri e le azioni operative rapide.',
@@ -21,8 +23,10 @@ const GUIDE_GROUPS = [
             {
                 key: 'la-scheda-completa-del-paziente',
                 label: 'Scheda Completa Paziente',
-                path: 'pazienti/dettaglio/',
-                roleAnchors: { team_leader: 'team-leader', professionista: 'professionista' },
+                pathsByAudience: {
+                    team_leader: 'pazienti/dettaglio_team_leader/',
+                    professionista: 'pazienti/dettaglio_professionista/',
+                },
                 descriptions: {
                     team_leader: 'Usa la scheda per sbloccare decisioni, pause, rinnovi e priorita del paziente.',
                     professionista: 'Aggiorna stato, prossime azioni, diario e materiali del paziente senza perdere contesto.',
@@ -37,8 +41,10 @@ const GUIDE_GROUPS = [
             {
                 key: 'task',
                 label: 'Task',
-                path: 'professionisti/task/',
-                roleAnchors: { team_leader: 'team-leader', professionista: 'professionista' },
+                pathsByAudience: {
+                    team_leader: 'professionisti/task_team_leader/',
+                    professionista: 'professionisti/task_professionista/',
+                },
                 descriptions: {
                     team_leader: 'Controlla task in stallo, carico team e attivita scadute prima di intervenire.',
                     professionista: 'Completa, filtra e apri subito le attivita collegate ai pazienti.',
@@ -47,8 +53,10 @@ const GUIDE_GROUPS = [
             {
                 key: 'formazione',
                 label: 'Formazione',
-                path: 'professionisti/formazione/',
-                roleAnchors: { team_leader: 'team-leader', professionista: 'professionista' },
+                pathsByAudience: {
+                    team_leader: 'professionisti/formazione_team_leader/',
+                    professionista: 'professionisti/formazione_professionista/',
+                },
                 descriptions: {
                     team_leader: 'Usa training e richieste per distribuire competenze e allineare il team.',
                     professionista: 'Consulta training ricevuti e richiedi supporto formativo su casi reali.',
@@ -57,8 +65,10 @@ const GUIDE_GROUPS = [
             {
                 key: 'check-azienda',
                 label: 'Check Azienda',
-                path: 'azienda/check_azienda/',
-                roleAnchors: { team_leader: 'team-leader', professionista: 'professionista' },
+                pathsByAudience: {
+                    team_leader: 'azienda/check_azienda_team_leader/',
+                    professionista: 'azienda/check_azienda_professionista/',
+                },
                 descriptions: {
                     team_leader: 'Leggi KPI, feedback e qualita del team per identificare dove intervenire.',
                     professionista: 'Consulta risultati, feedback e aree di miglioramento del tuo lavoro.',
@@ -109,7 +119,7 @@ function Documentation() {
     }, [location.hash, allGuides, audience]);
 
     const activeGuide = allGuides.find((guide) => guide.key === activeGuideKey) || allGuides[0];
-    const iframeUrl = `/api/documentation/static/${activeGuide.path}${activeGuide.roleAnchors?.[audience] ? `#${activeGuide.roleAnchors[audience]}` : ''}`;
+    const iframeUrl = `/api/documentation/static/${activeGuide.pathsByAudience?.[audience] || activeGuide.pathsByAudience?.professionista || ''}`;
 
     const roleCopy = audience === 'team_leader'
         ? {

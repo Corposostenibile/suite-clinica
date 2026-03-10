@@ -1,18 +1,22 @@
+# 📋 Sistema Task — Guida Team Leader
+
+Per un Team Leader la pagina Task e una vista di coordinamento del lavoro. Non serve solo a vedere attivita aperte: deve mostrarti dove si accumula il backlog, quali ruoli sono in difficolta e dove va fatto coaching operativo.
+
+## Cosa fai qui come Team Leader
+
+- Identifichi task scaduti, in stallo o non presi in carico.
+- Filtri per assegnatario, ruolo e specialita per capire dove intervenire.
+- Usi completati e backlog per leggere continuita, puntualita e qualita esecutiva.
+
+## Domande a cui deve rispondere questa pagina
+
+- Chi e in ritardo sulle attivita critiche?
+- Quale ruolo o specialita sta accumulando lavoro?
+- Dove serve supporto, chiarezza o riallocazione?
+
 # 📋 Sistema Task — Guida completa per professionisti
 
 Il sistema Task è il tuo assistente digitale personale per gestire tutte le attività quotidiane, scadenze e solleciti. È progettato per aiutarti a non dimenticare nulla e organizzare il lavoro in modo efficiente.
-
-## Percorso Team Leader {#team-leader}
-
-- Usa i filtri Team (assegnatario/ruolo/specialità) per fare coaching operativo.
-- Controlla prima i task in stallo e le attività scadute del team.
-- In fase di review, usa la vista "Mostra completate" per analizzare continuità e qualità.
-
-## Percorso Professionista {#professionista}
-
-- Parti da "Tutti" e ordina le priorità con categorie + scadenza.
-- Completa i task direttamente dalla lista per mantenere la dashboard pulita.
-- Usa "Vai" per passare subito alla scheda cliente corretta senza navigazione manuale.
 
 ## 🏠 Come Arrivare Qui
 

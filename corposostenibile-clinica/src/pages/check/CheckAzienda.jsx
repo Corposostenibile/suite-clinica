@@ -83,6 +83,8 @@ function CheckAzienda() {
   const [searchParams] = useSearchParams();
   const isProfessionista = isProfessionistaStandard(user);
   const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
 
   useEffect(() => {
     if (searchParams.get('startTour') === 'true') {
@@ -90,19 +92,31 @@ function CheckAzienda() {
     }
   }, [searchParams]);
 
-  const tourSteps = useMemo(() => ([
-    { target: '[data-tour="header"]', title: 'Torre di Controllo', content: isTeamLeaderRestricted ? 'Questa pagina ti aiuta a monitorare qualità e tempi di feedback del tuo team.' : 'Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
-    { target: '[data-tour="kpi-dashboard"]', title: 'I Numeri Chiave (KPI)', content: '🟢 Verde (>= 8): Ottimo! 🟡 Giallo (7-7.9): Migliorabile. 🔴 Rosso (< 7): Attenzione.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
-    { target: '[data-tour="period-filters"]', title: 'Periodo Temporale', content: 'Scegli l\'orizzonte temporale: Settimana, Mese, Trimestre o date Custom.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { target: '[data-tour="prof-filters"]', title: isTeamLeaderRestricted ? 'Filtro Area Team' : 'Filtri Professionisti', content: isTeamLeaderRestricted ? 'Per il tuo ruolo la vista è focalizzata sulla tua area di competenza.' : 'Filtra per area (Nutrizione, Coach, Psicologia) o singolo professionista.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
-    { target: '[data-tour="status-filters"]', title: 'Filtri Rapidi (Stato)', content: 'Individua criticità con "Voto Negativo" o check non letti (⏳).', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
-    { target: '[data-tour="responses-table"]', title: 'Tabella Risposte', content: 'Ogni riga è un check. ✓ = letto, ⏳ = in attesa di feedback.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
-    { target: '[data-tour="check-record"]', title: 'Vedi Dettagli', content: 'Cliccando su una riga si apre il dettaglio completo.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
-    { target: '[data-tour="check-detail-modal"]', title: 'Scheda Completa', content: 'Qui puoi vedere il check nella sua interezza.', placement: 'left', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)', action: 'open_modal' },
+  const tourSteps = useMemo(() => ((isTeamLeaderRestricted || isAdminOrCco) ? [
+    { target: '[data-tour="header"]', title: 'Controllo Qualita Team', content: 'Questa pagina ti aiuta a monitorare qualita, tempi di lettura e segnali di rischio nel team.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+    { target: '[data-tour="kpi-dashboard"]', title: 'KPI di Reparto', content: 'Leggi i numeri come segnali di supervisione: verde stabile, giallo migliorabile, rosso da approfondire subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+    { target: '[data-tour="period-filters"]', title: 'Orizzonte Temporale', content: 'Cambia periodo per capire se il problema e episodico o strutturale.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+    { target: '[data-tour="prof-filters"]', title: 'Filtri per Reparto', content: 'Restringi la vista per area o professionista quando devi isolare una criticita precisa.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="status-filters"]', title: 'Segnali Rapidi', content: 'Usa voto negativo e non letto per trovare in pochi secondi i casi da portare in review o sollecito.', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
+    { target: '[data-tour="responses-table"]', title: 'Elenco Check', content: 'Ogni riga ti dice cosa sta percependo il paziente e se il team ha letto o meno il feedback.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
+    { target: '[data-tour="check-record"]', title: 'Apri il Caso', content: 'Entra nel dettaglio completo quando devi contestualizzare un voto basso o un check lasciato senza risposta.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
+    { target: '[data-tour="check-detail-modal"]', title: 'Dettaglio per Review', content: 'Qui raccogli evidenze concrete da usare in review, coaching o riallineamento del processo.', placement: 'left', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)', action: 'open_modal' },
+    { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Le immagini aiutano a capire se il risultato percepito dal paziente e coerente con l andamento reale.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="check-ratings"]', title: 'Voti e Feedback', content: 'Leggi voti e testo insieme: i numeri da soli non bastano a capire dove intervenire.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+    { target: '[data-tour="check-reflections"]', title: 'Riflessioni del Paziente', content: 'Qui trovi il contesto piu utile per trasformare il check in un azione correttiva.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
+  ] : [
+    { target: '[data-tour="header"]', title: 'Torre di Controllo', content: 'Questa pagina ti aiuta a leggere la qualita del servizio e capire dove migliorare sui tuoi pazienti.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+    { target: '[data-tour="kpi-dashboard"]', title: 'I Numeri Chiave (KPI)', content: 'Usa i colori per leggere la priorita: verde ok, giallo migliorabile, rosso da trattare subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+    { target: '[data-tour="period-filters"]', title: 'Periodo Temporale', content: 'Scegli l orizzonte temporale: settimana, mese, trimestre o date custom.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+    { target: '[data-tour="prof-filters"]', title: 'Filtri Professionisti', content: 'La vista e focalizzata sulla tua area, cosi puoi isolare in fretta i feedback piu utili.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="status-filters"]', title: 'Filtri Rapidi (Stato)', content: 'Individua criticita con voto negativo o check non letti.', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
+    { target: '[data-tour="responses-table"]', title: 'Tabella Risposte', content: 'Ogni riga e un check. Qui capisci cosa ha funzionato, cosa no e cosa richiede risposta.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
+    { target: '[data-tour="check-record"]', title: 'Vedi Dettagli', content: 'Cliccando su una riga si apre il dettaglio completo del check.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
+    { target: '[data-tour="check-detail-modal"]', title: 'Scheda Completa', content: 'Qui puoi vedere il check nella sua interezza e ricavare azioni concrete.', placement: 'left', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)', action: 'open_modal' },
     { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Foto caricate dal paziente. Cliccaci sopra per ingrandirle.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
-    { target: '[data-tour="check-ratings"]', title: 'Valutazioni e Feedback', content: 'Voti ai professionisti e i feedback testuali.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { target: '[data-tour="check-reflections"]', title: 'Riflessioni', content: 'Note del paziente su cosa ha funzionato e obiettivi.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
-  ]), [isTeamLeaderRestricted]);
+    { target: '[data-tour="check-ratings"]', title: 'Valutazioni e Feedback', content: 'Leggi voti e feedback testuali insieme per capire cosa correggere.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+    { target: '[data-tour="check-reflections"]', title: 'Riflessioni', content: 'Qui trovi note del paziente su cosa ha funzionato e sui prossimi obiettivi.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
+  ]), [isTeamLeaderRestricted, isAdminOrCco]);
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);
@@ -133,8 +147,6 @@ function CheckAzienda() {
   const [ratingFilter, setRatingFilter] = useState(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
-  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
-  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
   const teamLeaderProfType = useMemo(() => {
     const specialty = String(user?.specialty || '').toLowerCase();
     if (specialty === 'nutrizione' || specialty === 'nutrizionista') return 'nutrizione';

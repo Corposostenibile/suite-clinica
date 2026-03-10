@@ -93,13 +93,52 @@ function Formazione() {
         if (searchParams.get('startTour') === 'true') setMostraTour(true);
     }, [searchParams]);
 
-    const tourSteps = useMemo(() => ([
+    const tourSteps = useMemo(() => (canManageTeamTraining ? [
+        {
+            target: '[data-tour="header"]',
+            title: 'Formazione del Team',
+            content: 'Qui non gestisci solo la tua crescita: controlli feedback, richieste e applicazione pratica nel team.',
+            placement: 'bottom',
+            icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+        },
+        {
+            target: '[data-tour="stats-cards"]',
+            title: 'Cruscotto Formativo',
+            content: 'Usa queste card per capire se il team sta leggendo i training e dove si accumulano richieste o gap.',
+            placement: 'bottom',
+            icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+        },
+        {
+            target: '[data-tour="tabs-navigation"]',
+            title: 'Flussi di Supervisione',
+            content: 'Passa tra training assegnati, erogati e richieste per capire dove intervenire come reviewer o team leader.',
+            placement: 'bottom',
+            icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+        },
+        {
+            target: '[data-tour="content-list"]',
+            title: 'Contenuti e Discussioni',
+            content: 'Apri i training per verificare se il feedback e chiaro, letto e applicabile nel lavoro reale.',
+            placement: 'top',
+            icon: <i className="ri-list-check" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+        },
+        {
+            target: '[data-tour="request-btn"]',
+            title: 'Attiva Nuovo Training',
+            content: 'Usa questo punto per aprire richieste o risposte formative quando emerge un gap concreto nel team.',
+            placement: 'left',
+            icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />,
+            iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
+        },
+    ] : [
         {
             target: '[data-tour="header"]',
             title: 'Area Formazione',
-            content: canManageTeamTraining
-                ? 'Qui puoi gestire crescita personale e coordinare la formazione del team.'
-                : 'Qui puoi gestire il tuo percorso di crescita professionale e richiedere formazione specifica.',
+            content: 'Qui puoi gestire il tuo percorso di crescita professionale e richiedere formazione specifica.',
             placement: 'bottom',
             icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -107,9 +146,7 @@ function Formazione() {
         {
             target: '[data-tour="stats-cards"]',
             title: 'Dashboard Rapida',
-            content: canManageTeamTraining
-                ? "Tieni d'occhio training ricevuti, erogati e richieste del team."
-                : "Tieni d'occhio training ricevuti e stato delle tue richieste.",
+            content: 'Tieni d occhio training ricevuti e stato delle tue richieste.',
             placement: 'bottom',
             icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -117,9 +154,7 @@ function Formazione() {
         {
             target: '[data-tour="tabs-navigation"]',
             title: 'Organizzazione',
-            content: canManageTeamTraining
-                ? 'Usa i tab per passare tra training assegnati, erogati e richieste ricevute/inviate.'
-                : 'Usa i tab per navigare tra training assegnati e richieste formazione.',
+            content: 'Usa i tab per navigare tra training assegnati e richieste formazione.',
             placement: 'bottom',
             icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'

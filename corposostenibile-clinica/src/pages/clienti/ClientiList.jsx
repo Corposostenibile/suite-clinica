@@ -76,13 +76,63 @@ function ClientiList() {
     }
   }, [searchParams]);
 
-  const tourSteps = useMemo(() => ([
+  const tourSteps = useMemo(() => (isTeamLeaderRestricted ? [
+    {
+      target: '[data-tour="header"]',
+      title: 'Lista Pazienti Team',
+      content: 'Da qui coordini il tuo perimetro: carico, casi critici, pazienti fermi e segnali che richiedono escalation.',
+      placement: 'bottom',
+      icon: <FaUserFriends size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+    },
+    {
+      target: '[data-tour="stats"]',
+      title: 'Colpo d Occhio Reparto',
+      content: 'Questi numeri ti dicono subito dove si stanno accumulando pause, ghost o sbilanciamenti nella tua area.',
+      placement: 'bottom',
+      icon: <FaChartBar size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      tip: 'Usali per preparare review e allineamenti, non solo per leggere volumi.'
+    },
+    {
+      target: '[data-tour="filters"]',
+      title: 'Filtri di Coordinamento',
+      content: 'Filtra per stato e priorita per isolare subito i pazienti che richiedono una decisione o un supporto al team.',
+      placement: 'bottom',
+      icon: <FaFilter size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      tip: 'Premi Reset per tornare alla vista completa del reparto.'
+    },
+    {
+      target: '[data-tour="table"]',
+      title: 'Vista di Supervisione',
+      content: 'Ogni riga ti mostra chi segue il paziente, quali date sono critiche e dove la presa in carico rischia di rompersi.',
+      placement: 'top',
+      icon: <FaTable size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+    },
+    {
+      target: '[data-tour="actions-detail"]',
+      title: 'Apri il Caso',
+      content: 'Entra nella scheda quando devi verificare un caso complesso, dare indicazioni o riallocare il lavoro.',
+      placement: 'left',
+      icon: <FaEye size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)',
+      tip: 'Usa il dettaglio per fare coaching concreto sui casi, non per navigazione generica.'
+    },
+    {
+      target: '[data-tour="pagination"]',
+      title: 'Scorrimento del Carico',
+      content: 'Usa la paginazione per leggere i pazienti a blocchi e non perdere di vista il backlog piu ampio.',
+      placement: 'top',
+      icon: <FaArrowRight size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
+    }
+  ] : [
     {
       target: '[data-tour="header"]',
       title: 'Benvenuto in Lista Pazienti',
-      content: isTeamLeaderRestricted
-        ? 'Da qui puoi monitorare rapidamente lo stato dei percorsi del tuo team.'
-        : 'Questa è la tua centrale operativa per la gestione dei pazienti.',
+      content: 'Questa e la tua centrale operativa per la gestione dei pazienti.',
       placement: 'bottom',
       icon: <FaUserFriends size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -90,7 +140,7 @@ function ClientiList() {
     {
       target: '[data-tour="stats"]',
       title: 'Statistiche Rapide',
-      content: 'Questi numeri ti danno un\'istantanea della situazione clinica attuale, suddivisa per specialità.',
+      content: 'Questi numeri ti danno un istantanea della situazione clinica attuale, suddivisa per specialita.',
       placement: 'bottom',
       icon: <FaChartBar size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
@@ -99,9 +149,7 @@ function ClientiList() {
     {
       target: '[data-tour="filters"]',
       title: 'Ricerca e Filtri',
-      content: isTeamLeaderRestricted
-        ? 'Filtra i pazienti per stato e priorità per pianificare le azioni del team.'
-        : 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato e tipologia.',
+      content: 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato e tipologia.',
       placement: 'bottom',
       icon: <FaFilter size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -110,7 +158,7 @@ function ClientiList() {
     {
       target: '[data-tour="table"]',
       title: 'Tabella Pazienti',
-      content: 'Ogni riga rappresenta un paziente. Qui vedi a colpo d\'occhio il team assegnato, le date chiave e lo stato attuale.',
+      content: 'Ogni riga rappresenta un paziente. Qui vedi a colpo d occhio il team assegnato, le date chiave e lo stato attuale.',
       placement: 'top',
       icon: <FaTable size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -118,11 +166,11 @@ function ClientiList() {
     {
       target: '[data-tour="actions-detail"]',
       title: 'Gestione Paziente',
-      content: 'Clicca sul nome del paziente o sull\'icona dell\'occhio per aprire la scheda dettaglio completa e gestire il percorso.',
+      content: 'Clicca sul nome del paziente o sull icona dell occhio per aprire la scheda dettaglio completa e gestire il percorso.',
       placement: 'left',
       icon: <FaEye size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)',
-      tip: 'Puoi anche cliccare sulla matita per entrare direttamente in modalità modifica.'
+      tip: 'Puoi anche cliccare sulla matita per entrare direttamente in modalita modifica.'
     },
     {
       target: '[data-tour="pagination"]',

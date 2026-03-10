@@ -1,18 +1,22 @@
+# 📚 Formazione — Guida Professionista
+
+Per il professionista questa pagina e il punto in cui ricevi feedback, fai domande mirate e chiudi il ciclo formativo. Non e un archivio statico: deve aiutarti a migliorare il lavoro sui casi reali.
+
+## Cosa fai qui come Professionista
+
+- Leggi training ricevuti e confermi presa visione.
+- Chiedi formazione quando incontri un gap operativo concreto.
+- Recuperi confronti e materiali utili senza perdere lo storico.
+
+## Quando aprirla
+
+- Quando ricevi un nuovo feedback.
+- Quando vuoi chiedere supporto su una difficolta specifica.
+- Quando devi rivedere obiettivi o discussioni precedenti.
+
 # 📚 Sistema Formazione — Guida completa per professionisti
 
 Il sistema Formazione è la tua piattaforma di apprendimento continuo, dove ricevi feedback, training personalizzati e puoi richiedere sessioni formative specifiche. È progettato per supportare la tua crescita professionale attraverso valutazioni strutturate e percorsi di apprendimento.
-
-## Percorso Team Leader {#team-leader}
-
-- Oltre ai training personali, monitora training erogati e richieste ricevute.
-- Gestisci le priorità del team e rispondi rapidamente alle richieste in attesa.
-- Usa la vista team per seguire avanzamento e presa visione dei membri.
-
-## Percorso Professionista {#professionista}
-
-- Concentrati su training ricevuti, conferma lettura e discussione con il reviewer.
-- Usa le richieste formazione per colmare gap specifici su casi reali.
-- Mantieni storico ordinato per periodo e priorità.
 
 ## 🏠 Come Arrivare Qui
 

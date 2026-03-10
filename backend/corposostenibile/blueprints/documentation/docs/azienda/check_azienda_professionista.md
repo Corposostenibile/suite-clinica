@@ -1,18 +1,22 @@
+# 📊 Check Azienda — Guida Professionista
+
+Per il professionista questa pagina serve a trasformare i feedback dei pazienti in azioni pratiche. Devi usarla per capire cosa non sta funzionando, leggere i segnali deboli e correggere rapidamente il lavoro sul paziente.
+
+## Cosa fai qui come Professionista
+
+- Guardi prima check non letti e voti bassi.
+- Apri il dettaglio per capire se il problema e relazione, continuita o risultato.
+- Porti gli insight nel contatto successivo e nel diario operativo.
+
+## Cosa ti deve lasciare questa pagina
+
+- Un problema chiaro da correggere.
+- Una priorita per il prossimo contatto.
+- Un feedback concreto da trasformare in azione.
+
 # 📊 Check Azienda — Monitoraggio e Qualità
 
 Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti. Qui puoi vedere a colpo d'occhio come stanno andando i percorsi e dove c'è bisogno di intervenire.
-
-## Percorso Team Leader {#team-leader}
-
-- Filtra per professionista e individua rapidamente punti di miglioramento del team.
-- Monitora i check non letti per garantire tempi di risposta coerenti.
-- Usa KPI + dettaglio risposte per allineare azioni correttive settimanali.
-
-## Percorso Professionista {#professionista}
-
-- Concentrati sulla tua area di specialità e sui feedback dei tuoi pazienti.
-- Prioritizza i check con voto basso e quelli non letti.
-- Usa il dettaglio per trasformare feedback in azioni operative concrete.
 
 ## 🏠 A Cosa Serve Questa Pagina
 *   **Monitorare la soddisfazione**: Vedi i voti che i pazienti danno al servizio ogni settimana.

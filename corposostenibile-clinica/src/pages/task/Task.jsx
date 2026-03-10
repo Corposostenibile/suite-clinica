@@ -76,13 +76,60 @@ function Task() {
     );
 
     const tourSteps = useMemo(() => {
-        const base = [
+        const base = (isTeamLeaderTaskViewer || isGlobalTaskViewer) ? [
+            {
+                target: '[data-tour="header"]',
+                title: 'Console Team Task',
+                content: 'Qui leggi il carico operativo del team e capisci dove intervenire prima che il backlog peggiori.',
+                placement: 'bottom',
+                icon: <FaTasks size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+            },
+            {
+                target: '[data-tour="stats-cards"]',
+                title: 'Backlog per Categoria',
+                content: 'Le card ti aiutano a capire dove si concentra il lavoro aperto: onboarding, reminder, solleciti e check.',
+                placement: 'bottom',
+                icon: <FaStream size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+            },
+            {
+                target: '[data-tour="task-table"]',
+                title: 'Lista Operativa Team',
+                content: 'Questa lista deve dirti chi e in ritardo, su quali pazienti e con che priorita.',
+                placement: 'top',
+                icon: <FaClipboardList size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+            },
+            {
+                target: '[data-tour="task-checkbox"]',
+                title: 'Lettura dell Avanzamento',
+                content: 'La checkbox ti fa capire subito cosa viene chiuso davvero e cosa resta aperto per troppo tempo.',
+                placement: 'right',
+                icon: <FaCheckCircle size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+            },
+            {
+                target: '[data-tour="task-action"]',
+                title: 'Vai al Contesto',
+                content: 'Apri il task nel punto operativo corretto quando devi verificare un caso o fare coaching.',
+                placement: 'left',
+                icon: <FaArrowRight size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+            },
+            {
+                target: '[data-tour="task-tabs"]',
+                title: 'Vista di Supervisione',
+                content: 'Usa tab, ricerca e completate per leggere continuita, ritardi e task che stanno invecchiando male.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+            }
+        ] : [
             {
                 target: '[data-tour="header"]',
                 title: 'Benvenuto al Sistema Task',
-                content: isTeamLeaderTaskViewer
-                    ? 'Questa è la tua console per monitorare e supportare il team sulle attività quotidiane.'
-                    : 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
+                content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
                 placement: 'bottom',
                 icon: <FaTasks size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -106,7 +153,7 @@ function Task() {
             {
                 target: '[data-tour="task-checkbox"]',
                 title: 'Completamento Task',
-                content: 'Clicca la checkbox quando hai finito l’attività.',
+                content: 'Clicca la checkbox quando hai finito l attività e tieni la dashboard pulita.',
                 placement: 'right',
                 icon: <FaCheckCircle size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
@@ -114,7 +161,7 @@ function Task() {
             {
                 target: '[data-tour="task-action"]',
                 title: 'Navigazione Intelligente',
-                content: 'Il pulsante Vai ti porta direttamente nel punto operativo.',
+                content: 'Il pulsante Vai ti porta direttamente nel punto operativo corretto senza navigazione manuale.',
                 placement: 'left',
                 icon: <FaArrowRight size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
@@ -132,8 +179,8 @@ function Task() {
         if (isGlobalTaskViewer) {
             base.push({
                 target: '[data-tour="task-admin-filters"]',
-                title: 'Filtri Admin',
-                content: 'Puoi filtrare per team, ruolo, specialità e assegnatario per analisi trasversali.',
+                title: 'Filtri di Supervisione',
+                content: 'Puoi filtrare per team, ruolo, specialità e assegnatario per individuare colli di bottiglia trasversali.',
                 placement: 'bottom',
                 icon: <FaFilter size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
@@ -142,7 +189,7 @@ function Task() {
             base.push({
                 target: '[data-tour="task-team-filters"]',
                 title: 'Filtro Team Leader',
-                content: 'Seleziona un professionista del tuo team per fare focus su carico e avanzamento.',
+                content: 'Seleziona un professionista del tuo team per fare focus su carico, ritardi e avanzamento reale.',
                 placement: 'bottom',
                 icon: <FaFilter size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'

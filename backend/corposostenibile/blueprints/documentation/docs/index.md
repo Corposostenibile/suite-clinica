@@ -10,20 +10,25 @@ La piattaforma è suddivisa in tre aree operative principali. Scegli l'area che 
 ### 👥 Gestione Pazienti
 È il cuore pulsante del sistema, dove avviene l'interazione clinica e il monitoraggio dei percorsi.
 
-*   [**Lista Pazienti**](pazienti/lista.md): La tua dashboard operativa. Scopri come usare i filtri avanzati, monitorare i rinnovi e organizzare la tua coda di lavoro.
-*   [**Scheda Dettaglio**](pazienti/dettaglio.md): Una visione a 360° del paziente. Gestione anagrafica, piani alimentari, schede allenamento e diario clinico.
+*   [**Lista Pazienti — Team Leader**](pazienti/lista_team_leader.md): Dashboard di coordinamento per carichi, casi critici e riallocazioni.
+*   [**Lista Pazienti — Professionista**](pazienti/lista_professionista.md): Vista operativa per ricerca, priorita giornaliere e accesso rapido alle schede.
+*   [**Scheda Dettaglio — Team Leader**](pazienti/dettaglio_team_leader.md): Supervisione di casi complessi, coerenza del piano e decisioni condivise.
+*   [**Scheda Dettaglio — Professionista**](pazienti/dettaglio_professionista.md): Operativita clinica quotidiana, aggiornamenti e continuita terapeutica.
 *   *Check e Monitoraggio*: *Prossimamente* — Guida all'analisi dei feedback settimanali inviati dai pazienti.
 
 ### 🧑‍⚕️ Area Professionisti
 Strumenti progettati per semplificare la tua routine quotidiana e la tua crescita nel team.
 
-*   [**Sistema Task**](professionisti/task.md): Non perdere mai una scadenza. Impara a gestire compiti, priorità e notifiche automatiche.
-*   [**Formazione Continua**](professionisti/formazione.md): Accedi al materiale didattico, ai protocolli interni e ai video di aggiornamento.
+*   [**Sistema Task — Team Leader**](professionisti/task_team_leader.md): Leggi backlog, attivita in stallo e distribuzione del carico del team.
+*   [**Sistema Task — Professionista**](professionisti/task_professionista.md): Gestisci scadenze, priorita e accesso rapido ai pazienti.
+*   [**Formazione — Team Leader**](professionisti/formazione_team_leader.md): Gestisci feedback, richieste e crescita strutturata del team.
+*   [**Formazione — Professionista**](professionisti/formazione_professionista.md): Ricevi training, fai richieste mirate e chiudi il ciclo formativo.
 
 ### 📊 Monitoraggio Aziendale
 Strumenti di analisi per i Team Leader e la Direzione.
 
-*   [**Check Azienda (KPI)**](azienda/check_azienda.md): Monitora la qualità del servizio, la soddisfazione dei pazienti e le performance dei singoli reparti.
+*   [**Check Azienda — Team Leader**](azienda/check_azienda_team_leader.md): KPI, trend e segnali da portare in review e supervisione.
+*   [**Check Azienda — Professionista**](azienda/check_azienda_professionista.md): Feedback e risultati da trasformare in azioni operative sui pazienti.
 
 ---
 
