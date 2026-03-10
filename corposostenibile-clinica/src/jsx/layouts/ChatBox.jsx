@@ -137,8 +137,14 @@ const ChatBox = ({ onClick, toggle }) => {
       loadingTasksRef.current = true;
       setLoadingTasks(true);
       try {
-         const res = await taskService.getAll({ completed: 'false', per_page: 20, mine: 'true' });
-         setTasks(res || []);
+         const res = await taskService.getAll({
+            completed: 'false',
+            mine: 'true',
+            paginate: 'true',
+            page: 1,
+            per_page: 20
+         });
+         setTasks(Array.isArray(res) ? (res || []) : (res?.items || []));
       } catch (err) { console.error('Errore caricamento tasks:', err); }
       finally { setLoadingTasks(false); loadingTasksRef.current = false; }
    }, []);
