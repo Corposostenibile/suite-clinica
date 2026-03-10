@@ -107,17 +107,17 @@ function RoleScopedWelcome({ user, mode }) {
 
   const cards = isTeamLeaderMode
     ? [
-        { label: 'Team gestiti', value: teamSummary.length, icon: 'ri-team-line', color: '#3b82f6' },
-        { label: 'Membri team', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
-        { label: 'Task aperti team', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
-        { label: `Pazienti attivi (${tlSpecialtyLabel})`, value: tlSpecialtyLoad?.clients ?? 0, icon: 'ri-group-line', color: '#8b5cf6' },
-      ]
+      { label: 'Team gestiti', value: teamSummary.length, icon: 'ri-team-line', color: '#3b82f6' },
+      { label: 'Membri team', value: kpi.totalActive ?? 0, icon: 'ri-user-star-line', color: '#22c55e' },
+      { label: 'Task aperti team', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#f97316' },
+      { label: `Pazienti attivi (${tlSpecialtyLabel})`, value: tlSpecialtyLoad?.clients ?? 0, icon: 'ri-group-line', color: '#8b5cf6' },
+    ]
     : [
-        { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#3b82f6' },
-        { label: 'Training ricevuti', value: trainingSummary.myTrainings, icon: 'ri-book-open-line', color: '#22c55e' },
-        { label: 'Training da leggere', value: trainingSummary.pendingMyTrainings, icon: 'ri-notification-3-line', color: '#f97316' },
-        { label: 'Mie richieste formazione', value: trainingSummary.myRequests, icon: 'ri-question-answer-line', color: '#8b5cf6' },
-      ];
+      { label: 'Task aperti', value: taskStats?.total_open ?? 0, icon: 'ri-task-line', color: '#3b82f6' },
+      { label: 'Training ricevuti', value: trainingSummary.myTrainings, icon: 'ri-book-open-line', color: '#22c55e' },
+      { label: 'Training da leggere', value: trainingSummary.pendingMyTrainings, icon: 'ri-notification-3-line', color: '#f97316' },
+      { label: 'Mie richieste formazione', value: trainingSummary.myRequests, icon: 'ri-question-answer-line', color: '#8b5cf6' },
+    ];
 
   return (
     <>
@@ -1287,6 +1287,124 @@ function ProfCheckRecent({ data, specialtyGroup, meta }) {
   );
 }
 
+/* ==================== HM DASHBOARD (health_manager only) ==================== */
+
+function HMDashboard({ user }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const stats = await dashboardService.getHMDashboardStats();
+      setData(stats);
+    } catch (err) {
+      console.error('Error loading HM dashboard stats:', err);
+      setError('Errore nel caricamento dei dati');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const quickLinks = [
+    { label: 'Pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
+    { label: 'Assegnazioni', to: '/assegnazioni-ai', icon: 'ri-cpu-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' },
+  ];
+  if (isHealthManagerTeamLeader(user)) {
+    quickLinks.push({ label: 'Capienze HM', to: '/team-capienza', icon: 'ri-bar-chart-2-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' });
+  }
+
+  const kpi = data?.kpi || {};
+
+  const kpiCards = [
+    { label: 'Clienti Assegnati', value: kpi.total ?? 0, icon: 'ri-group-line', color: '#3b82f6' },
+    { label: 'In Scadenza (<30gg)', value: kpi.inScadenza ?? 0, icon: 'ri-alarm-warning-line', color: '#ef4444' },
+    { label: 'Rinnovi Prossimi', value: kpi.rinnoviNext15gg ?? 0, icon: 'ri-refresh-line', color: '#f59e0b' },
+    { label: 'Ghost', value: kpi.ghost ?? 0, icon: 'ri-ghost-line', color: '#8b5cf6' },
+    { label: 'In Pausa', value: kpi.pausa ?? 0, icon: 'ri-pause-circle-line', color: '#64748b' },
+  ];
+
+  return (
+    <>
+      <div className="welcome-header">
+        <div>
+          <h4>Ciao, {user?.first_name || 'Health Manager'}!</h4>
+          <p>La tua dashboard operativa</p>
+        </div>
+        <button onClick={loadData} className="welcome-refresh-btn">
+          <i className="ri-refresh-line"></i>
+          Aggiorna
+        </button>
+      </div>
+
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      <div className="row g-3 mb-4">
+        {kpiCards.map((stat, idx) => (
+          <div key={idx} className="col-xl mb-3 col-sm-6">
+            <div className="welcome-kpi-card h-100">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">
+                    {loading ? <SkeletonNumber /> : stat.value}
+                  </div>
+                  <span className="kpi-label">{stat.label}</span>
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="row g-3">
+        <div className="col-lg-6">
+          <div className="welcome-card h-100">
+            <div className="welcome-card-header">
+              <h6><i className="ri-apps-line me-2 text-primary"></i>Accesso Rapido</h6>
+            </div>
+            <div className="welcome-card-body">
+              <div className="row g-2">
+                {quickLinks.map((link, idx) => (
+                  <div key={idx} className="col-12 col-sm-6">
+                    <Link to={link.to} className="welcome-quick-link" style={{ background: link.bgColor }}>
+                      <div className="link-icon" style={{ background: link.iconBg }}>
+                        <i className={link.icon} style={{ color: link.color }}></i>
+                      </div>
+                      <span className="link-label">{link.label}</span>
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-lg-6">
+          <div className="welcome-card h-100">
+            <div className="welcome-card-header">
+              <h6><i className="ri-notification-3-line me-2 text-warning"></i>Attenzione Immediata</h6>
+            </div>
+            <div className="card-body text-center py-5">
+              <i className="ri-notification-badge-line text-muted" style={{ fontSize: '32px', opacity: 0.3 }}></i>
+              <p className="text-muted small mb-0 mt-2">Nessuna notifica urgente</p>
+              <p className="text-muted small mb-0 mt-1" style={{ opacity: 0.7 }}>In arrivo nelle prossime fasi (Insoddisfatti, Ghost urgency, ecc.)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ==================== SIMPLE WELCOME (non-admin roles) ==================== */
 
 function SimpleWelcome({ user }) {
@@ -1372,6 +1490,11 @@ function Welcome() {
   // Admin/CCO → full dashboard with data and graphs
   if (!isHealthManagerScopeUser(user) && !isTeamLeaderRestricted(user) && !isProfessionistaStandard(user)) {
     return <LegacyWelcomeDashboard />;
+  }
+
+  // Health Managers (excluding team leader restricted who are also HM)
+  if (isHealthManagerScopeUser(user) && !isTeamLeaderRestricted(user)) {
+    return <HMDashboard user={user} />;
   }
 
   // Team leaders, professionisti, health managers → simple welcome

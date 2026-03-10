@@ -10,6 +10,7 @@ import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
+import dashboardService from '../../services/dashboardService';
 import './ClientiList.css';
 
 // Colori ruoli per avatar
@@ -23,19 +24,22 @@ const ROLE_COLORS = {
 
 // Icone e colori per le stat cards
 const STAT_ICON_STYLES = {
-  tot:        { bg: 'rgba(37, 179, 106, 0.1)', color: '#25B36A' },
-  nutrizione: { bg: 'rgba(34, 197, 94, 0.1)',  color: '#22c55e' },
-  coach:      { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
+  tot: { bg: 'rgba(37, 179, 106, 0.1)', color: '#25B36A' },
+  nutrizione: { bg: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' },
+  coach: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' },
   psicologia: { bg: 'rgba(139, 92, 246, 0.1)', color: '#8b5cf6' },
-  attivo:     { bg: 'rgba(34, 197, 94, 0.1)',  color: '#22c55e' },
-  ghost:      { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b' },
-  pausa:      { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
-  stop:       { bg: 'rgba(239, 68, 68, 0.1)',  color: '#ef4444' },
+  attivo: { bg: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' },
+  ghost: { bg: 'rgba(100, 116, 139, 0.1)', color: '#64748b' },
+  pausa: { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
+  stop: { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
+  scadenza: { bg: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' },
+  rinnovi: { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' },
 };
 
 function ClientiList() {
   const { user } = useAuth();
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
+  const isHealthManager = user?.role === 'health_manager';
   const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
   const isProfessionista = isProfessionistaStandard(user);
   const isInfluencer = user?.role === 'influencer';
@@ -58,6 +62,7 @@ function ClientiList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
+  const [hmStats, setHmStats] = useState(null);
   const [specialtyKpi, setSpecialtyKpi] = useState(null);
   const [professionisti, setProfessionisti] = useState([]);
   const [pagination, setPagination] = useState({
@@ -161,6 +166,7 @@ function ClientiList() {
     missing_stato_chat_psicologia: searchParams.get('missing_stato_chat_psicologia') || '',
     missing_piano_dieta: searchParams.get('missing_piano_dieta') || '',
     missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '',
+    in_scadenza: searchParams.get('in_scadenza') || '',
   });
 
   useEffect(() => {
@@ -168,21 +174,33 @@ function ClientiList() {
       try {
         if (isProfessionista) {
           setStats(null);
+          setHmStats(null);
           setProfessionisti([]);
           return;
         }
+
+        let statsPromise = clientiService.getStats();
+        if (isHealthManager) {
+          statsPromise = dashboardService.getHMDashboardStats();
+        }
+
         const [statsData, profData] = await Promise.all([
-          clientiService.getStats(),
+          statsPromise,
           teamService.getTeamMembers({ per_page: 100, active: '1' }),
         ]);
-        setStats(statsData);
+
+        if (isHealthManager) {
+          setHmStats(statsData);
+        } else {
+          setStats(statsData);
+        }
         setProfessionisti(profData.members || []);
       } catch (err) {
         console.error('Error fetching initial data:', err);
       }
     };
     fetchInitialData();
-  }, [isProfessionista]);
+  }, [isProfessionista, isHealthManager]);
 
   useEffect(() => {
     if (!isTeamLeaderRestricted || !teamLeaderSpecialtyGroup) return;
@@ -228,10 +246,10 @@ function ClientiList() {
         missing_stato_chat_nutrizione: filters.missing_stato_chat_nutrizione || undefined,
         missing_stato_coach: filters.missing_stato_coach || undefined,
         missing_stato_chat_coaching: filters.missing_stato_chat_coaching || undefined,
-        missing_stato_psicologia: filters.missing_stato_psicologia || undefined,
         missing_stato_chat_psicologia: filters.missing_stato_chat_psicologia || undefined,
         missing_piano_dieta: filters.missing_piano_dieta || undefined,
         missing_piano_allenamento: filters.missing_piano_allenamento || undefined,
+        in_scadenza: filters.in_scadenza || undefined,
       };
 
       // For professionals/TL with a specialty, pass view param so backend returns KPI aggregates
@@ -289,12 +307,12 @@ function ClientiList() {
       missing_stato_nutrizione: '', missing_stato_chat_nutrizione: '',
       missing_stato_coach: '', missing_stato_chat_coaching: '',
       missing_stato_psicologia: '', missing_stato_chat_psicologia: '',
-      missing_piano_dieta: '', missing_piano_allenamento: ''
+      missing_piano_dieta: '', missing_piano_allenamento: '',
+      in_scadenza: ''
     });
     setSearchParams(new URLSearchParams());
   };
 
-  const isHealthManager = user?.role === 'health_manager';
   const visibleProfessionalFilters = {
     nutrizione: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione'),
     coach: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach'),
@@ -320,6 +338,15 @@ function ClientiList() {
   // Influencers don't see KPI cards
   const statCards = (() => {
     if (isInfluencer) return [];
+    if (isHealthManager) {
+      return [
+        { key: 'tot', label: 'Pazienti Assegnati', value: hmStats?.kpi?.total || 0, icon: 'ri-group-line' },
+        { key: 'scadenza', label: 'In Scadenza', value: hmStats?.kpi?.inScadenza || 0, icon: 'ri-time-line' },
+        { key: 'rinnovi', label: 'Rinnovi Prossimi', value: hmStats?.kpi?.rinnoviNext15gg || 0, icon: 'ri-refresh-line' },
+        { key: 'ghost', label: 'Ghost', value: hmStats?.kpi?.ghost || 0, icon: 'ri-ghost-line' },
+        { key: 'pausa', label: 'In Pausa', value: hmStats?.kpi?.pausa || 0, icon: 'ri-pause-circle-line' },
+      ];
+    }
     if (professionistaView && specialtyKpi) {
       return [
         { key: 'tot', label: 'Pazienti Totali', value: pagination.total, icon: 'ri-group-line' },
@@ -448,6 +475,30 @@ function ClientiList() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Quick Filters for HM */}
+      {isHealthManager && (
+        <div className="d-flex gap-2 mb-3 px-3 flex-wrap">
+          <button
+            className={`btn btn-sm ${filters.stato === 'pausa' ? 'btn-warning' : 'btn-outline-warning'}`}
+            onClick={() => handleFilterChange('stato', filters.stato === 'pausa' ? '' : 'pausa')}
+          >
+            <i className="ri-pause-circle-line me-1"></i> In Pausa
+          </button>
+          <button
+            className={`btn btn-sm ${filters.stato === 'ghost' ? 'btn-secondary' : 'btn-outline-secondary'}`}
+            onClick={() => handleFilterChange('stato', filters.stato === 'ghost' ? '' : 'ghost')}
+          >
+            <i className="ri-ghost-line me-1"></i> Ghost
+          </button>
+          <button
+            className={`btn btn-sm ${filters.in_scadenza === '1' ? 'btn-danger' : 'btn-outline-danger'}`}
+            onClick={() => handleFilterChange('in_scadenza', filters.in_scadenza === '1' ? '' : '1')}
+          >
+            <i className="ri-time-line me-1"></i> In Scadenza
+          </button>
         </div>
       )}
 

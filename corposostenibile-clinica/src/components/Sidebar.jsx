@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { isHealthManagerScopeUser } from '../utils/rbacScope';
 
 // Icons
 import welcomeIcon from '../images/icons/welcome.png';
@@ -65,8 +66,8 @@ function Sidebar({ user, collapsed, onMobileClose }) {
           {/* === SEZIONE CLIENTI === */}
           <li className="nav-label">Clienti</li>
 
-          {/* Clienti - con submenu per admin */}
-          {user?.is_admin ? (
+          {/* Clienti - con submenu per admin e HM */}
+          {user?.is_admin || isHealthManagerScopeUser(user) ? (
             <li className={`${isMenuOpen('Clienti') ? 'mm-active' : ''}`}>
               <Link
                 to="#"
@@ -77,20 +78,23 @@ function Sidebar({ user, collapsed, onMobileClose }) {
                 <span className="nav-text">Clienti</span>
               </Link>
               <ul className={isMenuOpen('Clienti') ? 'mm-show' : ''}>
-                <li className={isActive('/customers') ? 'mm-active' : ''}>
-                  <Link to="/customers">Elenco Clienti</Link>
+                <li className={isActive('/clienti-lista') ? 'mm-active' : ''}>
+                  <Link to="/clienti-lista">Elenco Clienti</Link>
                 </li>
-                <li className={isActive('/customers/in-scadenza') ? 'mm-active' : ''}>
-                  <Link to="/customers/in-scadenza">In Scadenza</Link>
+                <li className={isActive('/clienti-lista/ghost-pausa') ? 'mm-active' : ''}>
+                  <Link to="/clienti-lista/ghost-pausa">Ghost & Pausa</Link>
                 </li>
-                <li className={isActive('/customers/recupero-ghost') ? 'mm-active' : ''}>
-                  <Link to="/customers/recupero-ghost">Recupero Ghost</Link>
+                <li className={isActive('/clienti-lista/in-scadenza') ? 'mm-active' : ''}>
+                  <Link to="/clienti-lista/in-scadenza">In Scadenza</Link>
+                </li>
+                <li className={isActive('/clienti-lista/rinnovi') ? 'mm-active' : ''}>
+                  <Link to="/clienti-lista/rinnovi">Rinnovi</Link>
                 </li>
               </ul>
             </li>
           ) : (
-            <li className={isActive('/customers') ? 'mm-active' : ''}>
-              <Link to="/customers">
+            <li className={isActive('/clienti-lista') ? 'mm-active' : ''}>
+              <Link to="/clienti-lista">
                 <img src={customersIcon} className="menu-icon" alt="" />
                 <span className="nav-text">Clienti</span>
               </Link>

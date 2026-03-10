@@ -28,6 +28,15 @@ const dashboardService = {
   },
 
   /**
+   * Get HM dashboard stats
+   * @returns {Promise} - { kpi: { total, active, ghost, pausa, inScadenza, rinnoviNext15gg } }
+   */
+  async getHMDashboardStats() {
+    const response = await api.get('/v1/customers/hm/dashboard-stats');
+    return response.data;
+  },
+
+  /**
    * Get all dashboard data in one call
    * @returns {Promise} - Combined stats object
    */

@@ -38,7 +38,6 @@ export const MenuList = [
         to: 'formazione',
     },
 
-    // ==================== CLIENTI SECTION ====================
     {
         title: 'CLIENTI',
         classsChange: 'menu-title'

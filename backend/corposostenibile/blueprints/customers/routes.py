@@ -1855,6 +1855,54 @@ def api_admin_dashboard_stats() -> Any:
     })
 
 
+# – HM DASHBOARD STATS ----------------------------------------------------- #
+@api_bp.route("/hm/dashboard-stats", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_hm_dashboard_stats() -> Any:
+    """Dashboard stats specifiche per Health Manager."""
+    from corposostenibile.models import UserRoleEnum
+    if current_user.role != UserRoleEnum.health_manager:
+        return jsonify({"error": "Forbidden", "message": "Accesso riservato agli Health Manager"}), HTTPStatus.FORBIDDEN
+
+    today = date.today()
+    threshold_scadenza = today + timedelta(days=30)
+    threshold_rinnovi = today + timedelta(days=15)
+
+    base_q = db.session.query(Cliente).filter(
+        Cliente.health_manager_id == current_user.id,
+        Cliente.show_in_clienti_lista.is_(True)
+    )
+
+    total = base_q.with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    active = base_q.filter(Cliente.stato_cliente == "attivo").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    ghost = base_q.filter(Cliente.stato_cliente == "ghost").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    pausa = base_q.filter(Cliente.stato_cliente == "pausa").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    
+    in_scadenza = base_q.filter(
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo <= threshold_scadenza,
+        Cliente.stato_cliente == "attivo"
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+    rinnovi_next_15 = base_q.filter(
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo >= today,
+        Cliente.data_rinnovo <= threshold_rinnovi,
+        Cliente.stato_cliente == "attivo"
+    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+    return jsonify({
+        "kpi": {
+            "total": total,
+            "active": active,
+            "ghost": ghost,
+            "pausa": pausa,
+            "inScadenza": in_scadenza,
+            "rinnoviNext15gg": rinnovi_next_15
+        }
+    })
+
+
 # – FEEDBACK METRICS ------------------------------------------------------- #
 @api_bp.route("/<int:cliente_id>/feedback-metrics", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)

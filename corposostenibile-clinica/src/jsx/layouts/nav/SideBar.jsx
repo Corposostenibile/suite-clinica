@@ -91,43 +91,51 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Ghost & Pausa', 'In Scadenza', 'Rinnovi', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
-            : user?.role === 'influencer'
-            ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
-            : user?.is_trial
-              ? MenuList.filter(item => {
-                // Trial users - filtra per stage
-                if (user.trial_stage === 1) {
-                  // Stage 1: Solo Dashboard e Formazione
-                  return ['Dashboard', 'Formazione', 'MAIN MENU'].includes(item.title);
-                } else if (user.trial_stage === 2) {
-                  // Stage 2: Dashboard, Formazione + Pazienti
-                  return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
-                } else {
-                  // Stage 3+ (già promosso): menu completo
-                  if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
-                    return false;
-                  }
-                  return true;
-                }
-              })
-              : MenuList.filter(item => {
-                if (item.title === 'Quality' && !canAccessQualityPage(user)) {
-                  return false;
-                }
-                if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
-                  return false;
-                }
-                if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
-                if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
-                if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
-                if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
-                  return false;
-                }
-                return true;
-              })
+              ? MenuList.filter(item => ['Pazienti', 'Ghost & Pausa', 'In Scadenza', 'Rinnovi', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
+              : user?.role === 'influencer'
+                ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
+                : user?.is_trial
+                  ? MenuList.filter(item => {
+                    // Trial users - filtra per stage
+                    if (user.trial_stage === 1) {
+                      // Stage 1: Solo Dashboard e Formazione
+                      return ['Dashboard', 'Formazione', 'MAIN MENU'].includes(item.title);
+                    } else if (user.trial_stage === 2) {
+                      // Stage 2: Dashboard, Formazione + Pazienti
+                      return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
+                    } else {
+                      // Stage 3+ (già promosso): menu completo
+                      if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
+                        return false;
+                      }
+                      return true;
+                    }
+                  })
+                  : MenuList.filter(item => {
+                    // Ensure only HM/Admin see these submenus if explicitly stated, though technically if they are not HM/Trial/Influencer, they are likely Admin/CCO.
+                    // We shouldn't hide them from Admin, but regular professionals shouldn't see them either.
+                    if (['Ghost & Pausa', 'In Scadenza', 'Rinnovi'].includes(item.title)) {
+                      if (!(user?.is_admin || user?.role === 'admin' || isHealthManagerScopeUser(user))) {
+                        return false;
+                      }
+                    }
+
+                    if (item.title === 'Quality' && !canAccessQualityPage(user)) {
+                      return false;
+                    }
+                    if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
+                      return false;
+                    }
+                    if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
+                    if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
+                    if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                    if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
+                      return false;
+                    }
+                    return true;
+                  })
           ).map((data, index) => {
             let menuClass = data.classsChange;
             if (menuClass === "menu-title") {
