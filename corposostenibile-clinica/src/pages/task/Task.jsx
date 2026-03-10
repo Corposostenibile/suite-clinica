@@ -41,6 +41,12 @@ function Task() {
     const [detailTask, setDetailTask] = useState(null);
 
     const PAGE_SIZE = 15;
+    const [pagination, setPagination] = useState({
+        page: 1,
+        per_page: PAGE_SIZE,
+        total: 0,
+        pages: 1,
+    });
     const isGlobalTaskViewer = Boolean(
         user?.is_admin ||
         user?.role === 'admin' ||
@@ -55,28 +61,13 @@ function Task() {
         }
     }, [searchParams]);
 
-    const filteredTasks = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
-        if (!q) return tasks;
-        return tasks.filter((task) => {
-            const title = (task.title || '').toLowerCase();
-            const description = (task.description || '').toLowerCase();
-            const client = (task.client_name || '').toLowerCase();
-            const category = (task.category || '').toLowerCase();
-            return (
-                title.includes(q) ||
-                description.includes(q) ||
-                client.includes(q) ||
-                category.includes(q)
-            );
-        });
-    }, [tasks, searchTerm]);
+    const totalPages = Math.max(1, pagination.pages || 1);
+    const totalItems = pagination.total || 0;
+    const currentPerPage = pagination.per_page || PAGE_SIZE;
+    const pageStart = totalItems > 0 ? ((currentPage - 1) * currentPerPage) + 1 : 0;
+    const pageEnd = totalItems > 0 ? Math.min(currentPage * currentPerPage, totalItems) : 0;
 
-    const totalPages = Math.max(1, Math.ceil(filteredTasks.length / PAGE_SIZE));
-    const pageStart = (currentPage - 1) * PAGE_SIZE;
-    const paginatedTasks = filteredTasks.slice(pageStart, pageStart + PAGE_SIZE);
-
-    const firstActionableIndex = paginatedTasks.findIndex(
+    const firstActionableIndex = tasks.findIndex(
         (t) => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url)))
     );
 
@@ -149,9 +140,13 @@ function Task() {
         setLoading(true);
         try {
             const params = {
-                completed: showCompleted ? 'true' : 'false'
+                completed: showCompleted ? 'true' : 'false',
+                paginate: 'true',
+                page: currentPage,
+                per_page: PAGE_SIZE,
             };
             if (activeTab !== 'all') params.category = activeTab;
+            if (searchTerm.trim()) params.q = searchTerm.trim();
             if (isGlobalTaskViewer) {
                 if (adminFilters.team_id) params.team_id = Number(adminFilters.team_id);
                 if (adminFilters.assignee_id) params.assignee_id = Number(adminFilters.assignee_id);
@@ -161,13 +156,29 @@ function Task() {
                 params.assignee_id = Number(teamLeaderAssigneeId);
             }
             const data = await taskService.getAll(params);
-            setTasks(data);
+            if (Array.isArray(data)) {
+                setTasks(data);
+                setPagination({
+                    page: 1,
+                    per_page: data.length || PAGE_SIZE,
+                    total: data.length,
+                    pages: 1,
+                });
+            } else {
+                setTasks(data?.items || []);
+                setPagination(data?.pagination || {
+                    page: currentPage,
+                    per_page: PAGE_SIZE,
+                    total: 0,
+                    pages: 1,
+                });
+            }
         } catch (error) {
             console.error('Error fetching tasks:', error);
         } finally {
             setLoading(false);
         }
-    }, [activeTab, showCompleted, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
+    }, [activeTab, showCompleted, currentPage, searchTerm, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
 
     const fetchAdminFilterOptions = useCallback(async () => {
         if (!isGlobalTaskViewer && !isTeamLeaderTaskViewer) return;
@@ -485,7 +496,7 @@ function Task() {
                         <div className="task-spinner"></div>
                         <p>Caricamento task...</p>
                     </div>
-                ) : filteredTasks.length === 0 ? (
+                ) : tasks.length === 0 ? (
                     <div className="task-empty">
                         <div className="task-empty-icon">
                             <i className="ri-checkbox-circle-line"></i>
@@ -508,7 +519,7 @@ function Task() {
                 ) : (
                     <>
                         <div className="task-list">
-                            {paginatedTasks.map((task, index) => {
+                            {tasks.map((task, index) => {
                                 const category = getCategoryInfo(task.category);
                                 const priorityColor = getPriorityColor(task.priority);
                                 const hasAction = task.client_id || (task.payload && (task.payload.client_id || task.payload.url));
@@ -622,9 +633,9 @@ function Task() {
                         {/* --- PAGINATION --- */}
                         <div className="task-pagination-wrapper">
                             <span className="task-pagination-info">
-                                Visualizzi {filteredTasks.length} task &middot; Pagina {currentPage}/{totalPages}
+                                Mostrando {pageStart}-{pageEnd} di {totalItems} task &middot; Pagina {currentPage}/{totalPages}
                             </span>
-                            {filteredTasks.length > PAGE_SIZE && (
+                            {totalPages > 1 && (
                                 <div className="task-pagination-buttons">
                                     <button
                                         className="task-page-btn"

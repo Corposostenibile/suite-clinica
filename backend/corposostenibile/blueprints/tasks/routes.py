@@ -135,6 +135,11 @@ def _can_view_all_tasks(user) -> bool:
 def list_tasks():
     """Ritorna la lista dei task, filtrata in base al ruolo."""
     query = Task.query
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    requested_per_page = request.args.get('per_page', type=int)
+    page_size = max(1, min(requested_per_page, 100)) if requested_per_page else 15
+    legacy_limit = max(1, min(requested_per_page, 100)) if requested_per_page else 100
+    use_paginated_response = request.args.get('paginate', '').lower() == 'true'
     
     user_role = getattr(current_user, 'role', None)
     
@@ -214,7 +219,22 @@ def list_tasks():
         desc(Task.created_at)
     )
 
-    tasks = query.limit(100).all()
+    if use_paginated_response:
+        total = query.order_by(None).count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        return jsonify({
+            'items': [_serialize_task(t) for t in items],
+            'pagination': {
+                'page': page,
+                'per_page': page_size,
+                'total': total,
+                'pages': total_pages,
+            }
+        })
+
+    # Compatibilità legacy: endpoint che si aspettano una lista semplice.
+    tasks = query.limit(legacy_limit).all()
 
     return jsonify([_serialize_task(t) for t in tasks])
 
