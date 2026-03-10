@@ -271,6 +271,32 @@ class BaseConfig:
     GHL_GLOBAL_STATUS_WEBHOOK_URL: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL")
     GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST")
     GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA")
+
+    # --------------------------- Marketing Automation (Frame.io) -----------------
+    FRAMEIO_WEBHOOK_SECRET: str | None = os.getenv("FRAMEIO_WEBHOOK_SECRET")
+    FRAMEIO_CLIENT_ID: str | None = os.getenv("FRAMEIO_CLIENT_ID")
+    FRAMEIO_CLIENT_SECRET: str | None = os.getenv("FRAMEIO_CLIENT_SECRET")
+    # Redirect URI OAuth (deve coincidere con quello configurato in Adobe Console)
+    FRAMEIO_OAUTH_REDIRECT_URI: str | None = os.getenv("FRAMEIO_OAUTH_REDIRECT_URI")
+    # Token per chiamate API Frame.io (GET file, ecc.).
+    # Opzione A: Developer Token (API v2) da https://developer.frame.io/ → Create a Token. Consigliato se disponibile.
+    FRAMEIO_DEVELOPER_TOKEN: str | None = os.getenv("FRAMEIO_DEVELOPER_TOKEN")
+    # Opzione B: Access token OAuth (API v4) da /marketing-automation/oauth/start (scade ~1h). Richiede Adobe ID collegato da supporto Frame.io.
+    FRAMEIO_ACCESS_TOKEN: str | None = os.getenv("FRAMEIO_ACCESS_TOKEN")
+
+    # --------------------------- Marketing Automation (Poppy AI) -----------------
+    # API: https://docs.getpoppy.ai | Base URL: https://api.getpoppy.ai
+    POPPY_API_BASE_URL: str = os.getenv("POPPY_API_BASE_URL", "https://api.getpoppy.ai").rstrip("/")
+    POPPY_API_KEY: str | None = os.getenv("POPPY_API_KEY")
+    POPPY_BOARD_ID: str | None = os.getenv("POPPY_BOARD_ID")
+    POPPY_CHAT_ID: str | None = os.getenv("POPPY_CHAT_ID")
+
+    # --------------------------- Marketing Automation (Airtable) -----------------
+    # Video approvati → record in Airtable; l'automation "Generate with AI" in Airtable compila la Caption
+    AIRTABLE_ACCESS_TOKEN: str | None = os.getenv("AIRTABLE_ACCESS_TOKEN")
+    AIRTABLE_BASE_ID: str | None = os.getenv("AIRTABLE_BASE_ID")
+    AIRTABLE_TABLE_ID: str | None = os.getenv("AIRTABLE_TABLE_ID")  # nome o id tabella (es. "Video approvati")
+
     GHL_CALL_BONUS_WEBHOOK_MODE: str = os.getenv("GHL_CALL_BONUS_WEBHOOK_MODE", "mock")
     GHL_CALL_BONUS_WEBHOOK_URL: str | None = os.getenv("GHL_CALL_BONUS_WEBHOOK_URL")
 
