@@ -1766,6 +1766,7 @@ class Cliente(TimestampMixin, db.Model):
     # Abbonamento
     data_inizio_abbonamento = db.Column(db.Date)
     durata_programma_giorni = db.Column(db.Integer)
+    data_fine_percorso      = db.Column(db.Date)  # Data fine percorso (aggiornata dai rimborsi)
     rate_cliente_sales      = db.Column(NUMERIC)
     rate_cliente_sales_dettaglio = db.Column(db.Text)  # Dettaglio testuale pagamenti
 
@@ -14495,6 +14496,66 @@ class TeamTicketStatusChange(TimestampMixin, db.Model):
             "message": self.message,
             "source": self.source.value if self.source else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ─────────────────────────────────────────────────────────────── #
+#  Rimborso – Gestione rimborsi clienti
+# ─────────────────────────────────────────────────────────────── #
+
+class Rimborso(TimestampMixin, db.Model):
+    """Registrazione rimborso per un cliente."""
+    __tablename__ = 'rimborsi'
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    cliente_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey('clienti.cliente_id', ondelete='CASCADE'),
+        nullable=False,
+        index=True,
+    )
+
+    # 'entro_14_giorni' | 'dopo_14_giorni'
+    tipologia = db.Column(db.String(30), nullable=False)
+
+    # True = motivato, False = immotivato
+    motivato = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Motivazione testuale (obbligatoria se motivato=True)
+    motivazione = db.Column(db.Text)
+
+    # Data fine percorso impostata con questo rimborso
+    data_fine_percorso = db.Column(db.Date, nullable=False)
+
+    # Snapshot professionisti assegnati al momento del rimborso
+    # Formato: [{"id": 1, "nome": "Mario Rossi", "ruolo": "nutrizionista"}, ...]
+    professionisti_snapshot = db.Column(JSONB, default=list)
+
+    # Chi ha registrato il rimborso
+    created_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True,
+    )
+
+    # Relationships
+    cliente = db.relationship('Cliente', backref=db.backref('rimborsi', lazy='dynamic'))
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'cliente_id': self.cliente_id,
+            'cliente_nome': self.cliente.nome_cognome if self.cliente else None,
+            'tipologia': self.tipologia,
+            'motivato': self.motivato,
+            'motivazione': self.motivazione,
+            'data_fine_percorso': self.data_fine_percorso.isoformat() if self.data_fine_percorso else None,
+            'professionisti_snapshot': self.professionisti_snapshot or [],
+            'created_by_id': self.created_by_id,
+            'created_by_name': self.created_by.full_name if self.created_by else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
 

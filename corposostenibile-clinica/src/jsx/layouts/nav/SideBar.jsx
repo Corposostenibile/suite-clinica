@@ -122,6 +122,7 @@ const SideBar = () => {
                 }
                 if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
                 if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
+                if (item.title === 'Rimborsi' && !(user?.is_admin || user?.role === 'admin')) return false;
                 if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
                 if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
                   return false;

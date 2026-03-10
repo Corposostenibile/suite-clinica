@@ -61,6 +61,12 @@ export const MenuList = [
         iconStyle: SVGICON.Check,
         to: 'check-azienda',
     },
+    // Rimborsi (solo admin - filtrato in SideBar.jsx)
+    {
+        title: 'Rimborsi',
+        iconStyle: SVGICON.Rimborsi,
+        to: 'rimborsi',
+    },
 
     // ==================== TEAM SECTION ====================
     {

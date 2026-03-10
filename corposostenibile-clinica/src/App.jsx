@@ -44,6 +44,9 @@ import { Quality } from './pages/quality';
 // Check pages
 import { CheckAzienda, CheckDaLeggere } from './pages/check';
 
+// Rimborsi pages
+import { Rimborsi } from './pages/rimborsi';
+
 // Calendario pages
 import { Calendario } from './pages/calendario';
 
@@ -216,6 +219,13 @@ function App() {
               </RoleProtectedRoute>
             } />
             <Route path="/check-da-leggere" element={<RoleProtectedRoute allowIf={canAccessGlobalCheckPage}><CheckDaLeggere /></RoleProtectedRoute>} />
+
+            {/* Rimborsi (solo admin) */}
+            <Route path="/rimborsi" element={
+              <RoleProtectedRoute allowedRoles={['admin']}>
+                <Rimborsi />
+              </RoleProtectedRoute>
+            } />
 
             {/* Calendario */}
             <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />

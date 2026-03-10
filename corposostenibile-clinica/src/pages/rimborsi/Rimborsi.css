@@ -1,0 +1,720 @@
+/* Rimborsi — Suite Clinica Design System
+   Coerente con CheckAzienda.css, Welcome.css */
+
+:root {
+    --rmb-primary: #3b82f6;
+    --rmb-primary-light: rgba(59, 130, 246, 0.08);
+    --rmb-text-main: #1e293b;
+    --rmb-text-secondary: #334155;
+    --rmb-text-muted: #64748b;
+    --rmb-text-light: #94a3b8;
+    --rmb-border: #e2e8f0;
+    --rmb-border-light: #f1f5f9;
+    --rmb-bg-subtle: #f8fafc;
+}
+
+/* ===================================================================
+   PAGE & ANIMATION
+   =================================================================== */
+
+.rmb-page {
+    animation: rmbFadeIn 0.3s ease-out;
+}
+
+@keyframes rmbFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================================================================
+   HEADER
+   =================================================================== */
+
+.rmb-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.rmb-header h4 {
+    font-weight: 700;
+    color: var(--rmb-text-main);
+    margin-bottom: 4px;
+    font-size: 1.35rem;
+}
+
+.rmb-header p {
+    color: var(--rmb-text-muted);
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.rmb-btn-new {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: var(--rmb-primary);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rmb-btn-new:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+/* ===================================================================
+   UNAUTHORIZED
+   =================================================================== */
+
+.rmb-unauthorized {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    color: var(--rmb-text-muted);
+    gap: 8px;
+}
+
+.rmb-unauthorized i {
+    font-size: 56px;
+    color: var(--rmb-text-light);
+}
+
+/* ===================================================================
+   ALERT / TOAST
+   =================================================================== */
+
+.rmb-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    font-weight: 500;
+    animation: rmbFadeIn 0.2s ease-out;
+}
+
+.rmb-alert.success {
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.rmb-alert.danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.rmb-alert.warning {
+    background: #fef9c3;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.rmb-alert-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    color: inherit;
+}
+
+.rmb-alert-close:hover {
+    opacity: 1;
+}
+
+/* ===================================================================
+   FORM CARD
+   =================================================================== */
+
+.rmb-form-card {
+    background: white;
+    border: 1px solid var(--rmb-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+    animation: rmbFadeIn 0.3s ease-out;
+}
+
+.rmb-form-card h5 {
+    font-weight: 700;
+    color: var(--rmb-text-main);
+    margin-bottom: 20px;
+    font-size: 1.05rem;
+}
+
+.rmb-form-section {
+    margin-bottom: 20px;
+}
+
+.rmb-form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rmb-text-secondary);
+    margin-bottom: 8px;
+}
+
+.rmb-form-sublabel {
+    display: block;
+    font-size: 12px;
+    color: var(--rmb-text-light);
+    margin-top: 6px;
+}
+
+/* ===================================================================
+   CLIENT SEARCH
+   =================================================================== */
+
+.rmb-search-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--rmb-border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+    transition: border-color 0.2s;
+    outline: none;
+}
+
+.rmb-search-input:focus {
+    border-color: var(--rmb-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.rmb-search-input::placeholder {
+    color: var(--rmb-text-light);
+}
+
+.rmb-search-spinner {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.rmb-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid var(--rmb-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.rmb-search-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+    transition: background 0.15s;
+}
+
+.rmb-search-item:first-child {
+    border-radius: 10px 10px 0 0;
+}
+
+.rmb-search-item:last-child {
+    border-radius: 0 0 10px 10px;
+}
+
+.rmb-search-item:hover {
+    background: var(--rmb-primary-light);
+}
+
+.rmb-search-item.empty {
+    color: var(--rmb-text-light);
+    cursor: default;
+}
+
+.rmb-selected-cliente {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+}
+
+.rmb-selected-cliente .rmb-btn-change {
+    background: none;
+    border: 1px solid var(--rmb-border);
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: var(--rmb-text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.rmb-selected-cliente .rmb-btn-change:hover {
+    border-color: var(--rmb-text-muted);
+    color: var(--rmb-text-main);
+}
+
+/* ===================================================================
+   OPTION CARDS (Tipologia / Motivato)
+   =================================================================== */
+
+.rmb-options-row {
+    display: flex;
+    gap: 12px;
+}
+
+.rmb-option-card {
+    flex: 1;
+    padding: 14px 16px;
+    border: 2px solid var(--rmb-border);
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    background: white;
+}
+
+.rmb-option-card i {
+    font-size: 22px;
+    color: var(--rmb-text-muted);
+    transition: color 0.2s;
+}
+
+.rmb-option-card span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--rmb-text-secondary);
+}
+
+.rmb-option-card:hover {
+    border-color: var(--rmb-primary);
+    background: var(--rmb-primary-light);
+}
+
+.rmb-option-card:hover i {
+    color: var(--rmb-primary);
+}
+
+.rmb-option-card.selected {
+    border-color: var(--rmb-primary);
+    background: rgba(59, 130, 246, 0.06);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.rmb-option-card.selected i {
+    color: var(--rmb-primary);
+}
+
+.rmb-option-card.selected span {
+    font-weight: 700;
+    color: var(--rmb-text-main);
+}
+
+/* ===================================================================
+   TEXTAREA & DATE INPUT
+   =================================================================== */
+
+.rmb-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--rmb-border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.rmb-textarea:focus {
+    border-color: var(--rmb-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.rmb-date-input {
+    padding: 10px 14px;
+    border: 1px solid var(--rmb-border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+    max-width: 220px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.rmb-date-input:focus {
+    border-color: var(--rmb-primary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* ===================================================================
+   FORM ACTIONS
+   =================================================================== */
+
+.rmb-form-actions {
+    display: flex;
+    gap: 10px;
+    padding-top: 8px;
+}
+
+.rmb-btn-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: var(--rmb-primary);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rmb-btn-submit:hover:not(:disabled) {
+    background: #2563eb;
+}
+
+.rmb-btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.rmb-btn-cancel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--rmb-border);
+    background: white;
+    color: var(--rmb-text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rmb-btn-cancel:hover {
+    border-color: var(--rmb-text-muted);
+    color: var(--rmb-text-main);
+}
+
+/* ===================================================================
+   LIST CARD
+   =================================================================== */
+
+.rmb-list-card {
+    background: white;
+    border: 1px solid var(--rmb-border);
+    border-radius: 14px;
+    overflow: hidden;
+    animation: rmbFadeIn 0.3s ease-out 0.1s backwards;
+}
+
+.rmb-list-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--rmb-border-light);
+}
+
+.rmb-list-header h5 {
+    font-weight: 700;
+    color: var(--rmb-text-main);
+    margin: 0;
+    font-size: 1rem;
+}
+
+.rmb-search-bar {
+    position: relative;
+    width: 240px;
+}
+
+.rmb-search-bar i {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--rmb-text-light);
+    font-size: 16px;
+}
+
+.rmb-search-bar input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border: 1px solid var(--rmb-border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--rmb-text-main);
+    background: var(--rmb-bg-subtle);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.rmb-search-bar input:focus {
+    border-color: var(--rmb-primary);
+    background: white;
+}
+
+/* ===================================================================
+   TABLE
+   =================================================================== */
+
+.rmb-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.rmb-table th {
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--rmb-text-light);
+    background: var(--rmb-bg-subtle);
+    border-bottom: 1px solid var(--rmb-border);
+    white-space: nowrap;
+}
+
+.rmb-table td {
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--rmb-text-main);
+    border-bottom: 1px solid var(--rmb-border-light);
+    vertical-align: middle;
+}
+
+.rmb-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rmb-table tbody tr {
+    transition: background 0.15s;
+}
+
+.rmb-table tbody tr:hover {
+    background: var(--rmb-bg-subtle);
+}
+
+/* Professionisti chips */
+.rmb-prof-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rmb-prof-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--rmb-bg-subtle);
+    border: 1px solid var(--rmb-border-light);
+    font-size: 12px;
+    color: var(--rmb-text-secondary);
+    white-space: nowrap;
+}
+
+.rmb-prof-chip i {
+    font-size: 13px;
+    color: var(--rmb-text-muted);
+}
+
+/* Motivazione */
+.rmb-motivazione {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--rmb-text-muted);
+    line-height: 1.4;
+    max-width: 220px;
+}
+
+/* Badges */
+.rmb-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rmb-badge.info {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.rmb-badge.warning {
+    background: #fef9c3;
+    color: #92400e;
+}
+
+.rmb-badge.success {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.rmb-badge.neutral {
+    background: #f1f5f9;
+    color: var(--rmb-text-muted);
+}
+
+/* Delete button */
+.rmb-btn-delete {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 6px 8px;
+    color: var(--rmb-text-light);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 16px;
+}
+
+.rmb-btn-delete:hover {
+    color: #ef4444;
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+/* ===================================================================
+   EMPTY STATE
+   =================================================================== */
+
+.rmb-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    color: var(--rmb-text-light);
+    gap: 8px;
+}
+
+.rmb-empty i {
+    font-size: 48px;
+}
+
+.rmb-empty p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* ===================================================================
+   PAGINATION
+   =================================================================== */
+
+.rmb-pagination {
+    display: flex;
+    justify-content: center;
+    padding: 14px 20px;
+    border-top: 1px solid var(--rmb-border-light);
+    gap: 4px;
+}
+
+.rmb-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--rmb-border);
+    border-radius: 8px;
+    background: white;
+    color: var(--rmb-text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.rmb-page-btn:hover:not(:disabled):not(.active) {
+    border-color: var(--rmb-primary);
+    color: var(--rmb-primary);
+}
+
+.rmb-page-btn.active {
+    background: var(--rmb-primary);
+    border-color: var(--rmb-primary);
+    color: #fff;
+    font-weight: 700;
+}
+
+.rmb-page-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ===================================================================
+   LOADING
+   =================================================================== */
+
+.rmb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+}
+
+/* ===================================================================
+   RESPONSIVE
+   =================================================================== */
+
+@media (max-width: 768px) {
+    .rmb-options-row {
+        flex-direction: column;
+    }
+
+    .rmb-search-bar {
+        width: 100%;
+    }
+
+    .rmb-table th,
+    .rmb-table td {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+}

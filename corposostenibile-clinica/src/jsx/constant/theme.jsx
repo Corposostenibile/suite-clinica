@@ -12,4 +12,5 @@ export const SVGICON = {
     Users:        <i className="ri-group-line sidebar-ri-icon"></i>,
     Quality:      <i className="ri-bar-chart-box-line sidebar-ri-icon"></i>,
     Trial:        <i className="ri-user-follow-line sidebar-ri-icon"></i>,
+    Rimborsi:     <i className="ri-refund-2-line sidebar-ri-icon"></i>,
 }

@@ -381,6 +381,7 @@ def create_app(config_name: str | None = None) -> Flask:
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
         push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
+        rimborsi,  # AGGIUNTO: Import del blueprint Rimborsi
     )
 
 
@@ -419,6 +420,7 @@ def create_app(config_name: str | None = None) -> Flask:
     sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
     team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
     push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
+    rimborsi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Rimborsi
 
 
     # Sales Form Blueprint
