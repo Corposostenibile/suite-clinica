@@ -1454,14 +1454,22 @@ def api_list() -> Any:
 
     # Apply trial user filter to query
     from corposostenibile.blueprints.customers.trial_integration import apply_trial_user_filter
-    
-    pagination = customers_repo.list(
-        filters=params,
-        order_by=request.args.get("order_by"),
-        page=request.args.get("page", 1, type=int),
-        per_page=request.args.get("per_page", 50, type=int),
-        eager=True,
-    )
+
+    try:
+        pagination = customers_repo.list(
+            filters=params,
+            order_by=request.args.get("order_by"),
+            page=request.args.get("page", 1, type=int),
+            per_page=request.args.get("per_page", 50, type=int),
+            eager=True,
+        )
+    except Exception as e:
+        current_app.logger.exception(
+            "api_list clienti failed (filters=%s): %s",
+            dict(request.args),
+            e,
+        )
+        raise
     
     # Filter results for trial users (additional safety layer)
     if current_user.is_authenticated and current_user.is_trial and current_user.trial_stage == 2:
@@ -1860,47 +1868,101 @@ def api_admin_dashboard_stats() -> Any:
 @permission_required(CustomerPerm.VIEW)
 def api_hm_dashboard_stats() -> Any:
     """Dashboard stats specifiche per Health Manager."""
-    from corposostenibile.models import UserRoleEnum
-    if current_user.role != UserRoleEnum.health_manager:
-        return jsonify({"error": "Forbidden", "message": "Accesso riservato agli Health Manager"}), HTTPStatus.FORBIDDEN
+    from corposostenibile.models import UserRoleEnum, WeeklyCheck, WeeklyCheckResponse
 
-    today = date.today()
-    threshold_scadenza = today + timedelta(days=30)
-    threshold_rinnovi = today + timedelta(days=15)
+    user_role = getattr(current_user, 'role', None)
+    role_str = user_role.value if hasattr(user_role, 'value') else str(user_role)
 
-    base_q = db.session.query(Cliente).filter(
-        Cliente.health_manager_id == current_user.id,
-        Cliente.show_in_clienti_lista.is_(True)
-    )
+    if role_str != "health_manager":
+        return jsonify({"error": "Forbidden", "message": f"Accesso riservato agli Health Manager (ruolo: {role_str})"}), HTTPStatus.FORBIDDEN
 
-    total = base_q.with_entities(func.count(Cliente.cliente_id)).scalar() or 0
-    active = base_q.filter(Cliente.stato_cliente == "attivo").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
-    ghost = base_q.filter(Cliente.stato_cliente == "ghost").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
-    pausa = base_q.filter(Cliente.stato_cliente == "pausa").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
-    
-    in_scadenza = base_q.filter(
-        Cliente.data_rinnovo.isnot(None),
-        Cliente.data_rinnovo <= threshold_scadenza,
-        Cliente.stato_cliente == "attivo"
-    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+    try:
+        from sqlalchemy import and_, case, cast, or_
 
-    rinnovi_next_15 = base_q.filter(
-        Cliente.data_rinnovo.isnot(None),
-        Cliente.data_rinnovo >= today,
-        Cliente.data_rinnovo <= threshold_rinnovi,
-        Cliente.stato_cliente == "attivo"
-    ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+        today = date.today()
+        threshold_scadenza = today + timedelta(days=30)
+        threshold_rinnovi = today + timedelta(days=15)
 
-    return jsonify({
-        "kpi": {
-            "total": total,
-            "active": active,
-            "ghost": ghost,
-            "pausa": pausa,
-            "inScadenza": in_scadenza,
-            "rinnoviNext15gg": rinnovi_next_15
-        }
-    })
+        base_q = db.session.query(Cliente).filter(
+            Cliente.health_manager_id == current_user.id,
+            Cliente.show_in_clienti_lista.is_(True)
+        )
+
+        total = base_q.with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+        active = base_q.filter(Cliente.stato_cliente == "attivo").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+        ghost = base_q.filter(Cliente.stato_cliente == "ghost").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+        pausa = base_q.filter(Cliente.stato_cliente == "pausa").with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+        in_scadenza = base_q.filter(
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo <= threshold_scadenza,
+            Cliente.stato_cliente == "attivo"
+        ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+        rinnovi_next_15 = base_q.filter(
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= today,
+            Cliente.data_rinnovo <= threshold_rinnovi,
+            Cliente.stato_cliente == "attivo"
+        ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+        # Insoddisfatti logic
+        latest_resp_sq = (
+            db.session.query(WeeklyCheckResponse.id)
+            .join(WeeklyCheck, WeeklyCheck.id == WeeklyCheckResponse.weekly_check_id)
+            .filter(WeeklyCheck.cliente_id == Cliente.cliente_id)
+            .order_by(WeeklyCheckResponse.submit_date.desc())
+            .limit(1)
+            .correlate(Cliente)
+        ).scalar_subquery()
+
+        rating_sum = (
+            func.coalesce(WeeklyCheckResponse.nutritionist_rating, 0) +
+            func.coalesce(WeeklyCheckResponse.coach_rating, 0) +
+            func.coalesce(WeeklyCheckResponse.psychologist_rating, 0)
+        )
+
+        rating_count = (
+            cast(WeeklyCheckResponse.nutritionist_rating.is_not(None), db.Integer) +
+            cast(WeeklyCheckResponse.coach_rating.is_not(None), db.Integer) +
+            cast(WeeklyCheckResponse.psychologist_rating.is_not(None), db.Integer)
+        )
+
+        avg_prof_rating = case(
+            (rating_count > 0, cast(rating_sum, db.Float) / cast(rating_count, db.Float)),
+            else_=None
+        )
+
+        is_unsatisfied_cond = or_(
+            WeeklyCheckResponse.progress_rating < 6,
+            and_(avg_prof_rating.is_not(None), avg_prof_rating < 6)
+        )
+
+        insoddisfatti = base_q.filter(
+            db.session.query(WeeklyCheckResponse)
+            .filter(WeeklyCheckResponse.id == latest_resp_sq)
+            .filter(is_unsatisfied_cond)
+            .exists()
+        ).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+
+        return jsonify({
+            "kpi": {
+                "total": total,
+                "active": active,
+                "ghost": ghost,
+                "pausa": pausa,
+                "inScadenza": in_scadenza,
+                "rinnoviNext15gg": rinnovi_next_15,
+                "insoddisfatti": insoddisfatti
+            }
+        })
+    except Exception as e:
+        current_app.logger.exception(
+            "HM dashboard-stats failed for user %s: %s",
+            getattr(current_user, "id", None),
+            e,
+        )
+        raise
 
 
 # – FEEDBACK METRICS ------------------------------------------------------- #

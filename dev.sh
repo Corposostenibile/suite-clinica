@@ -476,8 +476,11 @@ db_upgrade() {
     local db_name="${info[2]}"
     cd "$PROJECT_DIR/backend"
     export DATABASE_URL="postgresql://suite_clinica:password@localhost:$DB_PORT/$db_name"
+    export FLASK_APP="corposostenibile:create_app()"
     log_info "Applicazione migrazioni per $dev..."
     poetry run flask db upgrade
+    log_info "Verifica tabella app_notifications (creazione se mancante)..."
+    poetry run python scripts/ensure_app_notifications_table.py
 }
 seed_initial_checks() {
     local dev=$1

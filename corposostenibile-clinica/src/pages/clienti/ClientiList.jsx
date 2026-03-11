@@ -167,6 +167,7 @@ function ClientiList() {
     missing_piano_dieta: searchParams.get('missing_piano_dieta') || '',
     missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '',
     in_scadenza: searchParams.get('in_scadenza') || '',
+    insoddisfatti: searchParams.get('insoddisfatti') || '',
   });
 
   useEffect(() => {
@@ -250,6 +251,7 @@ function ClientiList() {
         missing_piano_dieta: filters.missing_piano_dieta || undefined,
         missing_piano_allenamento: filters.missing_piano_allenamento || undefined,
         in_scadenza: filters.in_scadenza || undefined,
+        insoddisfatti: filters.insoddisfatti || undefined,
       };
 
       // For professionals/TL with a specialty, pass view param so backend returns KPI aggregates
@@ -308,7 +310,7 @@ function ClientiList() {
       missing_stato_coach: '', missing_stato_chat_coaching: '',
       missing_stato_psicologia: '', missing_stato_chat_psicologia: '',
       missing_piano_dieta: '', missing_piano_allenamento: '',
-      in_scadenza: ''
+      in_scadenza: '', insoddisfatti: ''
     });
     setSearchParams(new URLSearchParams());
   };
@@ -345,6 +347,7 @@ function ClientiList() {
         { key: 'rinnovi', label: 'Rinnovi Prossimi', value: hmStats?.kpi?.rinnoviNext15gg || 0, icon: 'ri-refresh-line' },
         { key: 'ghost', label: 'Ghost', value: hmStats?.kpi?.ghost || 0, icon: 'ri-ghost-line' },
         { key: 'pausa', label: 'In Pausa', value: hmStats?.kpi?.pausa || 0, icon: 'ri-pause-circle-line' },
+        { key: 'insoddisfatti', label: 'Insoddisfatti', value: hmStats?.kpi?.insoddisfatti ?? 0, icon: 'ri-emotion-sad-line' },
       ];
     }
     if (professionistaView && specialtyKpi) {
@@ -498,6 +501,12 @@ function ClientiList() {
             onClick={() => handleFilterChange('in_scadenza', filters.in_scadenza === '1' ? '' : '1')}
           >
             <i className="ri-time-line me-1"></i> In Scadenza
+          </button>
+          <button
+            className={`btn btn-sm ${filters.insoddisfatti === '1' ? 'btn-dark' : 'btn-outline-dark'}`}
+            onClick={() => handleFilterChange('insoddisfatti', filters.insoddisfatti === '1' ? '' : '1')}
+          >
+            <i className="ri-emotion-sad-line me-1"></i> Insoddisfatti
           </button>
         </div>
       )}

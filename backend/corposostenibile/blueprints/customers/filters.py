@@ -140,8 +140,8 @@ class CustomerFilterParams:
     nuovo_allenamento_il_from: Optional[date] = None
     nuovo_allenamento_il_to: Optional[date] = None
     
-    # Filtro scadenze (numero di giorni entro cui scade)
     expiring_days: Optional[int] = None
+    insoddisfatti: bool = False
 
     # Filtri per campi vuoti/non compilati
     missing_check_day: bool = False
@@ -442,6 +442,7 @@ class CustomerFilterParams:
             check_day=check_day,
             reach_out=args.get("reach_out") if args.get("reach_out") else None,
             expiring_days=_parse_int(args.get("expiring_days"), None, 0) if args.get("expiring_days") else None,
+            insoddisfatti=args.get("insoddisfatti") == "1",
             missing_check_day=args.get("missing_check_day") == "1",
             missing_check_saltati=args.get("missing_check_saltati") == "1",
             missing_reach_out=args.get("missing_reach_out") == "1",
@@ -803,6 +804,43 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         qry = qry.filter(
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo <= threshold
+        )
+
+    # -------- filtro insoddisfatti -----------
+    if p.insoddisfatti:
+        from sqlalchemy import cast as sa_cast
+        from corposostenibile.models import WeeklyCheck, WeeklyCheckResponse
+
+        latest_resp_id_sq = (
+            db.session.query(WeeklyCheckResponse.id)
+            .join(WeeklyCheck, WeeklyCheck.id == WeeklyCheckResponse.weekly_check_id)
+            .filter(WeeklyCheck.cliente_id == Cliente.cliente_id)
+            .order_by(WeeklyCheckResponse.submit_date.desc())
+            .limit(1)
+            .correlate(Cliente)
+        ).scalar_subquery()
+
+        rating_sum = (
+            func.coalesce(WeeklyCheckResponse.nutritionist_rating, 0) +
+            func.coalesce(WeeklyCheckResponse.coach_rating, 0) +
+            func.coalesce(WeeklyCheckResponse.psychologist_rating, 0)
+        )
+        rating_count = (
+            sa_cast(WeeklyCheckResponse.nutritionist_rating.is_not(None), db.Integer)
+            + sa_cast(WeeklyCheckResponse.coach_rating.is_not(None), db.Integer)
+            + sa_cast(WeeklyCheckResponse.psychologist_rating.is_not(None), db.Integer)
+        )
+        # Media professionisti < 6 equivale a rating_sum < 6 * rating_count (evita case())
+        is_unsatisfied_cond = or_(
+            WeeklyCheckResponse.progress_rating < 6,
+            and_(rating_count > 0, rating_sum < 6 * rating_count),
+        )
+
+        qry = qry.filter(
+            db.session.query(WeeklyCheckResponse)
+            .filter(WeeklyCheckResponse.id == latest_resp_id_sq)
+            .filter(is_unsatisfied_cond)
+            .exists()
         )
 
     # -------- filtri campi vuoti/non compilati -----------

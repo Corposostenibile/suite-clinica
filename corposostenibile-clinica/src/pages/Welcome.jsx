@@ -1328,6 +1328,7 @@ function HMDashboard({ user }) {
     { label: 'Rinnovi Prossimi', value: kpi.rinnoviNext15gg ?? 0, icon: 'ri-refresh-line', color: '#f59e0b' },
     { label: 'Ghost', value: kpi.ghost ?? 0, icon: 'ri-ghost-line', color: '#8b5cf6' },
     { label: 'In Pausa', value: kpi.pausa ?? 0, icon: 'ri-pause-circle-line', color: '#64748b' },
+    { label: 'Insoddisfatti', value: kpi.insoddisfatti ?? 0, icon: 'ri-emotion-sad-line', color: '#334155' },
   ];
 
   return (
