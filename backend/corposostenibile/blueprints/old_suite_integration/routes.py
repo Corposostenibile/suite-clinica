@@ -532,7 +532,6 @@ def api_confirm_assignment():
                 nome_cognome=lead.full_name,
                 mail=lead.email,
                 numero_telefono=lead.phone,
-                cellulare=lead.phone,
                 data_di_nascita=lead.birth_date,
                 genere=lead.gender,
                 professione=lead.professione,

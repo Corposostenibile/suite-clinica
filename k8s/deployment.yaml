@@ -107,6 +107,11 @@ spec:
           value: "sL_8Q~7dckRNw3r-I-yVqScpyJLuQZ80_zVjddlh"
         - name: TEAMS_BOT_TENANT_ID
           value: "432c478e-1c8a-4f55-88ab-db9b9d8f0118"
+        - name: GOOGLE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: google-api-key
+              key: GOOGLE_API_KEY
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         - name: MAX_UPLOAD_SIZE
