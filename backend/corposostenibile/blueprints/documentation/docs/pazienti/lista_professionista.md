@@ -1,194 +1,82 @@
-# 👥 Lista Pazienti — Guida Professionista
+# Lista Pazienti - Guida Professionista
 
-Questa pagina per il professionista e il punto di ingresso al lavoro quotidiano. Serve a costruire rapidamente la propria coda di pazienti, isolare le urgenze e arrivare alla scheda giusta senza perdere tempo.
+Questa pagina e la tua coda operativa. La apri per capire su quali pazienti devi lavorare oggi, quali rinnovi stanno arrivando e quali schede devi aprire subito.
 
-## Cosa fai qui come Professionista
+## Per chi e
 
-- Filtri il tuo perimetro operativo e decidi da dove partire.
-- Entri subito sui pazienti con scadenze, ghost, insoluti o follow-up mancati.
-- Usi ricerca e paginazione per tenere la vista pulita e lavorare a blocchi.
+Per il professionista che lavora sui pazienti del proprio perimetro.
 
-## Cosa non dovresti fare qui
+## Quando la apri
 
-- Tenere aperti troppi pazienti senza una priorita chiara.
-- Ignorare i filtri e navigare manualmente tra schede e menu.
-- Usare la pagina per monitorare il lavoro degli altri ruoli.
+- All'inizio della giornata per costruire le priorita.
+- Quando devi ritrovare rapidamente un paziente.
+- Quando vuoi controllare rinnovi, stato del percorso e prossime attivita.
 
-# 👥 Lista Pazienti — Guida completa per professionisti
+## Cosa vedi
 
-Questa pagina è il tuo centro operativo principale: qui gestisci tutti i pazienti, applichi filtri rapidi e accedi alle azioni quotidiane. È progettata per essere efficiente e sicura, con tutto quello che serve per lavorare al meglio.
+- I pazienti che rientrano nel tuo perimetro operativo.
+- Filtri utili al lavoro quotidiano, non una dashboard di squadra.
+- La tabella con nome, team, date, programma, stato e accesso rapido alla scheda.
 
-## 🏠 Come Arrivare Qui
+## Cosa puoi fare
 
-- Dal menu principale: "Pazienti" → "Lista Pazienti"
-- Da altre pagine: cerca il link "Lista Pazienti" nel menu laterale
-- URL diretta: `/clienti-lista` (si apre automaticamente se sei loggato)
+- Cercare un paziente per nome.
+- Filtrare la tua coda per stato o bisogno operativo.
+- Aprire la scheda paziente giusta senza passaggi inutili.
+- Usare rinnovo, stato e programma per decidere da dove partire.
 
-## 🟢 Quello che Vedi Subito (Dashboard Rapida)
+## Cosa non puoi fare
 
-![Statistiche Rapide](../screenshots/clienti-lista/statistiche_rapide.png)
+- Usare questa pagina come vista di coordinamento del team.
+- Leggere il carico di lavoro degli altri professionisti.
+- Riallocare pazienti o prendere decisioni di assegnazione da qui.
 
-### I 4 Numeri in Alto (Statistiche Veloci)
-- **Pazienti Totali**: Quanti pazienti sono registrati complessivamente
-- **Nutrizionista Attivo**: Quanti seguono attivamente un piano alimentare
-- **Coach Attivo**: Quanti fanno allenamento con un coach
-- **Psicologo Attivo**: Quanti sono in percorso psicologico
+## Come leggerla bene
 
-**Perché sono utili**: Ti danno un'istantanea della situazione clinica. Se vedi molti "Ghost", sai che devi fare follow-up.
+### Numeri iniziali
 
-### Come Si Aggiornano
-- Automaticamente al caricamento della pagina
-- Si aggiornano quando salvi modifiche in altre schede
-- Riflettono sempre i filtri attivi (se filtri per "Attivo", i numeri cambiano)
+Leggili come semaforo rapido sul tuo perimetro. Se un valore ti sembra incoerente, confermalo aprendo le schede paziente piu critiche.
 
-## 🔍 Sistema di Ricerca e Filtraggio (Passo-Passo Dettagliato)
+### Filtri
 
-![Ricerca e Filtri](../screenshots/clienti-lista/ricerca_e_filtri.png)
+Usali per stringere la tua coda, non per fare analisi. Se hai troppi pazienti aperti, parti da stato, rinnovo e urgenze operative.
 
-La barra dei filtri è sotto i numeri. Ecco come usarla al meglio:
+### Tabella principale
 
-### 1. **Ricerca per Nome (Campo Testo)**
-- **Cosa fa**: Ricerca nel nome completo del paziente
-- **Come**: Scrivi e aspetta (debounce automatico di 300ms)
-- **Esempi**:
-  - "Mario Rossi" → trova il paziente
-  - "Mario" → trova chi contiene "Mario"
-  - "Rossi" → trova chi contiene "Rossi"
-- **Suggerimenti**: Se non trovi, prova con meno caratteri o controlla l'ortografia
+- Nome Cognome: apre la scheda giusta.
+- Team: ti ricorda chi e coinvolto nel caso, ma non serve a gestire assegnazioni.
+- Data rinnovo: e il segnale piu utile per prevenire ritardi e pazienti scoperti.
+- Stato e programma: ti aiutano a capire il momento del percorso.
 
-### 2. **Filtro Stato Cliente**
-- **Opzioni disponibili**:
-  - **Attivo**: Segue il programma regolarmente
-  - **Pausa**: Temporaneamente fermo
-  - **Ghost**: Non risponde (criticità!)
-  - **Insoluto**: Pagamento pendente
-  - **Stop**: Ha terminato il programma
-  - **Freeze**: Bloccato per motivi medici/personali
-- **Quando usare**: Per organizzare la giornata per priorità
+## Segnali da non ignorare
 
-### 3. **Filtro Tipologia**
-- **Opzioni**: A, B, C
-- **Cosa significa**: Livello complessità/tipo abbonamento (chiedi all'admin)
-- **Uso pratico**: Per segmentare pazienti per lotto
+- Pazienti vicini al rinnovo senza ultimo follow-up chiaro.
+- Casi con stato incoerente rispetto a quello che sai dal percorso.
+- Pazienti che continui a rimandare nella lista senza una prossima azione concreta.
 
-### 4. **Filtro per Professionista**
-- **Nutrizionista**: Vedi pazienti assegnati a quel nutrizionista
-- **Coach**: Vedi pazienti assegnati a quel coach
-- **Psicologa**: Vedi pazienti assegnati a quella psicologa
-- **Nota**: Sono filtri dinamici (carichi dal team attivo)
+## Scenari pratici
 
-### 5. **Pulsante Reset**
-- **Icona**: Freccia circolare di refresh
-- **Funzione**: Cancella TUTTI i filtri e ricarica la lista
-- **Quando usare**: Tornare alla vista completa
+### Scenario 1: "Organizzo la mia mattina"
 
-**Funzione avanzata - URL State**: L'URL si aggiorna con i filtri. Puoi copiarlo per ricerche frequenti.
+1. Apro la lista.
+2. Filtro i pazienti piu urgenti.
+3. Controllo rinnovi e stati.
+4. Apro in sequenza le schede su cui devo lasciare un avanzamento reale.
 
-## 📋 La Tabella Principale (Cuore della Pagina)
+### Scenario 2: "Cerco un caso fermo da giorni"
 
-![Tabella Pazienti](../screenshots/clienti-lista/tabella-pazienti.png)
+1. Cerco il paziente per nome.
+2. Entro in scheda.
+3. Verifico diario, note e ultimo passaggio utile.
+4. Decido la prossima azione senza lasciare il caso sospeso.
 
-Ogni riga è un paziente. Ecco cosa significa ogni colonna:
+### Scenario 3: "Capisco se rischio un rinnovo scoperto"
 
-### Colonna "Nome Cognome"
-- **Cosa vedi**: Nome completo del paziente
-- **Cosa fare**: **Clicca qui** per aprire la scheda completa
-- **Stile**: Link blu che diventa viola al passaggio del mouse
+1. Controllo le date di rinnovo.
+2. Individuo i pazienti vicini alla scadenza.
+3. Apro solo quelli senza avanzamento recente.
+4. Aggiorno la scheda o segnalo il rischio al team leader se serve coordinamento.
 
-### Colonna "Team"
-- **Cosa vedi**: Cerchietti colorati con iniziali professionisti
-- **Ho visto renderizzare**:
-  - Health Manager (HM) - Viola
-  - Nutrizionista/i (N) - Verde
-  - Coach (C) - Blu
-  - Psicologo/i (P) - Rosa
-  - Consulente/i (CA) - Giallo
-- **Interazione**: Pass il mouse per tooltip con nome completo
-- **Nota**: Se nessun team assegnato, vedi un trattino (—)
+## Quando escalare
 
-### Colonna "Data Inizio"
-- **Cosa vedi**: Quando è diventato paziente (gg/mm/aaaa)
-- **Perché importante**: Per calcolare la durata del percorso
-- **Uso**: Filtra per "nuovi ingressi del mese"
-
-### Colonna "Data Rinnovo"
-- **Cosa vedi**: Quando scade l'abbonamento
-- **Perché critica**: Se vicina, contatta il paziente!
-- **Colore**: Rosso se urgente
-- **Azione**: Clicca per aprire la scheda e gestire il rinnovo
-
-### Colonna "Programma"
-- **Cosa vedi**: Tipo di percorso (es. "Percorso Completo", "Solo Nutrizione")
-- **Badge**: Rettangolo colorato blu chiaro
-- **Uso**: Per capire il livello di impegno del paziente
-
-### Colonna "Stato"
-- **Cosa vedi**: Badge colorato con lo stato attuale
-- **Colori**:
-  - 🟢 Verde: Attivo (tutto ok)
-  - 🟠 Arancione: Pausa (temporaneo)
-  - 🔘 Blu: Ghost (non risponde)
-  - 🔴 Rosso: Insoluto (pagamento)
-  - 🟣 Viola: Freeze (bloccato)
-- **Perché utile**: Identifica subito i problemi
-
-### Colonna "Azioni"
-
-![Azioni](../screenshots/clienti-lista/azioni.png)
-
-- **Occhio verde**: Apri la scheda dettaglio in visualizzazione
-- **Matita blu**: Apri la scheda nel modulo modifica
-- **Entrambi i pulsanti**: Conducono alla scheda completa (`/clienti-dettaglio/:id`)
-- **Stile**: Bottoni piccoli circolari, cambiano background al hover
-
-## 🔄 Paginazione (Quando Hai Molti Pazienti)
-
-![Paginazione](../screenshots/clienti-lista/paginazione.png)
-
-- **Posizione**: Sotto la tabella
-- **Informazioni**: "Pagina 2 di 5 • 127 risultati"
-- **Controlli**:
-  - «« Prima pagina
-  - « Pagina precedente
-  - 1 2 3 4 5 (numeri cliccabili)
-  - » Pagina successiva
-  - »» Ultima pagina
-- **Configurazione**: 25 pazienti per pagina (standard)
-
-## 🎯 Scenari Operativi Quotidiani
-
-### Scenario 1: "Organizzo la mia giornata"
-1. Filtro per il mio ruolo (es. "Nutrizionista: [Mio Nome]")
-2. Filtro per "Stato: Attivo"
-3. Ordino per "Data Rinnovo" (i più urgenti prima)
-4. Chiamo i pazienti uno per uno
-
-### Scenario 2: "Gestisco i pazienti problematici"
-1. Filtro per "Stato: Ghost"
-2. Per ognuno: clicco nome → vedo contatti → chiamo
-3. Dopo chiamata: aggiorno stato in scheda (se necessario)
-
-### Scenario 3: "Controllo rinnovi settimanali"
-1. Filtro per "Data Rinnovo" entro 7 giorni
-2. Per ognuno: clicco nome → sezione "Programma" → gestisco rinnovo
-3. Contatto paziente per conferma
-
-### Scenario 4: "Valuto nuovi ingressi"
-1. Filtro per "Data Inizio" ultimo mese
-2. Controllo che abbiano team assegnato
-3. Verifico che abbiano fatto check iniziali
-
-### Scenario 5: "Report per direzione"
-1. Nessun filtro (vista completa)
-2. Guardo i numeri in alto
-3. Esporto o copio i dati per report
-
-> [!TIP]
-> **Ricorda**: Questa è la tua dashboard principale. Inizia sempre da qui per pianificare efficacemente il lavoro con i pazienti.
-
-> [!IMPORTANT]
-> **Aggiornamenti**: Quando modifichi una scheda paziente, torna qui per vedere i cambiamenti nei numeri e nella lista.
-
-> [!NOTE]
-> **Performance**: La pagina gestisce migliaia di pazienti grazie alla paginazione intelligente e ai filtri server-side.
----
+Coinvolgi il team leader se il problema non e piu solo operativo ma di carico, assegnazione, incoerenza tra figure coinvolte o rischio di scopertura del paziente.

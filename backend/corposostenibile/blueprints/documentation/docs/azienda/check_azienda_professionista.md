@@ -1,151 +1,83 @@
-# 📊 Check Azienda — Guida Professionista
+# Check Azienda - Guida Professionista
 
-Per il professionista questa pagina serve a trasformare i feedback dei pazienti in azioni pratiche. Devi usarla per capire cosa non sta funzionando, leggere i segnali deboli e correggere rapidamente il lavoro sul paziente.
+Questa pagina ti aiuta a trasformare il feedback dei pazienti in azioni pratiche. Non e una dashboard manageriale: e uno strumento per leggere meglio il tuo perimetro e correggere il lavoro sui casi che segui.
 
-## Cosa fai qui come Professionista
+## Per chi e
 
-- Guardi prima check non letti e voti bassi.
-- Apri il dettaglio per capire se il problema e relazione, continuita o risultato.
-- Porti gli insight nel contatto successivo e nel diario operativo.
+Per il professionista che legge i check del proprio perimetro.
 
-## Cosa ti deve lasciare questa pagina
+## Quando la apri
 
-- Un problema chiaro da correggere.
-- Una priorita per il prossimo contatto.
-- Un feedback concreto da trasformare in azione.
+- Per capire come stanno rispondendo i tuoi pazienti.
+- Per leggere segnali deboli prima che diventino problemi aperti.
+- Per collegare feedback, avanzamento e azioni sul caso.
 
-# 📊 Check Azienda — Monitoraggio e Qualità
+## Cosa vedi
 
-Questa pagina è la tua "torre di controllo" sulla qualità del servizio e sulla soddisfazione dei pazienti. Qui puoi vedere a colpo d'occhio come stanno andando i percorsi e dove c'è bisogno di intervenire.
+- I check che rientrano nel tuo perimetro.
+- La colonna e i feedback rilevanti per la tua specialita.
+- Il dettaglio utile a capire cosa il paziente sta dicendo del percorso.
 
-## 🏠 A Cosa Serve Questa Pagina
-*   **Monitorare la soddisfazione**: Vedi i voti che i pazienti danno al servizio ogni settimana.
-*   **Controllare i progressi**: Scopri chi sta ottenendo risultati e chi è bloccato.
-*   **Verificare il lavoro del team**: Assicurati che tutti i check vengano letti e gestiti.
-*   **Analizzare i trend**: Capisci se la qualità sta salendo o scendendo nel tempo.
+## Cosa puoi fare
 
----
+- Filtrare i check utili al tuo lavoro.
+- Aprire il dettaglio di un check.
+- Leggere il feedback collegato alla tua area.
+- Usare il check per decidere cosa fare sul paziente.
 
-## 🟢 I Numeri Chiave (KPI Dashboard)
+## Cosa non puoi fare
 
-In alto trovi i "termometri" della qualità aziendale per il periodo selezionato.
+- Usare questa pagina come confronto tra colleghi.
+- Leggere KPI globali di qualita del team.
+- Analizzare performance cross-specialita come farebbe un team leader.
 
-![KPI Dashboard](../screenshots/check-azienda/i_numeri_chiave_kpi.png)
+## Come usarla bene
 
-*   **Nutrizionista**: Media voto dato al servizio nutrizionale.
-*   **Psicologo**: Media voto supporto psicologico.
-*   **Coach**: Media voto allenamento.
-*   **Progresso**: Media di *quanto il paziente sente di essere migliorato* (auto-valutazione).
-*   **Quality**: Il voto sintetico complessivo.
+### Lista check
 
-> [!TIP]
-> **Come leggere i colori:**
-> *   🟢 **Verde (>= 8)**: Ottimo lavoro!
-> *   🟡 **Giallo (7 - 7.9)**: Buono, ma c'è margine.
-> *   🔴 **Rosso (< 7)**: Attenzione, qualcosa non va. Indaga sui feedback negativi.
+Leggila per capire dove il paziente sta perdendo percezione di avanzamento, aderenza o qualita del rapporto.
 
----
+### Dettaglio check
 
-## 🔍 Filtri: Trova Quello che Cerchi
+Aprilo quando vuoi andare oltre il voto numerico e leggere:
 
-La barra dei filtri ti permette di "tagliare" i dati come preferisci:
+- feedback testuale;
+- progressi percepiti;
+- elementi che richiedono correzione concreta.
 
-### 1. 📅 Periodo Temporale
+### Segnale corretto
 
-![Filtro Periodo](../screenshots/check-azienda/periodo_temporale.png)
-Scegli l'orizzonte temporale dei dati:
-*   **Settimana**: Per il monitoraggio operativo immediato.
-*   **Mese**: Per le valutazioni mensili.
-*   **Trimestre/Anno**: Per analisi di lungo periodo.
-*   **Custom**: Scegli date specifiche (es. "dal 1 al 15 agosto").
+Non limitarti a chiederti "il voto e alto o basso?". Chiediti invece: "cosa devo cambiare sul caso da domani?".
 
-### 2. 👥 Tipo di Professionista
+## Segnali da non ignorare
 
-![Filtri Professionisti](../screenshots/check-azienda/filtri_professionisti.png)
-Vuoi vedere solo come va l'area Nutrizione? Clicca su **Nutrizione**.
-La dashboard si aggiornerà mostrando solo i dati rilevanti per quel reparto.
+- Calo ripetuto sui feedback della tua area.
+- Check letti tardi o lasciati fermi.
+- Progresso percepito diverso da quello che pensavi di vedere sul caso.
 
-### 3. 👤 Singolo Professionista
-Dopo aver scelto il tipo (es. "Coach"), puoi selezionare un nome specifico dal menu a tendina.
-*   *Utile per*: I Team Leader che vogliono analizzare le performance di un singolo membro del team.
+## Scenari pratici
 
-### 4. ⚡ Filtri Rapidi (Stato)
+### Scenario 1: "Un paziente sta dando segnali negativi"
 
-![Filtri Rapidi](../screenshots/check-azienda/filtri_rapidi_stato.png)
-*   **Da Migliorare (<8)**: Mostra solo i check con voti mediocri.
-*   **Voto Negativo (<7)**: Mostra le criticità urgenti.
-*   **Non Letto**: Fondamentale! Mostra i check che il team non ha ancora aperto.
+1. Apro il check.
+2. Leggo voto, feedback e progresso.
+3. Entro nella scheda paziente.
+4. Aggiorno il mio lavoro sul caso in modo coerente.
 
----
+### Scenario 2: "Voglio capire se il mio follow-up sta funzionando"
 
-## 📋 La Tabella delle Risposte
+1. Controllo i check piu recenti.
+2. Isolo i pazienti con segnali deboli.
+3. Confronto il feedback con diario e ultimo passaggio.
+4. Correggo il metodo prima che il paziente si raffreddi.
 
-Ogni riga è un check compilato da un paziente. Ecco come leggerla:
+### Scenario 3: "Non riesco a spiegare il peggioramento"
 
-![Tabella Risposte](../screenshots/check-azienda/tabella_risposte.png)
+1. Rileggo il dettaglio del check.
+2. Verifico se il problema e nel mio perimetro o no.
+3. Se dipende da me, correggo il lavoro.
+4. Se coinvolge piu figure, porto il caso al team leader.
 
-### Colonna "Paziente"
-Vedi il nome e il programma (A/B/C). Cliccando vai alla scheda completa.
+## Quando escalare
 
-### Colonna "Data"
-Quando è stato inviato il check.
-
-### Colonne Valutazione (Nutrizione, Psicologia, Coach)
-Qui vedi:
-1.  **Il Voto**: Il numero dato dal paziente (colorato in base al valore).
-2.  **L'Avatar del Professionista**: Chi segue il paziente.
-3.  **Spunta di Lettura**:
-    *   ✅ **Spunta Verde**: Il professionista HA LETTO il check.
-    *   ⏳ **Clessidra Gialla**: Il professionista NON ha ancora letto.
-
-> [!IMPORTANT]
-> **Monitoraggio Letture**: Se vedi molte clessidre gialle su check vecchi di giorni, significa che il paziente non sta ricevendo feedback tempestivi.
-
-### Colonna "Progresso"
-Come il paziente valuta i propri miglioramenti. Un voto basso qui, anche se il servizio è valutato bene, indica frustrazione sui risultati (peso stallo, difficoltà, ecc.).
-
----
-
-## 🔎 Dettaglio Check (Scheda Completa)
-
-Cliccando su una riga della tabella, si apre la scheda completa del check.
-
-![Scheda Completa](../screenshots/check-azienda/scheda_completa.png)
-
-### Foto Progressi
-Se presenti, puoi visionare le foto caricate dal paziente (frontale, laterale, posteriore).
-![Foto Progressi](../screenshots/check-azienda/foto_progressi.png)
-
-### Valutazioni e Feedback
-Il dettaglio dei voti assegnati a ciascun professionista e i feedback ricevuti.
-![Valutazioni](../screenshots/check-azienda/valutazioni_e_feedback.png)
-
-### Riflessioni
-Le note del paziente su cosa ha funzionato, cosa no e gli obiettivi per la prossima settimana.
-![Riflessioni](../screenshots/check-azienda/riflessioni.png)
-
----
-
-## 🛠️ Scenari d'Uso Pratici
-
-### Scenario 1: "Sono un Team Leader e voglio controllare la qualità settimanale"
-1.  Imposta Periodo: **Settimana**.
-2.  Clicca su **Voto Negativo (<7)**.
-3.  Leggi i commenti di questi check per capire i problemi (menu poco vario? esercizi troppo duri?).
-4.  Parlane con i professionisti coinvolti.
-
-### Scenario 2: "Voglio assicurarmi che nessuno venga trascurato"
-1.  Clicca su **Non Letto**.
-2.  Scorri la lista: vedi check vecchi di più di 24-48 ore?
-3.  Sollecita i professionisti indicati dalle clessidre.
-
-### Scenario 3: "Come sta lavorando il nuovo Coach?"
-1.  Filtra per Tipo: **Coach**.
-2.  Seleziona il nome del nuovo coach dal menu.
-3.  Guarda il KPI "Coach" in alto: è verde?
-4.  Controlla le spunte di lettura: è puntuale nel leggere i check?
-
----
-
-> [!NOTE]
-> **Privacy**: Le risposte ai check DCA (Disturbi Comportamento Alimentare) sono visibili solo agli psicologi e agli admin autorizzati per motivi di riservatezza medica.
+Coinvolgi il team leader quando il problema richiede lettura di team, confronto tra professionisti o intervento su un paziente che esce dal tuo solo perimetro operativo.

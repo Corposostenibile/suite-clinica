@@ -1,161 +1,84 @@
-# 📋 Sistema Task — Guida Team Leader
+# Sistema Task - Guida Team Leader
 
-Per un Team Leader la pagina Task e una vista di coordinamento del lavoro. Non serve solo a vedere attivita aperte: deve mostrarti dove si accumula il backlog, quali ruoli sono in difficolta e dove va fatto coaching operativo.
+Per il team leader la pagina Task non e solo una lista di cose da fare. E la vista in cui leggi backlog, ritardi e aree del team che stanno perdendo ritmo.
 
-## Cosa fai qui come Team Leader
+## Per chi e
 
-- Identifichi task scaduti, in stallo o non presi in carico.
-- Filtri per assegnatario, ruolo e specialita per capire dove intervenire.
-- Usi completati e backlog per leggere continuita, puntualita e qualita esecutiva.
+Per il team leader che coordina task propri e task dei membri del suo team.
 
-## Domande a cui deve rispondere questa pagina
+## Quando la apri
 
-- Chi e in ritardo sulle attivita critiche?
-- Quale ruolo o specialita sta accumulando lavoro?
-- Dove serve supporto, chiarezza o riallocazione?
+- Per leggere il backlog del team.
+- Per capire dove si accumulano ritardi.
+- Per decidere se serve coaching, riallocazione o semplice follow-up.
 
-# 📋 Sistema Task — Guida completa per professionisti
+## Cosa vedi
 
-Il sistema Task è il tuo assistente digitale personale per gestire tutte le attività quotidiane, scadenze e solleciti. È progettato per aiutarti a non dimenticare nulla e organizzare il lavoro in modo efficiente.
+- I tuoi task e quelli del tuo team.
+- Statistiche utili a leggere volume e distribuzione del lavoro.
+- Le categorie di task che stanno rallentando il flusso.
 
-## 🏠 Come Arrivare Qui
+## Cosa puoi fare
 
-- Dal menu principale: "Task" o "Le tue Attività"
-- URL diretta: `/task`
-- È accessibile solo ai professionisti autorizzati
+- Filtrare e leggere il backlog del team.
+- Creare e assegnare task entro il tuo perimetro team.
+- Capire quali task sono in stallo, in ritardo o ricorrenti.
+- Entrare rapidamente nelle schede paziente collegate.
 
-## 🟢 Quello che Vedi Subito (Dashboard Task)
+## Cosa non puoi fare
 
-![Dashboard Task](../screenshots/task/dashboard_task.png)
+- Vedere task fuori dal tuo team.
+- Trattare la pagina come se fosse una dashboard globale aziendale.
+- Cambiare lo stato di task altrui solo per "ripulire" la lista: il completamento resta in capo all'assegnatario salvo permessi admin.
 
-### Le 6 Card Statistiche (In Alto)
+## Come leggerla bene
 
-Ogni card rappresenta una categoria di task con il numero di attività aperte:
+### Card iniziali
 
-#### 📋 **Onboarding** (Blu)
-- **Cosa sono**: Attività di benvenuto per nuovi clienti
-- **Esempi**: "Call iniziale con Mario Rossi", "Invio materiale di benvenuto"
-- **Quando appaiono**: Automaticamente quando un cliente viene assegnato
+Usale per capire dove si sta formando backlog. Il valore non sta nel numero assoluto ma nel pattern:
 
-#### ✅ **Check** (Verde)
-- **Cosa sono**: Controlli periodici e valutazioni
-- **Esempi**: "Check settimanale cliente", "Valutazione mensile progresso"
-- **Quando appaiono**: Secondo il calendario check del cliente
+- una categoria che sale troppo;
+- una categoria che non si chiude;
+- task che restano aperti senza avanzamento.
 
-#### ⏰ **Reminder** (Arancione)
-- **Cosa sono**: Promemoria per scadenze importanti
-- **Esempi**: "Scadenza abbonamento tra 7 giorni", "Rinnovo piano alimentare"
-- **Quando appaiono**: Automaticamente prima delle scadenze critiche
+### Lista task
 
-#### 📚 **Formazione** (Viola)
-- **Cosa sono**: Attività di apprendimento e training
-- **Esempi**: "Corso online da completare", "Aggiornamento procedure"
-- **Quando appaiono**: Quando vengono assegnati corsi o formazioni
+Leggila come strumento di supervisione:
 
-#### 🚨 **Solleciti** (Rosso)
-- **Cosa sono**: Richiami per clienti che non rispondono
-- **Esempi**: "Cliente non ha fatto check settimana scorsa", "Sollecito appuntamento mancato"
-- **Quando appaiono**: Automaticamente quando un cliente diventa "ghost"
+- Attivita: tipo di lavoro bloccato.
+- Cliente: impatto sul caso.
+- Scadenza: rischio di ritardo.
+- Priorita: ordine con cui sbloccare il team.
 
-#### 📝 **Generico** (Grigio)
-- **Cosa sono**: Task manuali creati dai colleghi
-- **Esempi**: "Chiamare fornitore", "Aggiornare documentazione"
-- **Quando appaiono**: Quando un collega ti assegna un task manuale
+## Segnali da non ignorare
 
-**Cliccando su una card**: Filtra automaticamente i task di quella categoria.
+- Task scaduti sempre sugli stessi professionisti.
+- Backlog concentrato su una sola categoria.
+- Task aperti senza azione reale sul paziente.
 
-## 📊 La Tabella Principale (Lista Task)
+## Scenari pratici
 
-![Tabella Task](../screenshots/task/la_tua_lista_attivita.png)
+### Scenario 1: "Capisco dove il team si sta fermando"
 
-### Come È Organizzata
-- **Righe**: Ogni riga è un task da completare
-- **Colonne**: Checkbox, Attività, Categoria, Cliente, Scadenza, Priorità, Azioni
+1. Apro Task.
+2. Guardo quali categorie crescono.
+3. Isolo i task in ritardo.
+4. Distinguo problema di carico da problema di metodo.
 
-### Colonna "Checkbox" (Completamento)
-- **Vuota**: Task da fare
-- **Spuntata**: Task completato
-- **Come completare**: Clicca sulla checkbox per segnare come fatto
-- **Effetto**: Il task sparisce dalla vista (se non stai mostrando i completati)
+### Scenario 2: "Assegno un task per sbloccare un caso"
 
-### Colonna "Attività"
-- **Titolo**: Descrizione breve del task
-- **Descrizione**: Dettagli aggiuntivi (se presenti)
-- **Stile**: Barrato quando completato
+1. Entro nella lista.
+2. Identifico il membro corretto del team.
+3. Creo o assegno il task nel perimetro autorizzato.
+4. Seguo l'esecuzione senza segnare chiuso al posto suo.
 
-### Colonna "Categoria"
-- **Badge colorato**: Identifica il tipo di task
-- **Icona**: Aiuta a riconoscere velocemente il tipo
+### Scenario 3: "Preparo coaching operativo"
 
-### Colonna "Cliente"
-- **Nome**: Cliente collegato al task (se presente)
-- **Avatar**: Iniziali del cliente in un cerchio
-- **Vuoto**: Task non collegato a un cliente specifico
+1. Raccolgo esempi da backlog e scadenze.
+2. Entro solo sui task che mostrano un pattern.
+3. Porto al professionista esempi concreti.
+4. Verifico se il coaching produce chiusure migliori.
 
-### Colonna "Scadenza"
-- **Oggi/Ieri**: Date relative per task urgenti
-- **Data**: Giorno e mese per task futuri
-- **Rosso**: Task scaduti (da fare urgentemente!)
+## Quando escalare
 
-### Colonna "Priorità"
-- **Colore**: Verde (bassa), Giallo (media), Rosso (alta/urgente)
-- **Pallino**: Indicatore visivo accanto al testo
-
-### Colonna "Azioni"
-- **Freccia destra**: Pulsante "Vai" per task collegati
-- **Visibile solo**: Per task non completati e con collegamenti
-
-## 🔄 Filtri e Navigazione
-
-![Filtri](../screenshots/task/filtri_comodi.png)
-
-### Tab in Alto (Filtraggio per Categoria)
-- **Tutti**: Mostra tutti i task aperti
-- **Per categoria**: Mostra solo quella categoria
-- **Conteggio**: Numero di task per ogni tab
-- **Nasconde tab vuote**: Se non hai task in una categoria, il tab sparisce
-
-### Switch "Mostra Completate"
-- **Posizione**: In alto a destra
-- **Funzione**: Mostra anche i task già completati
-- **Uso**: Per vedere lo storico o ricontrollare qualcosa
-
-### Pulsante Refresh
-- **Icona**: Freccia circolare
-- **Funzione**: Ricarica la lista e le statistiche
-- **Quando usare**: Se vedi dati vecchi o dopo modifiche
-
-## 🚀 Navigazione Intelligente
-
-### Come Funziona il Pulsante "Vai"
-Quando clicchi "Vai" su un task, il sistema ti porta automaticamente:
-
-#### Per Task "Check"
-- **Destinazione**: Scheda cliente, tab "Check"
-- **Perché**: Per gestire i controlli periodici
-
-#### Per Task "Solleciti" e "Onboarding"
-- **Destinazione**: Scheda cliente principale
-- **Perché**: Per contattare il cliente o gestire l'ingresso
-
-#### Per Task "Reminder"
-- **Destinazione**: Scheda cliente principale
-- **Perché**: Per gestire scadenze e rinnovi
-
-#### Per Task "Formazione"
-- **Destinazione**: Link esterno o sezione formazione
-- **Perché**: Per accedere ai materiali didattici
-
-#### Per Task "Generico"
-- **Destinazione**: Dipende dal payload del task
-- **Perché**: Collegamento personalizzato dal creatore
----
-
-> [!TIP]
-> **Il sistema Task è il tuo assistente**: Aiuta a non dimenticare nulla e mantiene organizzato il lavoro con i clienti.
-
-> [!IMPORTANT]
-> **Task automatici**: Sono generati dal sistema per tua sicurezza. Non ignorarli!
-
-> [!NOTE]
-> **Pulizia automatica**: I task completati vengono nascosti per mantenere la lista gestibile.</content>
+Coinvolgi admin o direzione se il blocco riguarda permessi, processi cross-team o un carico che supera il perimetro del tuo team.

@@ -1,179 +1,80 @@
-# 📚 Formazione — Guida Team Leader
+# Formazione - Guida Team Leader
 
-Per un Team Leader questa pagina serve a far crescere il team in modo strutturato. Qui trasformi errori ricorrenti in training, gestisci richieste in attesa e controlli se il feedback viene davvero letto e applicato.
+Per il team leader questa pagina e una leva di crescita del team. Qui trasformi errori ricorrenti in training, gestisci richieste in attesa e controlli se il feedback viene davvero letto e applicato.
 
-## Cosa fai qui come Team Leader
+## Per chi e
 
-- Monitora training erogati, richieste ricevute e tempi di presa visione.
-- Decidi priorita formative in base ai problemi reali del team.
-- Usi le discussioni per chiarire standard e aspettative operative.
+Per il team leader che segue la crescita dei membri del proprio team.
 
-## Quando intervenire
+## Quando la apri
 
-- Richieste formazione ferme troppo a lungo.
-- Training non letti o ignorati.
-- Errori ripetuti nello stesso ruolo o nella stessa persona.
+- Quando un pattern operativo richiede un training strutturato.
+- Quando ricevi richieste di formazione dal team.
+- Quando vuoi verificare lettura, adozione e storico formativo di un membro.
 
-# 📚 Sistema Formazione — Guida completa per professionisti
+## Cosa vedi
 
-Il sistema Formazione è la tua piattaforma di apprendimento continuo, dove ricevi feedback, training personalizzati e puoi richiedere sessioni formative specifiche. È progettato per supportare la tua crescita professionale attraverso valutazioni strutturate e percorsi di apprendimento.
+- I tuoi training ricevuti.
+- I training che hai erogato.
+- Le richieste ricevute e quelle inviate.
+- La vista team dei professionisti autorizzati nel tuo perimetro.
 
-## 🏠 Come Arrivare Qui
+## Cosa puoi fare
 
-- Dal menu principale: "Formazione" o "La tua Formazione"
-- URL diretta: `/formazione`
-- È accessibile solo ai professionisti autorizzati
+- Aprire lo storico formativo dei membri del tuo team.
+- Creare training per professionisti autorizzati.
+- Gestire richieste ricevute e trasformarle in training concreti.
+- Leggere chi conferma, chi risponde e chi lascia aperto il feedback.
 
-## 🟢 Quello che Vedi Subito (Dashboard Formazione)
+## Cosa non puoi fare
 
-### Le 4 Card Statistiche (In Alto)
+- Creare training per utenti fuori dal tuo perimetro.
+- Trattare la pagina come dashboard globale di tutta l'azienda.
+- Usare filtri o membri fuori dalla specialita consentita quando il tuo profilo e ristretto.
 
-![Dashboard Formazione](../screenshots/formazione/dashboard_rapida.png)
+## Come usarla bene
 
-Ogni card rappresenta una metrica chiave del tuo percorso formativo:
+### Vista team
 
-#### 📖 **Training Ricevuti** (Viola)
-- **Cosa sono**: Valutazioni e feedback ricevuti dai colleghi
-- **Esempi**: "Feedback trimestrale Q1 2025", "Valutazione performance mensile"
-- **Quando appaiono**: Quando colleghi o superiori scrivono training
-- **Badge rosso**: Numero di training da confermare lettura
+Questa non e una lista anagrafica: e una vista di supervisione. Serve a capire chi riceve feedback, chi lo chiude e dove il team ripete gli stessi errori.
 
-#### 📤 **Richieste Inviate** (Azzurro)
-- **Cosa sono**: Richieste di training che hai inviato
-- **Esempi**: "Richiesta formazione diabetologia", "Training gestione pazienti complessi"
-- **Quando appaiono**: Quando invii richieste ai tuoi responsabili
-- **Badge giallo**: Numero di richieste in attesa di risposta
+### Training erogati
 
-#### 💬 **Messaggi non letti** (Arancione/Giallo)
-- **Cosa sono**: Messaggi nelle discussioni dei training
-- **Esempi**: "Risposta al tuo commento", "Domanda dal reviewer"
-- **Quando appaiono**: Quando colleghi rispondono nelle chat dei training
+Scrivili quando vuoi correggere un comportamento, standardizzare un passaggio o consolidare un buon metodo. Ogni training deve avere un obiettivo pratico.
 
-#### ✅ **Completati** (Verde)
-- **Cosa sono**: Training e richieste completate con successo
-- **Esempi**: Training confermati, richieste soddisfatte
-- **Quando appaiono**: Dopo conferma lettura o completamento richieste
+### Richieste ricevute
 
-**Cliccando su una card**: Vai automaticamente al tab corrispondente.
+Trattale come segnale dal basso. Se un membro chiede aiuto su un tema ricorrente, puo diventare un training utile anche per altri.
 
-## 📊 I Due Tab Principali
+## Segnali da non ignorare
 
-![Panoramica Organizzazione](../screenshots/formazione/organizzazione.png)
+- Molti training non confermati.
+- Richieste che restano in attesa troppo a lungo.
+- Stesso errore ripetuto nonostante feedback gia erogati.
 
-### Tab "Training Ricevuti" (Default)
+## Scenari pratici
 
-#### Come È Organizzata la Lista
+### Scenario 1: "Vedo un errore ricorrente nel team"
 
-![Lista Training](../screenshots/formazione/i_tuoi_training.png)
-- **Righe**: Ogni riga è un training ricevuto
-- **Informazioni**: Titolo, reviewer, data, tipo, stato conferma
-- **Espansione**: Clicca per vedere contenuto completo
+1. Apro Formazione.
+2. Entro sul professionista coinvolto.
+3. Verifico storico e feedback gia dati.
+4. Creo un training chiaro, pratico e tracciabile.
 
-#### Elementi di Ogni Training
+### Scenario 2: "Ricevo una richiesta di supporto"
 
-##### Header (Sempre Visibile)
-- **Titolo**: Nome del training (es. "Feedback trimestrale Q1")
-- **Reviewer**: Chi ha scritto il training
-- **Data**: Quando è stato creato
-- **Tipo**: Badge colorato (Generale, Performance, Progetto, Mensile, Annuale)
-- **Stato**: Badge verde "Confermato" o giallo "Da confermare"
-- **Messaggi**: Badge rosso con numero messaggi non letti
+1. Leggo la richiesta ricevuta.
+2. Capisco se e un bisogno individuale o un pattern di team.
+3. Rispondo o preparo il training corretto.
+4. Seguo poi la conferma lettura e l'adozione.
 
-##### Contenuto Espanso (Al Clic)
+### Scenario 3: "Controllo se la formazione produce cambiamento"
 
-###### Periodo (Opzionale)
-- **Quando presente**: Mostra il periodo di riferimento del training
-- **Formato**: "Periodo: 01/01/2025 - 31/03/2025"
+1. Guardo chi ha training aperti o non confermati.
+2. Verifico i messaggi e le risposte.
+3. Porto il tema in coaching se il training non basta.
+4. Correggo metodo, non solo sintomo.
 
-###### Contenuto Principale
-- **Testo principale**: Il feedback o contenuto formativo
-- **Sfondo bianco**: Per massima leggibilità
+## Quando escalare
 
-###### Sezioni Strutturate (Opzionali)
-- **🟢 Punti di Forza**: Cosa hai fatto bene (sfondo verde chiaro)
-- **🟡 Aree di Miglioramento**: Cosa migliorare (sfondo giallo chiaro)
-- **🔵 Obiettivi**: Prossimi passi (sfondo blu chiaro)
-
-###### Stato Conferma
-- **Da confermare**: Alert giallo con pulsante "Conferma Lettura"
-- **Confermato**: Alert verde con data e note eventuali
-
-###### Discussione
-- **Chat integrata**: Per domande e chiarimenti
-- **Messaggi**: Cronologia conversazione
-- **Input**: Scrivi nuovi messaggi (invio con Enter o pulsante)
-
-### Tab "Le Mie Richieste"
-
-#### Come È Organizzata la Lista
-- **Righe**: Ogni riga è una richiesta inviata
-- **Informazioni**: Oggetto, destinatario, data, priorità, stato
-- **Espansione**: Clicca per vedere dettagli completi
-
-#### Stati delle Richieste
-
-##### 🔄 **In Attesa** (Giallo)
-- **Significato**: Richiesta inviata, attesa risposta
-- **Azioni**: Puoi cancellare la richiesta
-- **Icona**: Orologio
-
-##### 🔵 **In Preparazione** (Azzurro)
-- **Significato**: Richiesta accettata, training in preparazione
-- **Azioni**: Nessuna, attendi il training
-- **Icona**: Spunta
-
-##### 🟢 **Completata** (Verde)
-- **Significato**: Training creato e disponibile
-- **Azioni**: Pulsante "Visualizza Training"
-- **Icona**: Doppia spunta
-
-##### 🔴 **Rifiutata** (Rosso)
-- **Significato**: Richiesta non accolta
-- **Azioni**: Leggi motivazione e eventualmente rifai richiesta
-- **Icona**: Croce
-
-## 🎯 Come Usare il Sistema Formazione
-
-### Scenario 1: "Ricevo un nuovo training"
-1. **Vedi badge rosso** nella card "Training Ricevuti"
-2. **Clicca sul tab** "Training Ricevuti"
-3. **Trova il training** giallo "Da confermare"
-4. **Leggi attentamente** tutto il contenuto
-5. **Scrivi commenti** nella discussione se necessario
-6. **Conferma lettura** cliccando "Conferma Lettura"
-7. **Aggiungi note** se vuoi lasciare feedback
-
-### Scenario 2: "Voglio richiedere una formazione specifica"
-![Richiedi Formazione](../screenshots/formazione/richiedi_formazione.png)
-1. **Clicca "Richiedi Training"** in alto a destra
-2. **Seleziona destinatario** dal menu a tendina (responsabili)
-3. **Scrivi oggetto** chiaro e specifico
-4. **Aggiungi descrizione** dettagliata di cosa vuoi imparare
-5. **Imposta priorità** (bassa, normale, alta, urgente)
-6. **Invia richiesta** e attendi risposta
-
-### Scenario 3: "Partecipare a una discussione su un training"
-1. **Apri il training** espandendo la riga
-2. **Scorri alla sezione** "Discussione"
-3. **Leggi messaggi precedenti** se presenti
-4. **Scrivi risposta** nel campo input
-5. **Invia** con Enter o pulsante
-6. **Ricevi notifiche** per nuove risposte
-
-### Scenario 4: "Gestire richieste rifiutate"
-1. **Vai al tab** "Le Mie Richieste"
-2. **Trova richiesta** con badge rosso "Rifiutata"
-3. **Leggi motivazione** nella sezione espansa
-4. **Valuta se rifare** richiesta con modifiche
-5. **Oppure accetta** il rifiuto e prosegui diversamente
-
----
-
-> [!TIP]
-> **La formazione continua è chiave**: Usa questo sistema per crescere professionalmente attraverso feedback costanti e apprendimento mirato.
-
-> [!IMPORTANT]
-> **Conferma lettura**: È obbligatoria per completare il ciclo formativo e permettere al reviewer di sapere che il feedback è stato ricevuto.
-
-> [!NOTE]
-> **Richieste intelligenti**: Il sistema propone automaticamente i destinatari appropriati basandosi sulla tua posizione e dipartimento.</content>
+Coinvolgi CCO, admin o direzione se la formazione riguarda processi cross-team, policy aziendali o casi fuori dal tuo perimetro di leadership.

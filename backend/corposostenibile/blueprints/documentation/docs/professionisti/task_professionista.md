@@ -1,161 +1,84 @@
-# 📋 Sistema Task — Guida Professionista
+# Sistema Task - Guida Professionista
 
-Per il professionista la pagina Task e la propria agenda operativa. Serve a decidere rapidamente da cosa partire, completare le attivita nel flusso giusto e saltare subito nella scheda paziente corretta.
+La pagina Task e la tua agenda operativa. Serve a capire cosa devi chiudere tu, con quale priorita e su quale paziente devi entrare subito.
 
-## Cosa fai qui come Professionista
+## Per chi e
 
-- Ordini il lavoro per scadenza, categoria e urgenza.
-- Completi i task direttamente dalla lista quando possibile.
-- Usi il collegamento rapido per entrare subito nel contesto corretto.
+Per il professionista che gestisce i propri task.
+
+## Quando la apri
+
+- Per vedere le attivita assegnate a te.
+- Per decidere l'ordine di lavoro della giornata.
+- Per saltare rapidamente nella scheda paziente corretta.
+
+## Cosa vedi
+
+- I task assegnati a te.
+- Le statistiche del tuo backlog operativo.
+- Le categorie utili al tuo lavoro quotidiano.
+
+## Cosa puoi fare
+
+- Filtrare i task per categoria o stato.
+- Completare i task assegnati a te.
+- Creare task nel tuo perimetro personale.
+- Usare il link di navigazione per entrare nel paziente corretto.
+
+## Cosa non puoi fare
+
+- Vedere il backlog dell'intero team.
+- Assegnare attivita ai colleghi.
+- Chiudere task di altri professionisti.
+
+## Come leggerla bene
+
+### Card iniziali
+
+Usale per capire dove si concentra il lavoro: onboarding, check, reminder, formazione, solleciti o task generici.
+
+### Lista task
+
+Le colonne che contano di piu sono:
+
+- Attivita: cosa devi fare davvero.
+- Cliente: su chi devi intervenire.
+- Scadenza: quando il task diventa urgente.
+- Priorita: quanto va anticipato.
+
+### Pulsante di navigazione
+
+Se il task e collegato a un paziente, usalo per entrare direttamente nella pagina giusta e non perdere contesto.
 
 ## Segnali da non ignorare
 
-- Task scaduti da piu giorni.
-- Solleciti ripetuti sullo stesso paziente.
-- Reminder legati a rinnovi o cambi stato.
+- Task scaduti che restano visibili per piu giorni.
+- Reminder ripetuti sullo stesso paziente.
+- Molti task aperti senza una chiusura reale sul caso.
 
-# 📋 Sistema Task — Guida completa per professionisti
+## Scenari pratici
 
-Il sistema Task è il tuo assistente digitale personale per gestire tutte le attività quotidiane, scadenze e solleciti. È progettato per aiutarti a non dimenticare nulla e organizzare il lavoro in modo efficiente.
+### Scenario 1: "Decido da cosa partire"
 
-## 🏠 Come Arrivare Qui
+1. Apro Task.
+2. Guardo scadenze e priorita.
+3. Parto dai task che sbloccano un paziente o evitano ritardi.
+4. Chiudo ogni task solo dopo avere lasciato avanzamento vero sul caso.
 
-- Dal menu principale: "Task" o "Le tue Attività"
-- URL diretta: `/task`
-- È accessibile solo ai professionisti autorizzati
+### Scenario 2: "Trovo un check da leggere subito"
 
-## 🟢 Quello che Vedi Subito (Dashboard Task)
+1. Filtro la categoria corretta.
+2. Apro il task.
+3. Entro nel paziente collegato.
+4. Lavoro il caso e poi completo il task.
 
-![Dashboard Task](../screenshots/task/dashboard_task.png)
+### Scenario 3: "Capisco se sono in backlog"
 
-### Le 6 Card Statistiche (In Alto)
+1. Controllo quanti task aperti hai davvero.
+2. Isolo quelli scaduti o ricorrenti.
+3. Chiudi prima quelli che impattano il paziente.
+4. Se il carico non e piu gestibile, segnala il tema al team leader.
 
-Ogni card rappresenta una categoria di task con il numero di attività aperte:
+## Quando escalare
 
-#### 📋 **Onboarding** (Blu)
-- **Cosa sono**: Attività di benvenuto per nuovi clienti
-- **Esempi**: "Call iniziale con Mario Rossi", "Invio materiale di benvenuto"
-- **Quando appaiono**: Automaticamente quando un cliente viene assegnato
-
-#### ✅ **Check** (Verde)
-- **Cosa sono**: Controlli periodici e valutazioni
-- **Esempi**: "Check settimanale cliente", "Valutazione mensile progresso"
-- **Quando appaiono**: Secondo il calendario check del cliente
-
-#### ⏰ **Reminder** (Arancione)
-- **Cosa sono**: Promemoria per scadenze importanti
-- **Esempi**: "Scadenza abbonamento tra 7 giorni", "Rinnovo piano alimentare"
-- **Quando appaiono**: Automaticamente prima delle scadenze critiche
-
-#### 📚 **Formazione** (Viola)
-- **Cosa sono**: Attività di apprendimento e training
-- **Esempi**: "Corso online da completare", "Aggiornamento procedure"
-- **Quando appaiono**: Quando vengono assegnati corsi o formazioni
-
-#### 🚨 **Solleciti** (Rosso)
-- **Cosa sono**: Richiami per clienti che non rispondono
-- **Esempi**: "Cliente non ha fatto check settimana scorsa", "Sollecito appuntamento mancato"
-- **Quando appaiono**: Automaticamente quando un cliente diventa "ghost"
-
-#### 📝 **Generico** (Grigio)
-- **Cosa sono**: Task manuali creati dai colleghi
-- **Esempi**: "Chiamare fornitore", "Aggiornare documentazione"
-- **Quando appaiono**: Quando un collega ti assegna un task manuale
-
-**Cliccando su una card**: Filtra automaticamente i task di quella categoria.
-
-## 📊 La Tabella Principale (Lista Task)
-
-![Tabella Task](../screenshots/task/la_tua_lista_attivita.png)
-
-### Come È Organizzata
-- **Righe**: Ogni riga è un task da completare
-- **Colonne**: Checkbox, Attività, Categoria, Cliente, Scadenza, Priorità, Azioni
-
-### Colonna "Checkbox" (Completamento)
-- **Vuota**: Task da fare
-- **Spuntata**: Task completato
-- **Come completare**: Clicca sulla checkbox per segnare come fatto
-- **Effetto**: Il task sparisce dalla vista (se non stai mostrando i completati)
-
-### Colonna "Attività"
-- **Titolo**: Descrizione breve del task
-- **Descrizione**: Dettagli aggiuntivi (se presenti)
-- **Stile**: Barrato quando completato
-
-### Colonna "Categoria"
-- **Badge colorato**: Identifica il tipo di task
-- **Icona**: Aiuta a riconoscere velocemente il tipo
-
-### Colonna "Cliente"
-- **Nome**: Cliente collegato al task (se presente)
-- **Avatar**: Iniziali del cliente in un cerchio
-- **Vuoto**: Task non collegato a un cliente specifico
-
-### Colonna "Scadenza"
-- **Oggi/Ieri**: Date relative per task urgenti
-- **Data**: Giorno e mese per task futuri
-- **Rosso**: Task scaduti (da fare urgentemente!)
-
-### Colonna "Priorità"
-- **Colore**: Verde (bassa), Giallo (media), Rosso (alta/urgente)
-- **Pallino**: Indicatore visivo accanto al testo
-
-### Colonna "Azioni"
-- **Freccia destra**: Pulsante "Vai" per task collegati
-- **Visibile solo**: Per task non completati e con collegamenti
-
-## 🔄 Filtri e Navigazione
-
-![Filtri](../screenshots/task/filtri_comodi.png)
-
-### Tab in Alto (Filtraggio per Categoria)
-- **Tutti**: Mostra tutti i task aperti
-- **Per categoria**: Mostra solo quella categoria
-- **Conteggio**: Numero di task per ogni tab
-- **Nasconde tab vuote**: Se non hai task in una categoria, il tab sparisce
-
-### Switch "Mostra Completate"
-- **Posizione**: In alto a destra
-- **Funzione**: Mostra anche i task già completati
-- **Uso**: Per vedere lo storico o ricontrollare qualcosa
-
-### Pulsante Refresh
-- **Icona**: Freccia circolare
-- **Funzione**: Ricarica la lista e le statistiche
-- **Quando usare**: Se vedi dati vecchi o dopo modifiche
-
-## 🚀 Navigazione Intelligente
-
-### Come Funziona il Pulsante "Vai"
-Quando clicchi "Vai" su un task, il sistema ti porta automaticamente:
-
-#### Per Task "Check"
-- **Destinazione**: Scheda cliente, tab "Check"
-- **Perché**: Per gestire i controlli periodici
-
-#### Per Task "Solleciti" e "Onboarding"
-- **Destinazione**: Scheda cliente principale
-- **Perché**: Per contattare il cliente o gestire l'ingresso
-
-#### Per Task "Reminder"
-- **Destinazione**: Scheda cliente principale
-- **Perché**: Per gestire scadenze e rinnovi
-
-#### Per Task "Formazione"
-- **Destinazione**: Link esterno o sezione formazione
-- **Perché**: Per accedere ai materiali didattici
-
-#### Per Task "Generico"
-- **Destinazione**: Dipende dal payload del task
-- **Perché**: Collegamento personalizzato dal creatore
----
-
-> [!TIP]
-> **Il sistema Task è il tuo assistente**: Aiuta a non dimenticare nulla e mantiene organizzato il lavoro con i clienti.
-
-> [!IMPORTANT]
-> **Task automatici**: Sono generati dal sistema per tua sicurezza. Non ignorarli!
-
-> [!NOTE]
-> **Pulizia automatica**: I task completati vengono nascosti per mantenere la lista gestibile.</content>
+Coinvolgi il team leader se il problema non e il singolo task ma il volume, la priorita o un blocco che richiede coordinamento di team.
