@@ -538,6 +538,7 @@ def create_app(config_name: str | None = None) -> Flask:
             '/review/api/',
             '/health',
             '/teams-kanban/',
+            '/old-suite/',
         ]
 
         # In SPA mode we want /auth/* pages to be handled by React routes.
