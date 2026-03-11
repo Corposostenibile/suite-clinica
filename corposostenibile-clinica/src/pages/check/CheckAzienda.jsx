@@ -80,19 +80,28 @@ function CheckAzienda() {
 
   // Tour
   const [mostraTour, setMostraTour] = useState(false);
+  const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
   const [searchParams] = useSearchParams();
   const isProfessionista = isProfessionistaStandard(user);
   const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
   const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
+  const tourAudience = isAdminOrCco
+    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
+    : (isTeamLeaderRestricted ? 'team_leader' : 'professionista');
+  const isTeamLeaderTour = tourAudience === 'team_leader';
 
   useEffect(() => {
     if (searchParams.get('startTour') === 'true') {
+      const requestedAudience = searchParams.get('tourAudience');
+      if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+        setTourAudienceOverride(requestedAudience);
+      }
       setMostraTour(true);
     }
   }, [searchParams]);
 
-  const tourSteps = useMemo(() => ((isTeamLeaderRestricted || isAdminOrCco) ? [
+  const tourSteps = useMemo(() => (isTeamLeaderTour ? [
     { target: '[data-tour="header"]', title: 'Controllo Qualita Team', content: 'Questa pagina ti aiuta a monitorare qualita, tempi di lettura e segnali di rischio nel team.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
     { target: '[data-tour="kpi-dashboard"]', title: 'KPI di Reparto', content: 'Leggi i numeri come segnali di supervisione: verde stabile, giallo migliorabile, rosso da approfondire subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
     { target: '[data-tour="period-filters"]', title: 'Orizzonte Temporale', content: 'Cambia periodo per capire se il problema e episodico o strutturale.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
@@ -116,7 +125,7 @@ function CheckAzienda() {
     { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Foto caricate dal paziente. Cliccaci sopra per ingrandirle.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="check-ratings"]', title: 'Valutazioni e Feedback', content: 'Leggi voti e feedback testuali insieme per capire cosa correggere.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
     { target: '[data-tour="check-reflections"]', title: 'Riflessioni', content: 'Qui trovi note del paziente su cosa ha funzionato e sui prossimi obiettivi.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
-  ]), [isTeamLeaderRestricted, isAdminOrCco]);
+  ]), [isTeamLeaderTour]);
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);
@@ -1178,7 +1187,10 @@ function CheckAzienda() {
         pageDescription="Monitora la qualità del servizio, analizza i KPI dei professionisti e gestisci le criticità in tempo reale."
         pageIcon={({ size, color }) => <i className="ri-line-chart-line" style={{ fontSize: size, color }} />}
         docsSection="check-azienda"
-        onStartTour={() => setMostraTour(true)}
+        onStartTour={(audience) => {
+          setTourAudienceOverride(audience);
+          setMostraTour(true);
+        }}
         brandName="Suite Clinica"
         logoSrc="/suitemind.png"
         accentColor="#22c55e"

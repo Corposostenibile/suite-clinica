@@ -172,11 +172,11 @@ function SupportWidget({
   // =========================================================================
 
   // Avvia il tour guidato
-  const handleStartTour = () => {
+  const handleStartTour = (audience = guideAudience) => {
     setIsOpen(false);
     if (onStartTour) {
       // Piccolo delay per permettere la chiusura del pannello
-      setTimeout(() => onStartTour(), 300);
+      setTimeout(() => onStartTour(audience), 300);
     }
   };
 
@@ -451,13 +451,36 @@ function SupportWidget({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
               {/* Opzione 1: Tour Guidato */}
-              {onStartTour && (
+              {onStartTour && isAdminOrCco && (
+                <>
+                  <OpzioneAiuto
+                    icon={<FaRoute size={18} color="#059669" />}
+                    iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
+                    titolo="Tour Team Leader"
+                    descrizione="Apri il percorso di coordinamento e supervisione del team"
+                    onClick={() => handleStartTour('team_leader')}
+                    accentColor={accentColor}
+                  />
+                  <OpzioneAiuto
+                    icon={<FaRoute size={18} color="#0F766E" />}
+                    iconBg="linear-gradient(135deg, #CCFBF1, #99F6E4)"
+                    titolo="Tour Professionista"
+                    descrizione="Apri il percorso operativo pensato per il professionista"
+                    onClick={() => handleStartTour('professionista')}
+                    accentColor={accentColor}
+                  />
+                </>
+              )}
+
+              {onStartTour && !isAdminOrCco && (
                 <OpzioneAiuto
                   icon={<FaRoute size={18} color="#059669" />}
                   iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
-                  titolo="Tour Guidato"
-                  descrizione="Scopri le funzionalità passo dopo passo"
-                  onClick={handleStartTour}
+                  titolo={guideAudience === 'team_leader' ? 'Tour Team Leader' : 'Tour Guidato'}
+                  descrizione={guideAudience === 'team_leader'
+                    ? 'Scopri il percorso di coordinamento del team passo dopo passo'
+                    : 'Scopri le funzionalità passo dopo passo'}
+                  onClick={() => handleStartTour(guideAudience)}
                   accentColor={accentColor}
                 />
               )}

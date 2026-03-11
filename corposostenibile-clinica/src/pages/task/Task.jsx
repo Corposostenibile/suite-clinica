@@ -26,6 +26,7 @@ function Task() {
     const [loading, setLoading] = useState(true);
     const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
     const [mostraTour, setMostraTour] = useState(false);
+    const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
     const [searchParams] = useSearchParams();
     const [adminFilters, setAdminFilters] = useState({
         team_id: '',
@@ -57,10 +58,18 @@ function Task() {
         user?.specialty === 'cco'
     );
     const isTeamLeaderTaskViewer = Boolean(user?.role === 'team_leader' && !isGlobalTaskViewer);
+    const tourAudience = isGlobalTaskViewer
+        ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
+        : (isTeamLeaderTaskViewer ? 'team_leader' : 'professionista');
+    const isTeamLeaderTaskTour = tourAudience === 'team_leader';
     const showAssigneeColumn = isGlobalTaskViewer || isTeamLeaderTaskViewer;
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
+            const requestedAudience = searchParams.get('tourAudience');
+            if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+                setTourAudienceOverride(requestedAudience);
+            }
             setMostraTour(true);
         }
     }, [searchParams]);
@@ -76,7 +85,7 @@ function Task() {
     );
 
     const tourSteps = useMemo(() => {
-        const base = (isTeamLeaderTaskViewer || isGlobalTaskViewer) ? [
+        const base = isTeamLeaderTaskTour ? [
             {
                 target: '[data-tour="header"]',
                 title: 'Console Team Task',
@@ -176,7 +185,7 @@ function Task() {
             }
         ];
 
-        if (isGlobalTaskViewer) {
+        if (isGlobalTaskViewer && isTeamLeaderTaskTour) {
             base.push({
                 target: '[data-tour="task-admin-filters"]',
                 title: 'Filtri di Supervisione',
@@ -185,7 +194,7 @@ function Task() {
                 icon: <FaFilter size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
             });
-        } else if (isTeamLeaderTaskViewer) {
+        } else if (isTeamLeaderTaskViewer && isTeamLeaderTaskTour) {
             base.push({
                 target: '[data-tour="task-team-filters"]',
                 title: 'Filtro Team Leader',
@@ -197,7 +206,7 @@ function Task() {
         }
 
         return base;
-    }, [isGlobalTaskViewer, isTeamLeaderTaskViewer]);
+    }, [isGlobalTaskViewer, isTeamLeaderTaskTour, isTeamLeaderTaskViewer]);
 
     const filteredTourSteps = tourSteps.filter(step => {
         if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) return false;
@@ -860,7 +869,10 @@ function Task() {
                 pageDescription="Organizza il tuo lavoro, gestisci i solleciti e monitora le scadenze dei pazienti."
                 pageIcon={FaTasks}
                 docsSection="task"
-                onStartTour={() => setMostraTour(true)}
+                onStartTour={(audience) => {
+                    setTourAudienceOverride(audience);
+                    setMostraTour(true);
+                }}
                 brandName="Suite Clinica"
                 logoSrc="/suitemind.png"
                 accentColor="#85FF00"

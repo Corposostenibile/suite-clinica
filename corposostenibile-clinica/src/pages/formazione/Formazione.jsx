@@ -85,15 +85,26 @@ function Formazione() {
 
     // Tour
     const [mostraTour, setMostraTour] = useState(false);
+    const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
     const [searchParams] = useSearchParams();
     const deepLinkTrainingId = parseInt(searchParams.get('trainingId') || '', 10);
     const deepLinkTrainingTab = searchParams.get('trainingTab');
+    const tourAudience = isAdmin
+        ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
+        : (isTeamLeader ? 'team_leader' : 'professionista');
+    const canManageTeamTrainingTour = tourAudience === 'team_leader';
 
     useEffect(() => {
-        if (searchParams.get('startTour') === 'true') setMostraTour(true);
+        if (searchParams.get('startTour') === 'true') {
+            const requestedAudience = searchParams.get('tourAudience');
+            if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+                setTourAudienceOverride(requestedAudience);
+            }
+            setMostraTour(true);
+        }
     }, [searchParams]);
 
-    const tourSteps = useMemo(() => (canManageTeamTraining ? [
+    const tourSteps = useMemo(() => (canManageTeamTrainingTour ? [
         {
             target: '[data-tour="header"]',
             title: 'Formazione del Team',
@@ -175,7 +186,7 @@ function Formazione() {
             icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
         },
-    ]), [canManageTeamTraining]);
+    ]), [canManageTeamTrainingTour]);
 
     // Pagination per sezioni
     const ITEMS_PER_SECTION = 10;
@@ -1414,7 +1425,10 @@ function Formazione() {
                     pageDescription="Gestisci la tua crescita professionale, visualizza i training assegnati e richiedi supporto formativo."
                     pageIcon={({ size, color }) => <i className="ri-graduation-cap-line" style={{ fontSize: size, color }} />}
                     docsSection="formazione"
-                    onStartTour={() => setMostraTour(true)}
+                    onStartTour={(audience) => {
+                        setTourAudienceOverride(audience);
+                        setMostraTour(true);
+                    }}
                     brandName="Suite Clinica"
                     logoSrc="/suitemind.png"
                     accentColor="#6366F1"
@@ -1529,7 +1543,10 @@ function Formazione() {
                 pageDescription="Gestisci la tua crescita professionale, visualizza i training assegnati e richiedi supporto formativo."
                 pageIcon="ri-graduation-cap-line"
                 docsSection="formazione"
-                onStartTour={() => setMostraTour(true)}
+                onStartTour={(audience) => {
+                    setTourAudienceOverride(audience);
+                    setMostraTour(true);
+                }}
                 brandName="Suite Clinica"
                 logoSrc="/suitemind.png"
                 accentColor="#6366F1"

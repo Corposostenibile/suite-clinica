@@ -68,15 +68,24 @@ function ClientiList() {
   });
 
   const [mostraTour, setMostraTour] = useState(false);
+  const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+
+  const tourAudience = isAdminOrCco
+    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
+    : (isTeamLeaderRestricted ? 'team_leader' : 'professionista');
 
   useEffect(() => {
     if (searchParams.get('startTour') === 'true') {
+      const requestedAudience = searchParams.get('tourAudience');
+      if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+        setTourAudienceOverride(requestedAudience);
+      }
       setMostraTour(true);
     }
   }, [searchParams]);
 
-  const tourSteps = useMemo(() => (isTeamLeaderRestricted ? [
+  const tourSteps = useMemo(() => (tourAudience === 'team_leader' ? [
     {
       target: '[data-tour="header"]',
       title: 'Lista Pazienti Team',
@@ -180,7 +189,7 @@ function ClientiList() {
       icon: <FaArrowRight size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
     }
-  ]), [isTeamLeaderRestricted]);
+  ]), [tourAudience]);
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
@@ -720,7 +729,10 @@ function ClientiList() {
         pageDescription="In questa pagina puoi gestire tutti i pazienti, filtrare per stato e specialità, e accedere alle schede dettaglio."
         pageIcon={FaUserFriends}
         docsSection="lista-pazienti"
-        onStartTour={() => setMostraTour(true)}
+        onStartTour={(audience) => {
+          setTourAudienceOverride(audience);
+          setMostraTour(true);
+        }}
         brandName="Suite Clinica"
         logoSrc="/suitemind.png"
         accentColor="#85FF00"

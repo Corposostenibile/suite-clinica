@@ -120,6 +120,7 @@ function ClientiDetail() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
   const isProfessionista = isProfessionistaStandard(user);
   const isHealthManager = isHealthManagerUser(user);
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
@@ -164,6 +165,11 @@ function ClientiDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('anagrafica');
+  const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
+  const tourAudience = isAdminOrCco
+    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
+    : (isRestrictedTeamLeader ? 'team_leader' : 'professionista');
+  const isTourTeamLeader = tourAudience === 'team_leader';
 
   // Tab scroll arrows
   const tabsRef = useRef(null);
@@ -198,7 +204,7 @@ function ClientiDetail() {
   }, []);
 
   // Tour Steps Definitions
-  const commonSteps = isRestrictedTeamLeader ? [
+  const commonSteps = isTourTeamLeader ? [
     {
       target: '[data-tour="header-dettaglio"]',
       title: 'Scheda Paziente Team Leader',
@@ -593,7 +599,10 @@ function ClientiDetail() {
   const [activeTourSteps, setActiveTourSteps] = useState([]);
   const [tourKey, setTourKey] = useState(0);
 
-  const handleTourStart = () => {
+  const handleTourStart = (audience = tourAudience) => {
+    if (audience === 'team_leader' || audience === 'professionista') {
+      setTourAudienceOverride(audience);
+    }
     // Definizione step di scelta iniziale
     const selectionStep = {
       target: '[data-tour="header-dettaglio"]', // Target a generic element
@@ -617,7 +626,7 @@ function ClientiDetail() {
               className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-2"
               onClick={() => handleTourSelection('general')}
             >
-              <FaLayerGroup /> {isRestrictedTeamLeader ? 'Panoramica Team Leader' : 'Panoramica Generale'}
+              <FaLayerGroup /> {audience === 'team_leader' ? 'Panoramica Team Leader' : 'Panoramica Generale'}
             </button>
             <button
               className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-2"
@@ -646,12 +655,17 @@ function ClientiDetail() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     if (searchParams.get('startTour') === 'true' && !loading) {
+        const requestedAudience = searchParams.get('tourAudience');
         // Avvia il tour con un leggero ritardo per assicurare il rendering
         setTimeout(() => {
-            handleTourStart();
+            handleTourStart(
+              requestedAudience === 'team_leader' || requestedAudience === 'professionista'
+                ? requestedAudience
+                : tourAudience
+            );
         }, 800);
     }
-  }, [searchParams, loading]);
+  }, [searchParams, loading, tourAudience]);
 
   useEffect(() => {
     const requestedTab = (searchParams.get('tab') || '').trim().toLowerCase();
