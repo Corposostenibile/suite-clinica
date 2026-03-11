@@ -21,6 +21,7 @@ from corposostenibile.models import (
     Team,
     User,
     UserRoleEnum,
+    Meeting,
     team_members,
 )
 
@@ -1274,6 +1275,153 @@ def api_get_free_slots():
             'success': False,
             'message': str(e)
         })
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    """Parse ISO datetime string with basic Z support."""
+    if not value or not isinstance(value, str):
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+@bp.route('/api/calendar/appointments', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_create_calendar_appointment():
+    """
+    Crea una prenotazione GHL dal frontend Suite Clinica.
+
+    Flusso pensato per professionista loggato: usa il suo account GHL
+    (calendar/user mapping personale) come default.
+    """
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({'success': False, 'message': 'Payload non valido'}), 400
+
+    start_time = _parse_iso_datetime(data.get('start_time'))
+    end_time = _parse_iso_datetime(data.get('end_time'))
+    if not start_time:
+        return jsonify({'success': False, 'message': 'start_time richiesto (ISO 8601)'}), 400
+    if not end_time:
+        duration_minutes = data.get('duration_minutes', 30)
+        try:
+            duration_minutes = int(duration_minutes)
+        except (TypeError, ValueError):
+            duration_minutes = 30
+        if duration_minutes <= 0:
+            duration_minutes = 30
+        end_time = start_time + timedelta(minutes=duration_minutes)
+    if end_time <= start_time:
+        return jsonify({'success': False, 'message': 'end_time deve essere successivo a start_time'}), 400
+
+    try:
+        from .calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+
+        if not service.is_configured():
+            return jsonify({'success': False, 'message': 'GHL non configurato'}), 400
+
+        requested_calendar_id = (data.get('calendar_id') or '').strip()
+        user_calendar_id = (current_user.ghl_calendar_id or '').strip()
+        calendar_id = requested_calendar_id or user_calendar_id
+        if not calendar_id:
+            return jsonify({
+                'success': False,
+                'message': 'Nessun calendario GHL associato. Configura ghl_calendar_id.'
+            }), 400
+
+        # Vincolo: il professionista usa il proprio calendario (o quello impostato di default).
+        if requested_calendar_id and not current_user.is_admin and user_calendar_id and requested_calendar_id != user_calendar_id:
+            return jsonify({
+                'success': False,
+                'message': 'Non autorizzato a prenotare su un calendario diverso dal proprio.'
+            }), 403
+
+        contact_id = (data.get('contact_id') or '').strip()
+        cliente_id = data.get('cliente_id')
+
+        cliente = None
+        if not contact_id and cliente_id is not None:
+            cliente = Cliente.query.get(cliente_id)
+            if not cliente:
+                return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
+
+            if cliente.ghl_contact_id:
+                contact_id = str(cliente.ghl_contact_id).strip()
+            else:
+                # Fallback: prova match su contatti GHL usando mail/telefono cliente.
+                email = (getattr(cliente, 'mail', None) or '').strip()
+                phone = (getattr(cliente, 'numero_telefono', None) or '').strip()
+                matches = service.search_contacts(email=email or None, phone=phone or None, limit=5)
+                if len(matches) == 1 and matches[0].get('id'):
+                    contact_id = str(matches[0]['id']).strip()
+                    cliente.ghl_contact_id = contact_id
+                    db.session.commit()
+
+        if not contact_id:
+            return jsonify({
+                'success': False,
+                'message': 'contact_id o cliente_id con contatto GHL associato richiesto'
+            }), 400
+
+        timezone = (data.get('timezone') or 'Europe/Rome').strip()
+        title = (data.get('title') or '').strip() or None
+        notes = (data.get('notes') or '').strip() or None
+
+        appointment = service.create_appointment(
+            calendar_id=calendar_id,
+            contact_id=contact_id,
+            start_time=start_time,
+            end_time=end_time,
+            title=title,
+            notes=notes,
+            timezone=timezone,
+            assigned_user_id=current_user.ghl_user_id or None,
+            appointment_status='confirmed',
+        )
+
+        appointment_id = (
+            appointment.get('id')
+            or appointment.get('appointment', {}).get('id')
+            if isinstance(appointment, dict) else None
+        )
+
+        # Persistiamo un Meeting locale minimo per tracciamento interno.
+        if appointment_id and not Meeting.query.filter_by(ghl_event_id=appointment_id).first():
+            meeting = Meeting(
+                ghl_event_id=appointment_id,
+                title=title or 'Meeting GHL',
+                start_time=start_time,
+                end_time=end_time,
+                cliente_id=cliente.cliente_id if cliente else None,
+                user_id=current_user.id,
+                status='scheduled',
+            )
+            db.session.add(meeting)
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Appuntamento creato con successo',
+            'appointment': appointment,
+            'calendar_id': calendar_id,
+            'contact_id': contact_id
+        }), 201
+
+    except Exception as e:
+        current_app.logger.error(f"[GHL] Error creating appointment: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Errore durante creazione appuntamento',
+            'details': str(e),
+        }), 500
 
 
 @bp.route('/api/calendar/connection-status', methods=['GET'])

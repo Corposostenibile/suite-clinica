@@ -256,8 +256,18 @@ class GHLCalendarService:
         endpoint = f"/calendars/events/appointments/{appointment_id}"
         return self._make_request("GET", endpoint)
 
-    def create_appointment(self, calendar_id, contact_id, start_time, end_time,
-                          title=None, notes=None, timezone="Europe/Rome"):
+    def create_appointment(
+        self,
+        calendar_id,
+        contact_id,
+        start_time,
+        end_time,
+        title=None,
+        notes=None,
+        timezone="Europe/Rome",
+        assigned_user_id=None,
+        appointment_status=None,
+    ):
         """
         Crea un nuovo appuntamento.
 
@@ -293,6 +303,10 @@ class GHLCalendarService:
             data["title"] = title
         if notes:
             data["notes"] = notes
+        if assigned_user_id:
+            data["assignedUserId"] = assigned_user_id
+        if appointment_status:
+            data["appointmentStatus"] = appointment_status
 
         return self._make_request("POST", endpoint, json_data=data)
 

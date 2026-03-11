@@ -172,6 +172,24 @@ const ghlService = {
   },
 
   /**
+   * Create appointment on GHL for current logged-in professional.
+   * @param {Object} payload
+   * @param {string} payload.start_time - ISO datetime
+   * @param {string} [payload.end_time] - ISO datetime
+   * @param {number} [payload.duration_minutes=30]
+   * @param {number} [payload.cliente_id]
+   * @param {string} [payload.contact_id]
+   * @param {string} [payload.calendar_id]
+   * @param {string} [payload.title]
+   * @param {string} [payload.notes]
+   * @param {string} [payload.timezone]
+   */
+  async createAppointment(payload) {
+    const response = await ghlApi.post('/calendar/appointments', payload);
+    return response.data;
+  },
+
+  /**
    * Get GHL connection status for current user
    */
   async getConnectionStatus() {

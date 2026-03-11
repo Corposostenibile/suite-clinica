@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useOutletContext } from 'react-router-dom';
 import ghlService from '../../services/ghlService';
+import calendarService from '../../services/calendarService';
 import './Calendario.css';
 
 function Calendario() {
@@ -10,12 +11,35 @@ function Calendario() {
   const [connected, setConnected] = useState(false);
   const [events, setEvents] = useState([]);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchRef = useRef(null);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState(null);
+  const [bookingForm, setBookingForm] = useState(() => {
+    const now = new Date();
+    const rounded = new Date(now);
+    rounded.setMinutes(Math.ceil(now.getMinutes() / 30) * 30, 0, 0);
+    return {
+      clienteQuery: '',
+      clienteId: null,
+      title: '',
+      notes: '',
+      date: rounded.toISOString().split('T')[0],
+      time: `${String(rounded.getHours()).padStart(2, '0')}:${String(rounded.getMinutes()).padStart(2, '0')}`,
+      duration: 30,
+    };
+  });
+  const [customerResults, setCustomerResults] = useState([]);
+  const [customerSearching, setCustomerSearching] = useState(false);
+  const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
+  const customerSearchRef = useRef(null);
+  const customerSearchTimerRef = useRef(null);
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const now = new Date();
     const day = now.getDay();
@@ -26,6 +50,7 @@ function Calendario() {
   const isAdmin = user?.is_admin || user?.role === 'admin';
   const isTeamLeader = user?.role === 'team_leader' && !isAdmin;
   const canFilter = isAdmin || isTeamLeader;
+  const canBookOnViewedCalendar = !selectedMemberId || Number(selectedMemberId) === Number(user?.id) || isAdmin;
 
   const formatDate = (d) => d.toISOString().split('T')[0];
 
@@ -51,9 +76,18 @@ function Calendario() {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setSearchOpen(false);
       }
+      if (customerSearchRef.current && !customerSearchRef.current.contains(e.target)) {
+        setCustomerDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => () => {
+    if (customerSearchTimerRef.current) {
+      clearTimeout(customerSearchTimerRef.current);
+    }
   }, []);
 
   const checkConnection = useCallback(async () => {
@@ -152,6 +186,165 @@ function Calendario() {
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
   };
 
+  const buildLocalIso = (dateStr, timeStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hour, minute] = timeStr.split(':').map(Number);
+    const localDate = new Date(year, month - 1, day, hour, minute, 0, 0);
+    const tzMinutes = -localDate.getTimezoneOffset();
+    const sign = tzMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(tzMinutes);
+    const tzH = String(Math.floor(abs / 60)).padStart(2, '0');
+    const tzM = String(abs % 60).padStart(2, '0');
+    return `${dateStr}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00${sign}${tzH}:${tzM}`;
+  };
+
+  const toLocalIsoFromDate = (dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const hh = String(dateObj.getHours()).padStart(2, '0');
+    const mm = String(dateObj.getMinutes()).padStart(2, '0');
+    const tzMinutes = -dateObj.getTimezoneOffset();
+    const sign = tzMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(tzMinutes);
+    const tzH = String(Math.floor(abs / 60)).padStart(2, '0');
+    const tzM = String(abs % 60).padStart(2, '0');
+    return `${y}-${m}-${d}T${hh}:${mm}:00${sign}${tzH}:${tzM}`;
+  };
+
+  const handleCustomerQueryChange = (value) => {
+    setBookingForm((prev) => ({
+      ...prev,
+      clienteQuery: value,
+      clienteId: null,
+    }));
+    setBookingError(null);
+    if (customerSearchTimerRef.current) clearTimeout(customerSearchTimerRef.current);
+
+    if (!value || value.trim().length < 3) {
+      setCustomerResults([]);
+      setCustomerDropdownOpen(false);
+      setCustomerSearching(false);
+      return;
+    }
+
+    setCustomerSearching(true);
+    setCustomerDropdownOpen(true);
+    customerSearchTimerRef.current = setTimeout(async () => {
+      try {
+        const result = await calendarService.searchCustomers(value.trim(), 15);
+        setCustomerResults(result.customers || []);
+      } catch {
+        setCustomerResults([]);
+      } finally {
+        setCustomerSearching(false);
+      }
+    }, 250);
+  };
+
+  const handleCreateAppointment = async (e) => {
+    e.preventDefault();
+    setBookingError(null);
+    setSuccessMessage(null);
+
+    if (!bookingForm.clienteId) {
+      setBookingError('Seleziona un cliente dalla ricerca.');
+      return;
+    }
+    if (!bookingForm.date || !bookingForm.time) {
+      setBookingError('Data e orario sono obbligatori.');
+      return;
+    }
+
+    const startIso = buildLocalIso(bookingForm.date, bookingForm.time);
+    const startDate = new Date(startIso);
+    const endDate = new Date(startDate.getTime() + Number(bookingForm.duration || 30) * 60000);
+    const endIso = toLocalIsoFromDate(endDate);
+
+    try {
+      setBookingSubmitting(true);
+
+      // Pre-check disponibilità: se rileviamo slot e l'orario non è libero, blocchiamo.
+      const slotsRes = await ghlService.getFreeSlots(bookingForm.date, bookingForm.date);
+      if (!slotsRes?.success) {
+        throw new Error(slotsRes?.message || 'Impossibile verificare disponibilità slot');
+      }
+      const flattenedIsoSlots = [];
+      const walk = (node) => {
+        if (!node) return;
+        if (Array.isArray(node)) {
+          node.forEach(walk);
+          return;
+        }
+        if (typeof node === 'object') {
+          Object.values(node).forEach(walk);
+          return;
+        }
+        if (typeof node === 'string' && node.includes('T') && node.includes(':')) {
+          const dt = new Date(node);
+          if (!Number.isNaN(dt.getTime())) {
+            flattenedIsoSlots.push(dt);
+          }
+        }
+      };
+      walk(slotsRes.slots);
+      if (flattenedIsoSlots.length > 0) {
+        const hasMatch = flattenedIsoSlots.some((d) => Math.abs(d.getTime() - startDate.getTime()) <= 60000);
+        if (!hasMatch) {
+          throw new Error('Lo slot selezionato non risulta disponibile. Aggiorna e scegli un altro orario.');
+        }
+      }
+
+      const payload = {
+        cliente_id: bookingForm.clienteId,
+        start_time: startIso,
+        end_time: endIso,
+        duration_minutes: Number(bookingForm.duration || 30),
+        title: bookingForm.title || 'Appuntamento professionista',
+        notes: bookingForm.notes || '',
+        timezone: 'Europe/Rome',
+      };
+      const res = await ghlService.createAppointment(payload);
+      if (!res?.success) {
+        throw new Error(res?.message || 'Errore creazione appuntamento');
+      }
+      setBookingOpen(false);
+      setSuccessMessage('Appuntamento creato con successo.');
+      await fetchEvents();
+      setBookingForm((prev) => ({
+        ...prev,
+        clienteQuery: '',
+        clienteId: null,
+        title: '',
+        notes: '',
+      }));
+    } catch (err) {
+      setBookingError(err?.response?.data?.message || err?.message || 'Errore creazione appuntamento');
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  const openBookingForDay = (dayDate) => {
+    const day = new Date(dayDate);
+    const today = new Date();
+    let hour = 9;
+    let minute = 0;
+    if (day.toDateString() === today.toDateString()) {
+      const rounded = new Date(today);
+      rounded.setMinutes(Math.ceil(today.getMinutes() / 30) * 30, 0, 0);
+      hour = rounded.getHours();
+      minute = rounded.getMinutes();
+    }
+    setBookingForm((prev) => ({
+      ...prev,
+      date: `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`,
+      time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+    }));
+    setBookingError(null);
+    setBookingOpen(true);
+  };
+
   const weekLabel = () => {
     const start = currentWeekStart;
     const end = getWeekEnd(start);
@@ -233,6 +426,19 @@ function Calendario() {
           <span className="cal-week-label">{weekLabel()}</span>
         </div>
         <div className="cal-header-actions">
+          {canBookOnViewedCalendar && (
+            <button
+              className="cal-nav-btn cal-booking-btn"
+              onClick={() => {
+                setBookingError(null);
+                setBookingOpen(true);
+              }}
+              title="Nuova prenotazione"
+            >
+              <i className="ri-calendar-check-line"></i>
+              Prenota
+            </button>
+          )}
           {/* Admin: search bar */}
           {isAdmin && teamMembers.length > 0 && (
             <div className="cal-search-wrap" ref={searchRef}>
@@ -356,6 +562,11 @@ function Calendario() {
           <i className="ri-error-warning-line"></i> {error}
         </div>
       )}
+      {successMessage && (
+        <div className="cal-alert cal-alert-success">
+          <i className="ri-checkbox-circle-line"></i> {successMessage}
+        </div>
+      )}
 
       {/* Loading */}
       {loading ? (
@@ -379,9 +590,20 @@ function Calendario() {
                       <span className="cal-day-name">
                         {day.toLocaleDateString('it-IT', { weekday: 'short' })}
                       </span>
-                      <span className={`cal-day-num ${isToday ? 'cal-today-num' : ''}`}>
-                        {day.getDate()}
-                      </span>
+                      <div className="cal-day-header-actions">
+                        <span className={`cal-day-num ${isToday ? 'cal-today-num' : ''}`}>
+                          {day.getDate()}
+                        </span>
+                        {canBookOnViewedCalendar && (
+                          <button
+                            className="cal-day-add-btn"
+                            title="Prenota in questo giorno"
+                            onClick={() => openBookingForDay(day)}
+                          >
+                            <i className="ri-add-line"></i>
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div className="cal-day-body">
                       {dayEvents.length === 0 ? (
@@ -424,6 +646,145 @@ function Calendario() {
       )}
 
       {/* ===== Event Detail Modal ===== */}
+      {bookingOpen && createPortal(
+        <div className="cal-modal-backdrop" onClick={() => setBookingOpen(false)}>
+          <div className="cal-modal cal-booking-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cal-modal-header">
+              <h5>
+                <span className="cal-modal-dot" style={{ background: '#25B36A' }}></span>
+                Nuova prenotazione
+              </h5>
+              <button className="cal-modal-close" onClick={() => setBookingOpen(false)}>
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+
+            <form className="cal-modal-body" onSubmit={handleCreateAppointment}>
+              <div className="cal-booking-grid">
+                <div className="cal-book-field cal-book-field-full" ref={customerSearchRef}>
+                  <label>Cliente</label>
+                  <input
+                    type="text"
+                    value={bookingForm.clienteQuery}
+                    onChange={(e) => handleCustomerQueryChange(e.target.value)}
+                    placeholder="Cerca cliente (min 3 caratteri)"
+                    onFocus={() => {
+                      if (customerResults.length > 0) setCustomerDropdownOpen(true);
+                    }}
+                  />
+                  {customerDropdownOpen && (
+                    <div className="cal-book-customer-dropdown">
+                      {customerSearching ? (
+                        <div className="cal-book-customer-item muted">Ricerca in corso...</div>
+                      ) : customerResults.length === 0 ? (
+                        <div className="cal-book-customer-item muted">Nessun cliente trovato</div>
+                      ) : (
+                        customerResults.map((c) => (
+                          <button
+                            type="button"
+                            key={c.cliente_id}
+                            className="cal-book-customer-item"
+                            onClick={() => {
+                              setBookingForm((prev) => ({
+                                ...prev,
+                                clienteId: c.cliente_id,
+                                clienteQuery: c.nome_cognome,
+                              }));
+                              setCustomerDropdownOpen(false);
+                            }}
+                          >
+                            <span>{c.nome_cognome}</span>
+                            {c.stato_cliente && <small>{c.stato_cliente}</small>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="cal-book-field">
+                  <label>Data</label>
+                  <input
+                    type="date"
+                    value={bookingForm.date}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, date: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="cal-book-field">
+                  <label>Orario</label>
+                  <input
+                    type="time"
+                    value={bookingForm.time}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, time: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="cal-book-field">
+                  <label>Durata (min)</label>
+                  <select
+                    value={bookingForm.duration}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, duration: Number(e.target.value) }))}
+                  >
+                    <option value={15}>15</option>
+                    <option value={30}>30</option>
+                    <option value={45}>45</option>
+                    <option value={60}>60</option>
+                  </select>
+                </div>
+
+                <div className="cal-book-field cal-book-field-full">
+                  <label>Titolo</label>
+                  <input
+                    type="text"
+                    value={bookingForm.title}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Es. Call 1to1 Iniziale"
+                  />
+                </div>
+
+                <div className="cal-book-field cal-book-field-full">
+                  <label>Note</label>
+                  <textarea
+                    value={bookingForm.notes}
+                    onChange={(e) => setBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Note opzionali"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              {bookingError && (
+                <div className="cal-alert cal-alert-danger" style={{ marginTop: 12 }}>
+                  <i className="ri-error-warning-line"></i> {bookingError}
+                </div>
+              )}
+
+              <div className="cal-modal-footer" style={{ marginTop: 16 }}>
+                <button
+                  type="submit"
+                  className="cal-modal-btn cal-modal-btn-primary"
+                  disabled={bookingSubmitting}
+                >
+                  {bookingSubmitting ? 'Creazione...' : 'Conferma prenotazione'}
+                </button>
+                <button
+                  type="button"
+                  className="cal-modal-btn cal-modal-btn-outline"
+                  onClick={() => setBookingOpen(false)}
+                  disabled={bookingSubmitting}
+                >
+                  Annulla
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {selectedEvent && createPortal((() => {
         const ev = selectedEvent;
         const st = getStatus(ev.status);

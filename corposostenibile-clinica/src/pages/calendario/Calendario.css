@@ -87,6 +87,18 @@
   font-weight: 600;
 }
 
+.cal-booking-btn {
+  background: #25B36A;
+  border-color: #25B36A;
+  color: #fff;
+}
+
+.cal-booking-btn:hover {
+  background: #1e9957;
+  border-color: #1e9957;
+  color: #fff;
+}
+
 /* ── Member Filter ── */
 .cal-member-select {
   height: 36px;
@@ -353,6 +365,12 @@
   color: #dc2626;
 }
 
+.cal-alert-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
 /* ── Loading ── */
 .cal-loading-wrap {
   background: #fff;
@@ -416,6 +434,12 @@
   align-items: center;
   padding: 12px 8px;
   border-bottom: 1px solid #f1f5f9;
+}
+
+.cal-day-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cal-day-name {
@@ -856,6 +880,118 @@
   font-size: 16px;
 }
 
+.cal-day-add-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid #dbe3ee;
+  background: #fff;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cal-day-add-btn:hover {
+  border-color: #25B36A;
+  color: #25B36A;
+  background: rgba(37, 179, 106, 0.06);
+}
+
+/* Booking form */
+.cal-booking-modal {
+  max-width: 640px;
+}
+
+.cal-booking-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cal-book-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cal-book-field-full {
+  grid-column: 1 / -1;
+}
+
+.cal-book-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.cal-book-field input,
+.cal-book-field select,
+.cal-book-field textarea {
+  width: 100%;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-size: 13px;
+  color: #1e293b;
+  background: #fff;
+  font-family: 'Poppins', sans-serif;
+}
+
+.cal-book-field input:focus,
+.cal-book-field select:focus,
+.cal-book-field textarea:focus {
+  outline: none;
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.1);
+}
+
+.cal-book-field textarea {
+  resize: vertical;
+  min-height: 78px;
+}
+
+.cal-book-customer-dropdown {
+  margin-top: 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.cal-book-customer-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 11px;
+  cursor: pointer;
+  text-align: left;
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.cal-book-customer-item small {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.cal-book-customer-item:hover {
+  background: #f8fafc;
+}
+
+.cal-book-customer-item.muted {
+  color: #94a3b8;
+  cursor: default;
+}
+
 /* Footer */
 .cal-modal-footer {
   display: flex;
@@ -977,5 +1113,9 @@
 
   .cal-modal-btn {
     justify-content: center;
+  }
+
+  .cal-booking-grid {
+    grid-template-columns: 1fr;
   }
 }
