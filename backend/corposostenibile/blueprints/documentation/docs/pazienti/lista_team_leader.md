@@ -1,86 +1,79 @@
 # Lista Pazienti - Guida Team Leader
 
-Questa pagina e una vista di coordinamento. La apri per capire dove il team si sta distribuendo bene, dove il flusso si sta rompendo e quali pazienti richiedono supervisione.
+Per il team leader questa pagina e una vista di coordinamento. Serve a leggere rapidamente il perimetro del team, individuare le aree da osservare con piu attenzione e aprire le schede che richiedono verifica.
 
-## Per chi e
+## Vista iniziale
 
-Per il team leader che lavora sui pazienti del proprio team. Se il tuo profilo e specialty-restricted, la lettura resta nel perimetro della tua specialita.
+In alto trovi una sintesi del perimetro che stai leggendo.
 
-## Quando la apri
+![Statistiche Rapide](../screenshots/clienti-lista/statistiche_rapide.png)
 
-- Per leggere il carico attuale del team.
-- Per controllare rinnovi a rischio e casi in ritardo.
-- Per isolare backlog, casi scoperti o passaggi incoerenti.
+### Cosa leggere subito
 
-## Cosa vedi
+- Totale pazienti presenti nella vista.
+- Distribuzione rapida per aree attive.
+- Andamento generale del gruppo che stai monitorando.
 
-- I pazienti del tuo perimetro team.
-- Filtri e tabella utili alla supervisione operativa.
-- I professionisti coinvolti nel caso e il momento del percorso.
+### Come usarla
 
-## Cosa puoi fare
+- Parti da qui per capire se il perimetro e stabile o richiede approfondimenti.
+- Usa i numeri come orientamento iniziale prima di entrare nel dettaglio dei singoli casi.
 
-- Individuare pazienti che richiedono attenzione del team leader.
-- Leggere dove si concentra il carico e dove il flusso si blocca.
-- Entrare rapidamente nella scheda paziente per verificare il caso.
-- Preparare riallocazioni o correzioni operative da fare nella scheda.
+## Ricerca e filtri
 
-## Cosa non puoi fare
+I filtri ti permettono di leggere la lista in modo mirato, senza scorrere tutta la coda.
 
-- Usare questa pagina come vista globale aziendale.
-- Leggere pazienti fuori dal tuo team.
-- Sostituirti al professionista su tutta l'operativita quotidiana.
+![Ricerca e Filtri](../screenshots/clienti-lista/ricerca_e_filtri.png)
 
-## Come leggerla bene
+### Strumenti principali
 
-### Numeri iniziali
+- Ricerca per nome.
+- Filtro stato del paziente.
+- Filtro tipologia o programma.
+- Filtri per professionista e area.
+- Reset completo della vista.
 
-Servono per capire se il perimetro e stabile oppure no. Non leggerli come KPI direzionali: qui il focus e operativo.
+### Buon uso dei filtri
 
-### Filtri
+- Usa i filtri per isolare gruppi di pazienti con caratteristiche comuni.
+- Stringi la lista quando vuoi verificare un'area, una fase del percorso o una distribuzione specifica.
+- Resetta la vista quando vuoi tornare al quadro completo.
 
-Usali per rispondere a domande di coordinamento:
+## Tabella pazienti
 
-- Quali pazienti stanno entrando in zona critica?
-- Dove si concentrano i rinnovi?
-- C'e una coda sbilanciata su un professionista o su una fase del percorso?
+La tabella raccoglie le informazioni essenziali del caso e permette di entrare rapidamente nella scheda corretta.
 
-### Tabella principale
+![Tabella Pazienti](../screenshots/clienti-lista/tabella-pazienti.png)
 
-- Nome Cognome: ingresso rapido alla verifica del caso.
-- Team: ti fa leggere a colpo d'occhio chi e coinvolto.
-- Data rinnovo: punto chiave per prevenire pazienti scoperti.
-- Stato e programma: servono a trovare incoerenze tra realta operativa e stato dichiarato.
+### Colonne principali
 
-## Segnali da non ignorare
+- `Nome Cognome`: accesso diretto alla scheda del paziente.
+- `Team`: lettura immediata delle figure coinvolte.
+- `Data inizio`: collocazione del caso nel tempo.
+- `Data rinnovo`: controllo delle scadenze.
+- `Programma`: tipo di percorso.
+- `Stato`: fase attuale del paziente.
 
-- Pazienti vicini al rinnovo senza passaggio recente.
-- Cluster di casi fermi sullo stesso professionista o sulla stessa fase.
-- Casi con team coinvolto ma senza ownership chiara.
+## Azioni rapide
 
-## Scenari pratici
+I pulsanti accanto a ogni riga permettono di aprire il caso senza passare dal menu.
 
-### Scenario 1: "Controllo i casi che rischiano di uscire dal flusso"
+![Azioni](../screenshots/clienti-lista/azioni.png)
 
-1. Apro la lista.
-2. Leggo rinnovi e stato.
-3. Isolo i pazienti senza avanzamento chiaro.
-4. Entro nelle schede per capire se serve coaching, riallocazione o sblocco.
+### Come usarle
 
-### Scenario 2: "Cerco un collo di bottiglia nel team"
+- Entra in scheda quando il caso richiede una verifica piu approfondita.
+- Usa la lista come punto di ingresso e la scheda come punto di analisi.
 
-1. Filtro il perimetro rilevante.
-2. Guardo dove si accumulano i casi.
-3. Verifico se il blocco e del singolo, del processo o della presa in carico.
-4. Porto l'azione corretta nella scheda paziente o nel lavoro di coordinamento.
+## Paginazione
 
-### Scenario 3: "Preparo una review di supervisione"
+La navigazione in basso mantiene leggibile anche una lista lunga.
 
-1. Seleziono i pazienti piu critici.
-2. Apro solo i casi con segnali concreti.
-3. Raccolgo esempi, non impressioni.
-4. Entro in review con elementi chiari per ogni paziente.
+![Paginazione](../screenshots/clienti-lista/paginazione.png)
 
-## Quando escalare
+## Come usare bene questa pagina
 
-Coinvolgi admin o direzione se il problema esce dal tuo perimetro team, richiede una decisione cross-team oppure riguarda configurazioni e permessi che il team leader non puo gestire.
+- Parti dai filtri per leggere il perimetro con un criterio preciso.
+- Usa stato, rinnovo e team per capire quali casi meritano attenzione.
+- Apri le schede solo dopo avere individuato il motivo dell'approfondimento.
+- Torna alla lista per verificare se il quadro generale resta coerente.

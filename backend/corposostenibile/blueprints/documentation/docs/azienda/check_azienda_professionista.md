@@ -1,83 +1,83 @@
 # Check Azienda - Guida Professionista
 
-Questa pagina ti aiuta a trasformare il feedback dei pazienti in azioni pratiche. Non e una dashboard manageriale: e uno strumento per leggere meglio il tuo perimetro e correggere il lavoro sui casi che segui.
+Questa pagina raccoglie i check compilati dai pazienti e li rende leggibili in modo ordinato. La usi per leggere feedback, aprire il dettaglio delle risposte e collegare quello che vedi al lavoro sul caso.
 
-## Per chi e
+## KPI iniziali
 
-Per il professionista che legge i check del proprio perimetro.
+In alto trovi una sintesi dei punteggi della vista che stai osservando.
 
-## Quando la apri
+![KPI Dashboard](../screenshots/check-azienda/i_numeri_chiave_kpi.png)
 
-- Per capire come stanno rispondendo i tuoi pazienti.
-- Per leggere segnali deboli prima che diventino problemi aperti.
-- Per collegare feedback, avanzamento e azioni sul caso.
+### Cosa mostrano
 
-## Cosa vedi
+- Nutrizione.
+- Psicologia.
+- Coach.
+- Progresso.
+- Quality.
 
-- I check che rientrano nel tuo perimetro.
-- La colonna e i feedback rilevanti per la tua specialita.
-- Il dettaglio utile a capire cosa il paziente sta dicendo del percorso.
+### Come leggerli
 
-## Cosa puoi fare
+- Usali come orientamento rapido prima di entrare nel dettaglio.
+- Guarda colori e andamento generale per capire dove concentrare l'attenzione.
 
-- Filtrare i check utili al tuo lavoro.
-- Aprire il dettaglio di un check.
-- Leggere il feedback collegato alla tua area.
-- Usare il check per decidere cosa fare sul paziente.
+## Filtri
 
-## Cosa non puoi fare
+La barra dei filtri ti aiuta a restringere i check e a leggere un gruppo di risposte alla volta.
 
-- Usare questa pagina come confronto tra colleghi.
-- Leggere KPI globali di qualita del team.
-- Analizzare performance cross-specialita come farebbe un team leader.
+![Filtro Periodo](../screenshots/check-azienda/periodo_temporale.png)
 
-## Come usarla bene
+![Filtri Professionisti](../screenshots/check-azienda/filtri_professionisti.png)
 
-### Lista check
+![Filtri Rapidi](../screenshots/check-azienda/filtri_rapidi_stato.png)
 
-Leggila per capire dove il paziente sta perdendo percezione di avanzamento, aderenza o qualita del rapporto.
+### Strumenti principali
 
-### Dettaglio check
+- Periodo temporale.
+- Tipo di professionista.
+- Professionista specifico.
+- Filtri rapidi come `Da migliorare`, `Voto negativo`, `Non letto`.
 
-Aprilo quando vuoi andare oltre il voto numerico e leggere:
+## Tabella risposte
 
-- feedback testuale;
-- progressi percepiti;
-- elementi che richiedono correzione concreta.
+Ogni riga rappresenta un check compilato da un paziente.
 
-### Segnale corretto
+![Tabella Risposte](../screenshots/check-azienda/tabella_risposte.png)
 
-Non limitarti a chiederti "il voto e alto o basso?". Chiediti invece: "cosa devo cambiare sul caso da domani?".
+### Cosa trovi
 
-## Segnali da non ignorare
+- Paziente e programma.
+- Data del check.
+- Valutazioni per area.
+- Stato di lettura.
+- Indicazione del progresso percepito.
 
-- Calo ripetuto sui feedback della tua area.
-- Check letti tardi o lasciati fermi.
-- Progresso percepito diverso da quello che pensavi di vedere sul caso.
+### Come usarla
 
-## Scenari pratici
+- Parti dalle righe che vuoi approfondire.
+- Apri il dettaglio quando il voto numerico non basta.
+- Usa lettura e feedback testuale per capire meglio il contesto.
 
-### Scenario 1: "Un paziente sta dando segnali negativi"
+## Dettaglio check
 
-1. Apro il check.
-2. Leggo voto, feedback e progresso.
-3. Entro nella scheda paziente.
-4. Aggiorno il mio lavoro sul caso in modo coerente.
+Aprendo una riga entri nella scheda completa del check.
 
-### Scenario 2: "Voglio capire se il mio follow-up sta funzionando"
+![Scheda Completa](../screenshots/check-azienda/scheda_completa.png)
 
-1. Controllo i check piu recenti.
-2. Isolo i pazienti con segnali deboli.
-3. Confronto il feedback con diario e ultimo passaggio.
-4. Correggo il metodo prima che il paziente si raffreddi.
+### Foto progressi
 
-### Scenario 3: "Non riesco a spiegare il peggioramento"
+![Foto Progressi](../screenshots/check-azienda/foto_progressi.png)
 
-1. Rileggo il dettaglio del check.
-2. Verifico se il problema e nel mio perimetro o no.
-3. Se dipende da me, correggo il lavoro.
-4. Se coinvolge piu figure, porto il caso al team leader.
+### Valutazioni e feedback
 
-## Quando escalare
+![Valutazioni](../screenshots/check-azienda/valutazioni_e_feedback.png)
 
-Coinvolgi il team leader quando il problema richiede lettura di team, confronto tra professionisti o intervento su un paziente che esce dal tuo solo perimetro operativo.
+### Riflessioni del paziente
+
+![Riflessioni](../screenshots/check-azienda/riflessioni.png)
+
+## Come usare bene questa pagina
+
+- Parti dal quadro generale e poi entra nel dettaglio delle singole risposte.
+- Rileggi i check in relazione alla scheda paziente e al lavoro piu recente.
+- Usa i filtri per non leggere tutto insieme e mantenere il focus.

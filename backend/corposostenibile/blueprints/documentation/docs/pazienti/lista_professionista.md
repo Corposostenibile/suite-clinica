@@ -1,82 +1,85 @@
 # Lista Pazienti - Guida Professionista
 
-Questa pagina e la tua coda operativa. La apri per capire su quali pazienti devi lavorare oggi, quali rinnovi stanno arrivando e quali schede devi aprire subito.
+Per il professionista questa pagina e il punto di ingresso al lavoro quotidiano. Serve a costruire rapidamente la propria coda di pazienti, isolare le priorita e arrivare alla scheda giusta senza passaggi inutili.
 
-## Per chi e
+## Vista iniziale
 
-Per il professionista che lavora sui pazienti del proprio perimetro.
+In alto trovi una sintesi del perimetro che stai leggendo.
 
-## Quando la apri
+![Statistiche Rapide](../screenshots/clienti-lista/statistiche_rapide.png)
 
-- All'inizio della giornata per costruire le priorita.
-- Quando devi ritrovare rapidamente un paziente.
-- Quando vuoi controllare rinnovi, stato del percorso e prossime attivita.
+### Cosa leggere subito
 
-## Cosa vedi
+- Totale pazienti presenti nella vista.
+- Suddivisione rapida per area attiva.
+- Andamento generale del perimetro che stai filtrando.
 
-- I pazienti che rientrano nel tuo perimetro operativo.
-- Filtri utili al lavoro quotidiano, non una dashboard di squadra.
-- La tabella con nome, team, date, programma, stato e accesso rapido alla scheda.
+### Come usarla
 
-## Cosa puoi fare
+- Parti da qui all'inizio della giornata per capire il volume di lavoro.
+- Se i numeri ti sembrano incoerenti, verifica i filtri attivi prima di entrare nelle schede.
 
-- Cercare un paziente per nome.
-- Filtrare la tua coda per stato o bisogno operativo.
-- Aprire la scheda paziente giusta senza passaggi inutili.
-- Usare rinnovo, stato e programma per decidere da dove partire.
+## Ricerca e filtri
 
-## Cosa non puoi fare
+La barra dei filtri ti permette di stringere rapidamente la lista e lavorare per blocchi omogenei.
 
-- Usare questa pagina come vista di coordinamento del team.
-- Leggere il carico di lavoro degli altri professionisti.
-- Riallocare pazienti o prendere decisioni di assegnazione da qui.
+![Ricerca e Filtri](../screenshots/clienti-lista/ricerca_e_filtri.png)
 
-## Come leggerla bene
+### Strumenti principali
 
-### Numeri iniziali
+- Ricerca per nome.
+- Filtro stato del paziente.
+- Filtro tipologia o programma.
+- Filtri per professionista e area.
+- Reset completo della vista.
 
-Leggili come semaforo rapido sul tuo perimetro. Se un valore ti sembra incoerente, confermalo aprendo le schede paziente piu critiche.
+### Buon uso dei filtri
 
-### Filtri
+- Usa la ricerca quando devi raggiungere subito un paziente specifico.
+- Usa stato, rinnovo e tipologia per organizzare il lavoro della giornata.
+- Resetta i filtri quando vuoi tornare alla vista completa.
 
-Usali per stringere la tua coda, non per fare analisi. Se hai troppi pazienti aperti, parti da stato, rinnovo e urgenze operative.
+## Tabella pazienti
 
-### Tabella principale
+La tabella e il cuore della pagina: ogni riga rappresenta un paziente e ti da accesso rapido alle informazioni essenziali.
 
-- Nome Cognome: apre la scheda giusta.
-- Team: ti ricorda chi e coinvolto nel caso, ma non serve a gestire assegnazioni.
-- Data rinnovo: e il segnale piu utile per prevenire ritardi e pazienti scoperti.
-- Stato e programma: ti aiutano a capire il momento del percorso.
+![Tabella Pazienti](../screenshots/clienti-lista/tabella-pazienti.png)
 
-## Segnali da non ignorare
+### Colonne principali
 
-- Pazienti vicini al rinnovo senza ultimo follow-up chiaro.
-- Casi con stato incoerente rispetto a quello che sai dal percorso.
-- Pazienti che continui a rimandare nella lista senza una prossima azione concreta.
+- `Nome Cognome`: apre la scheda del paziente.
+- `Team`: mostra a colpo d'occhio le figure coinvolte.
+- `Data inizio`: aiuta a collocare il paziente nel percorso.
+- `Data rinnovo`: evidenzia le scadenze da tenere presenti.
+- `Programma`: indica il tipo di percorso.
+- `Stato`: riassume la fase attuale del caso.
 
-## Scenari pratici
+## Azioni rapide
 
-### Scenario 1: "Organizzo la mia mattina"
+Accanto a ogni riga trovi i pulsanti che aprono la scheda paziente.
 
-1. Apro la lista.
-2. Filtro i pazienti piu urgenti.
-3. Controllo rinnovi e stati.
-4. Apro in sequenza le schede su cui devo lasciare un avanzamento reale.
+![Azioni](../screenshots/clienti-lista/azioni.png)
 
-### Scenario 2: "Cerco un caso fermo da giorni"
+### Come leggerle
 
-1. Cerco il paziente per nome.
-2. Entro in scheda.
-3. Verifico diario, note e ultimo passaggio utile.
-4. Decido la prossima azione senza lasciare il caso sospeso.
+- Usa il click sul nome o sui pulsanti azione per entrare subito nel caso.
+- Apri la scheda quando ti serve aggiornare diario, controllare lo storico o verificare una scadenza.
 
-### Scenario 3: "Capisco se rischio un rinnovo scoperto"
+## Paginazione
 
-1. Controllo le date di rinnovo.
-2. Individuo i pazienti vicini alla scadenza.
-3. Apro solo quelli senza avanzamento recente.
-4. Aggiorno la scheda o segnalo il rischio al team leader se serve coordinamento.
+Quando la lista e lunga, la navigazione in basso ti aiuta a scorrere i risultati senza perdere il contesto.
 
-## Quando escalare
+![Paginazione](../screenshots/clienti-lista/paginazione.png)
 
-Coinvolgi il team leader se il problema non e piu solo operativo ma di carico, assegnazione, incoerenza tra figure coinvolte o rischio di scopertura del paziente.
+### A cosa serve
+
+- Spostarti tra le pagine della lista.
+- Capire quanti risultati stai guardando.
+- Tenere ordinata la vista anche con molti pazienti.
+
+## Come usare bene questa pagina
+
+- Parti dai filtri, non dalla navigazione casuale.
+- Usa rinnovo e stato per definire la sequenza di lavoro.
+- Entra nella scheda paziente solo quando hai gia chiaro perche lo stai aprendo.
+- Torna qui dopo gli aggiornamenti per verificare la vista complessiva.

@@ -1,87 +1,82 @@
 # Check Azienda - Guida Team Leader
 
-Per il team leader questa pagina e uno strumento di controllo operativo. Serve a capire dove la qualita del servizio si abbassa, chi legge i check in ritardo e quali casi vanno portati in review con dati concreti.
+Per il team leader questa pagina e una vista di monitoraggio. Raccoglie i check dei pazienti, li sintetizza nei KPI iniziali e permette di entrare rapidamente nel dettaglio delle risposte quando vuoi approfondire un pattern o un gruppo di casi.
 
-## Per chi e
+## KPI iniziali
 
-Per il team leader che legge i check del proprio team. Se il tuo profilo e specialty-restricted, la lettura resta nella tua specialita e nel tuo perimetro.
+In alto trovi il quadro riassuntivo della vista corrente.
 
-## Quando la apri
+![KPI Dashboard](../screenshots/check-azienda/i_numeri_chiave_kpi.png)
 
-- Per monitorare segnali di qualita sul team.
-- Per capire se i check vengono letti e lavorati in tempo.
-- Per preparare coaching, review e azioni di coordinamento.
+### Cosa mostrano
 
-## Cosa vedi
+- Nutrizione.
+- Psicologia.
+- Coach.
+- Progresso.
+- Quality.
 
-- I check del tuo perimetro team.
-- KPI e tabella utili alla supervisione.
-- Filtri e dettagli per leggere pattern, ritardi e casi critici.
+### Come leggerli
 
-## Cosa puoi fare
+- Usali per orientarti prima di entrare nel dettaglio.
+- Confronta colori e andamento generale con i filtri attivi.
 
-- Individuare professionisti o casi che richiedono intervento.
-- Leggere trend e segnali di qualita del tuo perimetro.
-- Controllare se i check vengono letti in tempo.
-- Aprire il dettaglio per capire se il problema e del singolo, del processo o della presa in carico.
+## Filtri
 
-## Cosa non puoi fare
+I filtri permettono di restringere il monitoraggio per periodo, area o singolo professionista.
 
-- Usare questa pagina come dashboard aziendale globale.
-- Analizzare team fuori dal tuo perimetro.
-- Confondere il monitoraggio check con i moduli admin-only della quality avanzata.
+![Filtro Periodo](../screenshots/check-azienda/periodo_temporale.png)
 
-## Come usarla bene
+![Filtri Professionisti](../screenshots/check-azienda/filtri_professionisti.png)
 
-### KPI iniziali
+![Filtri Rapidi](../screenshots/check-azienda/filtri_rapidi_stato.png)
 
-Leggili come indicatori di rischio operativo. Non servono a fare reporting astratto ma a decidere dove intervenire.
+### Strumenti principali
 
-### Filtri
+- Periodo temporale.
+- Tipo di professionista.
+- Professionista specifico.
+- Filtri rapidi come `Da migliorare`, `Voto negativo`, `Non letto`.
 
-Usali per rispondere a domande precise:
+## Tabella risposte
 
-- chi sta leggendo in ritardo?
-- quali casi mostrano peggioramento?
-- il problema si concentra su una figura, una fase o un gruppo di pazienti?
+La tabella e il punto da cui entri nel dettaglio dei check.
 
-### Dettaglio check
+![Tabella Risposte](../screenshots/check-azienda/tabella_risposte.png)
 
-Qui devi distinguere bene:
+### Cosa trovi
 
-- problema del singolo professionista;
-- problema di coordinamento;
-- problema di processo o aspettative del paziente.
+- Paziente e programma.
+- Data del check.
+- Valutazioni per area.
+- Stato di lettura.
+- Progresso percepito.
 
-## Segnali da non ignorare
+### Come usarla
 
-- Clessidre o letture in ritardo ripetute.
-- Pattern di voto basso sulla stessa area.
-- Progressi percepiti che non corrispondono al racconto interno del team.
+- Usa la tabella per individuare gruppi di risposte da approfondire.
+- Apri le righe quando il quadro sintetico non basta e ti serve contesto.
 
-## Scenari pratici
+## Dettaglio check
 
-### Scenario 1: "Voglio capire se il team sta leggendo i check in tempo"
+La scheda completa mostra il contenuto della risposta in modo piu leggibile.
 
-1. Apro la pagina.
-2. Filtro il periodo rilevante.
-3. Controllo i segnali di mancata lettura.
-4. Distinguo ritardo occasionale da pattern strutturale.
+![Scheda Completa](../screenshots/check-azienda/scheda_completa.png)
 
-### Scenario 2: "Preparo una review su qualita e presa in carico"
+### Foto progressi
 
-1. Isolo i casi con feedback deboli.
-2. Entro nel dettaglio dei check.
-3. Raccolgo evidenze, non sensazioni.
-4. Porto in review esempi concreti per il team.
+![Foto Progressi](../screenshots/check-azienda/foto_progressi.png)
 
-### Scenario 3: "Capisco se il problema e del singolo o del processo"
+### Valutazioni e feedback
 
-1. Leggo il check.
-2. Verifico chi e coinvolto nel caso.
-3. Confronto feedback, tempi di lettura e presa in carico.
-4. Decido se fare coaching individuale, riallineamento team o escalation.
+![Valutazioni](../screenshots/check-azienda/valutazioni_e_feedback.png)
 
-## Quando escalare
+### Riflessioni del paziente
 
-Coinvolgi admin, CCO o direzione quando il pattern supera il tuo team, richiede interventi cross-team o tocca analisi quality che il team leader non governa direttamente.
+![Riflessioni](../screenshots/check-azienda/riflessioni.png)
+
+## Come usare bene questa pagina
+
+- Parti dai KPI e filtri per costruire una vista leggibile.
+- Entra nel dettaglio solo quando serve contesto aggiuntivo.
+- Rileggi i check insieme alla scheda paziente quando vuoi collegare feedback e andamento del caso.

@@ -1,79 +1,85 @@
 # Formazione - Guida Professionista
 
-Questa pagina e il tuo spazio di crescita operativa. Qui ricevi training, chiedi supporto mirato e confermi di avere letto cio che ti serve per lavorare meglio sui casi reali.
+Questa pagina raccoglie feedback, training e richieste formative. La usi per leggere i contenuti ricevuti, tenere traccia delle conversazioni e organizzare le richieste di supporto in modo ordinato.
 
-## Per chi e
+## Dashboard iniziale
 
-Per il professionista che gestisce la propria formazione.
+In alto trovi una panoramica del tuo stato formativo.
 
-## Quando la apri
+![Dashboard Formazione](../screenshots/formazione/dashboard_rapida.png)
 
-- Quando ricevi un nuovo training.
-- Quando vuoi chiedere supporto formativo mirato.
-- Quando devi rispondere o lasciare traccia in una discussione aperta.
+### Card principali
 
-## Cosa vedi
+- Training ricevuti.
+- Richieste inviate.
+- Messaggi non letti.
+- Completati.
 
-- I training ricevuti da te.
-- Le richieste di formazione che hai inviato.
-- I messaggi e lo stato di conferma lettura.
+### Come usarla
 
-## Cosa puoi fare
+- Guarda i badge per capire subito dove c'e qualcosa da rivedere.
+- Usa le card per entrare direttamente nel tab corrispondente.
 
-- Leggere i training ricevuti.
-- Confermare la lettura quando hai compreso il contenuto.
-- Commentare o fare domande nella chat del training.
-- Inviare richieste di formazione ai destinatari autorizzati per il tuo ruolo.
+## Organizzazione della pagina
 
-## Cosa non puoi fare
+I contenuti sono divisi in sezioni chiare, cosi puoi passare rapidamente tra feedback ricevuti e richieste.
 
-- Aprire una dashboard team di formazione.
-- Creare training per altri professionisti.
-- Leggere lo storico formativo dei colleghi.
+![Panoramica Organizzazione](../screenshots/formazione/organizzazione.png)
 
-## Come usarla bene
+## Training ricevuti
 
-### Training ricevuti
+Qui trovi i contenuti che ti sono stati assegnati o inviati.
 
-Non trattarli come archivio. Ogni training dovrebbe produrre una correzione concreta nel modo in cui lavori.
+![Lista Training](../screenshots/formazione/i_tuoi_training.png)
 
-### Richieste inviate
+### Cosa trovi in ogni training
 
-Usale per chiedere aiuto su blocchi reali, non per richieste vaghe. Piu la richiesta e precisa, piu il training che riceverai sara utile.
+- Titolo.
+- Reviewer.
+- Data.
+- Tipo.
+- Stato di conferma.
+- Messaggi collegati.
 
-### Chat e conferma
+### Come leggerlo
 
-La chat serve a chiarire il contenuto. La conferma lettura serve a chiudere il passaggio formativo, non a spuntare una casella in fretta.
+- Apri il training per leggere il contenuto completo.
+- Usa la discussione per chiarimenti o domande.
+- Conferma la lettura quando hai chiuso il passaggio formativo.
 
-## Segnali da non ignorare
+## Le mie richieste
 
-- Training letti ma mai tradotti in un cambiamento operativo.
-- Richieste inviate senza contesto concreto.
-- Discussioni aperte che lasci in sospeso troppo a lungo.
+Questa sezione raccoglie le richieste formative che hai inviato.
 
-## Scenari pratici
+### Cosa trovi
 
-### Scenario 1: "Ricevo un training nuovo"
+- Oggetto della richiesta.
+- Destinatario.
+- Data.
+- Priorita.
+- Stato.
 
-1. Apro la pagina.
-2. Leggo titolo, contenuto e obiettivo del feedback.
-3. Se qualcosa non e chiaro, uso la chat.
-4. Confermo lettura solo quando il passaggio e davvero compreso.
+### Stati principali
 
-### Scenario 2: "Mi serve aiuto su un punto specifico"
+- In attesa.
+- In preparazione.
+- Completata.
+- Rifiutata.
 
-1. Apro la sezione richieste.
-2. Scrivo il problema in modo concreto.
-3. Lo invio al destinatario autorizzato.
-4. Aspetto la risposta e poi chiudo il ciclo formativo.
+## Richiedere un training
 
-### Scenario 3: "Voglio capire se sto lasciando qualcosa indietro"
+Quando ti serve supporto mirato, puoi aprire una richiesta direttamente dalla pagina.
 
-1. Controllo training non confermati.
-2. Riapro quelli con domande ancora aperte.
-3. Chiudo chat e conferma in ordine.
-4. Porto subito il contenuto nel lavoro sui pazienti.
+![Richiedi Formazione](../screenshots/formazione/richiedi_formazione.png)
 
-## Quando escalare
+### Buona pratica
 
-Se la difficolta non e solo formativa ma organizzativa o di carico, coinvolgi il team leader invece di lasciare il tema dentro una semplice richiesta training.
+- Scrivi un oggetto chiaro.
+- Descrivi il tema in modo concreto.
+- Usa la priorita in modo coerente con l'urgenza reale.
+
+## Come usare bene questa pagina
+
+- Tieni sotto controllo training e messaggi non letti.
+- Usa la chat per chiarire i contenuti senza disperdere il contesto.
+- Mantieni ordinate le richieste, cosi lo storico resta leggibile e utile.

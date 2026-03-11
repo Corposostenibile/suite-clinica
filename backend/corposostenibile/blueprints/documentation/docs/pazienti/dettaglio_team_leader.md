@@ -1,83 +1,173 @@
 # Scheda Paziente - Guida Team Leader
 
-La scheda paziente e il punto in cui il coordinamento diventa decisione concreta. La apri quando devi verificare la qualita della presa in carico, sbloccare un passaggio o correggere una gestione non coerente.
+Per il team leader questa pagina e il punto in cui leggere il caso con taglio di coordinamento. La usi per verificare continuita, coerenza del percorso e allineamento tra stato del paziente, lavoro svolto e figure coinvolte.
 
-## Per chi e
+## Come leggere questa pagina
 
-Per il team leader che supervisiona i pazienti del proprio team. Se il tuo profilo e specialty-restricted, puoi vedere la scheda ma le azioni operative restano limitate alla tua specialita e al tuo perimetro.
+- Parti sempre da stato, rinnovo e composizione del team.
+- Usa le tab per ricostruire rapidamente cosa sta succedendo nel caso.
+- Leggi note, piani e storico come un unico racconto del percorso.
 
-## Quando la apri
+## Il profilo rapido a sinistra
 
-- Per verificare un caso che sta rallentando.
-- Per controllare se il team sta lavorando in modo coerente.
-- Per decidere se serve riallocare, correggere o fare coaching.
+La colonna laterale ti da subito il quadro generale del paziente.
 
-## Cosa vedi
+![Profilo Sinistra](../screenshots/cliente-dettaglio/biglietto_da_visita_paziente.png)
 
-- Tutte le tab principali della scheda.
-- Stato del paziente, rinnovo, programma e professionisti coinvolti.
-- Le informazioni necessarie per capire se il caso e ben preso in carico.
+### Cosa trovi subito
 
-## Cosa puoi fare
+- Colore di stato del paziente.
+- Nome, email e dati identificativi.
+- Programma attuale e stato del percorso.
+- Giorni residui e data di rinnovo.
+- Professionisti attualmente assegnati.
 
-- Leggere l'intero caso con taglio di supervisione.
-- Gestire il team clinico nel perimetro che ti e consentito.
-- Intervenire sulle assegnazioni del tuo team e della tua specialita.
-- Verificare note, piani e diario per capire dove si rompe il flusso.
+### Come usarlo bene
 
-## Cosa non puoi fare
+- Leggi subito stato e rinnovo per capire il momento del caso.
+- Guarda il team assegnato prima di entrare nelle singole aree.
 
-- Agire su pazienti fuori dal tuo team.
-- Assegnare figure fuori dalla tua specialita o fuori scope.
-- Trattare la scheda come se avessi permessi globali da admin.
+## Navigazione della scheda
 
-## Come usarla bene
+I tab in alto ti permettono di passare rapidamente tra le diverse parti del percorso.
 
-### Header e profilo rapido
+![Navigazione Sezioni](../screenshots/cliente-dettaglio/navigazione_sezioni.png)
 
-Leggi subito stato, rinnovo e team coinvolto. Se qui noti incoerenze, la scheda va letta con priorita alta.
+## Anagrafica
 
-### Tab operative
+Qui trovi dati personali, storia e obiettivi del paziente.
 
-La regola corretta e:
+![Contatti](../screenshots/cliente-dettaglio/contatti.png)
 
-- leggere tutte le aree utili per capire il caso;
-- intervenire solo dove il tuo ruolo e la tua specialita lo consentono.
+![Dati Personali](../screenshots/cliente-dettaglio/dati_personali.png)
 
-### Team clinico
+![Storia e Obiettivi](../screenshots/cliente-dettaglio/storia_e_obiettivi.png)
 
-Questa e la zona piu importante per il coordinamento. Usala per capire ownership, passaggi mancanti e copertura reale del caso. Se sei team leader ristretto, alcune viste esterne non fanno parte del tuo perimetro.
+### Come usarla
 
-## Segnali da non ignorare
+- Rileggi questa parte quando devi ricollocare il caso nel suo contesto.
+- Usa storia e obiettivi per verificare se il percorso corrente resta coerente.
 
-- Stato del paziente incoerente con diario e ultime azioni.
-- Team numericamente presente ma senza responsabilita chiare.
-- Sezioni cliniche ferme troppo a lungo.
-- Paziente vicino al rinnovo con ownership confusa.
+## Programma
 
-## Scenari pratici
+Questa sezione raccoglie stato, date e informazioni temporali del percorso.
 
-### Scenario 1: "Capisco se il caso e davvero preso in carico"
+![Stato Operativo](../screenshots/cliente-dettaglio/stato_operativo.png)
 
-1. Apro la scheda.
-2. Controllo stato, rinnovo e team.
-3. Leggo le sezioni che spiegano cosa e successo davvero.
-4. Decido se basta un richiamo operativo o serve una correzione di struttura.
+![Controllo Scadenze](../screenshots/cliente-dettaglio/controllo_scadenze.png)
 
-### Scenario 2: "Devo sbloccare un passaggio fermo"
+### Come leggerla
 
-1. Verifico quale servizio e fermo.
-2. Controllo se il professionista corretto e assegnato.
-3. Se il blocco rientra nel tuo scope, aggiorni la struttura del team.
-4. Se il blocco esce dal tuo perimetro, lo escali.
+- Controlla data rinnovo e stato prima di interpretare il resto della scheda.
+- Rileggi questa area insieme a diario e avanzamenti per avere un quadro completo.
 
-### Scenario 3: "Preparo un feedback al team"
+## Team
 
-1. Entro solo sui casi che mostrano segnali concreti.
-2. Raccolgo esempi da diario, stato, rinnovo e assegnazioni.
-3. Distinguo problema di persona, di processo o di ownership.
-4. Porto in review indicazioni specifiche, non generiche.
+Qui trovi la composizione del team e lo storico delle assegnazioni.
 
-## Quando escalare
+![Gestione Team](../screenshots/cliente-dettaglio/gestione_team.png)
 
-Coinvolgi admin o direzione quando il caso richiede permessi cross-team, decisioni globali oppure interventi fuori dalla tua specialita o dal tuo perimetro di leadership.
+![Storico Assegnazioni](../screenshots/cliente-dettaglio/storico_assegnazioni.png)
+
+### Come usarla
+
+- Guarda chi e coinvolto nel caso.
+- Usa lo storico per capire passaggi, cambi e continuita della presa in carico.
+
+## Nutrizione
+
+L'area nutrizione raccoglie panoramica, setup, anamnesi, piano, diario e alert del percorso alimentare.
+
+![Area Nutrizione](../screenshots/cliente-dettaglio/area_nutrizione.png)
+
+![Panoramica Nutrizione](../screenshots/cliente-dettaglio/panoramica_nutrizione.png)
+
+![Setup Nutrizione](../screenshots/cliente-dettaglio/setup_nutrizione.png)
+
+![Patologie e Anamnesi](../screenshots/cliente-dettaglio/patologie_e_anamnesi.png)
+
+![Piano Alimentare](../screenshots/cliente-dettaglio/piano_alimentare.png)
+
+![Diario Nutrizionale](../screenshots/cliente-dettaglio/diario_nutrizionale.png)
+
+![Alert Nutrizionale](../screenshots/cliente-dettaglio/alert_nutrizionale.png)
+
+### Come orientarti
+
+Leggi questa area per capire continuita del lavoro, coerenza del piano e qualita degli aggiornamenti nel tempo.
+
+## Coaching
+
+L'area coaching segue la stessa logica: panoramica, setup, materiali, diario e alert.
+
+![Area Coaching](../screenshots/cliente-dettaglio/area_coaching.png)
+
+![Panoramica Coaching](../screenshots/cliente-dettaglio/panoramica_coaching.png)
+
+![Setup Coaching](../screenshots/cliente-dettaglio/setup_coaching.png)
+
+![Schede Allenamento](../screenshots/cliente-dettaglio/schede_allenamento.png)
+
+![Luoghi di Allenamento](../screenshots/cliente-dettaglio/luoghi_di_allenamento.png)
+
+![Patologie e Anamnesi Sportiva](../screenshots/cliente-dettaglio/patologie_e_anamnesi_sportiva.png)
+
+![Diario Coaching](../screenshots/cliente-dettaglio/diario_coaching.png)
+
+![Alert Coaching](../screenshots/cliente-dettaglio/alert_coaching.png)
+
+### Come orientarti
+
+Usa questa sezione per leggere andamento del lavoro, materiali caricati e progressione del percorso motorio.
+
+## Psicologia
+
+Questa area raccoglie il percorso psicologico e va letta con particolare attenzione alla sensibilita del contenuto.
+
+![Area Psicologia](../screenshots/cliente-dettaglio/area_psicologia.png)
+
+![Panoramica Psicologia](../screenshots/cliente-dettaglio/panoramica_psicologia.png)
+
+![Setup Psicologia](../screenshots/cliente-dettaglio/setup_psicologia.png)
+
+![Patologie Psicologiche](../screenshots/cliente-dettaglio/patologie_psicologiche.png)
+
+![Diario Psicologia](../screenshots/cliente-dettaglio/diario_psicologia.png)
+
+![Alert Psicologia](../screenshots/cliente-dettaglio/alert_psicologia.png)
+
+### Nota di lettura
+
+Questa area contiene informazioni particolarmente sensibili e va consultata con attenzione e discrezione.
+
+## Check periodici
+
+Qui trovi i questionari periodici inviati al paziente e le relative risposte.
+
+![Check Periodici](../screenshots/cliente-dettaglio/check_periodici.png)
+
+![Invio Check](../screenshots/cliente-dettaglio/invio_check.png)
+
+![Storico Risposte](../screenshots/cliente-dettaglio/storico_risposte.png)
+
+### Come usarli
+
+- Leggi le risposte nel quadro del percorso complessivo.
+- Usa lo storico per confrontare continuita e percezione del paziente.
+
+## Check iniziali
+
+Qui trovi le valutazioni raccolte all'inizio del percorso.
+
+![Check Iniziali](../screenshots/cliente-dettaglio/check_iniziali.png)
+
+![Dettagli Check Iniziali](../screenshots/cliente-dettaglio/dettagli_check_iniziali.png)
+
+### Come usarli
+
+- Rileggili quando vuoi recuperare il punto di partenza del caso.
+- Confrontali con lo stato attuale per interpretare meglio l'evoluzione del percorso.
+
+## Salvare le modifiche
+
+Quando aggiorni la scheda, usa `Salva Modifiche` in alto a destra per confermare i cambiamenti.

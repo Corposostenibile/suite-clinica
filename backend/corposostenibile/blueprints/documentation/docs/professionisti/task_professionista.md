@@ -1,84 +1,79 @@
 # Sistema Task - Guida Professionista
 
-La pagina Task e la tua agenda operativa. Serve a capire cosa devi chiudere tu, con quale priorita e su quale paziente devi entrare subito.
+La pagina Task e la tua agenda operativa. Qui leggi le attivita aperte, dai priorita al lavoro della giornata e raggiungi rapidamente il paziente o la sezione collegata.
 
-## Per chi e
+## Dashboard iniziale
 
-Per il professionista che gestisce i propri task.
+In alto trovi una panoramica rapida delle categorie attive.
 
-## Quando la apri
+![Dashboard Task](../screenshots/task/dashboard_task.png)
 
-- Per vedere le attivita assegnate a te.
-- Per decidere l'ordine di lavoro della giornata.
-- Per saltare rapidamente nella scheda paziente corretta.
+### Cosa trovi
 
-## Cosa vedi
+- Onboarding.
+- Check.
+- Reminder.
+- Formazione.
+- Solleciti.
+- Task generici.
 
-- I task assegnati a te.
-- Le statistiche del tuo backlog operativo.
-- Le categorie utili al tuo lavoro quotidiano.
+### Come usarla
 
-## Cosa puoi fare
+- Guarda subito dove si concentra il lavoro.
+- Usa le card come punto di ingresso per filtrare la lista.
 
-- Filtrare i task per categoria o stato.
-- Completare i task assegnati a te.
-- Creare task nel tuo perimetro personale.
-- Usare il link di navigazione per entrare nel paziente corretto.
+## Lista task
 
-## Cosa non puoi fare
+La tabella raccoglie tutte le attivita visibili nella tua vista corrente.
 
-- Vedere il backlog dell'intero team.
-- Assegnare attivita ai colleghi.
-- Chiudere task di altri professionisti.
+![Tabella Task](../screenshots/task/la_tua_lista_attivita.png)
 
-## Come leggerla bene
+### Colonne principali
 
-### Card iniziali
+- Checkbox di completamento.
+- Attivita e descrizione.
+- Categoria.
+- Paziente collegato.
+- Scadenza.
+- Priorita.
+- Azione di navigazione.
 
-Usale per capire dove si concentra il lavoro: onboarding, check, reminder, formazione, solleciti o task generici.
+### Come leggerla
 
-### Lista task
+- Parti da scadenza e priorita per decidere da cosa iniziare.
+- Usa il nome del paziente per rimettere il task nel contesto corretto.
+- Completa il task quando hai chiuso davvero il passaggio operativo collegato.
 
-Le colonne che contano di piu sono:
+## Filtri e navigazione
 
-- Attivita: cosa devi fare davvero.
-- Cliente: su chi devi intervenire.
-- Scadenza: quando il task diventa urgente.
-- Priorita: quanto va anticipato.
+La parte alta della pagina ti aiuta a restringere la lista e a rivedere lo storico.
 
-### Pulsante di navigazione
+![Filtri](../screenshots/task/filtri_comodi.png)
 
-Se il task e collegato a un paziente, usalo per entrare direttamente nella pagina giusta e non perdere contesto.
+### Strumenti principali
 
-## Segnali da non ignorare
+- Tab per categoria.
+- Switch per mostrare i completati.
+- Refresh della lista.
 
-- Task scaduti che restano visibili per piu giorni.
-- Reminder ripetuti sullo stesso paziente.
-- Molti task aperti senza una chiusura reale sul caso.
+### Come usarli
 
-## Scenari pratici
+- Filtra per categoria quando vuoi lavorare a blocchi omogenei.
+- Mostra i completati quando devi ricostruire uno storico recente.
+- Ricarica la lista se hai appena chiuso attivita o vuoi vedere dati aggiornati.
 
-### Scenario 1: "Decido da cosa partire"
+## Navigazione rapida
 
-1. Apro Task.
-2. Guardo scadenze e priorita.
-3. Parto dai task che sbloccano un paziente o evitano ritardi.
-4. Chiudo ogni task solo dopo avere lasciato avanzamento vero sul caso.
+Quando un task e collegato a un paziente, il pulsante `Vai` ti porta direttamente nella pagina utile.
 
-### Scenario 2: "Trovo un check da leggere subito"
+### Utilita pratica
 
-1. Filtro la categoria corretta.
-2. Apro il task.
-3. Entro nel paziente collegato.
-4. Lavoro il caso e poi completo il task.
+- Apri subito la scheda corretta.
+- Evita passaggi manuali tra menu e ricerca.
+- Mantieni continuita tra task e lavoro sul caso.
 
-### Scenario 3: "Capisco se sono in backlog"
+## Come usare bene questa pagina
 
-1. Controllo quanti task aperti hai davvero.
-2. Isolo quelli scaduti o ricorrenti.
-3. Chiudi prima quelli che impattano il paziente.
-4. Se il carico non e piu gestibile, segnala il tema al team leader.
-
-## Quando escalare
-
-Coinvolgi il team leader se il problema non e il singolo task ma il volume, la priorita o un blocco che richiede coordinamento di team.
+- Parti dalle attivita con impatto immediato sul paziente.
+- Tieni la lista pulita chiudendo i passaggi davvero completati.
+- Usa categorie e scadenze per non lavorare in modo casuale.
