@@ -41,6 +41,7 @@ function AssegnazioniOldSuite() {
   const [leadFilter, setLeadFilter] = useState('unassigned');
   const [leadSearch, setLeadSearch] = useState('');
   const [hmFilter, setHmFilter] = useState('all');
+  const [onboardingFilter, setOnboardingFilter] = useState('');
 
   // Modal storia
   const [selectedLead, setSelectedLead] = useState(null);
@@ -144,8 +145,12 @@ function AssegnazioniOldSuite() {
     if (leadFilter === 'partial') rows = rows.filter((l) => isLeadAssigned(l) && !isLeadFullyAssigned(l));
     if (leadFilter === 'complete') rows = rows.filter(isLeadFullyAssigned);
 
+    if (onboardingFilter) {
+      rows = rows.filter((l) => l.onboarding_date === onboardingFilter);
+    }
+
     return rows;
-  }, [leads, leadFilter, leadSearch, hmFilter]);
+  }, [leads, leadFilter, leadSearch, hmFilter, onboardingFilter]);
 
   // --- CHECK HANDLERS ---
 
@@ -187,8 +192,8 @@ function AssegnazioniOldSuite() {
             {badge}
           </Button>
         ) : badge}
-        {checkNumber === 3 && check?.completed && (check?.type || check?.score !== null) && (
-          <span className="check3-score-badge">{check.type}{check.score !== null && ` ${check.score}`}</span>
+        {checkNumber === 3 && check?.completed && check?.type && (
+          <span className="check3-score-badge">{check.type}</span>
         )}
         {!isCompleted && check?.form_url && (
           <Button variant="link" className="p-0 text-muted" title="Copia link check" onClick={() => handleCopyCheckLink(check.form_url)}>
@@ -248,6 +253,8 @@ function AssegnazioniOldSuite() {
             <option key={hm.id} value={hm.id}>{hm.full_name}</option>
           ))}
         </Form.Select>
+
+        <Form.Control type="date" value={onboardingFilter} onChange={(e) => setOnboardingFilter(e.target.value)} style={{ maxWidth: '170px' }} title="Filtra per data onboarding" />
 
         <Form.Control type="search" placeholder="Cerca paziente..." value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} style={{ maxWidth: '220px' }} />
 
