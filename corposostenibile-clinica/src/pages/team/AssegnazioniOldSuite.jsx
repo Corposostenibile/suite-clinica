@@ -14,7 +14,7 @@ const parsePackageName = (name) => {
   const parts = name.trim().split('-');
   if (parts.length > 0) {
     const rolePart = parts[0].trim().toUpperCase();
-    const letters = rolePart.split('/').map(r => r.trim()).filter(Boolean);
+    const letters = rolePart.split(/[/+]/).map(r => r.trim()).filter(Boolean);
     if (letters.length > 0) {
       const hasN = letters.includes('N');
       const hasC = letters.includes('C');

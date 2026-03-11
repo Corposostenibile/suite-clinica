@@ -1,11 +1,11 @@
 """
 Package Name Parser per la vecchia suite CRM.
 
-Formato pacchetti: "N/C-90gg-C", "N/C/P-120gg", "N-60gg", etc.
-- Prima parte (prima del '-'): ruoli separati da '/'
+Formato pacchetti: "N/C+P-90gg-B", "N+C-90gg-A", "N-60gg-C", etc.
+- Prima parte (prima del primo '-'): ruoli separati da '/' o '+'
   N = Nutrizione, C = Coach, P = Psicologia
 - Seconda parte: durata in giorni (es. "90gg")
-- Terza parte (opzionale): suffisso extra (ignorato)
+- Terza parte: tipologia (A, B, o C)
 """
 
 import re
@@ -42,7 +42,7 @@ def parse_package_name(name: str) -> dict:
     # Parse ruoli dalla prima parte
     if parts:
         role_part = parts[0].strip().upper()
-        role_letters = [r.strip() for r in role_part.split('/') if r.strip()]
+        role_letters = [r.strip() for r in re.split(r'[/+]', role_part) if r.strip()]
 
         if role_letters:
             has_n = 'N' in role_letters
