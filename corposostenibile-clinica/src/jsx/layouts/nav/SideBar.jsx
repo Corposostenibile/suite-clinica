@@ -120,6 +120,9 @@ const SideBar = () => {
                 if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
                   return false;
                 }
+                if (item.title === 'Assegnazioni (Old)' && !canAccessAiAssignments(user)) {
+                  return false;
+                }
                 if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
                 if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
                 if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;

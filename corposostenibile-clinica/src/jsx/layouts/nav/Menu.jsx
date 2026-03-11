@@ -55,6 +55,12 @@ export const MenuList = [
         iconStyle: SVGICON.PeopleArrow,
         to: 'assegnazioni-ai',
     },
+    // Assegnazioni Old Suite (TEMPORANEO)
+    {
+        title: 'Assegnazioni (Old)',
+        iconStyle: SVGICON.PeopleArrow,
+        to: 'assegnazioni-old-suite',
+    },
     // Check
     {
         title: 'Check',

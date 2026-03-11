@@ -2762,7 +2762,7 @@ def assign_professionista(cliente_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+    if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato ad assegnare professionisti"}), 403
     data = request.get_json() or {}
 
@@ -2851,7 +2851,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+    if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     history = db.session.query(ClienteProfessionistaHistory).filter_by(
         id=history_id,
@@ -2922,7 +2922,7 @@ def interrupt_legacy_professionista(cliente_id: int):
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
-    if _is_professionista_standard(current_user) or _is_health_manager_user(current_user):
+    if _is_professionista_standard(current_user):
         return jsonify({"ok": False, "error": "Non autorizzato a interrompere assegnazioni"}), 403
     data = request.get_json() or {}
 

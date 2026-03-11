@@ -366,6 +366,7 @@ def create_app(config_name: str | None = None) -> Flask:
         finance,  # AGGIUNTO: Import del blueprint finance
         recruiting,  # AGGIUNTO: Import del blueprint recruiting
         ghl_integration,  # AGGIUNTO: Import del blueprint GHL integration
+        old_suite_integration,  # TEMPORANEO: Import blueprint Old Suite CRM integration
         calendar,  # AGGIUNTO: Import del blueprint calendar
         client_checks,  # AGGIUNTO: Import del blueprint client_checks
         sales_form,  # AGGIUNTO: Import del blueprint sales_form
@@ -407,6 +408,7 @@ def create_app(config_name: str | None = None) -> Flask:
     finance.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint finance
     recruiting.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint recruiting
     ghl_integration.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint GHL integration
+    old_suite_integration.init_app(app)  # TEMPORANEO: Old Suite CRM integration
     calendar.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint calendar
     client_checks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint client_checks
     suitemind.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SuiteMind AI

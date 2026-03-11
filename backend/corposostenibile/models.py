@@ -12101,6 +12101,12 @@ class SalesLead(TimestampMixin, db.Model):
     # Tags
     tags = db.Column(ARRAY(db.String))
 
+    # Old Suite Integration (temporaneo - webhook da suite.corposostenibile.com)
+    source_system = db.Column(db.String(50), nullable=True, index=True)  # 'old_suite' o null
+    old_suite_id = db.Column(db.Integer, nullable=True, index=True)  # ID lead dalla vecchia suite
+    ai_analysis = db.Column(JSONB, nullable=True)  # Cache analisi AI (stesso pattern di GHLOpportunityData)
+    ai_analyzed_at = db.Column(db.DateTime, nullable=True)
+
     # Archiviazione (FLAG per pulizia dashboard Sales, NON uno stato)
     archived_at = db.Column(db.DateTime, nullable=True)
     archived_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)

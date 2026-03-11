@@ -13,6 +13,10 @@ export { default as TeamsDetail } from './TeamsDetail';
 export { default as AssegnazioniAI } from './AssegnazioniAI';
 export { default as SuiteMindAssignment } from './SuiteMindAssignment';
 
+// Old Suite Assignments (TEMPORANEO)
+export { default as AssegnazioniOldSuite } from './AssegnazioniOldSuite';
+export { default as SuiteMindOldSuite } from './SuiteMindOldSuite';
+
 // Criteri Professionisti
 export { default as CriteriProfessionisti } from './CriteriProfessionisti';
 

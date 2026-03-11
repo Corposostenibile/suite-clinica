@@ -127,7 +127,7 @@ function ClientiDetail() {
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const isInfluencer = user?.role === 'influencer';
   const canSaveGlobalClientCard = !isInfluencer;
-  const canManageTeamAssignments = !isProfessionista && !isHealthManager;
+  const canManageTeamAssignments = !isProfessionista;
   // La generazione dei check periodici è consentita anche al professionista:
   // il backend applica il vero controllo RBAC sul paziente.
   const canGenerateCheckLinks = true;
@@ -3202,6 +3202,18 @@ function ClientiDetail() {
                         className="cd-input"
                         value={formData.programma_attuale}
                         onChange={(e) => handleInputChange('programma_attuale', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Note Rinnovo</label>
+                      <textarea
+                        className="cd-input"
+                        rows={3}
+                        value={formData.note_rinnovo}
+                        onChange={(e) => handleInputChange('note_rinnovo', e.target.value)}
+                        placeholder="Note relative al rinnovo del programma..."
                       />
                     </div>
                   </div>

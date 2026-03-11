@@ -14,7 +14,7 @@ import DashboardLayout from './layouts/DashboardLayout';
 import Welcome from './pages/Welcome';
 
 // Team pages
-import { TeamList, TeamAdd, TeamCapacity, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI, SuiteMindAssignment, CriteriProfessionisti } from './pages/team';
+import { TeamList, TeamAdd, TeamCapacity, Profilo, TeamsList, TeamsAdd, TeamsDetail, AssegnazioniAI, SuiteMindAssignment, CriteriProfessionisti, AssegnazioniOldSuite, SuiteMindOldSuite } from './pages/team';
 
 // Trial (In Prova) pages
 import { TrialUsersList, TrialUserDetail, TrialUserForm, AssignClients } from './pages/trial';
@@ -171,6 +171,19 @@ function App() {
                 <SuiteMindAssignment />
               </RoleProtectedRoute>
             } />
+
+            {/* Old Suite Assignments (TEMPORANEO) */}
+            <Route path="/assegnazioni-old-suite" element={
+              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+                <AssegnazioniOldSuite />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/suitemind-old/:leadId" element={
+              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+                <SuiteMindOldSuite />
+              </RoleProtectedRoute>
+            } />
+
             <Route path="/criteri-professionisti" element={
               <RoleProtectedRoute allowIf={canAccessSpecializzazione}>
                 <CriteriProfessionisti />

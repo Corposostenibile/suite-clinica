@@ -22,7 +22,7 @@ from corposostenibile.models import (
     team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory,
     ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
     ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
-    cliente_psicologi, cliente_consulenti
+    cliente_psicologi, cliente_consulenti, SalesLead
 )
 
 
@@ -1204,15 +1204,20 @@ def api_analyze_lead_story():
     story = data.get('story')
     opportunity_id = data.get('opportunity_id')
     assignment_id = data.get('assignment_id')
+    sales_lead_id = data.get('sales_lead_id')  # Old Suite integration
     role = data.get('role') # 'nutrition', 'coach', 'psychology', or None (legacy)
     force_refresh = data.get('force_refresh', False)
 
     # 1. Tenta di recuperare dai dati già salvati (se non forzato)
     existing_analysis = None
     existing_obj = None # Store the object to update later
-    
+
     if assignment_id:
         existing_obj = ServiceClienteAssignment.query.get(assignment_id)
+        if existing_obj:
+            existing_analysis = existing_obj.ai_analysis
+    elif sales_lead_id:
+        existing_obj = SalesLead.query.get(sales_lead_id)
         if existing_obj:
             existing_analysis = existing_obj.ai_analysis
     elif opportunity_id:
@@ -1264,6 +1269,8 @@ def api_analyze_lead_story():
             
             if assignment_id:
                 existing_obj.ai_suggested_at = datetime.utcnow()
+            elif sales_lead_id:
+                existing_obj.ai_analyzed_at = datetime.utcnow()
             elif opportunity_id:
                 existing_obj.ai_analyzed_at = datetime.utcnow()
                 
