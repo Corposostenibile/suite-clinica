@@ -17,6 +17,7 @@ depends_on = None
 
 
 def upgrade():
+    # Main table
     op.add_column('sales_leads', sa.Column('source_system', sa.String(50), nullable=True))
     op.add_column('sales_leads', sa.Column('old_suite_id', sa.Integer(), nullable=True))
     op.add_column('sales_leads', sa.Column('ai_analysis', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
@@ -24,6 +25,7 @@ def upgrade():
 
     op.create_index('idx_sales_leads_source_system', 'sales_leads', ['source_system'])
     op.create_index('idx_sales_leads_old_suite_id', 'sales_leads', ['old_suite_id'])
+
 
 
 def downgrade():
