@@ -49,15 +49,15 @@ export const MenuList = [
         iconStyle: SVGICON.Health,
         to: 'clienti-lista',
     },
-    // Assegnazioni
+    // Assegnazioni v2 (GHL - nuova suite)
     {
-        title: 'Assegnazioni',
+        title: 'Assegnazioni v2',
         iconStyle: SVGICON.PeopleArrow,
         to: 'assegnazioni-ai',
     },
-    // Assegnazioni Old Suite (TEMPORANEO)
+    // Assegnazioni v1 (Old Suite - TEMPORANEO)
     {
-        title: 'Assegnazioni (Old)',
+        title: 'Assegnazioni v1',
         iconStyle: SVGICON.PeopleArrow,
         to: 'assegnazioni-old-suite',
     },

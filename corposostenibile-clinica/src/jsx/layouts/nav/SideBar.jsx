@@ -91,9 +91,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
             : user?.is_trial
@@ -117,10 +117,10 @@ const SideBar = () => {
                 if (item.title === 'Quality' && !canAccessQualityPage(user)) {
                   return false;
                 }
-                if (item.title === 'Assegnazioni' && !canAccessAiAssignments(user)) {
+                if (item.title === 'Assegnazioni v2' && !canAccessAiAssignments(user)) {
                   return false;
                 }
-                if (item.title === 'Assegnazioni (Old)' && !canAccessAiAssignments(user)) {
+                if (item.title === 'Assegnazioni v1' && !canAccessAiAssignments(user)) {
                   return false;
                 }
                 if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
