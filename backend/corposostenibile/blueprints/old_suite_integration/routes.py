@@ -477,7 +477,8 @@ def api_get_check_detail(lead_id, check_number):
 def api_confirm_assignment():
     """
     Conferma assegnazione professionista per una lead dalla vecchia suite.
-    Crea/aggiorna Cliente se necessario.
+    Salva l'assegnazione sulla SalesLead. Crea il Cliente SOLO quando tutti
+    i ruoli richiesti dal pacchetto sono stati assegnati.
     """
     data = request.get_json()
     if not data:
@@ -499,7 +500,7 @@ def api_confirm_assignment():
         if not nutritionist_id and not coach_id and not psychologist_id:
             return jsonify({'success': False, 'message': 'Nessun professionista selezionato'}), 400
 
-        # Aggiorna assegnazioni sulla lead
+        # 1. Aggiorna assegnazioni sulla lead (accumula ruolo per ruolo)
         if nutritionist_id:
             lead.assigned_nutritionist_id = int(nutritionist_id)
         if coach_id:
@@ -513,21 +514,60 @@ def api_confirm_assignment():
 
         # Salva AI analysis
         if data.get('ai_analysis'):
-            lead.ai_analysis = data['ai_analysis']
+            if not lead.ai_analysis:
+                lead.ai_analysis = {}
+            # Merge: non sovrascrivere analisi di altri ruoli
+            if isinstance(data['ai_analysis'], dict):
+                current_ai = dict(lead.ai_analysis) if lead.ai_analysis else {}
+                current_ai.update(data['ai_analysis'])
+                lead.ai_analysis = current_ai
+            else:
+                lead.ai_analysis = data['ai_analysis']
             lead.ai_analyzed_at = datetime.utcnow()
 
-        # Crea/aggiorna Cliente se non esiste ancora
+        # 2. Verifica se TUTTI i ruoli richiesti dal pacchetto sono assegnati
+        parsed_pkg = parse_package_name(lead.custom_package_name)
+        roles = parsed_pkg.get('roles', {})
+
+        all_assigned = True
+        if roles.get('nutrition') and not lead.assigned_nutritionist_id:
+            all_assigned = False
+        if roles.get('coach') and not lead.assigned_coach_id:
+            all_assigned = False
+        if roles.get('psychology') and not lead.assigned_psychologist_id:
+            all_assigned = False
+
+        assigned_count = sum([
+            1 for r, needed in [('nutrition', roles.get('nutrition')), ('coach', roles.get('coach')), ('psychology', roles.get('psychology'))]
+            if needed and getattr(lead, f'assigned_{"nutritionist" if r == "nutrition" else ("coach" if r == "coach" else "psychologist")}_id')
+        ])
+        required_count = sum(1 for v in roles.values() if v)
+
+        if not all_assigned:
+            # Salva solo l'assegnazione parziale sulla lead
+            db.session.commit()
+
+            logger.info(
+                f"[Old Suite] Assegnazione parziale: lead {lead.id} ({assigned_count}/{required_count} ruoli)"
+            )
+
+            return jsonify({
+                'success': True,
+                'message': f'Professionista assegnato ({assigned_count}/{required_count}). Completa gli altri ruoli per creare il paziente.',
+                'all_assigned': False,
+                'assigned_count': assigned_count,
+                'required_count': required_count,
+            })
+
+        # 3. Tutti i ruoli assegnati → Crea Cliente
         cliente = None
         if lead.converted_to_client_id:
             cliente = Cliente.query.get(lead.converted_to_client_id)
 
         if not cliente:
-            # Cerca per email
             cliente = Cliente.query.filter_by(mail=lead.email).first() if lead.email else None
 
         if not cliente:
-            # Crea nuovo cliente con tutti i dati dalla lead
-            parsed_pkg = parse_package_name(lead.custom_package_name)
             cliente = Cliente(
                 nome_cognome=lead.full_name,
                 mail=lead.email,
@@ -557,7 +597,7 @@ def api_confirm_assignment():
             lead.converted_at = datetime.utcnow()
             lead.converted_by = current_user.id
 
-        # Crea/aggiorna ServiceClienteAssignment
+        # 4. Crea/aggiorna ServiceClienteAssignment
         assignment = ServiceClienteAssignment.query.filter_by(
             cliente_id=cliente.cliente_id
         ).first()
@@ -571,18 +611,18 @@ def api_confirm_assignment():
             db.session.add(assignment)
             db.session.flush()
 
-        # Assegna professionisti
+        # 5. Assegna TUTTI i professionisti al Cliente
         motivazione = "Assegnazione da pannello Old Suite (temporaneo)"
         data_inizio = datetime.utcnow().date()
 
-        if nutritionist_id:
-            assignment.nutrizionista_assigned_id = int(nutritionist_id)
+        if lead.assigned_nutritionist_id:
+            assignment.nutrizionista_assigned_id = lead.assigned_nutritionist_id
             assignment.nutrizionista_assigned_at = datetime.utcnow()
             assignment.nutrizionista_assigned_by = current_user.id
 
             h = ClienteProfessionistaHistory(
                 cliente_id=cliente.cliente_id,
-                user_id=int(nutritionist_id),
+                user_id=lead.assigned_nutritionist_id,
                 tipo_professionista='nutrizionista',
                 data_dal=data_inizio,
                 motivazione_aggiunta=motivazione,
@@ -591,18 +631,18 @@ def api_confirm_assignment():
             )
             db.session.add(h)
 
-            nutri = User.query.get(int(nutritionist_id))
+            nutri = User.query.get(lead.assigned_nutritionist_id)
             if nutri and nutri not in cliente.nutrizionisti_multipli:
                 cliente.nutrizionisti_multipli.append(nutri)
 
-        if coach_id:
-            assignment.coach_assigned_id = int(coach_id)
+        if lead.assigned_coach_id:
+            assignment.coach_assigned_id = lead.assigned_coach_id
             assignment.coach_assigned_at = datetime.utcnow()
             assignment.coach_assigned_by = current_user.id
 
             h = ClienteProfessionistaHistory(
                 cliente_id=cliente.cliente_id,
-                user_id=int(coach_id),
+                user_id=lead.assigned_coach_id,
                 tipo_professionista='coach',
                 data_dal=data_inizio,
                 motivazione_aggiunta=motivazione,
@@ -611,18 +651,18 @@ def api_confirm_assignment():
             )
             db.session.add(h)
 
-            coach = User.query.get(int(coach_id))
+            coach = User.query.get(lead.assigned_coach_id)
             if coach and coach not in cliente.coaches_multipli:
                 cliente.coaches_multipli.append(coach)
 
-        if psychologist_id:
-            assignment.psicologa_assigned_id = int(psychologist_id)
+        if lead.assigned_psychologist_id:
+            assignment.psicologa_assigned_id = lead.assigned_psychologist_id
             assignment.psicologa_assigned_at = datetime.utcnow()
             assignment.psicologa_assigned_by = current_user.id
 
             h = ClienteProfessionistaHistory(
                 cliente_id=cliente.cliente_id,
-                user_id=int(psychologist_id),
+                user_id=lead.assigned_psychologist_id,
                 tipo_professionista='psicologa',
                 data_dal=data_inizio,
                 motivazione_aggiunta=motivazione,
@@ -631,7 +671,7 @@ def api_confirm_assignment():
             )
             db.session.add(h)
 
-            psico = User.query.get(int(psychologist_id))
+            psico = User.query.get(lead.assigned_psychologist_id)
             if psico and psico not in cliente.psicologi_multipli:
                 cliente.psicologi_multipli.append(psico)
 
@@ -651,18 +691,20 @@ def api_confirm_assignment():
 
         # Aggiorna cliente status
         cliente.service_status = 'assigned'
-        if assignment.status in ('fully_assigned', 'active'):
-            cliente.show_in_clienti_lista = True
+        cliente.show_in_clienti_lista = True
 
         db.session.commit()
 
         logger.info(
-            f"[Old Suite] Assegnazione confermata: lead {lead.id} → cliente {cliente.cliente_id}"
+            f"[Old Suite] Assegnazione completata: lead {lead.id} → cliente {cliente.cliente_id} ({required_count}/{required_count} ruoli)"
         )
 
         return jsonify({
             'success': True,
-            'message': 'Assegnazione completata con successo',
+            'message': 'Tutti i professionisti assegnati! Paziente creato con successo.',
+            'all_assigned': True,
+            'assigned_count': required_count,
+            'required_count': required_count,
             'cliente_id': cliente.cliente_id,
             'status': assignment.status,
         })

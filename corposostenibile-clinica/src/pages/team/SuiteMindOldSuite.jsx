@@ -206,7 +206,13 @@ function SuiteMindOldSuite() {
         if (role === 'nutrition') updatedAssignments.nutritionist_id = nutritionist_id;
         if (role === 'coach') updatedAssignments.coach_id = coach_id;
         if (role === 'psychology') updatedAssignments.psychologist_id = psychologist_id;
-        setSelectedLead(prev => ({ ...prev, assignments: updatedAssignments }));
+        setSelectedLead(prev => ({
+          ...prev,
+          assignments: updatedAssignments,
+          _allAssigned: result.all_assigned,
+          _assignedCount: result.assigned_count,
+          _requiredCount: result.required_count,
+        }));
       }
     } catch (err) {
       console.error("Errore conferma:", err);
@@ -329,10 +335,18 @@ function SuiteMindOldSuite() {
       {/* SCREEN: Success */}
       {activeRoleFlow && assignmentSuccess && (
         <div className="sm-success">
-          <div className="sm-success-icon"><i className="ri-checkbox-circle-fill"></i></div>
-          <h2>Assegnazione Completata!</h2>
+          <div className="sm-success-icon">
+            <i className={selectedLead._allAssigned ? "ri-checkbox-circle-fill" : "ri-checkbox-circle-line"}></i>
+          </div>
+          <h2>{selectedLead._allAssigned ? 'Paziente Creato!' : 'Professionista Assegnato!'}</h2>
           <p className="sm-success-detail">
             Hai assegnato correttamente <strong>{lastAssignedProf?.name}</strong> a <strong>{selectedLead.full_name}</strong>.
+            {!selectedLead._allAssigned && (
+              <><br /><span className="text-warning">Assegnazione {selectedLead._assignedCount}/{selectedLead._requiredCount} — completa gli altri ruoli per creare il paziente.</span></>
+            )}
+            {selectedLead._allAssigned && (
+              <><br /><span className="text-success">Tutti i professionisti assegnati! Il paziente è stato creato.</span></>
+            )}
           </p>
           <div className="sm-success-card">
             <div className="sm-success-card-icon"><i className="ri-user-follow-line"></i></div>
@@ -346,9 +360,11 @@ function SuiteMindOldSuite() {
             </div>
           </div>
           <div className="sm-success-actions">
-            <button className="sm-btn-outline" onClick={() => { setAssignmentSuccess(false); setActiveRoleFlow(null); }}>
-              Torna ai Ruoli
-            </button>
+            {!selectedLead._allAssigned && (
+              <button className="sm-btn-outline" onClick={() => { setAssignmentSuccess(false); setActiveRoleFlow(null); }}>
+                Assegna prossimo ruolo
+              </button>
+            )}
             <button className="sm-btn-primary" onClick={() => navigate('/assegnazioni-old-suite')}>
               Torna alle Assegnazioni
             </button>
