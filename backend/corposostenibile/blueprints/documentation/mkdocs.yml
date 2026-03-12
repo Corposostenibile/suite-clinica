@@ -22,18 +22,48 @@ nav:
   - Gestione Pazienti:
     - Lista Pazienti:
       - Team Leader: pazienti/lista_team_leader.md
+      - Team Leader Nutrizione: pazienti/lista_team_leader_nutrizione.md
+      - Team Leader Coaching: pazienti/lista_team_leader_coaching.md
+      - Team Leader Psicologia: pazienti/lista_team_leader_psicologia.md
       - Professionista: pazienti/lista_professionista.md
+      - Professionista Nutrizione: pazienti/lista_professionista_nutrizione.md
+      - Professionista Coaching: pazienti/lista_professionista_coaching.md
+      - Professionista Psicologia: pazienti/lista_professionista_psicologia.md
     - Scheda Dettaglio:
       - Team Leader: pazienti/dettaglio_team_leader.md
+      - Team Leader Nutrizione: pazienti/dettaglio_team_leader_nutrizione.md
+      - Team Leader Coaching: pazienti/dettaglio_team_leader_coaching.md
+      - Team Leader Psicologia: pazienti/dettaglio_team_leader_psicologia.md
       - Professionista: pazienti/dettaglio_professionista.md
+      - Professionista Nutrizione: pazienti/dettaglio_professionista_nutrizione.md
+      - Professionista Coaching: pazienti/dettaglio_professionista_coaching.md
+      - Professionista Psicologia: pazienti/dettaglio_professionista_psicologia.md
   - Gestione Professionisti:
     - Task:
       - Team Leader: professionisti/task_team_leader.md
+      - Team Leader Nutrizione: professionisti/task_team_leader_nutrizione.md
+      - Team Leader Coaching: professionisti/task_team_leader_coaching.md
+      - Team Leader Psicologia: professionisti/task_team_leader_psicologia.md
       - Professionista: professionisti/task_professionista.md
+      - Professionista Nutrizione: professionisti/task_professionista_nutrizione.md
+      - Professionista Coaching: professionisti/task_professionista_coaching.md
+      - Professionista Psicologia: professionisti/task_professionista_psicologia.md
     - Formazione:
       - Team Leader: professionisti/formazione_team_leader.md
+      - Team Leader Nutrizione: professionisti/formazione_team_leader_nutrizione.md
+      - Team Leader Coaching: professionisti/formazione_team_leader_coaching.md
+      - Team Leader Psicologia: professionisti/formazione_team_leader_psicologia.md
       - Professionista: professionisti/formazione_professionista.md
+      - Professionista Nutrizione: professionisti/formazione_professionista_nutrizione.md
+      - Professionista Coaching: professionisti/formazione_professionista_coaching.md
+      - Professionista Psicologia: professionisti/formazione_professionista_psicologia.md
   - Gestione Azienda:
     - Check Azienda:
       - Team Leader: azienda/check_azienda_team_leader.md
+      - Team Leader Nutrizione: azienda/check_azienda_team_leader_nutrizione.md
+      - Team Leader Coaching: azienda/check_azienda_team_leader_coaching.md
+      - Team Leader Psicologia: azienda/check_azienda_team_leader_psicologia.md
       - Professionista: azienda/check_azienda_professionista.md
+      - Professionista Nutrizione: azienda/check_azienda_professionista_nutrizione.md
+      - Professionista Coaching: azienda/check_azienda_professionista_coaching.md
+      - Professionista Psicologia: azienda/check_azienda_professionista_psicologia.md

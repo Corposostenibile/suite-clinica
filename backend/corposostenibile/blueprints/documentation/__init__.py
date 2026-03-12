@@ -7,6 +7,16 @@ documentation_bp = Blueprint('documentation', __name__)
 # Percorso assoluto alla directory static
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
+ALLOWED_SPECIALTY_KEYS = {'nutrizione', 'coaching', 'psicologia'}
+
+def normalize_specialty_key(specialty):
+    normalized = String(specialty).lower()
+    if normalized == 'coach':
+        return 'coaching'
+    if normalized in {'nutrizione', 'psicologia', 'coaching'}:
+        return normalized
+    return None
+
 def can_view_audience(audience):
     """
     Verifica se l'utente corrente può vedere la documentazione per una specifica audience.
@@ -29,7 +39,24 @@ def can_view_audience(audience):
 def check_path_permission(path):
     if 'team_leader' in path:
         return can_view_audience('team_leader')
-    return True
+    if not current_user.is_authenticated:
+        return False
+
+    parts = [part for part in String(path).split('/') if part]
+    if len(parts) < 2 or parts[0] not in {'pazienti', 'professionisti', 'azienda'}:
+        return True
+
+    doc_slug = parts[1]
+    requested_specialty = next((specialty for specialty in ALLOWED_SPECIALTY_KEYS if f'_{specialty}' in doc_slug), None)
+    if not requested_specialty:
+        return True
+
+    if current_user.is_admin or getattr(current_user, 'role', '') == 'admin' or \
+       String(getattr(current_user, 'specialty', '')).lower() == 'cco':
+        return True
+
+    user_specialty = normalize_specialty_key(getattr(current_user, 'specialty', ''))
+    return user_specialty == requested_specialty
 
 @documentation_bp.route('/')
 @login_required

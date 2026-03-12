@@ -6,6 +6,12 @@ import {
 } from './rbacScope';
 
 export const TOUR_SPECIALTY_META = {
+  all: {
+    key: 'all',
+    label: 'Tutte le aree',
+    roleLabel: 'professionista',
+    scopeLabel: 'area clinica',
+  },
   nutrizione: {
     key: 'nutrizione',
     label: 'Nutrizione',
@@ -33,6 +39,19 @@ export function normalizeTourSpecialtyKey(specialty) {
 export function getTourSpecialtyMeta(specialty) {
   if (!specialty) return null;
   return TOUR_SPECIALTY_META[normalizeTourSpecialtyKey(specialty)] || null;
+}
+
+export const DOCUMENTATION_SPECIALTY_OPTIONS = [
+  TOUR_SPECIALTY_META.all,
+  TOUR_SPECIALTY_META.nutrizione,
+  TOUR_SPECIALTY_META.coaching,
+  TOUR_SPECIALTY_META.psicologia,
+];
+
+export function getRequestedSpecialty(searchParams) {
+  const requestedSpecialty = normalizeTourSpecialtyKey(searchParams.get('specialty'));
+  if (requestedSpecialty === 'all') return 'all';
+  return TOUR_SPECIALTY_META[requestedSpecialty] ? requestedSpecialty : null;
 }
 
 export function getRequestedTourAudience(searchParams) {

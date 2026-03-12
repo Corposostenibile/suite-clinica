@@ -137,12 +137,15 @@ import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing } from 'react-icons/fa';
 import AuthContext from '../context/AuthContext';
+import { getTourContext, normalizeTourSpecialtyKey } from '../utils/tourScope';
 
 function SupportWidget({
   pageTitle,
   pageDescription,
   pageIcon,
   docsSection,
+  docsAudience,
+  docsSpecialty,
   tourOptions,
   onStartTour,
   onOpenDocs,
@@ -158,14 +161,14 @@ function SupportWidget({
   const navigate = useNavigate();
   const auth = useContext(AuthContext);
   const currentUser = auth?.user || null;
-  const isAdminOrCco = Boolean(
-    currentUser?.is_admin === true ||
-    currentUser?.role === 'admin' ||
-    String(currentUser?.specialty || '').toLowerCase() === 'cco'
-  );
-  const guideAudience = (currentUser?.role === 'team_leader' && !isAdminOrCco)
-    ? 'team_leader'
-    : 'professionista';
+  const {
+    isAdminOrCco,
+    audience: inferredDocsAudience,
+    specialtyKey: inferredSpecialtyKey,
+  } = getTourContext(currentUser);
+  const guideAudience = docsAudience || inferredDocsAudience;
+  const guideSpecialty = normalizeTourSpecialtyKey(docsSpecialty)
+    || (isAdminOrCco ? 'all' : inferredSpecialtyKey || 'all');
   const resolvedTourOptions = Array.isArray(tourOptions) && tourOptions.length > 0
     ? tourOptions
     : isAdminOrCco
@@ -218,9 +221,12 @@ function SupportWidget({
       onOpenDocs();
     } else {
       // Comportamento default: naviga alla pagina docs
+      const params = new URLSearchParams();
+      params.set('audience', guideAudience);
+      params.set('specialty', guideSpecialty || 'all');
       const docsUrl = docsSection
-        ? `/documentazione?audience=${guideAudience}#${docsSection}`
-        : `/documentazione?audience=${guideAudience}`;
+        ? `/documentazione?${params.toString()}#${docsSection}`
+        : `/documentazione?${params.toString()}`;
       navigate(docsUrl);
     }
   };
