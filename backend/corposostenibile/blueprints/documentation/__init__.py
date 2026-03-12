@@ -13,12 +13,10 @@ def normalize_specialty_key(specialty):
     normalized = String(specialty).lower()
     if normalized in {'nutrizione', 'nutrizionista'}:
         return 'nutrizione'
-    if normalized in {'psicologia', 'psicologo'}:
+    if normalized in {'psicologia', 'psicologo', 'psicologa'}:
         return 'psicologia'
-    if normalized == 'coach':
+    if normalized in {'coach', 'coaching'}:
         return 'coaching'
-    if normalized == 'coaching':
-        return normalized
     return None
 
 def can_view_audience(audience):
