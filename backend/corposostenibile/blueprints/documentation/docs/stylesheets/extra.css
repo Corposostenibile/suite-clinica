@@ -23,3 +23,7 @@
 .md-typeset p > img {
     box-shadow: none !important;
 }
+
+.md-nav__item[data-docs-hidden="true"] {
+    display: none !important;
+}

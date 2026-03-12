@@ -9,8 +9,20 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
 ALLOWED_SPECIALTY_KEYS = {'nutrizione', 'coaching', 'psicologia'}
 
+def scalar_value(val):
+    if val is None:
+        return ""
+    return str(getattr(val, 'value', val))
+
+def is_admin_or_cco_user(user):
+    return bool(
+        getattr(user, 'is_admin', False)
+        or scalar_value(getattr(user, 'role', '')).lower() == 'admin'
+        or scalar_value(getattr(user, 'specialty', '')).lower() == 'cco'
+    )
+
 def normalize_specialty_key(specialty):
-    normalized = String(specialty).lower()
+    normalized = scalar_value(specialty).lower()
     if normalized in {'nutrizione', 'nutrizionista'}:
         return 'nutrizione'
     if normalized in {'psicologia', 'psicologo', 'psicologa'}:
@@ -27,12 +39,11 @@ def can_view_audience(audience):
         return False
     
     # Admin e CCO possono vedere tutto
-    if current_user.is_admin or getattr(current_user, 'role', '') == 'admin' or \
-       String(getattr(current_user, 'specialty', '')).lower() == 'cco':
+    if is_admin_or_cco_user(current_user):
         return True
     
     if audience == 'team_leader':
-        return getattr(current_user, 'role', '') == 'team_leader'
+        return scalar_value(getattr(current_user, 'role', '')).lower() == 'team_leader'
     
     # Tutti gli altri utenti autenticati possono vedere la documentazione 'professionista'
     return True
@@ -53,8 +64,7 @@ def check_path_permission(path):
     if not requested_specialty:
         return True
 
-    if current_user.is_admin or getattr(current_user, 'role', '') == 'admin' or \
-       String(getattr(current_user, 'specialty', '')).lower() == 'cco':
+    if is_admin_or_cco_user(current_user):
         return True
 
     user_specialty = normalize_specialty_key(getattr(current_user, 'specialty', ''))
@@ -106,4 +116,4 @@ def serve_docs(path=''):
 
 # Utility function since we don't have JavaScript's String() or cco check exactly the same
 def String(val):
-    return str(val) if val is not None else ""
+    return scalar_value(val)
