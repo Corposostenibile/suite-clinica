@@ -191,7 +191,7 @@ function Documentation() {
 
   const roleCopy = audience === 'team_leader'
     ? {
-        eyebrow: specialty === 'all' ? 'Percorso Team Leader' : `Team Leader • ${activeSpecialtyOption.label}`,
+        eyebrow: specialty === 'all' ? 'Team Leader' : `Team Leader • ${activeSpecialtyOption.label}`,
         title: specialty === 'all'
           ? 'Guide per coordinare il team e sbloccare i casi in stallo.'
           : `Guide Team Leader per supervisionare ${activeSpecialtyOption.label.toLowerCase()}.`,
@@ -200,13 +200,13 @@ function Documentation() {
           : `La selezione privilegia KPI, supervisione e decisioni operative nella tua area ${activeSpecialtyOption.label.toLowerCase()}.`,
       }
     : {
-        eyebrow: specialty === 'all' ? 'Percorso Professionista' : `Professionista • ${activeSpecialtyOption.label}`,
+        eyebrow: specialty === 'all' ? 'Professionista' : `Professionista • ${activeSpecialtyOption.label}`,
         title: specialty === 'all'
           ? 'Guide operative per lavorare veloce sui tuoi pazienti.'
           : `Guide operative per lavorare sui pazienti in ${activeSpecialtyOption.label.toLowerCase()}.`,
         body: specialty === 'all'
           ? 'La selezione privilegia esecuzione quotidiana, aggiornamento stati, task e richieste di formazione.'
-          : `La selezione privilegia il lavoro quotidiano nella tua area ${activeSpecialtyOption.label.toLowerCase()}, senza rumore sulle altre specialita.`,
+          : `La selezione raccoglie le guide operative per l'area ${activeSpecialtyOption.label.toLowerCase()}.`,
       };
 
   const updateRoute = (nextAudience, nextSpecialty, nextGuideKey = activeGuideKey) => {
@@ -269,7 +269,7 @@ function Documentation() {
           {specialtyLocked ? (
             <div className="docs-specialty-lock">
               <span>{activeSpecialtyOption.label}</span>
-              <small>Vista bloccata sul tuo perimetro operativo</small>
+              <small>Documentazione filtrata per il tuo ruolo</small>
             </div>
           ) : (
             <div className="docs-specialty-switch">

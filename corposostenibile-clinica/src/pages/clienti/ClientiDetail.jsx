@@ -330,7 +330,7 @@ function ClientiDetail() {
       title: 'Scheda Paziente',
       content: tourSpecialtyMetaBase
         ? `In questa pagina trovi il caso completo. Aggiorna solo la tua ${tourSpecialtyScopeLabel} come ${tourSpecialtyRoleLabel}.`
-        : 'In questa pagina trovi il caso completo. Aggiorna solo le aree del tuo perimetro operativo.',
+        : 'In questa pagina trovi il caso completo. Aggiorna le sezioni rilevanti per il tuo ruolo.',
       placement: 'bottom',
       icon: <FaUserCircle size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -354,7 +354,7 @@ function ClientiDetail() {
     {
       target: '[data-tour="salva-modifiche"]',
       title: 'Salvataggio rapido',
-      content: 'Salva quando aggiorni il tuo perimetro, cosi il team trova sempre uno storico coerente.',
+      content: 'Salva quando aggiorni le tue sezioni, cosi il team trova sempre uno storico coerente.',
       placement: 'bottom',
       icon: <FaSave size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
@@ -362,20 +362,20 @@ function ClientiDetail() {
   ]), [tourSpecialtyMetaBase, tourSpecialtyRoleLabel, tourSpecialtyScopeLabel]);
 
   const teamTabTourCopy = isTourTeamLeader
-    ? 'Usa questa area per leggere il team clinico e coordinare assegnazioni entro il tuo perimetro e la tua specialita.'
+    ? 'Usa questa area per leggere il team clinico e coordinare le assegnazioni della tua specialita.'
     : 'Usa questa area per capire chi segue il paziente e leggere il contesto del caso. Le assegnazioni non si gestiscono da qui per il tuo ruolo.';
 
   const nutritionActionCopy = canManageNutritionSection
-    ? 'Qui puoi leggere e aggiornare il lavoro di nutrizione quando rientra nel tuo scope.'
-    : 'Qui puoi leggere il lavoro di nutrizione per avere contesto, ma le modifiche restano a chi ha scope su questa area.';
+    ? 'Qui puoi leggere e aggiornare il lavoro di nutrizione.'
+    : 'Qui puoi leggere il lavoro di nutrizione per avere contesto, mentre le modifiche restano al professionista di riferimento.';
 
   const coachingActionCopy = canManageCoachingSection
-    ? 'Qui puoi leggere e aggiornare il lavoro di coaching quando rientra nel tuo scope.'
-    : 'Qui puoi leggere il lavoro di coaching per avere contesto, ma le modifiche restano a chi ha scope su questa area.';
+    ? 'Qui puoi leggere e aggiornare il lavoro di coaching.'
+    : 'Qui puoi leggere il lavoro di coaching per avere contesto, mentre le modifiche restano al professionista di riferimento.';
 
   const psychologyActionCopy = canManagePsychologySection
-    ? 'Qui puoi leggere e aggiornare il lavoro di psicologia quando rientra nel tuo scope.'
-    : 'Qui puoi leggere il lavoro di psicologia per avere contesto, ma le modifiche restano a chi ha scope su questa area.';
+    ? 'Qui puoi leggere e aggiornare il lavoro di psicologia.'
+    : 'Qui puoi leggere il lavoro di psicologia per avere contesto, mentre le modifiche restano al professionista di riferimento.';
 
   const genericTabTourSteps = {
     anagrafica: [
@@ -522,7 +522,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="nutrizione-setup"]',
         title: 'Setup Nutrizione',
-        content: canManageNutritionSection ? 'Aggiorna call iniziale e giorni di reach-out solo se questa area e nel tuo scope.' : 'Consulta setup e frequenza contatti per capire il caso, senza modificare se l area non e nel tuo scope.',
+        content: canManageNutritionSection ? 'Aggiorna call iniziale e giorni di reach-out quando segui direttamente questa area.' : 'Consulta setup e frequenza contatti per capire il caso, senza modificare questa sezione.',
         placement: 'top',
         icon: <FaAppleAlt size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
@@ -532,7 +532,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="nutrizione-patologie"]',
         title: 'Patologie e Anamnesi',
-        content: canManageNutritionSection ? 'Documenta anamnesi e abitudini alimentari quando lavori davvero su questa area.' : 'Leggi anamnesi e abitudini alimentari per avere contesto, ma non modificare fuori dal tuo scope.',
+        content: canManageNutritionSection ? 'Documenta anamnesi e abitudini alimentari quando lavori su questa area.' : 'Leggi anamnesi e abitudini alimentari per avere contesto, senza modificare questa sezione.',
         placement: 'top',
         icon: <FaAppleAlt size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
@@ -583,7 +583,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="coaching-setup"]',
         title: 'Setup Coaching',
-        content: canManageCoachingSection ? 'Aggiorna la call iniziale sportiva e la frequenza dei contatti quando questa area e nel tuo scope.' : 'Consulta setup e frequenza contatti per avere contesto, senza modificare fuori dal tuo scope.',
+        content: canManageCoachingSection ? 'Aggiorna la call iniziale sportiva e la frequenza dei contatti quando segui direttamente questa area.' : 'Consulta setup e frequenza contatti per avere contesto, senza modificare questa sezione.',
         placement: 'top',
         icon: <FaRunning size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -593,7 +593,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="coaching-schede"]',
         title: 'Schede Allenamento',
-        content: canManageCoachingSection ? 'Qui pianifichi schede, file e storico allenamenti se il coaching rientra nel tuo scope.' : 'Qui consulti schede e storico allenamenti per capire il percorso, senza modificarli fuori dal tuo scope.',
+        content: canManageCoachingSection ? 'Qui pianifichi schede, file e storico allenamenti quando segui direttamente il coaching.' : 'Qui consulti schede e storico allenamenti per capire il percorso, senza modificarli.',
         placement: 'top',
         icon: <FaRunning size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -623,7 +623,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="coaching-diario"]',
         title: 'Diario Coaching',
-        content: canManageCoachingSection ? 'Qui lasci feedback sugli allenamenti e sull evoluzione atletica.' : 'Qui leggi lo storico coaching per capire l andamento del paziente senza modificare fuori dal tuo scope.',
+        content: canManageCoachingSection ? 'Qui lasci feedback sugli allenamenti e sull evoluzione atletica.' : 'Qui leggi lo storico coaching per capire l andamento del paziente senza modificare questa sezione.',
         placement: 'top',
         icon: <FaRunning size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -664,7 +664,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="psicologia-setup"]',
         title: 'Setup Psicologia',
-        content: canManagePsychologySection ? 'Aggiorna la call iniziale e le modalita di supporto quando la psicologia rientra nel tuo scope.' : 'Consulta setup e modalita di supporto per capire il caso, senza modificare fuori dal tuo scope.',
+        content: canManagePsychologySection ? 'Aggiorna la call iniziale e le modalita di supporto quando segui direttamente questa area.' : 'Consulta setup e modalita di supporto per capire il caso, senza modificare questa sezione.',
         placement: 'top',
         icon: <FaBrain size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
@@ -674,7 +674,7 @@ function ClientiDetail() {
       {
         target: '[data-tour="psicologia-patologie"]',
         title: 'Patologie Psicologiche',
-        content: canManagePsychologySection ? 'Documenta eventuali disturbi o condizioni psicologiche quando lavori su questa area.' : 'Leggi le informazioni psicologiche necessarie al contesto del caso, senza modificare fuori dal tuo scope.',
+        content: canManagePsychologySection ? 'Documenta eventuali disturbi o condizioni psicologiche quando lavori su questa area.' : 'Leggi le informazioni psicologiche necessarie al contesto del caso, senza modificare questa sezione.',
         placement: 'top',
         icon: <FaBrain size={18} color="white" />,
         iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
@@ -741,7 +741,7 @@ function ClientiDetail() {
         title: `Tour ${meta.label}`,
         content: audience === 'team_leader'
           ? `Qui entri come Team Leader ${meta.roleLabel} per supervisionare il lavoro della tua area, verificare criticita e guidare il team sui casi complessi.`
-          : `Qui entri come ${meta.roleLabel} per leggere il caso, aggiornare la tua area e coordinarti con il resto del team senza uscire dal tuo perimetro operativo.`,
+          : `Qui entri come ${meta.roleLabel} per leggere il caso, aggiornare la tua area e coordinarti con il resto del team.`,
         placement: 'bottom',
         icon: meta.icon,
         iconBg: meta.iconBg
