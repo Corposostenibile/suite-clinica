@@ -12,6 +12,7 @@ import {
     FaArrowRight,
     FaFilter
 } from 'react-icons/fa';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import './Task.css';
 
 function Task() {
@@ -57,17 +58,17 @@ function Task() {
         user?.role === 'admin' ||
         user?.specialty === 'cco'
     );
-    const isTeamLeaderTaskViewer = Boolean(user?.role === 'team_leader' && !isGlobalTaskViewer);
-    const tourAudience = isGlobalTaskViewer
-        ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
-        : (isTeamLeaderTaskViewer ? 'team_leader' : 'professionista');
-    const isTeamLeaderTaskTour = tourAudience === 'team_leader';
+    const {
+        isRestrictedTeamLeader: isTeamLeaderTaskViewer,
+        specialtyMeta: tourSpecialtyMeta,
+        isTeamLeaderTour: isTeamLeaderTaskTour,
+    } = getTourContext(user, tourAudienceOverride);
     const showAssigneeColumn = isGlobalTaskViewer || isTeamLeaderTaskViewer;
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
-            const requestedAudience = searchParams.get('tourAudience');
-            if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+            const requestedAudience = getRequestedTourAudience(searchParams);
+            if (requestedAudience) {
                 setTourAudienceOverride(requestedAudience);
             }
             setMostraTour(true);
@@ -84,12 +85,16 @@ function Task() {
         (t) => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url)))
     );
 
+    const specialtyScopeLabel = tourSpecialtyMeta?.scopeLabel || 'area operativa';
+
     const tourSteps = useMemo(() => {
         const base = isTeamLeaderTaskTour ? [
             {
                 target: '[data-tour="header"]',
                 title: 'Console Team Task',
-                content: 'Qui leggi il carico operativo del team e capisci dove intervenire prima che il backlog peggiori.',
+                content: tourSpecialtyMeta
+                    ? `Qui leggi il carico operativo della tua ${specialtyScopeLabel} e capisci dove intervenire prima che il backlog peggiori.`
+                    : 'Qui leggi il carico operativo del team e capisci dove intervenire prima che il backlog peggiori.',
                 placement: 'bottom',
                 icon: <FaTasks size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -97,7 +102,9 @@ function Task() {
             {
                 target: '[data-tour="stats-cards"]',
                 title: 'Backlog per Categoria',
-                content: 'Le card ti aiutano a capire dove si concentra il lavoro aperto: onboarding, reminder, solleciti e check.',
+                content: tourSpecialtyMeta
+                    ? `Le card ti aiutano a capire dove si concentra il lavoro aperto nella tua ${specialtyScopeLabel}: onboarding, reminder, solleciti e check.`
+                    : 'Le card ti aiutano a capire dove si concentra il lavoro aperto: onboarding, reminder, solleciti e check.',
                 placement: 'bottom',
                 icon: <FaStream size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -105,7 +112,9 @@ function Task() {
             {
                 target: '[data-tour="task-table"]',
                 title: 'Lista Operativa Team',
-                content: 'Questa lista deve dirti chi e in ritardo, su quali pazienti e con che priorita.',
+                content: tourSpecialtyMeta
+                    ? `Questa lista deve dirti chi e in ritardo nella tua ${specialtyScopeLabel}, su quali pazienti e con che priorita.`
+                    : 'Questa lista deve dirti chi e in ritardo, su quali pazienti e con che priorita.',
                 placement: 'top',
                 icon: <FaClipboardList size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
@@ -121,7 +130,9 @@ function Task() {
             {
                 target: '[data-tour="task-action"]',
                 title: 'Vai al Contesto',
-                content: 'Apri il task nel punto operativo corretto quando devi verificare un caso o fare coaching.',
+                content: tourSpecialtyMeta
+                    ? `Apri il task nel punto operativo corretto quando devi verificare un caso della tua ${specialtyScopeLabel} o fare coaching.`
+                    : 'Apri il task nel punto operativo corretto quando devi verificare un caso o fare coaching.',
                 placement: 'left',
                 icon: <FaArrowRight size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
@@ -138,7 +149,9 @@ function Task() {
             {
                 target: '[data-tour="header"]',
                 title: 'Benvenuto al Sistema Task',
-                content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
+                content: tourSpecialtyMeta
+                    ? `Questa è la tua centrale operativa per gestire attività, scadenze e solleciti della tua ${specialtyScopeLabel}.`
+                    : 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
                 placement: 'bottom',
                 icon: <FaTasks size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -146,7 +159,9 @@ function Task() {
             {
                 target: '[data-tour="stats-cards"]',
                 title: 'Dashboard Task',
-                content: 'Le card mostrano il numero di attività aperte per categoria.',
+                content: tourSpecialtyMeta
+                    ? `Le card mostrano il numero di attività aperte nella tua ${specialtyScopeLabel} per categoria.`
+                    : 'Le card mostrano il numero di attività aperte per categoria.',
                 placement: 'bottom',
                 icon: <FaStream size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -154,7 +169,9 @@ function Task() {
             {
                 target: '[data-tour="task-table"]',
                 title: 'La Tua Lista Attività',
-                content: 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
+                content: tourSpecialtyMeta
+                    ? `Ogni riga contiene attività rilevanti per la tua ${specialtyScopeLabel}, con cliente, scadenza e priorità.`
+                    : 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
                 placement: 'top',
                 icon: <FaClipboardList size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
@@ -170,7 +187,9 @@ function Task() {
             {
                 target: '[data-tour="task-action"]',
                 title: 'Navigazione Intelligente',
-                content: 'Il pulsante Vai ti porta direttamente nel punto operativo corretto senza navigazione manuale.',
+                content: tourSpecialtyMeta
+                    ? `Il pulsante Vai ti porta direttamente nel punto operativo corretto della tua ${specialtyScopeLabel}, senza navigazione manuale.`
+                    : 'Il pulsante Vai ti porta direttamente nel punto operativo corretto senza navigazione manuale.',
                 placement: 'left',
                 icon: <FaArrowRight size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
@@ -198,7 +217,9 @@ function Task() {
             base.push({
                 target: '[data-tour="task-team-filters"]',
                 title: 'Filtro Team Leader',
-                content: 'Seleziona un professionista del tuo team per fare focus su carico, ritardi e avanzamento reale.',
+                content: tourSpecialtyMeta
+                    ? `Seleziona un ${tourSpecialtyMeta.roleLabel} del tuo team per fare focus su carico, ritardi e avanzamento reale nella ${specialtyScopeLabel}.`
+                    : 'Seleziona un professionista del tuo team per fare focus su carico, ritardi e avanzamento reale.',
                 placement: 'bottom',
                 icon: <FaFilter size={18} color="white" />,
                 iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
@@ -206,7 +227,7 @@ function Task() {
         }
 
         return base;
-    }, [isGlobalTaskViewer, isTeamLeaderTaskTour, isTeamLeaderTaskViewer]);
+    }, [isGlobalTaskViewer, isTeamLeaderTaskTour, isTeamLeaderTaskViewer, specialtyScopeLabel, tourSpecialtyMeta]);
 
     const filteredTourSteps = tourSteps.filter(step => {
         if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) return false;

@@ -10,6 +10,7 @@ import teamService, {
 } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import './Formazione.css';
 
 // Colori sfondo header card in base alla specializzazione
@@ -48,8 +49,13 @@ const PRIORITIES = {
 
 function Formazione() {
     const { user } = useOutletContext();
-    const isAdmin = Boolean(user?.is_admin === true || user?.role === 'admin' || user?.specialty === 'cco');
-    const isTeamLeader = Boolean(user?.role === 'team_leader' && !isAdmin);
+    const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
+    const {
+        isAdminOrCco: isAdmin,
+        isRestrictedTeamLeader: isTeamLeader,
+        specialtyMeta: tourSpecialtyMeta,
+        isTeamLeaderTour: canManageTeamTrainingTour,
+    } = getTourContext(user, tourAudienceOverride);
     const canManageTeamTraining = Boolean(isAdmin || isTeamLeader);
     const teamLeaderSpecialtyGroup = (() => {
         if (!isTeamLeader) return null;
@@ -85,30 +91,29 @@ function Formazione() {
 
     // Tour
     const [mostraTour, setMostraTour] = useState(false);
-    const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
     const [searchParams] = useSearchParams();
     const deepLinkTrainingId = parseInt(searchParams.get('trainingId') || '', 10);
     const deepLinkTrainingTab = searchParams.get('trainingTab');
-    const tourAudience = isAdmin
-        ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
-        : (isTeamLeader ? 'team_leader' : 'professionista');
-    const canManageTeamTrainingTour = tourAudience === 'team_leader';
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
-            const requestedAudience = searchParams.get('tourAudience');
-            if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+            const requestedAudience = getRequestedTourAudience(searchParams);
+            if (requestedAudience) {
                 setTourAudienceOverride(requestedAudience);
             }
             setMostraTour(true);
         }
     }, [searchParams]);
 
+    const specialtyScopeLabel = tourSpecialtyMeta?.scopeLabel || 'area formativa';
+
     const tourSteps = useMemo(() => (canManageTeamTrainingTour ? [
         {
             target: '[data-tour="header"]',
             title: 'Formazione del Team',
-            content: 'Qui non gestisci solo la tua crescita: controlli feedback, richieste e applicazione pratica nel team.',
+            content: tourSpecialtyMeta
+                ? `Qui non gestisci solo la tua crescita: controlli feedback, richieste e applicazione pratica del team nella ${specialtyScopeLabel}.`
+                : 'Qui non gestisci solo la tua crescita: controlli feedback, richieste e applicazione pratica nel team.',
             placement: 'bottom',
             icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -116,7 +121,9 @@ function Formazione() {
         {
             target: '[data-tour="stats-cards"]',
             title: 'Cruscotto Formativo',
-            content: 'Usa queste card per capire se il team sta leggendo i training e dove si accumulano richieste o gap.',
+            content: tourSpecialtyMeta
+                ? `Usa queste card per capire se il team della ${specialtyScopeLabel} sta leggendo i training e dove si accumulano richieste o gap.`
+                : 'Usa queste card per capire se il team sta leggendo i training e dove si accumulano richieste o gap.',
             placement: 'bottom',
             icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -124,7 +131,9 @@ function Formazione() {
         {
             target: '[data-tour="tabs-navigation"]',
             title: 'Flussi di Supervisione',
-            content: 'Passa tra training assegnati, erogati e richieste per capire dove intervenire come reviewer o team leader.',
+            content: tourSpecialtyMeta
+                ? `Passa tra training assegnati, erogati e richieste per capire dove intervenire come reviewer o team leader della ${specialtyScopeLabel}.`
+                : 'Passa tra training assegnati, erogati e richieste per capire dove intervenire come reviewer o team leader.',
             placement: 'bottom',
             icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
@@ -132,7 +141,9 @@ function Formazione() {
         {
             target: '[data-tour="content-list"]',
             title: 'Contenuti e Discussioni',
-            content: 'Apri i training per verificare se il feedback e chiaro, letto e applicabile nel lavoro reale.',
+            content: tourSpecialtyMeta
+                ? `Apri i training per verificare se il feedback e chiaro, letto e applicabile nel lavoro reale della ${specialtyScopeLabel}.`
+                : 'Apri i training per verificare se il feedback e chiaro, letto e applicabile nel lavoro reale.',
             placement: 'top',
             icon: <i className="ri-list-check" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
@@ -140,7 +151,9 @@ function Formazione() {
         {
             target: '[data-tour="request-btn"]',
             title: 'Attiva Nuovo Training',
-            content: 'Usa questo punto per aprire richieste o risposte formative quando emerge un gap concreto nel team.',
+            content: tourSpecialtyMeta
+                ? `Usa questo punto per aprire richieste o risposte formative quando emerge un gap concreto nella ${specialtyScopeLabel}.`
+                : 'Usa questo punto per aprire richieste o risposte formative quando emerge un gap concreto nel team.',
             placement: 'left',
             icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
@@ -149,7 +162,9 @@ function Formazione() {
         {
             target: '[data-tour="header"]',
             title: 'Area Formazione',
-            content: 'Qui puoi gestire il tuo percorso di crescita professionale e richiedere formazione specifica.',
+            content: tourSpecialtyMeta
+                ? `Qui puoi gestire il tuo percorso di crescita nella ${specialtyScopeLabel} e richiedere formazione specifica.`
+                : 'Qui puoi gestire il tuo percorso di crescita professionale e richiedere formazione specifica.',
             placement: 'bottom',
             icon: <i className="ri-graduation-cap-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -157,7 +172,9 @@ function Formazione() {
         {
             target: '[data-tour="stats-cards"]',
             title: 'Dashboard Rapida',
-            content: 'Tieni d occhio training ricevuti e stato delle tue richieste.',
+            content: tourSpecialtyMeta
+                ? `Tieni d occhio training ricevuti e stato delle tue richieste nella ${specialtyScopeLabel}.`
+                : 'Tieni d occhio training ricevuti e stato delle tue richieste.',
             placement: 'bottom',
             icon: <i className="ri-bar-chart-2-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -165,7 +182,9 @@ function Formazione() {
         {
             target: '[data-tour="tabs-navigation"]',
             title: 'Organizzazione',
-            content: 'Usa i tab per navigare tra training assegnati e richieste formazione.',
+            content: tourSpecialtyMeta
+                ? `Usa i tab per navigare tra training assegnati e richieste formazione della ${specialtyScopeLabel}.`
+                : 'Usa i tab per navigare tra training assegnati e richieste formazione.',
             placement: 'bottom',
             icon: <i className="ri-filter-3-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
@@ -173,7 +192,9 @@ function Formazione() {
         {
             target: '[data-tour="content-list"]',
             title: 'I Tuoi Training',
-            content: 'Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione.',
+            content: tourSpecialtyMeta
+                ? `Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione nella ${specialtyScopeLabel}.`
+                : 'Clicca su un elemento per espandere i dettagli, leggere il feedback e confermare la presa visione.',
             placement: 'top',
             icon: <i className="ri-list-check" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
@@ -181,12 +202,14 @@ function Formazione() {
         {
             target: '[data-tour="request-btn"]',
             title: 'Richiedi Formazione',
-            content: 'Hai bisogno di supporto su un tema specifico? Invia una richiesta di training al tuo responsabile o a un collega esperto.',
+            content: tourSpecialtyMeta
+                ? `Hai bisogno di supporto su un tema della ${specialtyScopeLabel}? Invia una richiesta di training al tuo responsabile o a un collega esperto.`
+                : 'Hai bisogno di supporto su un tema specifico? Invia una richiesta di training al tuo responsabile o a un collega esperto.',
             placement: 'left',
             icon: <i className="ri-add-circle-line" style={{ fontSize: 18, color: '#fff' }} />,
             iconBg: 'linear-gradient(135deg, #EC4899, #F472B6)'
         },
-    ]), [canManageTeamTrainingTour]);
+    ]), [canManageTeamTrainingTour, specialtyScopeLabel, tourSpecialtyMeta]);
 
     // Pagination per sezioni
     const ITEMS_PER_SECTION = 10;

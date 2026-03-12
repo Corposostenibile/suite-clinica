@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useNavigate, useSearchParams, useOutletContext } from 'react-router-dom';
+import { Link, useSearchParams, useOutletContext } from 'react-router-dom';
 import DatePicker from '../../components/DatePicker';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { isProfessionistaStandard, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import './CheckAzienda.css';
 
 // Professional type config
@@ -71,7 +72,6 @@ const ProfessionalCell = ({ professionals, rating, progressRating }) => {
 // ── Main Component ──
 function CheckAzienda() {
   const { user } = useOutletContext();
-  const navigate = useNavigate();
   const [period, setPeriod] = useState('month');
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState([]);
@@ -82,50 +82,51 @@ function CheckAzienda() {
   const [mostraTour, setMostraTour] = useState(false);
   const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
   const [searchParams] = useSearchParams();
-  const isProfessionista = isProfessionistaStandard(user);
+  const {
+    isProfessionista,
+    isRestrictedTeamLeader: isTeamLeaderRestricted,
+    specialtyMeta: tourSpecialtyMeta,
+    isTeamLeaderTour,
+  } = getTourContext(user, tourAudienceOverride);
   const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
-  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
-  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
-  const tourAudience = isAdminOrCco
-    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
-    : (isTeamLeaderRestricted ? 'team_leader' : 'professionista');
-  const isTeamLeaderTour = tourAudience === 'team_leader';
 
   useEffect(() => {
     if (searchParams.get('startTour') === 'true') {
-      const requestedAudience = searchParams.get('tourAudience');
-      if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+      const requestedAudience = getRequestedTourAudience(searchParams);
+      if (requestedAudience) {
         setTourAudienceOverride(requestedAudience);
       }
       setMostraTour(true);
     }
   }, [searchParams]);
 
+  const specialtyScopeLabel = tourSpecialtyMeta?.scopeLabel || 'perimetro di lavoro';
+
   const tourSteps = useMemo(() => (isTeamLeaderTour ? [
-    { target: '[data-tour="header"]', title: 'Controllo Qualita Team', content: 'Questa pagina ti aiuta a monitorare qualita, tempi di lettura e segnali di rischio nel tuo perimetro team.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
-    { target: '[data-tour="kpi-dashboard"]', title: 'KPI del Tuo Perimetro', content: 'Leggi i numeri come segnali di supervisione del tuo team o della tua specialita: verde stabile, giallo migliorabile, rosso da approfondire subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+    { target: '[data-tour="header"]', title: 'Controllo Qualita Team', content: tourSpecialtyMeta ? `Questa pagina ti aiuta a monitorare qualita, tempi di lettura e segnali di rischio nella tua ${specialtyScopeLabel}.` : 'Questa pagina ti aiuta a monitorare qualita, tempi di lettura e segnali di rischio nel tuo perimetro team.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+    { target: '[data-tour="kpi-dashboard"]', title: 'KPI del Tuo Perimetro', content: tourSpecialtyMeta ? `Leggi i numeri come segnali di supervisione della tua ${specialtyScopeLabel}: verde stabile, giallo migliorabile, rosso da approfondire subito.` : 'Leggi i numeri come segnali di supervisione del tuo team o della tua specialita: verde stabile, giallo migliorabile, rosso da approfondire subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
     { target: '[data-tour="period-filters"]', title: 'Orizzonte Temporale', content: 'Cambia periodo per capire se il problema e episodico o strutturale.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { target: '[data-tour="prof-filters"]', title: 'Filtri del Tuo Perimetro', content: 'Restringi la vista per area o professionista quando devi isolare una criticita precisa dentro il tuo scope.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="prof-filters"]', title: 'Filtri del Tuo Perimetro', content: tourSpecialtyMeta ? `Restringi la vista per professionista della ${specialtyScopeLabel} quando devi isolare una criticita precisa dentro il tuo scope.` : 'Restringi la vista per area o professionista quando devi isolare una criticita precisa dentro il tuo scope.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="status-filters"]', title: 'Segnali Rapidi', content: 'Usa voto negativo e non letto per trovare in pochi secondi i casi da portare in review o sollecito.', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
-    { target: '[data-tour="responses-table"]', title: 'Elenco Check', content: 'Ogni riga ti dice cosa sta percependo il paziente e se il team ha letto o meno il feedback.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
+    { target: '[data-tour="responses-table"]', title: 'Elenco Check', content: tourSpecialtyMeta ? `Ogni riga ti dice cosa sta percependo il paziente e se il team della ${specialtyScopeLabel} ha letto o meno il feedback.` : 'Ogni riga ti dice cosa sta percependo il paziente e se il team ha letto o meno il feedback.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
     { target: '[data-tour="check-record"]', title: 'Apri il Caso', content: 'Entra nel dettaglio completo quando devi contestualizzare un voto basso o un check lasciato senza risposta.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
     { target: '[data-tour="check-detail-modal"]', title: 'Dettaglio per Review', content: 'Qui raccogli evidenze concrete da usare in review, coaching o riallineamento del processo.', placement: 'left', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)', action: 'open_modal' },
     { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Le immagini aiutano a capire se il risultato percepito dal paziente e coerente con l andamento reale.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="check-ratings"]', title: 'Voti e Feedback', content: 'Leggi voti e testo insieme: i numeri da soli non bastano a capire dove intervenire.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
     { target: '[data-tour="check-reflections"]', title: 'Riflessioni del Paziente', content: 'Qui trovi il contesto piu utile per trasformare il check in un azione correttiva.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
   ] : [
-    { target: '[data-tour="header"]', title: 'Lettura Check del Tuo Perimetro', content: 'Questa pagina ti aiuta a leggere la qualita del servizio e capire dove migliorare sui pazienti che rientrano nel tuo lavoro.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
-    { target: '[data-tour="kpi-dashboard"]', title: 'Segnali della Tua Area', content: 'Usa i colori per leggere la priorita sul tuo perimetro: verde ok, giallo migliorabile, rosso da trattare subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
+    { target: '[data-tour="header"]', title: 'Lettura Check del Tuo Perimetro', content: tourSpecialtyMeta ? `Questa pagina ti aiuta a leggere la qualita del servizio e capire dove migliorare sui pazienti che rientrano nella tua ${specialtyScopeLabel}.` : 'Questa pagina ti aiuta a leggere la qualita del servizio e capire dove migliorare sui pazienti che rientrano nel tuo lavoro.', placement: 'bottom', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)' },
+    { target: '[data-tour="kpi-dashboard"]', title: 'Segnali della Tua Area', content: tourSpecialtyMeta ? `Usa i colori per leggere la priorita nella tua ${specialtyScopeLabel}: verde ok, giallo migliorabile, rosso da trattare subito.` : 'Usa i colori per leggere la priorita sul tuo perimetro: verde ok, giallo migliorabile, rosso da trattare subito.', placement: 'bottom', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)' },
     { target: '[data-tour="period-filters"]', title: 'Periodo Temporale', content: 'Scegli l orizzonte temporale: settimana, mese, trimestre o date custom.', placement: 'bottom', icon: <i className="ri-calendar-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-    { target: '[data-tour="prof-filters"]', title: 'Filtri della Tua Area', content: 'La vista e gia focalizzata sul tuo perimetro, cosi puoi isolare in fretta i feedback piu utili senza leggere dati fuori scope.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+    { target: '[data-tour="prof-filters"]', title: 'Filtri della Tua Area', content: tourSpecialtyMeta ? `La vista e gia focalizzata sulla tua ${specialtyScopeLabel}, cosi puoi isolare in fretta i feedback piu utili senza leggere dati fuori scope.` : 'La vista e gia focalizzata sul tuo perimetro, cosi puoi isolare in fretta i feedback piu utili senza leggere dati fuori scope.', placement: 'bottom', icon: <i className="ri-group-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="status-filters"]', title: 'Filtri Rapidi (Stato)', content: 'Individua criticita con voto negativo o check non letti.', placement: 'bottom', icon: <i className="ri-filter-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #ef4444, #dc2626)' },
-    { target: '[data-tour="responses-table"]', title: 'Tabella Risposte', content: 'Ogni riga e un check. Qui capisci cosa ha funzionato, cosa no e cosa richiede risposta.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
+    { target: '[data-tour="responses-table"]', title: 'Tabella Risposte', content: tourSpecialtyMeta ? `Ogni riga e un check rilevante per la tua ${specialtyScopeLabel}. Qui capisci cosa ha funzionato, cosa no e cosa richiede risposta.` : 'Ogni riga e un check. Qui capisci cosa ha funzionato, cosa no e cosa richiede risposta.', placement: 'top', icon: <i className="ri-table-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #64748b, #475569)' },
     { target: '[data-tour="check-record"]', title: 'Vedi Dettagli', content: 'Cliccando su una riga si apre il dettaglio completo del check.', placement: 'top', icon: <i className="ri-line-chart-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)', action: 'close_modal' },
     { target: '[data-tour="check-detail-modal"]', title: 'Scheda Completa', content: 'Qui puoi vedere il check nella sua interezza e ricavare azioni concrete.', placement: 'left', icon: <i className="ri-information-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #3b82f6, #2563eb)', action: 'open_modal' },
     { target: '[data-tour="check-photos"]', title: 'Foto Progressi', content: 'Foto caricate dal paziente. Cliccaci sopra per ingrandirle.', placement: 'left', icon: <i className="ri-camera-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
     { target: '[data-tour="check-ratings"]', title: 'Valutazioni e Feedback', content: 'Leggi voti e feedback testuali insieme per capire cosa correggere.', placement: 'top', icon: <i className="ri-star-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #f59e0b, #d97706)' },
     { target: '[data-tour="check-reflections"]', title: 'Riflessioni', content: 'Qui trovi note del paziente su cosa ha funzionato e sui prossimi obiettivi.', placement: 'top', icon: <i className="ri-lightbulb-line" style={{ fontSize: 18, color: '#fff' }} />, iconBg: 'linear-gradient(135deg, #10b981, #059669)' },
-  ]), [isTeamLeaderTour]);
+  ]), [isTeamLeaderTour, specialtyScopeLabel, tourSpecialtyMeta]);
 
   // Custom date range
   const [showCustomDates, setShowCustomDates] = useState(false);

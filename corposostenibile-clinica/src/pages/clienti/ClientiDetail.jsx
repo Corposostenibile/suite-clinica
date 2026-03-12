@@ -29,8 +29,9 @@ import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 import DatePicker from '../../components/DatePicker';
 import api from '../../services/api';
 import ProgressoTab from './ProgressoTab';
-import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
+import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaUserTie } from 'react-icons/fa';
 import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import { createPortal } from 'react-dom';
 import './ClientiDetail.css';
 import '../calendario/Calendario.css';
@@ -166,10 +167,12 @@ function ClientiDetail() {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('anagrafica');
   const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
-  const tourAudience = isAdminOrCco
-    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
-    : (isRestrictedTeamLeader ? 'team_leader' : 'professionista');
-  const isTourTeamLeader = tourAudience === 'team_leader';
+  const {
+    audience: tourAudience,
+    specialtyKey: normalizedTourSpecialty,
+    specialtyMeta: tourSpecialtyMetaBase,
+    isTeamLeaderTour: isTourTeamLeader,
+  } = getTourContext(user, tourAudienceOverride);
 
   // Tab scroll arrows
   const tabsRef = useRef(null);
@@ -203,14 +206,98 @@ function ClientiDetail() {
     el.scrollBy({ left: dir * 200, behavior: 'smooth' });
   }, []);
 
-  // Tour Steps Definitions
-  const commonSteps = isTourTeamLeader ? [
+  const tourSpecialtyScopeLabel = tourSpecialtyMetaBase?.scopeLabel || 'area clinica';
+  const tourSpecialtyRoleLabel = tourSpecialtyMetaBase?.roleLabel || 'professionista';
+  const mainTabTourLabels = {
+    anagrafica: 'Anagrafica',
+    programma: 'Programma',
+    team: 'Team',
+    check_periodici: 'Check Periodici',
+    check_iniziali: 'Check Iniziali',
+  };
+  const activeMainTabTourOption = mainTabTourLabels[activeTab]
+    ? {
+        title: `Tour ${mainTabTourLabels[activeTab]}`,
+        description: `Apri direttamente il tour della tab ${mainTabTourLabels[activeTab]}`,
+        audience: tourAudience,
+        tourType: activeTab,
+        iconColor: '#2563eb',
+        iconBg: 'linear-gradient(135deg, #DBEAFE, #BFDBFE)',
+      }
+    : null;
+  const supportWidgetTourOptions = isAdminOrCco
+    ? [
+        {
+          title: 'Panoramica Team Leader',
+          description: 'Apri la panoramica del dettaglio paziente per supervisione e coordinamento',
+          audience: 'team_leader',
+          tourType: 'general',
+          iconColor: '#059669',
+          iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+        },
+        {
+          title: 'Tour Nutrizione',
+          description: 'Apri direttamente il percorso nutrizione',
+          audience: 'professionista',
+          tourType: 'nutrizione',
+          iconColor: '#16a34a',
+          iconBg: 'linear-gradient(135deg, #DCFCE7, #BBF7D0)',
+        },
+        {
+          title: 'Tour Coaching',
+          description: 'Apri direttamente il percorso coaching',
+          audience: 'professionista',
+          tourType: 'coaching',
+          iconColor: '#d97706',
+          iconBg: 'linear-gradient(135deg, #FEF3C7, #FDE68A)',
+        },
+        {
+          title: 'Tour Psicologia',
+          description: 'Apri direttamente il percorso psicologia',
+          audience: 'professionista',
+          tourType: 'psicologia',
+          iconColor: '#7c3aed',
+          iconBg: 'linear-gradient(135deg, #F3E8FF, #E9D5FF)',
+        },
+        ...(activeMainTabTourOption ? [activeMainTabTourOption] : []),
+      ]
+    : normalizedTourSpecialty
+      ? [
+          {
+            title: `Tour ${tourSpecialtyMetaBase?.label || 'Area'}`,
+            description: `Apri direttamente il percorso della tua ${tourSpecialtyScopeLabel}`,
+            audience: tourAudience,
+            tourType: normalizedTourSpecialty,
+            iconColor: normalizedTourSpecialty === 'nutrizione' ? '#16a34a' : normalizedTourSpecialty === 'coaching' ? '#d97706' : '#7c3aed',
+            iconBg: normalizedTourSpecialty === 'nutrizione'
+              ? 'linear-gradient(135deg, #DCFCE7, #BBF7D0)'
+              : normalizedTourSpecialty === 'coaching'
+                ? 'linear-gradient(135deg, #FEF3C7, #FDE68A)'
+                : 'linear-gradient(135deg, #F3E8FF, #E9D5FF)',
+          },
+          ...(activeMainTabTourOption && activeTab !== normalizedTourSpecialty ? [activeMainTabTourOption] : []),
+        ]
+      : [
+          {
+            title: 'Tour Generale',
+            description: 'Apri la panoramica generale della scheda paziente',
+            audience: tourAudience,
+            tourType: 'general',
+            iconColor: '#059669',
+            iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+          },
+          ...(activeMainTabTourOption ? [activeMainTabTourOption] : []),
+        ];
+
+  const getCommonTourSteps = useCallback((audience) => (audience === 'team_leader' ? [
     {
       target: '[data-tour="header-dettaglio"]',
       title: 'Scheda Paziente Team Leader',
-      content: 'Qui entri quando devi supervisionare un caso, verificare coerenza operativa o sbloccare una decisione.',
+      content: tourSpecialtyMetaBase
+        ? `Qui supervisioni il caso clinico nella tua ${tourSpecialtyScopeLabel}, verifichi la coerenza operativa e sblocchi le decisioni critiche.`
+        : 'Qui supervisioni il caso clinico, verifichi la coerenza operativa e sblocchi le decisioni critiche.',
       placement: 'bottom',
-      icon: <FaUserCircle size={18} color="white" />,
+      icon: <FaUserTie size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
     },
     {
@@ -241,7 +328,9 @@ function ClientiDetail() {
     {
       target: '[data-tour="header-dettaglio"]',
       title: 'Scheda Paziente',
-      content: 'Qui leggi il caso completo e aggiorni solo le aree che rientrano davvero nel tuo perimetro operativo.',
+      content: tourSpecialtyMetaBase
+        ? `In questa pagina trovi il caso completo. Aggiorna solo la tua ${tourSpecialtyScopeLabel} come ${tourSpecialtyRoleLabel}.`
+        : 'In questa pagina trovi il caso completo. Aggiorna solo le aree del tuo perimetro operativo.',
       placement: 'bottom',
       icon: <FaUserCircle size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -249,7 +338,7 @@ function ClientiDetail() {
     {
       target: '[data-tour="profilo-rapido"]',
       title: 'Profilo Rapido',
-      content: 'In questa colonna trovi le informazioni essenziali: stato del paziente, giorni al rinnovo e i professionisti assegnati.',
+      content: 'Qui trovi le informazioni essenziali: stato del paziente, giorni al rinnovo e colleghi assegnati.',
       placement: 'right',
       icon: <FaIdCard size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
@@ -257,7 +346,7 @@ function ClientiDetail() {
     {
       target: '[data-tour="nav-tabs-dettaglio"]',
       title: 'Navigazione Sezioni',
-      content: 'Usa questi tab per spostarti tra le diverse aree del percorso cliente.',
+      content: 'Spostati tra le diverse aree del percorso cliente cliccando sui tab.',
       placement: 'bottom',
       icon: <FaLayerGroup size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
@@ -265,12 +354,12 @@ function ClientiDetail() {
     {
       target: '[data-tour="salva-modifiche"]',
       title: 'Salvataggio rapido',
-      content: 'Salva quando aggiorni il tuo perimetro, cosi il team trova sempre uno storico chiaro e coerente.',
+      content: 'Salva quando aggiorni il tuo perimetro, cosi il team trova sempre uno storico coerente.',
       placement: 'bottom',
       icon: <FaSave size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #EF4444, #F87171)'
     }
-  ];
+  ]), [tourSpecialtyMetaBase, tourSpecialtyRoleLabel, tourSpecialtyScopeLabel]);
 
   const teamTabTourCopy = isTourTeamLeader
     ? 'Usa questa area per leggere il team clinico e coordinare assegnazioni entro il tuo perimetro e la tua specialita.'
@@ -288,7 +377,7 @@ function ClientiDetail() {
     ? 'Qui puoi leggere e aggiornare il lavoro di psicologia quando rientra nel tuo scope.'
     : 'Qui puoi leggere il lavoro di psicologia per avere contesto, ma le modifiche restano a chi ha scope su questa area.';
 
-  const tabSpecificSteps = {
+  const genericTabTourSteps = {
     anagrafica: [
       {
         target: '[data-tour="anagrafica-dati"]',
@@ -358,6 +447,58 @@ function ClientiDetail() {
         tabId: 'team'
       }
     ],
+    check_periodici: [
+      {
+        target: '[data-tour="check-periodici-tabs"]',
+        title: 'Check Periodici',
+        content: 'Scegli la tipologia di check: Settimanale, DCA o Minori.',
+        placement: 'bottom',
+        icon: <FaClipboardCheck size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      },
+      {
+        target: '[data-tour="check-periodici-link"]',
+        title: 'Invio Check',
+        content: 'Genera e copia i link da inviare al cliente per la compilazione.',
+        placement: 'bottom',
+        icon: <FaIdCard size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      },
+      {
+        target: '[data-tour="check-periodici-risposte"]',
+        title: 'Storico Risposte',
+        content: 'Consulta tutte le compilazioni passate e i punteggi ottenuti.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
+        tabId: 'check_periodici'
+      }
+    ],
+    check_iniziali: [
+      {
+        target: '[data-tour="check-iniziali-tabs"]',
+        title: 'Check Iniziali',
+        content: 'Accedi ai check storici (Check 1, 2 e 3) compilati all\'inizio del percorso.',
+        placement: 'bottom',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'check_iniziali'
+      },
+      {
+        target: '[data-tour="check-iniziali-contenuto"]',
+        title: 'Dettagli Check Iniziali',
+        content: 'Visualizza tutte le risposte dettagliate e i punteggi dei check di ingresso.',
+        placement: 'top',
+        icon: <FaLayerGroup size={18} color="white" />,
+        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+        tabId: 'check_iniziali'
+      }
+    ]
+  };
+
+  const specialtyTabTourSteps = {
     nutrizione: [
       {
         target: '[data-tour="nutrizione-subtabs"]',
@@ -560,109 +701,129 @@ function ClientiDetail() {
         tabId: 'psicologia',
         onEnter: () => setPsicologiaSubTab('alert')
       }
-    ],
-    check_periodici: [
-      {
-        target: '[data-tour="check-periodici-tabs"]',
-        title: 'Check Periodici',
-        content: 'Scegli la tipologia di check: Settimanale, DCA o Minori.',
-        placement: 'bottom',
-        icon: <FaClipboardCheck size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-        tabId: 'check_periodici'
-      },
-      {
-        target: '[data-tour="check-periodici-link"]',
-        title: 'Invio Check',
-        content: 'Genera e copia i link da inviare al cliente per la compilazione.',
-        placement: 'bottom',
-        icon: <FaIdCard size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-        tabId: 'check_periodici'
-      },
-      {
-        target: '[data-tour="check-periodici-risposte"]',
-        title: 'Storico Risposte',
-        content: 'Consulta tutte le compilazioni passate e i punteggi ottenuti.',
-        placement: 'top',
-        icon: <FaLayerGroup size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #EF4444, #F87171)',
-        tabId: 'check_periodici'
-      }
-    ],
-    check_iniziali: [
-      {
-        target: '[data-tour="check-iniziali-tabs"]',
-        title: 'Check Iniziali',
-        content: 'Accedi ai check storici (Check 1, 2 e 3) compilati all\'inizio del percorso.',
-        placement: 'bottom',
-        icon: <FaLayerGroup size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-        tabId: 'check_iniziali'
-      },
-      {
-        target: '[data-tour="check-iniziali-contenuto"]',
-        title: 'Dettagli Check Iniziali',
-        content: 'Visualizza tutte le risposte dettagliate e i punteggi dei check di ingresso.',
-        placement: 'top',
-        icon: <FaLayerGroup size={18} color="white" />,
-        iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
-        tabId: 'check_iniziali'
-      }
     ]
   };
+  const tabSpecificSteps = { ...genericTabTourSteps, ...specialtyTabTourSteps };
+
+  const specialtyTourMeta = {
+    nutrizione: {
+      label: 'Nutrizione',
+      roleLabel: 'nutrizionista',
+      icon: <FaAppleAlt size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
+      buttonClassName: 'btn-outline-success'
+    },
+    coaching: {
+      label: 'Coaching',
+      roleLabel: 'coach',
+      icon: <FaRunning size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
+      buttonClassName: 'btn-outline-warning'
+    },
+    psicologia: {
+      label: 'Psicologia',
+      roleLabel: 'psicologo',
+      icon: <FaBrain size={18} color="white" />,
+      iconBg: 'linear-gradient(135deg, #8B5CF6, #A78BFA)',
+      buttonClassName: 'btn-outline-info'
+    }
+  };
+
+  const getSpecialtyTourSteps = useCallback((specialty, audience) => {
+    const meta = specialtyTourMeta[specialty];
+    const steps = specialtyTabTourSteps[specialty] || [];
+
+    if (!meta || steps.length === 0) return [];
+
+    return [
+      {
+        target: '[data-tour="header-dettaglio"]',
+        title: `Tour ${meta.label}`,
+        content: audience === 'team_leader'
+          ? `Qui entri come Team Leader ${meta.roleLabel} per supervisionare il lavoro della tua area, verificare criticita e guidare il team sui casi complessi.`
+          : `Qui entri come ${meta.roleLabel} per leggere il caso, aggiornare la tua area e coordinarti con il resto del team senza uscire dal tuo perimetro operativo.`,
+        placement: 'bottom',
+        icon: meta.icon,
+        iconBg: meta.iconBg
+      },
+      ...getCommonTourSteps(audience).slice(1),
+      ...steps
+    ];
+  }, [getCommonTourSteps, specialtyTabTourSteps]);
+
+  const buildSelectionStep = useCallback((audience) => ({
+    target: '[data-tour="header-dettaglio"]',
+    title: (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span>Guida Interattiva</span>
+      </div>
+    ),
+    content: (
+      <div>
+        <p className="mb-3">
+          Ti trovi nella pagina <strong>Dettaglio Paziente</strong>.
+          <br />
+          {isAdminOrCco ? 'Come Admin, puoi scegliere quale percorso visualizzare:' : 'Scegli il tour più adatto alle tue esigenze:'}
+        </p>
+        <div className="d-flex flex-column gap-2">
+          <button
+            className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-2"
+            onClick={() => handleTourSelection('general', audience)}
+          >
+            <FaLayerGroup /> {audience === 'team_leader' ? 'Supervisione TL' : 'Panoramica Generale'}
+          </button>
+          <hr className="my-1" />
+          {Object.entries(specialtyTourMeta).map(([specialty, meta]) => (
+            <button
+              key={specialty}
+              className={`btn btn-sm ${meta.buttonClassName} d-flex align-items-center justify-content-center gap-2`}
+              onClick={() => handleTourSelection(specialty, audience)}
+            >
+              {meta.icon} Tour {meta.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    ),
+    placement: 'bottom',
+    icon: <FaBrain size={18} color="white" />,
+    iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+  }), [isAdminOrCco]);
+
+  const buildTourSteps = useCallback((type, audience, currentTab) => {
+    const normalizedType = type === 'coach' ? 'coaching' : type;
+
+    if (normalizedType === 'general') {
+      return getCommonTourSteps(audience);
+    }
+
+    if (specialtyTabTourSteps[normalizedType]) {
+      return getSpecialtyTourSteps(normalizedType, audience);
+    }
+
+    return tabSpecificSteps[currentTab] || [];
+  }, [getCommonTourSteps, getSpecialtyTourSteps, specialtyTabTourSteps, tabSpecificSteps]);
   const [mostraTour, setMostraTour] = useState(false);
   const [activeTourSteps, setActiveTourSteps] = useState([]);
   const [tourKey, setTourKey] = useState(0);
 
-  const handleTourStart = (audience = tourAudience) => {
+  const handleTourStart = (audience = tourAudience, tourType = null) => {
     if (audience === 'team_leader' || audience === 'professionista') {
       setTourAudienceOverride(audience);
     }
-    // Definizione step di scelta iniziale
-    const selectionStep = {
-      target: '[data-tour="header-dettaglio"]', // Target a generic element
-      title: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span>Guida Interattiva</span>
-        </div>
-      ),
-      content: (
-        <div>
-          <p className="mb-3">
-            Ti trovi nella pagina <strong>Dettaglio Paziente</strong>.
-            <br />
-            Tab selezionata: <strong>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}</strong>
-          </p>
-          <p className="mb-3 small text-muted">
-             Che tipo di tour vuoi seguire oggi?
-          </p>
-          <div className="d-flex flex-column gap-2">
-            <button
-              className="btn btn-sm btn-outline-primary d-flex align-items-center justify-content-center gap-2"
-              onClick={() => handleTourSelection('general')}
-            >
-              <FaLayerGroup /> {audience === 'team_leader' ? 'Panoramica Team Leader' : 'Panoramica Generale'}
-            </button>
-            <button
-              className="btn btn-sm btn-outline-success d-flex align-items-center justify-content-center gap-2"
-              onClick={() => handleTourSelection('specific')}
-            >
-              <FaCheck /> Specifico Tab: {activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}
-            </button>
-          </div>
-        </div>
-      ),
-      placement: 'bottom', // 'center' if supported by library, else bottom of header
-      icon: <FaBrain size={18} color="white" />,
-      iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-      // Note: We might need to block "Next" button on this step via library props if possible,
-      // or just trust users to click the custom buttons.
-    };
 
-    setActiveTourSteps([selectionStep]);
-    setTourKey(prev => prev + 1);
-    setActiveTourSteps([selectionStep]);
+    if (tourType) {
+      handleTourSelection(tourType, audience);
+      return;
+    }
+
+    // Se l'utente non è admin/cco e ha una specialità, avviamo direttamente il tour specifico
+    if (!isAdminOrCco && normalizedTourSpecialty && (isProfessionista || isRestrictedTeamLeader)) {
+      handleTourSelection(normalizedTourSpecialty, audience);
+      return;
+    }
+
+    setActiveTourSteps([buildSelectionStep(audience)]);
     setTourKey(prev => prev + 1);
     setMostraTour(true);
   };
@@ -671,11 +832,11 @@ function ClientiDetail() {
   const [searchParams] = useSearchParams();
   useEffect(() => {
     if (searchParams.get('startTour') === 'true' && !loading) {
-        const requestedAudience = searchParams.get('tourAudience');
+        const requestedAudience = getRequestedTourAudience(searchParams);
         // Avvia il tour con un leggero ritardo per assicurare il rendering
         setTimeout(() => {
             handleTourStart(
-              requestedAudience === 'team_leader' || requestedAudience === 'professionista'
+              requestedAudience
                 ? requestedAudience
                 : tourAudience
             );
@@ -704,22 +865,17 @@ function ClientiDetail() {
     }
   }, [searchParams, getAllowedMainTabsForUser]);
 
-  const handleTourSelection = (type) => {
-    let steps = [];
-    if (type === 'general') {
-       steps = commonSteps;
-    } else {
-       const specific = tabSpecificSteps[activeTab] || [];
-       if (specific.length === 0) {
-         // Fallback if no specific steps
-         steps = commonSteps;
-         alert('Nessun tour specifico per questa tab. Avvio tour generale.');
-       } else {
-         steps = specific;
-       }
+  const handleTourSelection = (type, audience = tourAudience) => {
+    let steps = buildTourSteps(type, audience, activeTab);
+
+    if (steps.length === 0) {
+      steps = getCommonTourSteps(audience);
+      alert('Nessun tour specifico per questa tab. Avvio tour generale.');
     }
+
     setActiveTourSteps(steps);
     setTourKey(prev => prev + 1);
+    setMostraTour(true);
   };
 
   const [saving, setSaving] = useState(false);
@@ -2719,6 +2875,7 @@ function ClientiDetail() {
         pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
         pageIcon={FaUserCircle}
         docsSection="la-scheda-completa-del-paziente"
+        tourOptions={supportWidgetTourOptions}
         onStartTour={handleTourStart}
         brandName="Suite Clinica"
         logoSrc="/suitemind.png"

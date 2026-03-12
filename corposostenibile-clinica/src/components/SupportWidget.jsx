@@ -143,6 +143,7 @@ function SupportWidget({
   pageDescription,
   pageIcon,
   docsSection,
+  tourOptions,
   onStartTour,
   onOpenDocs,
   onContactSupport,
@@ -165,6 +166,36 @@ function SupportWidget({
   const guideAudience = (currentUser?.role === 'team_leader' && !isAdminOrCco)
     ? 'team_leader'
     : 'professionista';
+  const resolvedTourOptions = Array.isArray(tourOptions) && tourOptions.length > 0
+    ? tourOptions
+    : isAdminOrCco
+      ? [
+          {
+            title: 'Tour Team Leader',
+            description: 'Apri il percorso di coordinamento e supervisione del team',
+            audience: 'team_leader',
+            iconColor: '#059669',
+            iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+          },
+          {
+            title: 'Tour Professionista',
+            description: 'Apri il percorso operativo pensato per il professionista',
+            audience: 'professionista',
+            iconColor: '#0F766E',
+            iconBg: 'linear-gradient(135deg, #CCFBF1, #99F6E4)',
+          },
+        ]
+      : [
+          {
+            title: guideAudience === 'team_leader' ? 'Tour Team Leader' : 'Tour Guidato',
+            description: guideAudience === 'team_leader'
+              ? 'Scopri il percorso di coordinamento del team passo dopo passo'
+              : 'Scopri le funzionalità passo dopo passo',
+            audience: guideAudience,
+            iconColor: '#059669',
+            iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+          },
+        ];
 
 
   // =========================================================================
@@ -172,11 +203,11 @@ function SupportWidget({
   // =========================================================================
 
   // Avvia il tour guidato
-  const handleStartTour = (audience = guideAudience) => {
+  const handleStartTour = (audience = guideAudience, tourType = 'general') => {
     setIsOpen(false);
     if (onStartTour) {
       // Piccolo delay per permettere la chiusura del pannello
-      setTimeout(() => onStartTour(audience), 300);
+      setTimeout(() => onStartTour(audience, tourType), 300);
     }
   };
 
@@ -451,39 +482,17 @@ function SupportWidget({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
               {/* Opzione 1: Tour Guidato */}
-              {onStartTour && isAdminOrCco && (
-                <>
-                  <OpzioneAiuto
-                    icon={<FaRoute size={18} color="#059669" />}
-                    iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
-                    titolo="Tour Team Leader"
-                    descrizione="Apri il percorso di coordinamento e supervisione del team"
-                    onClick={() => handleStartTour('team_leader')}
-                    accentColor={accentColor}
-                  />
-                  <OpzioneAiuto
-                    icon={<FaRoute size={18} color="#0F766E" />}
-                    iconBg="linear-gradient(135deg, #CCFBF1, #99F6E4)"
-                    titolo="Tour Professionista"
-                    descrizione="Apri il percorso operativo pensato per il professionista"
-                    onClick={() => handleStartTour('professionista')}
-                    accentColor={accentColor}
-                  />
-                </>
-              )}
-
-              {onStartTour && !isAdminOrCco && (
+              {onStartTour && resolvedTourOptions.map((option, index) => (
                 <OpzioneAiuto
-                  icon={<FaRoute size={18} color="#059669" />}
-                  iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
-                  titolo={guideAudience === 'team_leader' ? 'Tour Team Leader' : 'Tour Guidato'}
-                  descrizione={guideAudience === 'team_leader'
-                    ? 'Scopri il percorso di coordinamento del team passo dopo passo'
-                    : 'Scopri le funzionalità passo dopo passo'}
-                  onClick={() => handleStartTour(guideAudience)}
+                  key={`${option.title}-${option.audience || guideAudience}-${option.tourType || 'general'}-${index}`}
+                  icon={<FaRoute size={18} color={option.iconColor || '#059669'} />}
+                  iconBg={option.iconBg || 'linear-gradient(135deg, #ECFDF5, #D1FAE5)'}
+                  titolo={option.title}
+                  descrizione={option.description}
+                  onClick={() => handleStartTour(option.audience || guideAudience, option.tourType || 'general')}
                   accentColor={accentColor}
                 />
-              )}
+              ))}
 
               {/* Opzione 2: Pagina Supporto */}
               <OpzioneAiuto

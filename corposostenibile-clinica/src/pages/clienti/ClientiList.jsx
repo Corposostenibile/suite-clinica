@@ -9,7 +9,7 @@ import SupportWidget from '../../components/SupportWidget';
 import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import { isProfessionistaStandard } from '../../utils/rbacScope';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import './ClientiList.css';
 
 // Colori ruoli per avatar
@@ -35,9 +35,14 @@ const STAT_ICON_STYLES = {
 
 function ClientiList() {
   const { user } = useAuth();
-  const isAdminOrCco = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
-  const isTeamLeaderRestricted = Boolean(user?.role === 'team_leader' && !isAdminOrCco);
-  const isProfessionista = isProfessionistaStandard(user);
+  const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
+  const {
+    isAdminOrCco,
+    isRestrictedTeamLeader: isTeamLeaderRestricted,
+    isProfessionista,
+    specialtyMeta: tourSpecialtyMeta,
+    isTeamLeaderTour,
+  } = getTourContext(user, tourAudienceOverride);
   const isInfluencer = user?.role === 'influencer';
   const teamLeaderSpecialtyGroup = (() => {
     const s = String(user?.specialty || '').toLowerCase();
@@ -68,28 +73,29 @@ function ClientiList() {
   });
 
   const [mostraTour, setMostraTour] = useState(false);
-  const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
-
-  const tourAudience = isAdminOrCco
-    ? (tourAudienceOverride === 'team_leader' ? 'team_leader' : 'professionista')
-    : (isTeamLeaderRestricted ? 'team_leader' : 'professionista');
 
   useEffect(() => {
     if (searchParams.get('startTour') === 'true') {
-      const requestedAudience = searchParams.get('tourAudience');
-      if (requestedAudience === 'team_leader' || requestedAudience === 'professionista') {
+      const requestedAudience = getRequestedTourAudience(searchParams);
+      if (requestedAudience) {
         setTourAudienceOverride(requestedAudience);
       }
       setMostraTour(true);
     }
   }, [searchParams]);
 
-  const tourSteps = useMemo(() => (tourAudience === 'team_leader' ? [
+  const specialtyScopeLabel = tourSpecialtyMeta?.scopeLabel || 'area clinica';
+  const specialtyRoleLabel = tourSpecialtyMeta?.roleLabel || 'professionista';
+  const specialtyHeaderLabel = tourSpecialtyMeta?.label || 'la tua area';
+
+  const tourSteps = useMemo(() => (isTeamLeaderTour ? [
     {
       target: '[data-tour="header"]',
       title: 'Lista Pazienti Team',
-      content: 'Da qui coordini il tuo perimetro: carico, casi critici, pazienti fermi e segnali che richiedono escalation.',
+      content: tourSpecialtyMeta
+        ? `Da qui coordini il perimetro della tua ${specialtyScopeLabel}: carico, casi critici, pazienti fermi e segnali che richiedono escalation.`
+        : 'Da qui coordini il tuo perimetro: carico, casi critici, pazienti fermi e segnali che richiedono escalation.',
       placement: 'bottom',
       icon: <FaUserFriends size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -97,7 +103,9 @@ function ClientiList() {
     {
       target: '[data-tour="stats"]',
       title: 'Colpo d Occhio Reparto',
-      content: 'Questi numeri ti dicono subito dove si stanno accumulando pause, ghost o sbilanciamenti nella tua area.',
+      content: tourSpecialtyMeta
+        ? `Questi numeri ti dicono subito dove si stanno accumulando pause, ghost o sbilanciamenti nella tua ${specialtyScopeLabel}.`
+        : 'Questi numeri ti dicono subito dove si stanno accumulando pause, ghost o sbilanciamenti nella tua area.',
       placement: 'bottom',
       icon: <FaChartBar size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
@@ -106,7 +114,9 @@ function ClientiList() {
     {
       target: '[data-tour="filters"]',
       title: 'Filtri di Coordinamento',
-      content: 'Filtra per stato e priorita per isolare subito i pazienti che richiedono una decisione o un supporto al team.',
+      content: tourSpecialtyMeta
+        ? `Filtra per stato e priorita per isolare subito i pazienti della ${specialtyScopeLabel} che richiedono una decisione o un supporto al team.`
+        : 'Filtra per stato e priorita per isolare subito i pazienti che richiedono una decisione o un supporto al team.',
       placement: 'bottom',
       icon: <FaFilter size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -115,7 +125,9 @@ function ClientiList() {
     {
       target: '[data-tour="table"]',
       title: 'Vista di Supervisione',
-      content: 'Ogni riga ti mostra chi segue il paziente, quali date sono critiche e dove la presa in carico rischia di rompersi.',
+      content: tourSpecialtyMeta
+        ? `Ogni riga ti mostra chi segue il paziente nella ${specialtyScopeLabel}, quali date sono critiche e dove la presa in carico rischia di rompersi.`
+        : 'Ogni riga ti mostra chi segue il paziente, quali date sono critiche e dove la presa in carico rischia di rompersi.',
       placement: 'top',
       icon: <FaTable size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -123,7 +135,9 @@ function ClientiList() {
     {
       target: '[data-tour="actions-detail"]',
       title: 'Apri il Caso',
-      content: 'Entra nella scheda quando devi verificare un caso complesso, dare indicazioni o riallocare il lavoro.',
+      content: tourSpecialtyMeta
+        ? `Entra nella scheda quando devi verificare un caso complesso della ${specialtyScopeLabel}, dare indicazioni o riallocare il lavoro.`
+        : 'Entra nella scheda quando devi verificare un caso complesso, dare indicazioni o riallocare il lavoro.',
       placement: 'left',
       icon: <FaEye size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)',
@@ -141,7 +155,9 @@ function ClientiList() {
     {
       target: '[data-tour="header"]',
       title: 'Benvenuto in Lista Pazienti',
-      content: 'Questa e la tua centrale operativa per la gestione dei pazienti.',
+      content: tourSpecialtyMeta
+        ? `Questa e la tua centrale operativa per seguire i pazienti della tua ${specialtyScopeLabel} come ${specialtyRoleLabel}.`
+        : 'Questa e la tua centrale operativa per la gestione dei pazienti.',
       placement: 'bottom',
       icon: <FaUserFriends size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
@@ -149,7 +165,9 @@ function ClientiList() {
     {
       target: '[data-tour="stats"]',
       title: 'Statistiche Rapide',
-      content: 'Questi numeri ti danno un istantanea della situazione clinica attuale, suddivisa per specialita.',
+      content: tourSpecialtyMeta
+        ? `Questi numeri ti danno un istantanea della situazione attuale nella ${specialtyScopeLabel}.`
+        : 'Questi numeri ti danno un istantanea della situazione clinica attuale, suddivisa per specialita.',
       placement: 'bottom',
       icon: <FaChartBar size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #10B981, #34D399)',
@@ -158,7 +176,9 @@ function ClientiList() {
     {
       target: '[data-tour="filters"]',
       title: 'Ricerca e Filtri',
-      content: 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato e tipologia.',
+      content: tourSpecialtyMeta
+        ? `Usa la barra di ricerca per trovare un paziente della ${specialtyHeaderLabel} o filtra la lista per stato e tipologia.`
+        : 'Usa la barra di ricerca per trovare un paziente specifico o filtra la lista per stato e tipologia.',
       placement: 'bottom',
       icon: <FaFilter size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)',
@@ -167,7 +187,9 @@ function ClientiList() {
     {
       target: '[data-tour="table"]',
       title: 'Tabella Pazienti',
-      content: 'Ogni riga rappresenta un paziente. Qui vedi a colpo d occhio il team assegnato, le date chiave e lo stato attuale.',
+      content: tourSpecialtyMeta
+        ? `Ogni riga rappresenta un paziente seguito anche dalla tua ${specialtyScopeLabel}. Qui vedi team assegnato, date chiave e stato attuale.`
+        : 'Ogni riga rappresenta un paziente. Qui vedi a colpo d occhio il team assegnato, le date chiave e lo stato attuale.',
       placement: 'top',
       icon: <FaTable size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
@@ -175,7 +197,9 @@ function ClientiList() {
     {
       target: '[data-tour="actions-detail"]',
       title: 'Gestione Paziente',
-      content: 'Clicca sul nome del paziente o sull icona dell occhio per aprire la scheda dettaglio completa e gestire il percorso.',
+      content: tourSpecialtyMeta
+        ? `Clicca sul nome del paziente o sull icona dell occhio per aprire la scheda dettaglio e lavorare sulla tua ${specialtyScopeLabel}.`
+        : 'Clicca sul nome del paziente o sull icona dell occhio per aprire la scheda dettaglio completa e gestire il percorso.',
       placement: 'left',
       icon: <FaEye size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)',
@@ -189,7 +213,7 @@ function ClientiList() {
       icon: <FaArrowRight size={18} color="white" />,
       iconBg: 'linear-gradient(135deg, #6B7280, #9CA3AF)'
     }
-  ]), [tourAudience]);
+  ]), [isTeamLeaderTour, specialtyHeaderLabel, specialtyRoleLabel, specialtyScopeLabel, tourSpecialtyMeta]);
 
   const [filters, setFilters] = useState({
     search: searchParams.get('q') || '',
