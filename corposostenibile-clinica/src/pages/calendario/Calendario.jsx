@@ -21,6 +21,9 @@ function Calendario() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState(null);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotError, setSlotError] = useState(null);
   const [bookingForm, setBookingForm] = useState(() => {
     const now = new Date();
     const rounded = new Date(now);
@@ -53,6 +56,26 @@ function Calendario() {
   const canBookOnViewedCalendar = !selectedMemberId || Number(selectedMemberId) === Number(user?.id) || isAdmin;
 
   const formatDate = (d) => d.toISOString().split('T')[0];
+  const parseDateString = (dateStr) => {
+    const [year, month, day] = (dateStr || '').split('-').map(Number);
+    return new Date(year, (month || 1) - 1, day || 1);
+  };
+  const parseTimeToMinutes = (timeStr) => {
+    const [hour, minute] = (timeStr || '00:00').split(':').map(Number);
+    return (hour * 60) + minute;
+  };
+  const formatMinutesToTime = (minutes) => {
+    const normalized = Math.max(0, Math.min(23 * 60 + 59, minutes));
+    const hour = String(Math.floor(normalized / 60)).padStart(2, '0');
+    const minute = String(normalized % 60).padStart(2, '0');
+    return `${hour}:${minute}`;
+  };
+  const getWeekStartForDate = (dateValue) => {
+    const d = new Date(dateValue);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.getFullYear(), d.getMonth(), diff);
+  };
 
   const getWeekEnd = (start) => {
     const end = new Date(start);
@@ -89,6 +112,62 @@ function Calendario() {
       clearTimeout(customerSearchTimerRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    if (!bookingOpen || !bookingForm.date) return;
+    
+    const fetchSlots = async () => {
+      setLoadingSlots(true);
+      setSlotError(null);
+      setAvailableSlots([]);
+      try {
+        const slotsRes = await ghlService.getFreeSlots(bookingForm.date, bookingForm.date, selectedMemberId);
+        if (!slotsRes?.success) {
+          throw new Error(slotsRes?.message || 'Errore nel recupero degli slot');
+        }
+        
+        const flattenedIsoSlots = [];
+        const walk = (node) => {
+          if (!node) return;
+          if (Array.isArray(node)) {
+            node.forEach(walk);
+            return;
+          }
+          if (typeof node === 'object') {
+            Object.values(node).forEach(walk);
+            return;
+          }
+          if (typeof node === 'string' && node.includes('T') && node.includes(':')) {
+            const dt = new Date(node);
+            if (!Number.isNaN(dt.getTime())) {
+              flattenedIsoSlots.push(dt);
+            }
+          }
+        };
+        walk(slotsRes.slots);
+        
+        const timeSlots = flattenedIsoSlots.map(d => ({
+          time: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+          date: d
+        })).sort((a, b) => a.date - b.date);
+        
+        const uniqueTimes = [];
+        const uniqueSlots = timeSlots.filter(s => {
+          if (uniqueTimes.includes(s.time)) return false;
+          uniqueTimes.push(s.time);
+          return true;
+        });
+        
+        setAvailableSlots(uniqueSlots);
+      } catch (err) {
+        setSlotError(err.message || 'Impossibile caricare le disponibilità');
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    
+    fetchSlots();
+  }, [bookingOpen, bookingForm.date, selectedMemberId]);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -265,7 +344,7 @@ function Calendario() {
       setBookingSubmitting(true);
 
       // Pre-check disponibilità: se rileviamo slot e l'orario non è libero, blocchiamo.
-      const slotsRes = await ghlService.getFreeSlots(bookingForm.date, bookingForm.date);
+      const slotsRes = await ghlService.getFreeSlots(bookingForm.date, bookingForm.date, selectedMemberId);
       if (!slotsRes?.success) {
         throw new Error(slotsRes?.message || 'Impossibile verificare disponibilità slot');
       }
@@ -304,6 +383,9 @@ function Calendario() {
         notes: bookingForm.notes || '',
         timezone: 'Europe/Rome',
       };
+      if (selectedMemberId) {
+        payload.user_id = selectedMemberId;
+      }
       const res = await ghlService.createAppointment(payload);
       if (!res?.success) {
         throw new Error(res?.message || 'Errore creazione appuntamento');
@@ -351,6 +433,62 @@ function Calendario() {
     const opts = { day: 'numeric', month: 'long' };
     return `${start.toLocaleDateString('it-IT', opts)} - ${end.toLocaleDateString('it-IT', opts)} ${end.getFullYear()}`;
   };
+
+  const bookingSelectedDate = parseDateString(bookingForm.date);
+  const bookingWeekStart = getWeekStartForDate(bookingSelectedDate);
+  const bookingWeekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(bookingWeekStart);
+    d.setDate(d.getDate() + i);
+    bookingWeekDays.push(d);
+  }
+
+  const bookingDayEvents = events
+    .filter((ev) => formatDate(new Date(ev.start)) === bookingForm.date)
+    .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+  const timelineStep = [...availableSlots, ...bookingDayEvents].some((item) => {
+    const date = item?.date || item?.start;
+    if (!date) return false;
+    const d = new Date(date);
+    return d.getMinutes() % 30 !== 0;
+  }) ? 15 : 30;
+
+  const bookedRanges = bookingDayEvents.map((ev) => {
+    const start = new Date(ev.start);
+    const end = ev.end ? new Date(ev.end) : new Date(start.getTime() + Number(bookingForm.duration || 30) * 60000);
+    return {
+      event: ev,
+      startMinutes: (start.getHours() * 60) + start.getMinutes(),
+      endMinutes: (end.getHours() * 60) + end.getMinutes(),
+    };
+  });
+
+  const visibleMinutes = [
+    ...availableSlots.map((slot) => parseTimeToMinutes(slot.time)),
+    ...bookedRanges.flatMap((range) => [range.startMinutes, range.endMinutes]),
+  ];
+  const timelineStart = visibleMinutes.length > 0
+    ? Math.max(7 * 60, Math.floor((Math.min(...visibleMinutes) - 60) / timelineStep) * timelineStep)
+    : 8 * 60;
+  const timelineEnd = visibleMinutes.length > 0
+    ? Math.min(21 * 60, Math.ceil((Math.max(...visibleMinutes) + 60) / timelineStep) * timelineStep)
+    : 20 * 60;
+  const availableTimeSet = new Set(availableSlots.map((slot) => slot.time));
+  const dayTimelineSlots = [];
+
+  for (let minute = timelineStart; minute <= timelineEnd; minute += timelineStep) {
+    const time = formatMinutesToTime(minute);
+    const bookedRange = bookedRanges.find((range) => minute >= range.startMinutes && minute < range.endMinutes);
+    const isAvailable = availableTimeSet.has(time);
+
+    dayTimelineSlots.push({
+      time,
+      status: bookedRange ? 'busy' : isAvailable ? 'available' : 'unavailable',
+      event: bookedRange?.event || null,
+      isSelected: bookingForm.time === time,
+    });
+  }
 
   // Group events by day
   const eventsByDay = events.reduce((acc, ev) => {
@@ -702,23 +840,86 @@ function Calendario() {
                   )}
                 </div>
 
-                <div className="cal-book-field">
-                  <label>Data</label>
-                  <input
-                    type="date"
-                    value={bookingForm.date}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, date: e.target.value }))}
-                    required
-                  />
+                <div className="cal-book-field cal-book-field-full">
+                  <label>Giorno</label>
+                  <div className="cal-book-day-strip">
+                    {bookingWeekDays.map((day) => {
+                      const dayValue = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+                      const isActive = bookingForm.date === dayValue;
+                      const dayEventsCount = events.filter((ev) => formatDate(new Date(ev.start)) === dayValue).length;
+                      return (
+                        <button
+                          key={dayValue}
+                          type="button"
+                          className={`cal-book-day-card ${isActive ? 'active' : ''}`}
+                          onClick={() => setBookingForm((prev) => ({ ...prev, date: dayValue, time: '' }))}
+                        >
+                          <span className="cal-book-day-name">{day.toLocaleDateString('it-IT', { weekday: 'short' })}</span>
+                          <strong className="cal-book-day-number">{day.getDate()}</strong>
+                          <span className="cal-book-day-meta">
+                            {dayEventsCount > 0 ? `${dayEventsCount} impegn.` : 'Nessun evento'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="cal-book-field">
-                  <label>Orario</label>
-                  <input
-                    type="time"
-                    value={bookingForm.time}
-                    onChange={(e) => setBookingForm((prev) => ({ ...prev, time: e.target.value }))}
-                    required
+                <div className="cal-book-field cal-book-field-full">
+                  <label>Agenda del giorno</label>
+                  {loadingSlots ? (
+                    <div className="cal-slots-loading">
+                      <div className="cal-spinner" style={{width: 16, height: 16, display: 'inline-block', marginRight: 8, borderWidth: 2}}></div>
+                      Ricerca disponibilità in corso...
+                    </div>
+                  ) : slotError ? (
+                    <div className="cal-slots-error">{slotError}</div>
+                  ) : dayTimelineSlots.length === 0 ? (
+                    <div className="cal-slots-empty">Nessuna fascia oraria disponibile per questa data.</div>
+                  ) : (
+                    <>
+                      <div className="cal-slot-legend">
+                        <span className="available"><i className="ri-checkbox-blank-circle-fill"></i> Libero</span>
+                        <span className="busy"><i className="ri-checkbox-blank-circle-fill"></i> Occupato</span>
+                        <span className="unavailable"><i className="ri-checkbox-blank-circle-fill"></i> Non prenotabile</span>
+                      </div>
+                      <div className="cal-slot-timeline">
+                        {dayTimelineSlots.map((slot) => (
+                          <button
+                            key={slot.time}
+                            type="button"
+                            className={`cal-slot-card ${slot.status} ${slot.isSelected ? 'selected' : ''}`}
+                            onClick={() => {
+                              if (slot.status !== 'available') return;
+                              setBookingForm((prev) => ({ ...prev, time: slot.time }));
+                            }}
+                            disabled={slot.status !== 'available'}
+                          >
+                            <div className="cal-slot-card-time">{slot.time}</div>
+                            <div className="cal-slot-card-state">
+                              {slot.status === 'available' && 'Disponibile'}
+                              {slot.status === 'busy' && 'Occupato'}
+                              {slot.status === 'unavailable' && 'Non prenotabile'}
+                            </div>
+                            <div className="cal-slot-card-detail">
+                              {slot.status === 'busy'
+                                ? (slot.event?.title || slot.event?.cliente?.nome_cognome || 'Appuntamento')
+                                : slot.status === 'available'
+                                  ? 'Prenota questo orario'
+                                  : 'Fuori dagli slot GHL'}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {/* Hidden input to maintain HTML form validation if time is missing */}
+                  <input 
+                    type="text" 
+                    value={bookingForm.time} 
+                    required 
+                    style={{opacity: 0, position: 'absolute', height: 0, width: 0, padding: 0, margin: 0, border: 'none'}} 
+                    onChange={() => {}}
                   />
                 </div>
 

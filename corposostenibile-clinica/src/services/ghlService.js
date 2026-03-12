@@ -160,14 +160,17 @@ const ghlService = {
   },
 
   /**
-   * Get free slots for current user's calendar
+   * Get free slots for current user's calendar or viewed member's calendar
    * @param {string} start - Start date
    * @param {string} end - End date
+   * @param {number} [userId] - Optional user ID
    */
-  async getFreeSlots(start, end) {
-    const response = await ghlApi.get('/calendar/free-slots', {
-      params: { start, end }
-    });
+  async getFreeSlots(start, end, userId = null) {
+    const params = { start, end };
+    if (userId) {
+      params.user_id = userId;
+    }
+    const response = await ghlApi.get('/calendar/free-slots', { params });
     return response.data;
   },
 

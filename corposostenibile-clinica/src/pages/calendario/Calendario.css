@@ -618,6 +618,9 @@
   border-radius: 16px;
   width: 100%;
   max-width: 520px;
+  max-height: min(88vh, 920px);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   animation: calScaleIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -674,6 +677,8 @@
 
 .cal-modal-body {
   padding: 20px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .cal-modal-title-row {
@@ -903,7 +908,7 @@
 
 /* Booking form */
 .cal-booking-modal {
-  max-width: 640px;
+  max-width: 760px;
 }
 
 .cal-booking-grid {
@@ -952,6 +957,56 @@
 .cal-book-field textarea {
   resize: vertical;
   min-height: 78px;
+}
+
+.cal-book-day-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cal-book-day-card {
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 12px 10px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cal-book-day-card:hover {
+  border-color: #25B36A;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+}
+
+.cal-book-day-card.active {
+  border-color: #25B36A;
+  background: linear-gradient(180deg, rgba(37, 179, 106, 0.12) 0%, rgba(37, 179, 106, 0.03) 100%);
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.12);
+}
+
+.cal-book-day-name {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.cal-book-day-number {
+  font-size: 22px;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.cal-book-day-meta {
+  font-size: 11px;
+  color: #64748b;
 }
 
 .cal-book-customer-dropdown {
@@ -1118,4 +1173,166 @@
   .cal-booking-grid {
     grid-template-columns: 1fr;
   }
+
+  .cal-book-day-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Disponibilità orari (GHL Style) */
+.cal-slots-loading,
+.cal-slots-error,
+.cal-slots-empty {
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #f8fafc;
+  color: #64748b;
+  text-align: center;
+  margin-top: 8px;
+}
+
+.cal-slots-error {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.cal-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cal-slot-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  flex-wrap: wrap;
+}
+
+.cal-slot-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-slot-legend .available i {
+  color: #25B36A;
+}
+
+.cal-slot-legend .busy i {
+  color: #ef4444;
+}
+
+.cal-slot-legend .unavailable i {
+  color: #94a3b8;
+}
+
+.cal-slot-timeline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.cal-slot-card {
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  padding: 14px 14px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.cal-slot-card.available {
+  border-color: rgba(37, 179, 106, 0.24);
+  background: linear-gradient(180deg, rgba(37, 179, 106, 0.08) 0%, rgba(37, 179, 106, 0.02) 100%);
+  cursor: pointer;
+}
+
+.cal-slot-card.available:hover {
+  border-color: #25B36A;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(37, 179, 106, 0.12);
+}
+
+.cal-slot-card.busy {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%);
+  cursor: not-allowed;
+}
+
+.cal-slot-card.unavailable {
+  border-style: dashed;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.cal-slot-card.selected {
+  border-color: #25B36A;
+  box-shadow: 0 0 0 3px rgba(37, 179, 106, 0.16);
+}
+
+.cal-slot-card-time {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cal-slot-card-state {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cal-slot-card.available .cal-slot-card-state {
+  color: #15803d;
+}
+
+.cal-slot-card.busy .cal-slot-card-state {
+  color: #dc2626;
+}
+
+.cal-slot-card.unavailable .cal-slot-card-state {
+  color: #64748b;
+}
+
+.cal-slot-card-detail {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.cal-slot-btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cal-slot-btn:hover {
+  border-color: #25b36a;
+  color: #25b36a;
+  background: rgba(37, 179, 106, 0.05);
+}
+
+.cal-slot-btn.selected {
+  background: #25b36a;
+  color: #ffffff;
+  border-color: #25b36a;
 }

@@ -7,7 +7,8 @@ Gestisce calendari, appuntamenti, slot disponibili e contatti.
 """
 
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
+import pytz
 from flask import current_app
 from sqlalchemy import func
 
@@ -65,6 +66,41 @@ class GHLCalendarService:
             "Version": "2021-07-28",
             "Content-Type": "application/json"
         }
+
+    def _to_ghl_timestamp_ms(self, value, timezone, end_of_day=False):
+        """
+        Converte stringhe/data-ora in Unix timestamp millisecondi per le API GHL.
+
+        `free-slots` accetta numeri e non date ISO. Se arriva solo la data,
+        usiamo inizio o fine giornata nel timezone richiesto.
+        """
+        tz = pytz.timezone(timezone or "Europe/Rome")
+
+        if isinstance(value, str):
+            raw_value = value.strip()
+            if "T" not in raw_value and " " not in raw_value:
+                parsed_date = datetime.strptime(value, "%Y-%m-%d").date()
+                parsed = datetime.combine(
+                    parsed_date,
+                    time.max if end_of_day else time.min
+                )
+            else:
+                parsed = datetime.fromisoformat(raw_value)
+        elif isinstance(value, datetime):
+            parsed = value
+            if end_of_day and (
+                parsed.hour == 0 and parsed.minute == 0 and parsed.second == 0 and parsed.microsecond == 0
+            ):
+                parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            raise ValueError(f"Formato data non supportato per GHL: {value!r}")
+
+        if parsed.tzinfo is None:
+            parsed = tz.localize(parsed)
+        else:
+            parsed = parsed.astimezone(tz)
+
+        return int(parsed.timestamp() * 1000)
 
     def _make_request(self, method, endpoint, params=None, json_data=None):
         """
@@ -160,15 +196,9 @@ class GHLCalendarService:
         """
         endpoint = f"/calendars/{calendar_id}/free-slots"
 
-        # Formatta le date
-        if isinstance(start_date, datetime):
-            start_date = start_date.strftime("%Y-%m-%d")
-        if isinstance(end_date, datetime):
-            end_date = end_date.strftime("%Y-%m-%d")
-
         params = {
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": self._to_ghl_timestamp_ms(start_date, timezone, end_of_day=False),
+            "endDate": self._to_ghl_timestamp_ms(end_date, timezone, end_of_day=True),
             "timezone": timezone
         }
 

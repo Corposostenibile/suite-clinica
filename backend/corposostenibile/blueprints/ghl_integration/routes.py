@@ -1230,16 +1230,45 @@ def api_get_calendar_events():
 @login_required
 def api_get_free_slots():
     """
-    Ottiene gli slot disponibili per il calendario dell'utente corrente.
+    Ottiene gli slot disponibili per il calendario dell'utente corrente 
+    o di un altro utente (se si hanno i permessi).
     """
     start = request.args.get('start')
     end = request.args.get('end')
+    user_id_param = request.args.get('user_id')
 
     if not start or not end:
         # Default: prossimi 30 giorni
         today = datetime.utcnow()
         start = today.strftime('%Y-%m-%d')
         end = (today + timedelta(days=30)).strftime('%Y-%m-%d')
+
+    target_user = current_user
+    if user_id_param:
+        try:
+            target_id = int(user_id_param)
+            if target_id != current_user.id:
+                is_admin = current_user.is_admin or getattr(current_user, 'role', '') == 'admin'
+                is_cco = str(getattr(current_user, 'specialty', '')).lower() == 'cco'
+                is_team_leader = getattr(current_user, 'role', '') == 'team_leader'
+                
+                # Se è Team Leader, permettiamo la visualizzazione se target fa parte del suo team
+                can_view = False
+                if is_admin or is_cco:
+                    can_view = True
+                elif is_team_leader:
+                    allowed_ids = _get_team_leader_member_ids(current_user.id)
+                    if target_id in allowed_ids:
+                        can_view = True
+
+                if can_view:
+                    user_obj = User.query.get(target_id)
+                    if user_obj:
+                        target_user = user_obj
+                else:
+                    return jsonify({'success': False, 'message': 'Non autorizzato a visualizzare questo utente'}), 403
+        except ValueError:
+            pass
 
     try:
         from .calendar_service import get_ghl_calendar_service
@@ -1251,17 +1280,17 @@ def api_get_free_slots():
                 'message': 'GHL non configurato'
             })
 
-        if not current_user.ghl_calendar_id:
+        if not target_user.ghl_calendar_id:
             return jsonify({
                 'success': False,
                 'message': 'Calendario GHL non configurato per questo utente'
             })
 
         slots = service.get_free_slots(
-            current_user.ghl_calendar_id,
+            target_user.ghl_calendar_id,
             start,
             end,
-            user_id=current_user.ghl_user_id
+            user_id=target_user.ghl_user_id
         )
 
         return jsonify({
@@ -1298,7 +1327,8 @@ def api_create_calendar_appointment():
     Crea una prenotazione GHL dal frontend Suite Clinica.
 
     Flusso pensato per professionista loggato: usa il suo account GHL
-    (calendar/user mapping personale) come default.
+    (calendar/user mapping personale) come default, oppure quello specificato
+    da user_id nel payload se autorizzato.
     """
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
@@ -1320,6 +1350,33 @@ def api_create_calendar_appointment():
     if end_time <= start_time:
         return jsonify({'success': False, 'message': 'end_time deve essere successivo a start_time'}), 400
 
+    target_user = current_user
+    user_id_param = data.get('user_id')
+    if user_id_param:
+        try:
+            target_id = int(user_id_param)
+            if target_id != current_user.id:
+                is_admin = current_user.is_admin or getattr(current_user, 'role', '') == 'admin'
+                is_cco = str(getattr(current_user, 'specialty', '')).lower() == 'cco'
+                is_team_leader = getattr(current_user, 'role', '') == 'team_leader'
+                
+                can_view = False
+                if is_admin or is_cco:
+                    can_view = True
+                elif is_team_leader:
+                    allowed_ids = _get_team_leader_member_ids(current_user.id)
+                    if target_id in allowed_ids:
+                        can_view = True
+
+                if can_view:
+                    user_obj = User.query.get(target_id)
+                    if user_obj:
+                        target_user = user_obj
+                else:
+                    return jsonify({'success': False, 'message': 'Non autorizzato a prenotare per questo utente'}), 403
+        except ValueError:
+            pass
+
     try:
         from .calendar_service import get_ghl_calendar_service
         service = get_ghl_calendar_service()
@@ -1328,19 +1385,20 @@ def api_create_calendar_appointment():
             return jsonify({'success': False, 'message': 'GHL non configurato'}), 400
 
         requested_calendar_id = (data.get('calendar_id') or '').strip()
-        user_calendar_id = (current_user.ghl_calendar_id or '').strip()
+        user_calendar_id = (target_user.ghl_calendar_id or '').strip()
         calendar_id = requested_calendar_id or user_calendar_id
+
         if not calendar_id:
             return jsonify({
                 'success': False,
-                'message': 'Nessun calendario GHL associato. Configura ghl_calendar_id.'
+                'message': 'Nessun calendario GHL associato. Configura ghl_calendar_id per questo utente.'
             }), 400
 
         # Vincolo: il professionista usa il proprio calendario (o quello impostato di default).
         if requested_calendar_id and not current_user.is_admin and user_calendar_id and requested_calendar_id != user_calendar_id:
             return jsonify({
                 'success': False,
-                'message': 'Non autorizzato a prenotare su un calendario diverso dal proprio.'
+                'message': 'Non autorizzato a prenotare su un calendario diverso da quello assegnato.'
             }), 403
 
         contact_id = (data.get('contact_id') or '').strip()

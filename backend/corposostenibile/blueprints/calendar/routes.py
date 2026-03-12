@@ -1066,8 +1066,8 @@ def api_team_users():
 @calendar_bp.route('/api/customers/search')
 @login_required
 def api_customers_search():
-    """API per la ricerca live dei clienti."""
-    from sqlalchemy import or_
+    """API per la ricerca live dei clienti con RBAC coerente al modulo clienti."""
+    from corposostenibile.blueprints.customers.services import apply_role_filtering
 
     query = request.args.get('q', '').strip()
     limit = min(int(request.args.get('limit', 20)), 50)  # Max 50 risultati
@@ -1078,10 +1078,10 @@ def api_customers_search():
     # Ricerca per nome (case-insensitive)
     search_filter = Cliente.nome_cognome.ilike(f'%{query}%')
 
-    # Query con filtri per trial users se necessario
-    customers_query = Cliente.query.filter(search_filter)
+    # Query con RBAC coerente al modulo clienti
+    customers_query = apply_role_filtering(Cliente.query).filter(search_filter)
 
-    # Se l'utente è trial stage 2, filtra solo clienti assegnati
+    # Trial users stage 2: ulteriore filtro ai soli clienti assegnati
     if current_user.is_trial and current_user.trial_stage == 2:
         assigned_ids = [c.cliente_id for c in current_user.trial_assigned_clients]
         if assigned_ids:

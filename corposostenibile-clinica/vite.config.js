@@ -42,6 +42,12 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           navigateFallback: 'index.html',
+          navigateFallbackDenylist: [
+            /^\/api(?:\/|$)/,
+            /^\/calendar\/api(?:\/|$)/,
+            /^\/ghl\/api(?:\/|$)/,
+            /^\/quality\/api(?:\/|$)/,
+          ],
           importScripts: ['push-sw.js'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         },
