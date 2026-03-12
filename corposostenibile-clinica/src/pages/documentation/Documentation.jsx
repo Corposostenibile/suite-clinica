@@ -95,15 +95,23 @@ function Documentation() {
         String(currentUser?.specialty || '').toLowerCase() === 'cco'
     );
 
+    const canViewTeamLeaderDocs = isAdminOrCco || currentUser?.role === 'team_leader';
+
     const inferredAudience = (currentUser?.role === 'team_leader' && !isAdminOrCco)
         ? 'team_leader'
         : 'professionista';
 
     const searchParams = useMemo(() => new URLSearchParams(location.search || ''), [location.search]);
     const requestedAudience = searchParams.get('audience');
-    const audience = (requestedAudience === 'team_leader' || requestedAudience === 'professionista')
+    
+    // Validazione audience: se richiedi team_leader ma non puoi, vieni forzato a professionista
+    let audience = (requestedAudience === 'team_leader' || requestedAudience === 'professionista')
         ? requestedAudience
         : inferredAudience;
+
+    if (audience === 'team_leader' && !canViewTeamLeaderDocs) {
+        audience = 'professionista';
+    }
 
     const allGuides = useMemo(
         () => GUIDE_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, groupId: group.id, groupLabel: group.label }))),

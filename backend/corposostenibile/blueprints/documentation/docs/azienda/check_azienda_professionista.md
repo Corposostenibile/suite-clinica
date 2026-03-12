@@ -34,8 +34,6 @@ La barra dei filtri ti aiuta a restringere i check e a leggere un gruppo di risp
 ### Strumenti principali
 
 - Periodo temporale.
-- Tipo di professionista.
-- Professionista specifico.
 - Filtri rapidi come `Da migliorare`, `Voto negativo`, `Non letto`.
 
 ## Tabella risposte

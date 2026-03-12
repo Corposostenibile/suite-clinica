@@ -30,7 +30,7 @@ La barra dei filtri ti permette di stringere rapidamente la lista e lavorare per
 - Ricerca per nome.
 - Filtro stato del paziente.
 - Filtro tipologia o programma.
-- Filtri per professionista e area.
+- Filtri per area.
 - Reset completo della vista.
 
 ### Buon uso dei filtri
