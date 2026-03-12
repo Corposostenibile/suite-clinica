@@ -11,9 +11,13 @@ ALLOWED_SPECIALTY_KEYS = {'nutrizione', 'coaching', 'psicologia'}
 
 def normalize_specialty_key(specialty):
     normalized = String(specialty).lower()
+    if normalized in {'nutrizione', 'nutrizionista'}:
+        return 'nutrizione'
+    if normalized in {'psicologia', 'psicologo'}:
+        return 'psicologia'
     if normalized == 'coach':
         return 'coaching'
-    if normalized in {'nutrizione', 'psicologia', 'coaching'}:
+    if normalized == 'coaching':
         return normalized
     return None
 
