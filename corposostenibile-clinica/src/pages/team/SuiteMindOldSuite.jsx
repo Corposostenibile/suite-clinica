@@ -279,7 +279,7 @@ function SuiteMindOldSuite() {
               <option key={p.id} value={p.id}>{p.name} (Match: {p.score}%)</option>
             ))}
             {matchList.length > 0 && <option disabled>──────────</option>}
-            {professionals.filter(p => !matchList.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === deptKey)).map(p => (
+            {professionals.filter(p => !matchList.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === deptKey) && p.is_available !== false).map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </Form.Select>

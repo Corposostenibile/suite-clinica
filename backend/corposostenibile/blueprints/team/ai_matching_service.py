@@ -169,9 +169,12 @@ class AIMatchingService:
             User.specialty.in_(all_target_specialties),
             User.is_active == True
         ).all()
-        
-        # 2. Score Matching
+
+        # 2. Score Matching (skip professionals marked as unavailable)
         for prof in professionals:
+            ai_notes = prof.assignment_ai_notes or {}
+            if not ai_notes.get('disponibile_assegnazioni', True):
+                continue
             # Determine category
             category = 'other'
             spec_val = prof.specialty.value if hasattr(prof.specialty, 'value') else str(prof.specialty)
@@ -216,7 +219,7 @@ class AIMatchingService:
                 'match_reasons': matches, # Frontend expects match_reasons
                 'total_criteria': len(criteria_list),
                 'match_percentage': percentage,
-                'is_available': True 
+                'is_available': ai_notes.get('disponibile_assegnazioni', True)
             })
             
         # 3. Sort by Score DESC
