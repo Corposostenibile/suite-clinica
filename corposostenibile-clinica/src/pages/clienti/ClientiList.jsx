@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
@@ -130,8 +130,12 @@ function ClientiList() {
     }
   ];
 
+  // Separate search input (immediate UI) from debounced search query (used for API)
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
+  const searchTimerRef = useRef(null);
+
   const [filters, setFilters] = useState({
-    search: searchParams.get('q') || '',
     stato: searchParams.get('stato') || '',
     tipologia: searchParams.get('tipologia') || '',
     nutrizionista: searchParams.get('nutrizionista') || '',
@@ -202,7 +206,7 @@ function ClientiList() {
       const params = {
         page: pagination.page,
         per_page: pagination.perPage,
-        q: filters.search || undefined,
+        q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
         tipologia: filters.tipologia || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
@@ -257,20 +261,47 @@ function ClientiList() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.perPage, filters, professionistaView]);
+  }, [pagination.page, pagination.perPage, debouncedSearch, filters, professionistaView]);
 
   useEffect(() => {
     fetchClienti();
   }, [fetchClienti]);
 
+  const handleSearchInput = (value) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPagination(prev => ({ ...prev, page: 1 }));
+      const newParams = new URLSearchParams(searchParams);
+      if (value) {
+        newParams.set('q', value);
+      } else {
+        newParams.delete('q');
+      }
+      setSearchParams(newParams);
+    }, 400);
+  };
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
   const handleFilterChange = (key, value) => {
+    if (key === 'search') {
+      handleSearchInput(value);
+      return;
+    }
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
     if (value) {
-      newParams.set(key === 'search' ? 'q' : key, value);
+      newParams.set(key, value);
     } else {
-      newParams.delete(key === 'search' ? 'q' : key);
+      newParams.delete(key);
     }
     setSearchParams(newParams);
   };
@@ -280,8 +311,11 @@ function ClientiList() {
   };
 
   const resetFilters = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setSearchInput('');
+    setDebouncedSearch('');
     setFilters({
-      search: '', stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '', health_manager: '',
+      stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '', health_manager: '',
       check_day: '', reach_out: '', trasformazione_fisica: '', trasformazione_fisica_condivisa: '',
       allenamento_dal_from: '', allenamento_dal_to: '', nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
       marketing_usabile: '', marketing_stories: '', marketing_carosello: '', marketing_videofeedback: '',
@@ -459,8 +493,8 @@ function ClientiList() {
             type="text"
             className="cl-search-input"
             placeholder="Cerca paziente per nome, email, telefono..."
-            value={filters.search || ''}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
         <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>

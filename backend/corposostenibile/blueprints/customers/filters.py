@@ -662,7 +662,6 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
                     Cliente.nome_cognome.ilike(like),
                     Cliente.mail.ilike(like),
                     Cliente.numero_telefono.ilike(like),
-                    Cliente.consulente_alimentare.ilike(like),
                 )
             )
 

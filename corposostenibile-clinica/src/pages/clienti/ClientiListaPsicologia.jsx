@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import clientiService, {
@@ -76,9 +76,12 @@ function ClientiListaPsicologia() {
     totalPages: 0,
   });
 
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
+  const searchTimerRef = useRef(null);
+
   const [filters, setFilters] = useState(() => {
     const init = {
-      search: searchParams.get('q') || '',
       stato: searchParams.get('stato_cliente') || '',
       tipologia: searchParams.get('tipologia') || '',
       psicologa: searchParams.get('psicologa_id') || '',
@@ -130,7 +133,7 @@ function ClientiListaPsicologia() {
       const params = {
         page: pagination.page,
         per_page: pagination.perPage,
-        q: filters.search || undefined,
+        q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
         tipologia: filters.tipologia || undefined,
         psicologa_id: filters.psicologa || undefined,
@@ -174,7 +177,7 @@ function ClientiListaPsicologia() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.perPage, filters]);
+  }, [pagination.page, pagination.perPage, debouncedSearch, filters]);
 
   useEffect(() => {
     fetchClienti();
@@ -192,7 +195,33 @@ function ClientiListaPsicologia() {
     callInizialePsicologa: 'call_iniziale_psicologa',
   };
 
+  const handleSearchInput = (value) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPagination(prev => ({ ...prev, page: 1 }));
+      const newParams = new URLSearchParams(searchParams);
+      if (value) {
+        newParams.set('q', value);
+      } else {
+        newParams.delete('q');
+      }
+      setSearchParams(newParams);
+    }, 400);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
   const handleFilterChange = (key, value) => {
+    if (key === 'search') {
+      handleSearchInput(value);
+      return;
+    }
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
@@ -206,8 +235,11 @@ function ClientiListaPsicologia() {
   };
 
   const resetFilters = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setSearchInput('');
+    setDebouncedSearch('');
     const clean = {
-      search: '', stato: '', tipologia: '', psicologa: '',
+      stato: '', tipologia: '', psicologa: '',
       statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
       callInizialePsicologa: '',
     };
@@ -441,8 +473,8 @@ function ClientiListaPsicologia() {
             type="text"
             className="cl-search-input"
             placeholder="Cerca paziente per nome..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
         <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import clientiService, {
@@ -76,9 +76,12 @@ function ClientiListaNutrizione() {
     totalPages: 0,
   });
 
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('q') || '');
+  const searchTimerRef = useRef(null);
+
   const [filters, setFilters] = useState(() => {
     const init = {
-      search: searchParams.get('q') || '',
       stato: searchParams.get('stato_cliente') || '',
       tipologia: searchParams.get('tipologia') || '',
       nutrizionista: searchParams.get('nutrizionista_id') || '',
@@ -138,7 +141,7 @@ function ClientiListaNutrizione() {
       const params = {
         page: pagination.page,
         per_page: pagination.perPage,
-        q: filters.search || undefined,
+        q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
         tipologia: filters.tipologia || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
@@ -185,7 +188,7 @@ function ClientiListaNutrizione() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, pagination.perPage, filters]);
+  }, [pagination.page, pagination.perPage, debouncedSearch, filters]);
 
   useEffect(() => {
     fetchClienti();
@@ -205,7 +208,33 @@ function ClientiListaNutrizione() {
     missing_piano_dieta: 'missing_piano_dieta',
   };
 
+  const handleSearchInput = (value) => {
+    setSearchInput(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setPagination(prev => ({ ...prev, page: 1 }));
+      const newParams = new URLSearchParams(searchParams);
+      if (value) {
+        newParams.set('q', value);
+      } else {
+        newParams.delete('q');
+      }
+      setSearchParams(newParams);
+    }, 400);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
   const handleFilterChange = (key, value) => {
+    if (key === 'search') {
+      handleSearchInput(value);
+      return;
+    }
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, page: 1 }));
     const newParams = new URLSearchParams(searchParams);
@@ -219,8 +248,11 @@ function ClientiListaNutrizione() {
   };
 
   const resetFilters = () => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setSearchInput('');
+    setDebouncedSearch('');
     const clean = {
-      search: '', stato: '', tipologia: '', nutrizionista: '',
+      stato: '', tipologia: '', nutrizionista: '',
       statoNutrizione: '', statoChatNutrizione: '', checkDay: '', reachOut: '',
       callInizialeNutrizionista: '', missing_piano_dieta: '0',
     };
@@ -449,8 +481,8 @@ function ClientiListaNutrizione() {
             type="text"
             className="cl-search-input"
             placeholder="Cerca paziente per nome..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
         <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
