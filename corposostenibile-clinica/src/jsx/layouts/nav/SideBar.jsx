@@ -9,6 +9,7 @@ import {
   canAccessAiAssignments,
   canAccessCapacity,
   canAccessGlobalCheckPage,
+  canAccessLoomLibrary,
   canAccessQualityPage,
   canAccessTeamLists,
   canAccessTrialPages,
@@ -91,9 +92,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Libreria Loom', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
             : user?.is_trial
@@ -104,7 +105,7 @@ const SideBar = () => {
                   return ['Dashboard', 'Formazione', 'MAIN MENU'].includes(item.title);
                 } else if (user.trial_stage === 2) {
                   // Stage 2: Dashboard, Formazione + Pazienti
-                  return ['Dashboard', 'Formazione', 'Pazienti', 'MAIN MENU', 'CLIENTI'].includes(item.title);
+                  return ['Dashboard', 'Formazione', 'Pazienti', 'Libreria Loom', 'MAIN MENU', 'CLIENTI'].includes(item.title);
                 } else {
                   // Stage 3+ (già promosso): menu completo
                   if (item.title === 'Quality' && !(user?.is_admin || user?.role === 'admin' || user?.role === 'team_leader')) {
@@ -123,6 +124,7 @@ const SideBar = () => {
                 if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
                 if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
                 if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                if (item.title === 'Libreria Loom' && !canAccessLoomLibrary(user)) return false;
                 if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
                   return false;
                 }

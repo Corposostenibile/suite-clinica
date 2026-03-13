@@ -6,6 +6,8 @@ steps:
       - 'CB_PROJECT_ID=$PROJECT_ID'
       - 'CB_COMMIT_SHA=$COMMIT_SHA'
       - 'CB_BUILD_ID=$BUILD_ID'
+      - 'CB_VITE_LOOM_PUBLIC_APP_ID=${_VITE_LOOM_PUBLIC_APP_ID}'
+      - 'CB_VITE_LOOM_SDK_SCRIPT_URL=${_VITE_LOOM_SDK_SCRIPT_URL}'
     args:
       - -lc
       - |
@@ -18,7 +20,10 @@ steps:
         IMAGE="europe-west8-docker.pkg.dev/$${CB_PROJECT_ID}/suite-clinica-repo/backend:$${IMAGE_TAG}"
         for attempt in 1 2 3; do
           echo "Docker build attempt $${attempt}/3 for $${IMAGE}"
-          if docker build -t "$${IMAGE}" .; then
+          if docker build \
+            --build-arg VITE_LOOM_PUBLIC_APP_ID="$${CB_VITE_LOOM_PUBLIC_APP_ID}" \
+            --build-arg VITE_LOOM_SDK_SCRIPT_URL="$${CB_VITE_LOOM_SDK_SCRIPT_URL}" \
+            -t "$${IMAGE}" .; then
             exit 0
           fi
           rc=$?
@@ -206,3 +211,6 @@ steps:
 timeout: 1200s
 options:
   logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _VITE_LOOM_PUBLIC_APP_ID: '50bc1d6e-63bf-4495-b3e9-53709167adee'
+  _VITE_LOOM_SDK_SCRIPT_URL: ''

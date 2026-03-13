@@ -10634,6 +10634,63 @@ class Meeting(TimestampMixin, db.Model):
         return 0
 
 
+# --------------------------------------------------------------------------- #
+#  LoomRecording (Support Widget Integration)
+# --------------------------------------------------------------------------- #
+class LoomRecording(TimestampMixin, db.Model):
+    """
+    Registrazioni Loom generate dal widget di supporto interno.
+
+    Separato dalla logica meeting/calendario:
+    - submitter_user_id è obbligatorio
+    - cliente_id è opzionale
+    """
+
+    __tablename__ = "loom_recordings"
+    __versioned__ = {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    loom_link = db.Column(db.String(500), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    source = db.Column(
+        db.String(50),
+        nullable=False,
+        default="support_widget",
+        comment="Origine registrazione (es. support_widget)",
+    )
+    submitter_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Utente che ha inviato la registrazione",
+    )
+    cliente_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("clienti.cliente_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Paziente associato (opzionale)",
+    )
+
+    submitter_user = db.relationship(
+        "User",
+        backref=db.backref("loom_recordings", lazy="dynamic"),
+    )
+    cliente = db.relationship(
+        "Cliente",
+        backref=db.backref("loom_recordings", lazy="dynamic"),
+    )
+
+    @property
+    def has_cliente(self) -> bool:
+        return bool(self.cliente_id)
+
+    def __repr__(self) -> str:
+        return f"<LoomRecording {self.id} submitter={self.submitter_user_id}>"
+
+
 # ─────────────────────────── CLIENT CHECKS MODELS ─────────────────────────── #
 
 # ─────────────────────────── CLIENT CHECKS MODELS ─────────────────────────── #

@@ -5,6 +5,10 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY corposostenibile-clinica/package*.json ./frontend/
 WORKDIR /app/frontend
+ARG VITE_LOOM_PUBLIC_APP_ID=""
+ARG VITE_LOOM_SDK_SCRIPT_URL=""
+ENV VITE_LOOM_PUBLIC_APP_ID=${VITE_LOOM_PUBLIC_APP_ID}
+ENV VITE_LOOM_SDK_SCRIPT_URL=${VITE_LOOM_SDK_SCRIPT_URL}
 # Install dependencies
 RUN npm ci
 # Copy frontend source

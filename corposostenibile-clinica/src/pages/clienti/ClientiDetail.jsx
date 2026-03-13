@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
@@ -22,6 +22,7 @@ import clientiService, {
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
 import teamTicketsService from '../../services/teamTicketsService';
+import loomService from '../../services/loomService';
 import { useAuth } from '../../context/AuthContext';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
@@ -96,6 +97,13 @@ const FIGURA_RIF_LABELS = {
   psicologa: 'Psicologa',
 };
 
+const getLoomEmbedUrl = (loomLink) => {
+  const value = String(loomLink || '').trim();
+  if (!value) return '';
+  if (value.includes('/embed/')) return value;
+  return value.replace('/share/', '/embed/');
+};
+
 // Lista professioni
 const PROFESSIONI_OPTIONS = [
   { group: 'Sanità e Benessere', options: ['Medico', 'Infermiere/a', 'Farmacista', 'Fisioterapista', 'Odontoiatra (Dentista)', 'Psicologo/a', 'Veterinario/a', 'Operatore Socio-Sanitario (OSS)', 'Tecnico di laboratorio', 'Nutrizionista'] },
@@ -154,12 +162,29 @@ function ClientiDetail() {
   }, [canManageTeamAssignments, isRestrictedTeamLeader, specialtyGroup]);
 
   const getAllowedMainTabsForUser = useCallback(() => {
-    // Tutti i ruoli vedono tutte le tab della scheda paziente
+    if (isInfluencer) {
+      return new Set([
+        'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+        'check_periodici', 'progresso', 'tickets', 'call_bonus'
+      ]);
+    }
+
+    if (!isSpecialtyRestrictedRole) {
+      return new Set([
+        'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+        'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus'
+      ]);
+    }
+
     return new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-      'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
+      'anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
+      ...(isRestrictedTeamLeader ? ['team'] : []),
+      ...(specialtyGroup === 'nutrizione' ? ['nutrizione'] : []),
+      ...(specialtyGroup === 'coach' ? ['coaching'] : []),
+      ...(specialtyGroup === 'psicologia' ? ['psicologia'] : []),
+      ...(specialtyGroup === 'medico' ? ['medico'] : []),
     ]);
-  }, []);
+  }, [isInfluencer, isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
 
   // State
   const [cliente, setCliente] = useState(null);
@@ -1001,6 +1026,12 @@ function ClientiDetail() {
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
   const [initialChecksData, setInitialChecksData] = useState(null);
   const [loadingInitialChecks, setLoadingInitialChecks] = useState(false);
+  const [patientLoomRecordings, setPatientLoomRecordings] = useState([]);
+  const [loadingLoomRecordings, setLoadingLoomRecordings] = useState(false);
+  const [loomSortOrder, setLoomSortOrder] = useState('newest');
+  const [loomPage, setLoomPage] = useState(1);
+  const [loomPreviewLink, setLoomPreviewLink] = useState('');
+  const loomPageSize = 8;
 
   // ==================== TICKETS STATE ====================
   const [patientTickets, setPatientTickets] = useState([]);
@@ -1361,6 +1392,51 @@ function ClientiDetail() {
       fetchInitialChecks();
     }
   }, [activeTab, fetchInitialChecks]);
+
+  const fetchPatientLoomRecordings = useCallback(async () => {
+    if (!id) return;
+    setLoadingLoomRecordings(true);
+    try {
+      const rows = await loomService.getRecordings({ clienteId: id, withCliente: true });
+      setPatientLoomRecordings(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      console.error('Error fetching patient loom recordings:', err);
+      setPatientLoomRecordings([]);
+    } finally {
+      setLoadingLoomRecordings(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'loom') {
+      fetchPatientLoomRecordings();
+    }
+  }, [activeTab, fetchPatientLoomRecordings]);
+
+  const sortedPatientLoomRecordings = useMemo(() => {
+    const rows = [...patientLoomRecordings];
+    rows.sort((a, b) => {
+      const aTs = new Date(a?.created_at || 0).getTime();
+      const bTs = new Date(b?.created_at || 0).getTime();
+      if (loomSortOrder === 'oldest') return aTs - bTs;
+      return bTs - aTs;
+    });
+    return rows;
+  }, [patientLoomRecordings, loomSortOrder]);
+
+  const loomTotalPages = Math.max(1, Math.ceil(sortedPatientLoomRecordings.length / loomPageSize));
+  const pagedPatientLoomRecordings = useMemo(() => {
+    const start = (loomPage - 1) * loomPageSize;
+    return sortedPatientLoomRecordings.slice(start, start + loomPageSize);
+  }, [sortedPatientLoomRecordings, loomPage, loomPageSize]);
+
+  useEffect(() => {
+    setLoomPage(1);
+  }, [patientLoomRecordings, loomSortOrder]);
+
+  useEffect(() => {
+    if (loomPage > loomTotalPages) setLoomPage(loomTotalPages);
+  }, [loomPage, loomTotalPages]);
 
   // ── Fetch Tickets ──
   const fetchPatientTickets = useCallback(async () => {
@@ -2798,6 +2874,7 @@ function ClientiDetail() {
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     { id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
+    { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
   ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
@@ -7385,6 +7462,124 @@ function ClientiDetail() {
                 <ProgressoTab responses={checkData.responses} loading={loadingChecks} />
               )}
 
+              {activeTab === 'loom' && (
+                <div>
+                  <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <select
+                      className="cd-select"
+                      style={{ maxWidth: '220px' }}
+                      value={loomSortOrder}
+                      onChange={(e) => setLoomSortOrder(e.target.value)}
+                    >
+                      <option value="newest">Più recenti</option>
+                      <option value="oldest">Meno recenti</option>
+                    </select>
+                  </div>
+                  {loadingLoomRecordings ? (
+                    <div className="cd-loading">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento Loom...</p>
+                    </div>
+                  ) : sortedPatientLoomRecordings.length === 0 ? (
+                    <div className="cd-empty">
+                      <i className="ri-video-line cd-empty-icon"></i>
+                      <p className="cd-empty-text">Nessun Loom associato a questo paziente</p>
+                    </div>
+                  ) : (
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
+                          <tr>
+                            <th>Titolo</th>
+                            <th>Autore</th>
+                            <th>Data</th>
+                            <th style={{ textAlign: 'right' }}>Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagedPatientLoomRecordings.map((recording) => (
+                            <tr key={recording.id}>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                  {recording.title || 'Registrazione Loom'}
+                                </div>
+                                <div className="cd-empty-text">
+                                  {recording.note || 'Nessuna nota'}
+                                </div>
+                              </td>
+                              <td>{recording.submitter_user_name || '—'}</td>
+                              <td>{recording.created_at ? new Date(recording.created_at).toLocaleString('it-IT') : '—'}</td>
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: '8px' }}>
+                                  <a
+                                    className="cd-btn-back"
+                                    href={recording.loom_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ padding: '6px 10px' }}
+                                  >
+                                    <i className="ri-external-link-line"></i>
+                                    Apri
+                                  </a>
+                                  <button
+                                    type="button"
+                                    className="cd-btn-back"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(recording.loom_link || '');
+                                      } catch (copyErr) {
+                                        console.error('Error copying loom link:', copyErr);
+                                      }
+                                    }}
+                                  >
+                                    <i className="ri-file-copy-line"></i>
+                                    Copia
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="cd-btn-back"
+                                    style={{ padding: '6px 10px' }}
+                                    onClick={() => setLoomPreviewLink(recording.loom_link || '')}
+                                  >
+                                    <i className="ri-play-circle-line"></i>
+                                    Anteprima
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {sortedPatientLoomRecordings.length > 0 && (
+                    <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+                      <button
+                        type="button"
+                        className="cd-btn-back"
+                        style={{ padding: '6px 10px' }}
+                        onClick={() => setLoomPage((prev) => Math.max(1, prev - 1))}
+                        disabled={loomPage <= 1}
+                      >
+                        <i className="ri-arrow-left-s-line"></i> Precedente
+                      </button>
+                      <span className="cd-empty-text">Pagina {loomPage} / {loomTotalPages}</span>
+                      <button
+                        type="button"
+                        className="cd-btn-back"
+                        style={{ padding: '6px 10px' }}
+                        onClick={() => setLoomPage((prev) => Math.min(loomTotalPages, prev + 1))}
+                        disabled={loomPage >= loomTotalPages}
+                      >
+                        Successiva <i className="ri-arrow-right-s-line"></i>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ========== TICKETS TAB ========== */}
               {activeTab === 'tickets' && (
                 <div>
@@ -7620,6 +7815,28 @@ function ClientiDetail() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {loomPreviewLink && (
+        <div className="cd-modal-backdrop" onClick={() => setLoomPreviewLink('')}>
+          <div className="cd-modal lg" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header">
+              <h5>Anteprima Loom</h5>
+              <button className="cd-modal-close" onClick={() => setLoomPreviewLink('')}>
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+            <div className="cd-modal-body" style={{ background: '#000', padding: 0 }}>
+              <iframe
+                src={getLoomEmbedUrl(loomPreviewLink)}
+                title="Loom preview paziente"
+                style={{ width: '100%', height: '70vh', border: 0 }}
+                allowFullScreen
+                loading="lazy"
+              />
+            </div>
           </div>
         </div>
       )}

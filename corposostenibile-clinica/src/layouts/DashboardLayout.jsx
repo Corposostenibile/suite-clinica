@@ -5,6 +5,7 @@ import NavHader from '../jsx/layouts/nav/NavHader';
 import SideBar from '../jsx/layouts/nav/SideBar';
 import Header from '../jsx/layouts/nav/Header';
 import ChatBox from '../jsx/layouts/ChatBox';
+import SupportWidget from '../components/SupportWidget';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
@@ -146,6 +147,12 @@ function DashboardContent() {
           </button>
         </Modal.Footer>
       </Modal>
+
+      <SupportWidget
+        variant="global"
+        minimal
+        brandName="Suite Clinica"
+      />
     </div>
   );
 }

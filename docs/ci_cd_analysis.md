@@ -115,6 +115,10 @@ gcloud builds submit \
   .
 ```
 
+Per Loom frontend:
+- `VITE_LOOM_PUBLIC_APP_ID` viene letta a build-time da Vite; in questo progetto il valore può essere fissato direttamente in `cloudbuild.yaml` tramite `_VITE_LOOM_PUBLIC_APP_ID`
+- opzionale: `_VITE_LOOM_SDK_SCRIPT_URL` per sovrascrivere il default `/static/js/loom-sdk.bundle.js`
+
 ## 5) Checklist go-live GCP
 
 1. DNS: punta il dominio all'IP del Load Balancer creato da Ingress
