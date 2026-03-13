@@ -958,17 +958,30 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     history.is_active = False
 
     # IMPORTANTE: Rimuovi il professionista dalle relazioni del cliente
+    # Pulisci sia la relazione M2M sia la FK singola legacy
     professionista = history.professionista
     tipo = history.tipo_professionista
 
-    if tipo == 'nutrizionista' and professionista in cliente.nutrizionisti_multipli:
-        cliente.nutrizionisti_multipli.remove(professionista)
-    elif tipo == 'coach' and professionista in cliente.coaches_multipli:
-        cliente.coaches_multipli.remove(professionista)
-    elif tipo == 'psicologa' and professionista in cliente.psicologi_multipli:
-        cliente.psicologi_multipli.remove(professionista)
-    elif tipo == 'consulente' and professionista in cliente.consulenti_multipli:
-        cliente.consulenti_multipli.remove(professionista)
+    if tipo == 'nutrizionista':
+        if professionista in cliente.nutrizionisti_multipli:
+            cliente.nutrizionisti_multipli.remove(professionista)
+        if cliente.nutrizionista_id == professionista.id:
+            cliente.nutrizionista_id = None
+    elif tipo == 'coach':
+        if professionista in cliente.coaches_multipli:
+            cliente.coaches_multipli.remove(professionista)
+        if cliente.coach_id == professionista.id:
+            cliente.coach_id = None
+    elif tipo == 'psicologa':
+        if professionista in cliente.psicologi_multipli:
+            cliente.psicologi_multipli.remove(professionista)
+        if cliente.psicologa_id == professionista.id:
+            cliente.psicologa_id = None
+    elif tipo == 'consulente':
+        if professionista in cliente.consulenti_multipli:
+            cliente.consulenti_multipli.remove(professionista)
+        if cliente.consulente_alimentare_id == professionista.id:
+            cliente.consulente_alimentare_id = None
     elif tipo == 'health_manager' and cliente.health_manager_id == professionista.id:
         cliente.health_manager_id = None
 
@@ -1029,19 +1042,32 @@ def interrupt_professionista_legacy(cliente_id: int):
     db.session.add(history)
 
     # IMPORTANTE: Rimuovi il professionista dalle relazioni del cliente
+    # Pulisci sia la relazione M2M sia la FK singola legacy
     user_id = payload['user_id']
     tipo = payload['tipo_professionista']
     professionista = db.session.query(User).get(user_id)
 
     if professionista:
-        if tipo == 'nutrizionista' and professionista in cliente.nutrizionisti_multipli:
-            cliente.nutrizionisti_multipli.remove(professionista)
-        elif tipo == 'coach' and professionista in cliente.coaches_multipli:
-            cliente.coaches_multipli.remove(professionista)
-        elif tipo == 'psicologa' and professionista in cliente.psicologi_multipli:
-            cliente.psicologi_multipli.remove(professionista)
-        elif tipo == 'consulente' and professionista in cliente.consulenti_multipli:
-            cliente.consulenti_multipli.remove(professionista)
+        if tipo == 'nutrizionista':
+            if professionista in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.remove(professionista)
+            if cliente.nutrizionista_id == user_id:
+                cliente.nutrizionista_id = None
+        elif tipo == 'coach':
+            if professionista in cliente.coaches_multipli:
+                cliente.coaches_multipli.remove(professionista)
+            if cliente.coach_id == user_id:
+                cliente.coach_id = None
+        elif tipo == 'psicologa':
+            if professionista in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.remove(professionista)
+            if cliente.psicologa_id == user_id:
+                cliente.psicologa_id = None
+        elif tipo == 'consulente':
+            if professionista in cliente.consulenti_multipli:
+                cliente.consulenti_multipli.remove(professionista)
+            if cliente.consulente_alimentare_id == user_id:
+                cliente.consulente_alimentare_id = None
         elif tipo == 'health_manager' and cliente.health_manager_id == user_id:
             cliente.health_manager_id = None
 
