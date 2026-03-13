@@ -364,10 +364,11 @@ def _finish_approval_check(
 AIRTABLE_API_BASE = "https://api.airtable.com/v0"
 
 
-def send_to_airtable(context: Dict[str, Any], app) -> None:
+def send_to_airtable(context: Dict[str, Any], app, caption: str | None = None) -> None:
     """
     Crea un record in Airtable con i dati del video approvato.
-    L'automation Airtable (trigger: record creato → Generate with AI) compila il campo Caption.
+    Se caption è fornita (es. generata da Claude), viene scritta nel campo Caption;
+    altrimenti il campo resta vuoto (nessuna automation Airtable necessaria se si usa Claude).
     """
     logger = app.logger
     token = app.config.get("AIRTABLE_ACCESS_TOKEN")
@@ -379,7 +380,6 @@ def send_to_airtable(context: Dict[str, Any], app) -> None:
         )
         return
     url = f"{AIRTABLE_API_BASE}/{base_id}/{quote(table_id, safe='')}"
-    # Nomi campi devono coincidere con la tabella Airtable; Caption lasciato vuoto per l'automation AI
     fields = {
         "Video name": context.get("name") or "",
         "View URL": context.get("view_url") or "",
@@ -387,6 +387,8 @@ def send_to_airtable(context: Dict[str, Any], app) -> None:
         "Frame.io file ID": context.get("file_id") or "",
         "Status": "Approved",
     }
+    if caption and caption.strip():
+        fields["Caption"] = caption.strip()
     payload = json.dumps({"fields": fields}).encode("utf-8")
     req = Request(url, data=payload, method="POST")
     req.add_header("Authorization", f"Bearer {token}")
@@ -406,18 +408,3 @@ def send_to_airtable(context: Dict[str, Any], app) -> None:
         )
     except URLError as e:
         logger.exception("[Marketing Automation] Errore richiesta Airtable")
-
-
-def request_poppy_caption(context: Dict[str, Any], app) -> None:
-    """
-    Invia il contesto a Poppy per la generazione caption (opzionale, se API attiva).
-    """
-    logger = app.logger
-    if not app.config.get("POPPY_API_KEY"):
-        return
-    base_url = app.config.get("POPPY_API_BASE_URL", "").rstrip("/")
-    logger.info(
-        "[Marketing Automation] Poppy configurato (base_url=%s); chiamata caption da implementare. Contesto: %s",
-        base_url or "(non impostato)",
-        context,
-    )

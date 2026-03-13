@@ -284,15 +284,17 @@ class BaseConfig:
     # Opzione B: Access token OAuth (API v4) da /marketing-automation/oauth/start (scade ~1h). Richiede Adobe ID collegato da supporto Frame.io.
     FRAMEIO_ACCESS_TOKEN: str | None = os.getenv("FRAMEIO_ACCESS_TOKEN")
 
-    # --------------------------- Marketing Automation (Poppy AI) -----------------
-    # API: https://docs.getpoppy.ai | Base URL: https://api.getpoppy.ai
-    POPPY_API_BASE_URL: str = os.getenv("POPPY_API_BASE_URL", "https://api.getpoppy.ai").rstrip("/")
-    POPPY_API_KEY: str | None = os.getenv("POPPY_API_KEY")
-    POPPY_BOARD_ID: str | None = os.getenv("POPPY_BOARD_ID")
-    POPPY_CHAT_ID: str | None = os.getenv("POPPY_CHAT_ID")
+    # --------------------------- Marketing Automation (Claude) -----------------
+    # Caption generate da Claude API (sostituisce Poppy / Airtable AI)
+    ANTHROPIC_API_KEY: str | None = os.getenv("ANTHROPIC_API_KEY")
+    CLAUDE_CAPTION_MODEL: str = os.getenv("CLAUDE_CAPTION_MODEL", "claude-sonnet-4-20250514")
+    # Testo placeholder per le linee guida; sostituire con versione distillata dai PDF quando disponibili
+    CLAUDE_CAPTION_GUIDELINES: str | None = os.getenv("CLAUDE_CAPTION_GUIDELINES")
+    # Se 1, abilita GET /marketing-automation/test-caption per test senza webhook (solo dev)
+    MARKETING_AUTOMATION_TEST_CAPTION: bool = os.getenv("MARKETING_AUTOMATION_TEST_CAPTION", "").strip() == "1"
 
     # --------------------------- Marketing Automation (Airtable) -----------------
-    # Video approvati → record in Airtable; l'automation "Generate with AI" in Airtable compila la Caption
+    # Video approvati → record in Airtable; Caption compilata da Claude nel backend
     AIRTABLE_ACCESS_TOKEN: str | None = os.getenv("AIRTABLE_ACCESS_TOKEN")
     AIRTABLE_BASE_ID: str | None = os.getenv("AIRTABLE_BASE_ID")
     AIRTABLE_TABLE_ID: str | None = os.getenv("AIRTABLE_TABLE_ID")  # nome o id tabella (es. "Video approvati")

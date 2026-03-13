@@ -12,6 +12,7 @@ from flask import request, jsonify, current_app, redirect, session
 from . import bp
 from .security import require_frameio_webhook_signature
 from .services import process_frameio_webhook_sync, send_to_airtable
+from .claude_caption import generate_caption
 
 # Endpoint OAuth 2.0 Adobe IMS (per Frame.io)
 ADOBE_IMS_AUTHORIZE = "https://ims-na1.adobelogin.com/ims/authorize/v2"
@@ -134,6 +135,28 @@ def oauth_callback():
     return Response(html, mimetype="text/html; charset=utf-8")
 
 
+@bp.route("/test-caption", methods=["GET"])
+def test_caption():
+    """
+    Route di test per la generazione caption con Claude (solo in dev).
+    Query: transcript=... (obbligatorio), name=... (opzionale).
+    Abilitata solo se DEBUG=True o MARKETING_AUTOMATION_TEST_CAPTION=1.
+    """
+    if not current_app.debug and not current_app.config.get("MARKETING_AUTOMATION_TEST_CAPTION"):
+        return jsonify({"error": "Route disabilitata"}), 404
+    transcript = request.args.get("transcript", "").strip()
+    name = request.args.get("name", "Video test")
+    if not transcript:
+        return jsonify({
+            "error": "Parametro 'transcript' obbligatorio (es. ?transcript=testo trascrizione...)",
+        }), 400
+    context = {"name": name, "description": transcript, "view_url": ""}
+    caption = generate_caption(context, current_app)
+    if caption is None:
+        return jsonify({"error": "Impossibile generare caption (verifica ANTHROPIC_API_KEY e log)"}), 502
+    return jsonify({"caption": caption})
+
+
 @bp.route("/webhook/frameio", methods=["POST"])
 @require_frameio_webhook_signature
 def webhook_frameio():
@@ -155,6 +178,8 @@ def webhook_frameio():
 
     result = process_frameio_webhook_sync(payload, current_app)
     if result.get("approved") and result.get("context"):
-        send_to_airtable(result["context"], current_app)
+        context = result["context"]
+        caption = generate_caption(context, current_app)
+        send_to_airtable(context, current_app, caption=caption)
 
     return jsonify({"ok": True, "received": event_type}), 200

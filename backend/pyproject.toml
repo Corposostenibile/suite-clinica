@@ -55,6 +55,7 @@ faker = "^37.3.0"
 psutil = "^5.9.8"
 
 # AI / LLM / RAG
+anthropic = "^0.39.0"
 tiktoken = "^0.7.0"
 ollama = "^0.6.0"
 # Stack LangChain 0.3.x (compatibile con Pydantic v2)
