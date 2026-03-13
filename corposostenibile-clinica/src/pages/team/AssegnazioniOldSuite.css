@@ -655,6 +655,41 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ── Check Copy Link Button ── */
+.check-copy-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1.5px solid #f59e0b;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  animation: checkLinkPulse 2s ease-in-out infinite;
+}
+
+.check-copy-link-btn i {
+  font-size: 13px;
+}
+
+.check-copy-link-btn:hover {
+  background: #fef3c7;
+  border-color: #d97706;
+  color: #92400e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+@keyframes checkLinkPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50%      { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+}
+
 /* ── Check 3 Score Badge ── */
 .check3-score-badge {
   display: inline-block;

@@ -196,9 +196,9 @@ function AssegnazioniOldSuite() {
           <span className="check3-score-badge">{check.type}</span>
         )}
         {!isCompleted && check?.form_url && (
-          <Button variant="link" className="p-0 text-muted" title="Copia link check" onClick={() => handleCopyCheckLink(check.form_url)}>
-            <i className="ri-file-copy-line"></i>
-          </Button>
+          <button className="check-copy-link-btn" onClick={() => handleCopyCheckLink(check.form_url)} title="Copia link check">
+            <i className="ri-link"></i> Copia Link
+          </button>
         )}
       </div>
     );
