@@ -9,10 +9,15 @@ from urllib.error import HTTPError, URLError
 
 from flask import request, jsonify, current_app, redirect, session
 
+from corposostenibile.extensions import get_redis_client
+
 from . import bp
 from .security import require_frameio_webhook_signature
 from .services import process_frameio_webhook_sync, send_to_airtable
 from .claude_caption import generate_caption
+
+# Finestra di deduplica: stesso file non viene processato di nuovo prima di N secondi (evita doppie chiamate a Claude)
+MARKETING_AUTOMATION_DEDUP_TTL_SECONDS = 300  # 5 minuti
 
 # Endpoint OAuth 2.0 Adobe IMS (per Frame.io)
 ADOBE_IMS_AUTHORIZE = "https://ims-na1.adobelogin.com/ims/authorize/v2"
@@ -179,7 +184,30 @@ def webhook_frameio():
     result = process_frameio_webhook_sync(payload, current_app)
     if result.get("approved") and result.get("context"):
         context = result["context"]
+        file_id = context.get("file_id") or ""
+
+        # Deduplica all'inizio: evita chiamate ridondanti a Claude e Airtable se stesso file già processato di recente
+        redis_client = get_redis_client()
+        if redis_client and file_id:
+            dedup_key = f"marketing_automation:processed:{file_id}"
+            try:
+                if redis_client.exists(dedup_key):
+                    current_app.logger.info(
+                        "[Marketing Automation] Skip: file_id=%s già processato di recente (deduplica)",
+                        file_id,
+                    )
+                    return jsonify({"ok": True, "received": event_type, "skipped": "dedup"}), 200
+            except Exception as e:
+                current_app.logger.debug("[Marketing Automation] Redis dedup check failed: %s", e)
+
         caption = generate_caption(context, current_app)
         send_to_airtable(context, current_app, caption=caption)
+
+        if redis_client and file_id:
+            try:
+                dedup_key = f"marketing_automation:processed:{file_id}"
+                redis_client.setex(dedup_key, MARKETING_AUTOMATION_DEDUP_TTL_SECONDS, "1")
+            except Exception as e:
+                current_app.logger.debug("[Marketing Automation] Redis dedup set failed: %s", e)
 
     return jsonify({"ok": True, "received": event_type}), 200

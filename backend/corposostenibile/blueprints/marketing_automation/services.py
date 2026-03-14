@@ -364,6 +364,46 @@ def _finish_approval_check(
 AIRTABLE_API_BASE = "https://api.airtable.com/v0"
 
 
+def _airtable_find_existing_record_id(
+    *, token: str, base_id: str, table_id: str, frameio_file_id: str, app
+) -> str | None:
+    """
+    Cerca un record Airtable esistente per Frame.io file ID.
+    Ritorna record_id se trovato, altrimenti None.
+    """
+    if not frameio_file_id:
+        return None
+    logger = app.logger
+    table_path = quote(table_id, safe="")
+    # Formula: {Frame.io file ID}="uuid"
+    # Nota: valori stringa in formula devono essere tra doppi apici; escaping minimo di eventuali doppi apici.
+    safe_value = frameio_file_id.replace('"', '\\"')
+    formula = quote(f'{{Frame.io file ID}}="{safe_value}"', safe="")
+    url = f"{AIRTABLE_API_BASE}/{base_id}/{table_path}?maxRecords=1&filterByFormula={formula}"
+    req = Request(url, method="GET")
+    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Accept", "application/json")
+    try:
+        with urlopen(req, timeout=15) as resp:
+            data = resp.read().decode("utf-8")
+        payload = json.loads(data)
+        records = payload.get("records") if isinstance(payload, dict) else None
+        if records and isinstance(records, list) and records[0].get("id"):
+            rec_id = records[0]["id"]
+            logger.info("[Marketing Automation] Airtable: record esistente trovato per file_id=%s → %s", frameio_file_id, rec_id)
+            return rec_id
+    except HTTPError as e:
+        body = e.read().decode("utf-8") if e.fp else ""
+        logger.warning(
+            "[Marketing Automation] Airtable GET (lookup) fallito: %s %s", e.code, body[:300]
+        )
+    except URLError:
+        logger.exception("[Marketing Automation] Airtable GET (lookup) errore rete")
+    except Exception:
+        logger.exception("[Marketing Automation] Airtable GET (lookup) errore inatteso")
+    return None
+
+
 def send_to_airtable(context: Dict[str, Any], app, caption: str | None = None) -> None:
     """
     Crea un record in Airtable con i dati del video approvato.
@@ -379,7 +419,8 @@ def send_to_airtable(context: Dict[str, Any], app, caption: str | None = None) -
             "[Marketing Automation] Airtable non configurato (AIRTABLE_ACCESS_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_ID). Skip."
         )
         return
-    url = f"{AIRTABLE_API_BASE}/{base_id}/{quote(table_id, safe='')}"
+    table_path = quote(table_id, safe="")
+    url_base = f"{AIRTABLE_API_BASE}/{base_id}/{table_path}"
     fields = {
         "Video name": context.get("name") or "",
         "View URL": context.get("view_url") or "",
@@ -390,21 +431,43 @@ def send_to_airtable(context: Dict[str, Any], app, caption: str | None = None) -
     if caption and caption.strip():
         fields["Caption"] = caption.strip()
     payload = json.dumps({"fields": fields}).encode("utf-8")
-    req = Request(url, data=payload, method="POST")
+
+    # Idempotenza: se esiste già un record per questo Frame.io file ID, aggiorna invece di creare.
+    existing_record_id = _airtable_find_existing_record_id(
+        token=token,
+        base_id=base_id,
+        table_id=table_id,
+        frameio_file_id=str(context.get("file_id") or ""),
+        app=app,
+    )
+    if existing_record_id:
+        url = f"{url_base}/{existing_record_id}"
+        method = "PATCH"
+    else:
+        url = url_base
+        method = "POST"
+
+    req = Request(url, data=payload, method=method)
     req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Content-Type", "application/json")
     try:
         with urlopen(req, timeout=15) as resp:
             data = resp.read().decode("utf-8")
         result = json.loads(data)
-        logger.info(
-            "[Marketing Automation] Record Airtable creato: id=%s",
-            result.get("id", ""),
-        )
+        if method == "PATCH":
+            logger.info(
+                "[Marketing Automation] Record Airtable aggiornato: id=%s",
+                result.get("id", ""),
+            )
+        else:
+            logger.info(
+                "[Marketing Automation] Record Airtable creato: id=%s",
+                result.get("id", ""),
+            )
     except HTTPError as e:
         body = e.read().decode("utf-8") if e.fp else ""
         logger.error(
-            "[Marketing Automation] Airtable POST fallito: %s %s", e.code, body[:400]
+            "[Marketing Automation] Airtable %s fallito: %s %s", method, e.code, body[:400]
         )
     except URLError as e:
         logger.exception("[Marketing Automation] Errore richiesta Airtable")
