@@ -13106,7 +13106,7 @@ class QualityClientScore(TimestampMixin, db.Model):
 class TrustpilotReview(TimestampMixin, db.Model):
     """
     Tracciamento recensioni per distribuzione bonus BRec.
-    NO integrazione API Trustpilot - gestione manuale da HM.
+    Supporta sia workflow manuale sia integrazione API/webhook Trustpilot.
     """
     __tablename__ = 'trustpilot_reviews'
     __table_args__ = (
@@ -13114,6 +13114,8 @@ class TrustpilotReview(TimestampMixin, db.Model):
         db.Index('idx_richiedente', 'richiesta_da_professionista_id'),
         db.Index('idx_quarter', 'applied_to_quarter'),
         db.Index('idx_pubblicata', 'pubblicata'),
+        db.Index('idx_trustpilot_reference', 'trustpilot_reference_id'),
+        db.Index('idx_trustpilot_review_id', 'trustpilot_review_id'),
     )
 
     # ─── Primary Key ───
@@ -13127,12 +13129,22 @@ class TrustpilotReview(TimestampMixin, db.Model):
     richiesta_da_professionista_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     richiesta_da = relationship('User', foreign_keys=[richiesta_da_professionista_id])
     data_richiesta = db.Column(db.DateTime, nullable=False, index=True)
+    invitation_method = db.Column(db.String(50), default='manual')
+    invitation_status = db.Column(db.String(50), default='pending', index=True)
+    trustpilot_reference_id = db.Column(db.String(120), unique=True, index=True)
+    trustpilot_invitation_id = db.Column(db.String(120), index=True)
+    trustpilot_review_id = db.Column(db.String(120), unique=True, index=True)
+    trustpilot_link = db.Column(db.Text)
 
     # ─── Pubblicazione ───
     pubblicata = db.Column(db.Boolean, default=False, index=True)
     data_pubblicazione = db.Column(db.DateTime)
     stelle = db.Column(db.Integer)  # 1-5 (copiato da Cliente.recensione_stelle)
     testo_recensione = db.Column(db.Text)  # Copiato da Cliente.recensione_testo
+    titolo_recensione = db.Column(db.String(255))
+    deleted_at_trustpilot = db.Column(db.DateTime)
+    webhook_received_at = db.Column(db.DateTime)
+    trustpilot_payload_last = db.Column(db.JSON)
 
     # ─── Distribuzione Bonus (JSON) ───
     bonus_distribution = db.Column(db.JSON)

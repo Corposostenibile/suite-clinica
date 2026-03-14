@@ -143,6 +143,7 @@ function ClientiDetail() {
   const canGenerateCheckLinks = true;
   const canCreateCallBonus = true;
   const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
+  const canViewMarketingTab = Boolean(isAdminOrCco || isHealthManager);
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
@@ -165,26 +166,29 @@ function ClientiDetail() {
     if (isInfluencer) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'progresso', 'tickets', 'call_bonus'
+        'check_periodici', 'progresso', 'tickets', 'call_bonus',
+        ...(canViewMarketingTab ? ['marketing'] : []),
       ]);
     }
 
     if (!isSpecialtyRestrictedRole) {
       return new Set([
         'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-        'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus'
+        'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
+        ...(canViewMarketingTab ? ['marketing'] : []),
       ]);
     }
 
     return new Set([
       'anagrafica', 'programma', 'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
+      ...(canViewMarketingTab ? ['marketing'] : []),
       ...(isRestrictedTeamLeader ? ['team'] : []),
       ...(specialtyGroup === 'nutrizione' ? ['nutrizione'] : []),
       ...(specialtyGroup === 'coach' ? ['coaching'] : []),
       ...(specialtyGroup === 'psicologia' ? ['psicologia'] : []),
       ...(specialtyGroup === 'medico' ? ['medico'] : []),
     ]);
-  }, [isInfluencer, isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup]);
+  }, [isInfluencer, isSpecialtyRestrictedRole, isRestrictedTeamLeader, specialtyGroup, canViewMarketingTab]);
 
   // State
   const [cliente, setCliente] = useState(null);
@@ -1043,6 +1047,9 @@ function ClientiDetail() {
   // Call Bonus state
   const [callBonusHistory, setCallBonusHistory] = useState([]);
   const [loadingCallBonus, setLoadingCallBonus] = useState(false);
+  const [trustpilotData, setTrustpilotData] = useState(null);
+  const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
+  const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
   const [showCallBonusModal, setShowCallBonusModal] = useState(false);
   const [callBonusStep, setCallBonusStep] = useState(1);
   const [callBonusForm, setCallBonusForm] = useState({ tipo_professionista: '', note_richiesta: '' });
@@ -1495,6 +1502,58 @@ function ClientiDetail() {
       fetchCallBonusHistory();
     }
   }, [activeTab, fetchCallBonusHistory]);
+
+  const fetchTrustpilotStatus = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingTrustpilot(true);
+    try {
+      const data = await clientiService.getTrustpilotStatus(id);
+      setTrustpilotData(data);
+    } catch (err) {
+      console.error('Error fetching Trustpilot status:', err);
+      setError('Errore nel caricamento stato Trustpilot');
+    } finally {
+      setLoadingTrustpilot(false);
+    }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') {
+      fetchTrustpilotStatus();
+    }
+  }, [activeTab, fetchTrustpilotStatus]);
+
+  const handleGenerateTrustpilotLink = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('link');
+    try {
+      const result = await clientiService.generateTrustpilotLink(id);
+      const link = result?.data?.trustpilot_link;
+      if (link) {
+        await navigator.clipboard.writeText(link);
+      }
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error generating Trustpilot link:', err);
+      setError(err?.response?.data?.description || 'Errore nella generazione del link Trustpilot');
+    } finally {
+      setSendingTrustpilotAction(null);
+    }
+  };
+
+  const handleSendTrustpilotInvite = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('invite');
+    try {
+      await clientiService.sendTrustpilotInvite(id);
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error sending Trustpilot invite:', err);
+      setError(err?.response?.data?.description || 'Errore nell\'invio dell\'invito Trustpilot');
+    } finally {
+      setSendingTrustpilotAction(null);
+    }
+  };
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
@@ -2875,6 +2934,7 @@ function ClientiDetail() {
     { id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' },
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
+    { id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
   ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
@@ -7575,6 +7635,148 @@ function ClientiDetail() {
                       >
                         Successiva <i className="ri-arrow-right-s-line"></i>
                       </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'marketing' && (
+                <div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+                    <div className="cd-stat-box" style={{ minWidth: '180px' }}>
+                      <div className="cd-stat-box-label">Trustpilot</div>
+                      <div className="cd-stat-box-value">
+                        {trustpilotData?.enabled ? 'Abilitato' : 'Disabilitato'}
+                      </div>
+                    </div>
+                    <div className="cd-stat-box" style={{ minWidth: '180px' }}>
+                      <div className="cd-stat-box-label">Stato ultimo invito</div>
+                      <div className="cd-stat-box-value">
+                        {trustpilotData?.latest?.invitation_status || '—'}
+                      </div>
+                    </div>
+                    <div className="cd-stat-box" style={{ minWidth: '180px' }}>
+                      <div className="cd-stat-box-label">Ultime stelle</div>
+                      <div className="cd-stat-box-value">
+                        {trustpilotData?.latest?.stelle || '—'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="cd-section-title" style={{ marginBottom: '12px' }}>
+                    Azioni Trustpilot
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '18px' }}>
+                    <button
+                      type="button"
+                      className="cd-btn-save"
+                      onClick={handleGenerateTrustpilotLink}
+                      disabled={!trustpilotData?.enabled || sendingTrustpilotAction === 'link'}
+                    >
+                      <i className="ri-link"></i>
+                      {sendingTrustpilotAction === 'link' ? 'Generazione...' : 'Genera Link'}
+                    </button>
+                    <button
+                      type="button"
+                      className="cd-btn-back"
+                      onClick={handleSendTrustpilotInvite}
+                      disabled={!trustpilotData?.enabled || !trustpilotData?.email_configured || sendingTrustpilotAction === 'invite'}
+                    >
+                      <i className="ri-mail-send-line"></i>
+                      {sendingTrustpilotAction === 'invite' ? 'Invio...' : 'Invia Email'}
+                    </button>
+                    {trustpilotData?.latest?.trustpilot_link && (
+                      <button
+                        type="button"
+                        className="cd-btn-back"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(trustpilotData.latest.trustpilot_link);
+                          } catch (copyErr) {
+                            console.error('Error copying Trustpilot link:', copyErr);
+                          }
+                        }}
+                      >
+                        <i className="ri-file-copy-line"></i>
+                        Copia Ultimo Link
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="cd-btn-back"
+                      onClick={fetchTrustpilotStatus}
+                      disabled={loadingTrustpilot}
+                    >
+                      <i className="ri-refresh-line"></i>
+                      Aggiorna
+                    </button>
+                  </div>
+
+                  {!trustpilotData?.enabled && (
+                    <div className="cd-alert">
+                      <i className="ri-information-line"></i>
+                      L'integrazione Trustpilot non è ancora abilitata nelle variabili ambiente del backend.
+                    </div>
+                  )}
+
+                  {trustpilotData?.enabled && !trustpilotData?.email_configured && (
+                    <div className="cd-alert" style={{ marginTop: '12px' }}>
+                      <i className="ri-mail-line"></i>
+                      La generazione link è disponibile. L'invio email richiede template e mittente Trustpilot configurati.
+                    </div>
+                  )}
+
+                  <div className="cd-section-title" style={{ marginTop: '20px', marginBottom: '12px' }}>
+                    Storico Inviti e Review
+                  </div>
+
+                  {loadingTrustpilot ? (
+                    <div className="cd-loading">
+                      <div className="spinner-border text-primary" role="status"></div>
+                      <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento Trustpilot...</p>
+                    </div>
+                  ) : !trustpilotData?.history?.length ? (
+                    <div className="cd-empty">
+                      <i className="ri-megaphone-line cd-empty-icon"></i>
+                      <p className="cd-empty-text">Nessuno storico Trustpilot per questo paziente</p>
+                    </div>
+                  ) : (
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
+                          <tr>
+                            <th>Data richiesta</th>
+                            <th>Metodo</th>
+                            <th>Stato</th>
+                            <th>Review</th>
+                            <th>Link</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {trustpilotData.history.map((item) => (
+                            <tr key={item.id}>
+                              <td>{item.data_richiesta ? new Date(item.data_richiesta).toLocaleString('it-IT') : '—'}</td>
+                              <td>{item.invitation_method || '—'}</td>
+                              <td>{item.invitation_status || '—'}</td>
+                              <td>
+                                <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                                  {item.stelle ? `${item.stelle}/5` : '—'}
+                                </div>
+                                <div className="cd-empty-text">
+                                  {item.testo_recensione ? item.testo_recensione.slice(0, 90) : 'Nessun testo'}
+                                </div>
+                              </td>
+                              <td>
+                                {item.trustpilot_link ? (
+                                  <a href={item.trustpilot_link} target="_blank" rel="noopener noreferrer">
+                                    Apri link
+                                  </a>
+                                ) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

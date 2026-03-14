@@ -158,6 +158,22 @@ class BaseConfig:
     VAPID_PRIVATE_KEY: str | None = os.getenv("VAPID_PRIVATE_KEY")
     VAPID_CLAIMS_SUB: str = os.getenv("VAPID_CLAIMS_SUB", "mailto:it@corposostenibile.com")
 
+    # ------------------ Trustpilot Integration -----------------------------
+    TRUSTPILOT_ENABLED: bool = str(os.getenv("TRUSTPILOT_ENABLED", "0")).lower() in ("1", "true", "yes")
+    TRUSTPILOT_API_KEY: str = os.getenv("TRUSTPILOT_API_KEY", "")
+    TRUSTPILOT_API_SECRET: str = os.getenv("TRUSTPILOT_API_SECRET", "")
+    TRUSTPILOT_BUSINESS_UNIT_ID: str = os.getenv("TRUSTPILOT_BUSINESS_UNIT_ID", "")
+    TRUSTPILOT_BUSINESS_USER_ID: str = os.getenv("TRUSTPILOT_BUSINESS_USER_ID", "")
+    TRUSTPILOT_REDIRECT_URI: str = os.getenv("TRUSTPILOT_REDIRECT_URI", "")
+    TRUSTPILOT_WEBHOOK_USERNAME: str = os.getenv("TRUSTPILOT_WEBHOOK_USERNAME", "")
+    TRUSTPILOT_WEBHOOK_PASSWORD: str = os.getenv("TRUSTPILOT_WEBHOOK_PASSWORD", "")
+    TRUSTPILOT_EMAIL_TEMPLATE_ID: str = os.getenv("TRUSTPILOT_EMAIL_TEMPLATE_ID", "")
+    TRUSTPILOT_SENDER_NAME: str = os.getenv("TRUSTPILOT_SENDER_NAME", "")
+    TRUSTPILOT_SENDER_EMAIL: str = os.getenv("TRUSTPILOT_SENDER_EMAIL", "")
+    TRUSTPILOT_REPLY_TO: str = os.getenv("TRUSTPILOT_REPLY_TO", "")
+    TRUSTPILOT_LOCALE_DEFAULT: str = os.getenv("TRUSTPILOT_LOCALE_DEFAULT", "it-IT")
+    TRUSTPILOT_TIMEOUT_SECONDS: int = int(os.getenv("TRUSTPILOT_TIMEOUT_SECONDS", "20"))
+
 
     # ------------------ File Upload Configuration -----------------
     # Cartella base per tutti gli upload

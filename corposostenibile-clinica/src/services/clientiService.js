@@ -431,6 +431,38 @@ const clientiService = {
     return response.data;
   },
 
+  /**
+   * Get Trustpilot state for a client
+   * @param {number} id - Client ID
+   * @returns {Promise}
+   */
+  async getTrustpilotStatus(id) {
+    const response = await api.get(`${API_BASE}/${id}/trustpilot`);
+    return response.data;
+  },
+
+  /**
+   * Generate Trustpilot invitation link
+   * @param {number} id - Client ID
+   * @param {Object} data - Optional payload
+   * @returns {Promise}
+   */
+  async generateTrustpilotLink(id, data = {}) {
+    const response = await api.post(`${API_BASE}/${id}/trustpilot/link`, data);
+    return response.data;
+  },
+
+  /**
+   * Send Trustpilot email invitation
+   * @param {number} id - Client ID
+   * @param {Object} data - Optional payload
+   * @returns {Promise}
+   */
+  async sendTrustpilotInvite(id, data = {}) {
+    const response = await api.post(`${API_BASE}/${id}/trustpilot/invite`, data);
+    return response.data;
+  },
+
   // ==================== CUSTOMER CARE INTERVENTIONS ====================
 
   /**
