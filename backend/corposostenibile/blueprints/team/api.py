@@ -2694,11 +2694,15 @@ def get_professionals_capacity():
         row_data['clienti_tipo_a'] = clienti_a
         row_data['clienti_tipo_b'] = clienti_b
         row_data['clienti_tipo_c'] = clienti_c
-        row_data['capienza_ponderata'] = round(
-            clienti_a * weights.get('a', 1.0) +
-            clienti_b * weights.get('b', 1.0) +
-            clienti_c * weights.get('c', 1.0), 2
-        )
+        # Psicologi: peso sempre 1 per qualsiasi tipologia
+        if role_type == 'psicologa':
+            row_data['capienza_ponderata'] = round(float(assigned_clients), 2)
+        else:
+            row_data['capienza_ponderata'] = round(
+                clienti_a * weights.get('a', 1.0) +
+                clienti_b * weights.get('b', 1.0) +
+                clienti_c * weights.get('c', 1.0), 2
+            )
 
         if role_type == 'health_manager':
             split = hm_split.get(prof.id, {})

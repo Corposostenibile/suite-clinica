@@ -107,6 +107,13 @@ function CapacityWeightSettings() {
             </span>
           </div>
 
+          <div className="cws-info" style={{ background: 'rgba(139, 92, 246, 0.06)', borderColor: 'rgba(139, 92, 246, 0.15)' }}>
+            <i className="ri-mental-health-line" style={{ color: '#8b5cf6' }}></i>
+            <span>
+              Per gli <strong>psicologi</strong> il peso è sempre 1 indipendentemente dalla tipologia del cliente.
+            </span>
+          </div>
+
           <div className="cws-actions">
             <button type="submit" className="cws-save-btn" disabled={saving}>
               {saving ? 'Salvataggio...' : 'Salva pesi'}
