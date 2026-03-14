@@ -497,13 +497,15 @@ function ClientiList() {
             onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
-        <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
-          <i className="ri-filter-3-line"></i>
-          Filtra
-          {activeFilterCount > 0 && (
-            <span className="cl-filter-badge">{activeFilterCount}</span>
-          )}
-        </button>
+        {!isInfluencer && (
+          <button className="cl-filter-open-btn" onClick={() => setShowFilters(true)}>
+            <i className="ri-filter-3-line"></i>
+            Filtra
+            {activeFilterCount > 0 && (
+              <span className="cl-filter-badge">{activeFilterCount}</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Filters Modal */}
@@ -697,26 +699,30 @@ function ClientiList() {
       )}
 
       {/* Support and Tour Components */}
-      <SupportWidget
-        pageTitle="Lista Pazienti"
-        pageDescription="In questa pagina puoi gestire tutti i pazienti, filtrare per stato e specialità, e accedere alle schede dettaglio."
-        pageIcon={FaUserFriends}
-        docsSection="lista-pazienti"
-        onStartTour={() => setMostraTour(true)}
-        brandName="Suite Clinica"
-        logoSrc="/suitemind.png"
-        accentColor="#85FF00"
-      />
+      {!isInfluencer && (
+        <>
+          <SupportWidget
+            pageTitle="Lista Pazienti"
+            pageDescription="In questa pagina puoi gestire tutti i pazienti, filtrare per stato e specialità, e accedere alle schede dettaglio."
+            pageIcon={FaUserFriends}
+            docsSection="lista-pazienti"
+            onStartTour={() => setMostraTour(true)}
+            brandName="Suite Clinica"
+            logoSrc="/suitemind.png"
+            accentColor="#85FF00"
+          />
 
-      <GuidedTour
-        steps={tourSteps}
-        isOpen={mostraTour}
-        onClose={() => setMostraTour(false)}
-        onComplete={() => {
-          setMostraTour(false);
-          console.log('Tour Lista Pazienti completato');
-        }}
-      />
+          <GuidedTour
+            steps={tourSteps}
+            isOpen={mostraTour}
+            onClose={() => setMostraTour(false)}
+            onComplete={() => {
+              setMostraTour(false);
+              console.log('Tour Lista Pazienti completato');
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

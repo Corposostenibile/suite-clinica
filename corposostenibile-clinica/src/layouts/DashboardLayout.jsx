@@ -108,19 +108,21 @@ function DashboardContent() {
 
       {/* Footer */}
       <div className="footer">
-        <div className="footer-links">
-          <Link to="/supporto" className="footer-link" onClick={() => window.scrollTo(0, 0)}>
-            <i className="mdi mdi-lifebuoy"></i> Supporto
-          </Link>
-          <span className="footer-divider"></span>
-          <button className="footer-link" onClick={() => setShowTicketModal(true)}>
-            <i className="mdi mdi-ticket-outline"></i> Apri un Ticket
-          </button>
-          <span className="footer-divider"></span>
-          <Link to="/novita" className="footer-link" onClick={() => window.scrollTo(0, 0)}>
-            <i className="mdi mdi-rocket"></i> Novità
-          </Link>
-        </div>
+        {user?.role !== 'influencer' && (
+          <div className="footer-links">
+            <Link to="/supporto" className="footer-link" onClick={() => window.scrollTo(0, 0)}>
+              <i className="mdi mdi-lifebuoy"></i> Supporto
+            </Link>
+            <span className="footer-divider"></span>
+            <button className="footer-link" onClick={() => setShowTicketModal(true)}>
+              <i className="mdi mdi-ticket-outline"></i> Apri un Ticket
+            </button>
+            <span className="footer-divider"></span>
+            <Link to="/novita" className="footer-link" onClick={() => window.scrollTo(0, 0)}>
+              <i className="mdi mdi-rocket"></i> Novità
+            </Link>
+          </div>
+        )}
         <div className="copyright">
           <p>© <span className="text-success fw-semibold">Suite Clinica</span> · v1.0 · Sviluppata col ❤️ dal team IT</p>
         </div>

@@ -95,7 +95,7 @@ const SideBar = () => {
             : isHealthManagerUser(user)
             ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
-            ? MenuList.filter(item => ['Pazienti', 'CLIENTI'].includes(item.title))
+            ? MenuList.filter(item => ['Dashboard', 'Pazienti', 'Check', 'MAIN MENU', 'CLIENTI'].includes(item.title))
             : user?.is_trial
               ? MenuList.filter(item => {
                 // Trial users - filtra per stage
@@ -229,6 +229,12 @@ const SideBar = () => {
                 <Link to="/admin/origins" className={path === 'admin/origins' ? 'mm-active' : ''}>
                   <i className="ri-global-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
                   <span className="nav-text">Gestione Origini</span>
+                </Link>
+              </li>
+              <li className={path === 'admin/capacity-weights' ? 'mm-active' : ''}>
+                <Link to="/admin/capacity-weights" className={path === 'admin/capacity-weights' ? 'mm-active' : ''}>
+                  <i className="ri-scales-3-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">Pesi Capienza</span>
                 </Link>
               </li>
               {!user?.impersonating && (

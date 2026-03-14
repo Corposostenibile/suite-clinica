@@ -10489,6 +10489,17 @@ class ProfessionistCapacity(TimestampMixin, db.Model):
         return f'<Capacity {self.role_type} User:{self.user_id} {self.current_clients}/{self.max_clients}>'
 
 
+class CapacityTypeWeight(TimestampMixin, db.Model):
+    """
+    Pesi per tipologia cliente (A/B/C) usati nel calcolo capienza ponderata.
+    Singleton-like: una riga per ogni tipologia.
+    """
+    __tablename__ = 'capacity_type_weights'
+
+    tipo = db.Column(db.String(10), primary_key=True, comment="Tipologia cliente: a, b, c")
+    peso = db.Column(db.Float, nullable=False, default=1.0, comment="Peso per il calcolo capienza")
+
+
 # --------------------------------------------------------------------------- #
 #  Meeting (Google Calendar Integration)
 # --------------------------------------------------------------------------- #

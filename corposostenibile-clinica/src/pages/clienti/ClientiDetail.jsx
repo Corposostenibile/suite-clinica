@@ -163,7 +163,7 @@ function ClientiDetail() {
   const [cliente, setCliente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('anagrafica');
+  const [activeTab, setActiveTab] = useState(isInfluencer ? 'progresso' : 'anagrafica');
 
   // Tab scroll arrows
   const tabsRef = useRef(null);
@@ -2569,6 +2569,7 @@ function ClientiDetail() {
 
   // Tabs configuration (must stay before early returns to keep hook order stable)
   const mainTabs = [
+    ...(isInfluencer ? [{ id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' }] : []),
     { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
     { id: 'programma', label: 'Programma', icon: 'ri-file-list-3-line' },
     { id: 'team', label: 'Team', icon: 'ri-team-line' },
@@ -2577,11 +2578,14 @@ function ClientiDetail() {
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
     { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
-    { id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' },
+    ...(!isInfluencer ? [{ id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' }] : []),
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-  ].filter((tab) => getAllowedMainTabsForUser().has(tab.id));
+  ].filter((tab) => {
+    if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
+    return getAllowedMainTabsForUser().has(tab.id);
+  });
 
   useEffect(() => {
     if (!mainTabs.some((tab) => tab.id === activeTab)) {
@@ -2651,7 +2655,7 @@ function ClientiDetail() {
 
   return (
     <>
-      <SupportWidget
+      {!isInfluencer && <SupportWidget
         pageTitle="Dettaglio Paziente"
         pageDescription="In questa scheda puoi gestire l'intero percorso del paziente, visionare i piani e monitorare i progressi."
         pageIcon={FaUserCircle}
@@ -2660,7 +2664,7 @@ function ClientiDetail() {
         brandName="Suite Clinica"
         logoSrc="/suitemind.png"
         accentColor="#85FF00"
-      />
+      />}
       {/* Page Header */}
       <div className="cd-page-header" data-tour="header-dettaglio">
         <div>
@@ -4546,7 +4550,7 @@ function ClientiDetail() {
                                       <div className="d-flex gap-2 mt-3 flex-wrap">
                                         {activePlan.has_file && activePlan.piano_alimentare_file_path && (
                                           <button
-                                            className="cd-btn-save"
+                                            className="cd-btn-save cd-btn-preview"
                                             onClick={() => handlePreviewPlan(activePlan)}
                                           >
                                             <i className="ri-eye-line"></i>
@@ -4643,7 +4647,7 @@ function ClientiDetail() {
                                               {plan.has_file && plan.piano_alimentare_file_path && (
                                                 <>
                                                   <button
-                                                    className="cd-btn-action-sm"
+                                                    className="cd-btn-action-sm cd-btn-preview"
                                                     onClick={() => handlePreviewPlan(plan)}
                                                     title="Visualizza"
                                                   >
@@ -5395,7 +5399,7 @@ function ClientiDetail() {
                                       <div className="d-flex gap-2 mt-3 flex-wrap">
                                         {activePlan.has_file && activePlan.piano_allenamento_file_path && (
                                           <button
-                                            className="cd-btn-save"
+                                            className="cd-btn-save cd-btn-preview"
                                             onClick={() => handlePreviewTrainingPlan(activePlan)}
                                           >
                                             <i className="ri-eye-line"></i>
@@ -5470,7 +5474,7 @@ function ClientiDetail() {
                                             <div className="d-flex gap-1 justify-content-end">
                                               {plan.has_file && plan.piano_allenamento_file_path && (
                                                 <button
-                                                  className="cd-btn-action-sm"
+                                                  className="cd-btn-action-sm cd-btn-preview"
                                                   onClick={() => handlePreviewTrainingPlan(plan)}
                                                   title="Visualizza"
                                                 >
@@ -7961,7 +7965,7 @@ function ClientiDetail() {
       )}
 
       {/* Preview Meal Plan PDF Modal */}
-      {showPreviewPlanModal && selectedPlan && (
+      {showPreviewPlanModal && selectedPlan && createPortal(
         <div className="cd-modal-backdrop" onClick={() => setShowPreviewPlanModal(false)}>
           <div className="cd-modal xl full-height" onClick={(e) => e.stopPropagation()}>
             <div className="cd-modal-header success-bg">
@@ -7990,7 +7994,8 @@ function ClientiDetail() {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Meal Plan Modal */}
@@ -8327,7 +8332,7 @@ function ClientiDetail() {
       )}
 
       {/* Preview Training Plan PDF Modal */}
-      {showPreviewTrainingModal && selectedTrainingPlan && (
+      {showPreviewTrainingModal && selectedTrainingPlan && createPortal(
         <div className="cd-modal-backdrop" onClick={() => setShowPreviewTrainingModal(false)}>
           <div className="cd-modal xl full-height" onClick={(e) => e.stopPropagation()}>
             <div className="cd-modal-header orange-bg">
@@ -8356,7 +8361,8 @@ function ClientiDetail() {
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Training Plan Modal */}
@@ -9204,7 +9210,7 @@ function ClientiDetail() {
 
       {/* Support and Tour Components */}
 
-      <GuidedTour
+      {!isInfluencer && <GuidedTour
         key={tourKey}
         steps={activeTourSteps}
         isOpen={mostraTour}
@@ -9221,7 +9227,7 @@ function ClientiDetail() {
             step.onEnter();
           }
         }}
-      />
+      />}
 
       {/* Lightbox fullscreen photo */}
       {lightboxUrl && (

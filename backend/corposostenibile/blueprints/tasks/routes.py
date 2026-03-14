@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify, request, abort, current_app
 from flask_login import login_required, current_user
-from datetime import datetime, date
-from sqlalchemy import desc, func, or_
+from datetime import datetime, date, timedelta
+from sqlalchemy import desc, asc, func, or_, case, extract
+from collections import defaultdict
 
-from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, db
+from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, UserSpecialtyEnum, Team, db
 
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
@@ -342,6 +343,203 @@ def get_stats():
         'by_category': cat_counts,
         'total_open': total_open
     })
+
+def _normalize_specialty_to_department(specialty_val):
+    """Normalizza specialty utente (nutrizionista/psicologo/etc.) a dipartimento (nutrizione/coach/psicologia)."""
+    mapping = {
+        'nutrizione': 'nutrizione',
+        'nutrizionista': 'nutrizione',
+        'coach': 'coach',
+        'psicologia': 'psicologia',
+        'psicologo': 'psicologia',
+    }
+    return mapping.get(str(specialty_val).lower(), str(specialty_val).lower() if specialty_val else None)
+
+
+@bp.route('/admin-dashboard-stats', methods=['GET'])
+@login_required
+def admin_dashboard_stats():
+    """Statistiche task per la dashboard admin: task stale + ranking velocità professionisti."""
+    if not _can_view_all_tasks(current_user):
+        abort(403, "Accesso riservato ad admin/CCO")
+
+    now = datetime.utcnow()
+    three_days_ago = now - timedelta(days=3)
+
+    # ── Pre-load ALL team memberships (user_id → list of teams) ──
+    all_teams = Team.query.filter(Team.is_active == True).all()
+    user_team_map = {}  # user_id → {team_name, team_type}
+    for team in all_teams:
+        t_type = team.team_type.value if hasattr(team.team_type, 'value') else str(team.team_type)
+        for member in (team.members or []):
+            user_team_map[member.id] = {'team_name': team.name, 'team_type': t_type}
+
+    # ── 1. Task stale: non completate dopo 3+ giorni dalla creazione ──
+    stale_query = (
+        Task.query
+        .filter(Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived]))
+        .filter(Task.created_at <= three_days_ago)
+        .order_by(asc(Task.created_at))
+        .limit(100)
+    )
+    stale_tasks = stale_query.all()
+
+    stale_list = []
+    for t in stale_tasks:
+        days_old = (now - t.created_at).days if t.created_at else 0
+        team_info = user_team_map.get(t.assignee_id, {})
+        # Se non è in un team, ricava il dipartimento dalla specialty dell'utente
+        dept = team_info.get('team_type')
+        if not dept and t.assignee:
+            spec_val = t.assignee.specialty.value if t.assignee.specialty and hasattr(t.assignee.specialty, 'value') else str(t.assignee.specialty) if t.assignee.specialty else None
+            dept = _normalize_specialty_to_department(spec_val)
+        stale_list.append({
+            **_serialize_task(t),
+            'days_old': days_old,
+            'team_name': team_info.get('team_name'),
+            'team_type': dept,
+        })
+
+    # ── 2. Ranking velocità: tempo medio di completamento per professionista ──
+    # Per task completati (done), updated_at ≈ completion time
+    # Includiamo TUTTE le specialty cliniche (nutrizionista, nutrizione, coach, psicologo, psicologia)
+    clinical_specialties = [
+        UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista,
+        UserSpecialtyEnum.coach,
+        UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo,
+    ]
+    completed_tasks = (
+        Task.query
+        .join(User, Task.assignee_id == User.id)
+        .filter(Task.status == TaskStatusEnum.done)
+        .filter(Task.created_at.isnot(None))
+        .filter(Task.updated_at.isnot(None))
+        .filter(User.is_active == True)
+        .filter(User.specialty.in_(clinical_specialties))
+        .with_entities(
+            Task.assignee_id,
+            User.first_name,
+            User.last_name,
+            User.specialty,
+            User.avatar_path,
+            Task.created_at,
+            Task.updated_at,
+        )
+        .all()
+    )
+
+    # Aggreghiamo in Python per flessibilità
+    prof_stats = defaultdict(lambda: {'total_hours': 0.0, 'count': 0, 'name': '', 'specialty': '', 'department': '', 'avatar_path': None})
+    for row in completed_tasks:
+        uid = row.assignee_id
+        delta = row.updated_at - row.created_at
+        hours = delta.total_seconds() / 3600.0
+        entry = prof_stats[uid]
+        entry['total_hours'] += hours
+        entry['count'] += 1
+        entry['name'] = f"{row.first_name} {row.last_name}"
+        spec = row.specialty
+        spec_val = spec.value if hasattr(spec, 'value') else str(spec) if spec else ''
+        entry['specialty'] = spec_val
+        entry['department'] = _normalize_specialty_to_department(spec_val)
+        entry['avatar_path'] = row.avatar_path
+        # Enrichisci con team info
+        if uid in user_team_map:
+            entry['team_name'] = user_team_map[uid]['team_name']
+
+    # Calcola media e raggruppa per DIPARTIMENTO normalizzato (nutrizione/coach/psicologia)
+    # Soglia minima: 1 task (così vediamo tutti)
+    rankings = defaultdict(list)
+    for uid, data in prof_stats.items():
+        if data['count'] < 1:
+            continue
+        avg_hours = data['total_hours'] / data['count']
+        entry = {
+            'user_id': uid,
+            'name': data['name'],
+            'specialty': data['department'],  # normalizzato
+            'avatar_path': data['avatar_path'],
+            'avg_hours': round(avg_hours, 1),
+            'tasks_completed': data['count'],
+            'team_name': data.get('team_name'),
+        }
+        rankings[data['department']].append(entry)
+
+    # Ordina per specialty: i più veloci prima
+    result_rankings = {}
+    for dept, members in rankings.items():
+        if not dept:
+            continue
+        sorted_members = sorted(members, key=lambda x: x['avg_hours'])
+        result_rankings[dept] = {
+            'fastest': sorted_members[:5],
+            'slowest': list(reversed(sorted_members[-5:])) if len(sorted_members) > 1 else [],
+        }
+
+    # ── 3. Ranking per team ──
+    team_stats_agg = defaultdict(lambda: {'total_hours': 0.0, 'count': 0, 'name': '', 'team_type': ''})
+    for uid, data in prof_stats.items():
+        if data['count'] < 1:
+            continue
+        if uid in user_team_map:
+            t_info = user_team_map[uid]
+            t_key = t_info['team_name']  # use name as key (unique per type)
+            entry = team_stats_agg[t_key]
+            entry['total_hours'] += data['total_hours']
+            entry['count'] += data['count']
+            entry['name'] = t_info['team_name']
+            entry['team_type'] = t_info['team_type']
+
+    team_rankings = {}
+    for t_key, data in team_stats_agg.items():
+        if data['count'] == 0:
+            continue
+        avg_hours = data['total_hours'] / data['count']
+        team_type = data['team_type']
+        if team_type not in team_rankings:
+            team_rankings[team_type] = []
+        team_rankings[team_type].append({
+            'team_name': data['name'],
+            'avg_hours': round(avg_hours, 1),
+            'tasks_completed': data['count'],
+        })
+
+    for team_type in team_rankings:
+        team_rankings[team_type] = sorted(team_rankings[team_type], key=lambda x: x['avg_hours'])
+
+    # ── 4. KPI riassuntivi ──
+    total_open = Task.query.filter(
+        Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived])
+    ).count()
+    total_stale = len(stale_list)
+    completed_today = Task.query.filter(
+        Task.status == TaskStatusEnum.done,
+        func.date(Task.updated_at) == date.today()
+    ).count()
+    total_overdue = Task.query.filter(
+        Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived]),
+        Task.due_date < date.today()
+    ).count()
+
+    # ── 5. Lista team disponibili (per i filtri frontend) ──
+    available_teams = []
+    for team in all_teams:
+        t_type = team.team_type.value if hasattr(team.team_type, 'value') else str(team.team_type)
+        available_teams.append({'name': team.name, 'team_type': t_type})
+
+    return jsonify({
+        'kpi': {
+            'total_open': total_open,
+            'total_stale': total_stale,
+            'completed_today': completed_today,
+            'total_overdue': total_overdue,
+        },
+        'stale_tasks': stale_list,
+        'rankings_by_specialty': result_rankings,
+        'rankings_by_team': team_rankings,
+        'available_teams': available_teams,
+    })
+
 
 def _serialize_task(task):
     return {

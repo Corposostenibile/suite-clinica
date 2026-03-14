@@ -12,6 +12,7 @@ from corposostenibile.models import (
     Cliente,
     ClienteProfessionistaHistory,
     User,
+    UserRoleEnum,
     Team,
 )
 
@@ -39,6 +40,16 @@ def get_accessible_clients_query():
     # Admin: vede tutto
     if getattr(current_user, 'is_admin', False) or getattr(current_user, 'role', None) == 'admin':
         return None
+    # Influencer: solo clienti con origine associata all'influencer
+    if getattr(current_user, 'role', None) == UserRoleEnum.influencer:
+        origine_ids = [o.id for o in current_user.influencer_origins]
+        if not origine_ids:
+            # No origins → no clients
+            return db.session.query(Cliente.cliente_id).filter(db.literal(False))
+        return (
+            db.session.query(Cliente.cliente_id)
+            .filter(Cliente.origine_id.in_(origine_ids))
+        )
     # Team Leader: clienti dei membri dei team che guida (incluso sé stesso)
     if current_user.teams_led:
         managed_team_ids = [t.id for t in current_user.teams_led]

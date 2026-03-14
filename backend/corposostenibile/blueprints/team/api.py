@@ -22,7 +22,8 @@ from corposostenibile.models import (
     team_members, Origine, ServiceClienteAssignment, ClienteProfessionistaHistory,
     ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
     ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
-    cliente_psicologi, cliente_consulenti, SalesLead
+    cliente_psicologi, cliente_consulenti, SalesLead,
+    CapacityTypeWeight, TipologiaClienteEnum,
 )
 
 
@@ -391,6 +392,147 @@ def _get_hm_split_counts(user_ids: list[int]) -> dict[int, dict]:
             result[uid]['clienti_convertiti'] += int(cnt)
         elif svc_status == 'pending_assignment':
             result[uid]['lead_in_attesa'] += int(cnt)
+
+    return result
+
+
+def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], dict[str, int]]:
+    """
+    Conteggio clienti assegnati per (user_id, role_type) raggruppati per tipologia_cliente (a, b, c).
+    Stessa logica di _get_assigned_clients_count_map_active_by_role ma con breakdown per tipo.
+    """
+    if not user_ids:
+        return {}
+
+    result: dict[tuple[int, str], dict[str, int]] = {}
+
+    def _merge(rows, role_type):
+        for user_id, tipo, cnt in rows:
+            key = (int(user_id), role_type)
+            if key not in result:
+                result[key] = {}
+            tipo_val = tipo.value if hasattr(tipo, 'value') else (tipo or '')
+            if tipo_val in ('a', 'b', 'c'):
+                result[key][tipo_val] = result[key].get(tipo_val, 0) + int(cnt)
+
+    # Nutrizionista: nutrizionista_id, consulente_alimentare_id, m2m nutrizionisti/consulenti + stato_nutrizione = attivo
+    nut_sources = [
+        select(
+            Cliente.nutrizionista_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.cliente_id.label('cliente_id'),
+        ).where(
+            Cliente.nutrizionista_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(
+            Cliente.consulente_alimentare_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.cliente_id.label('cliente_id'),
+        ).where(
+            Cliente.consulente_alimentare_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(
+            cliente_nutrizionisti.c.user_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            cliente_nutrizionisti.c.cliente_id.label('cliente_id'),
+        ).select_from(
+            cliente_nutrizionisti.join(Cliente, cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_nutrizionisti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+        select(
+            cliente_consulenti.c.user_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            cliente_consulenti.c.cliente_id.label('cliente_id'),
+        ).select_from(
+            cliente_consulenti.join(Cliente, cliente_consulenti.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_consulenti.c.user_id.in_(user_ids),
+            Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+        ),
+    ]
+    nut_sq = union_all(*nut_sources).subquery()
+    nut_rows = db.session.query(
+        nut_sq.c.user_id,
+        nut_sq.c.tipo,
+        func.count(distinct(nut_sq.c.cliente_id)).label('cnt'),
+    ).group_by(nut_sq.c.user_id, nut_sq.c.tipo).all()
+    _merge(nut_rows, 'nutrizionista')
+
+    # Coach: coach_id, cliente_coaches + stato_coach = attivo
+    coach_sources = [
+        select(
+            Cliente.coach_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.cliente_id.label('cliente_id'),
+        ).where(
+            Cliente.coach_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+        select(
+            cliente_coaches.c.user_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            cliente_coaches.c.cliente_id.label('cliente_id'),
+        ).select_from(
+            cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_coaches.c.user_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+    ]
+    coach_sq = union_all(*coach_sources).subquery()
+    coach_rows = db.session.query(
+        coach_sq.c.user_id,
+        coach_sq.c.tipo,
+        func.count(distinct(coach_sq.c.cliente_id)).label('cnt'),
+    ).group_by(coach_sq.c.user_id, coach_sq.c.tipo).all()
+    _merge(coach_rows, 'coach')
+
+    # Psicologa: psicologa_id, cliente_psicologi + stato_psicologia = attivo
+    psico_sources = [
+        select(
+            Cliente.psicologa_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.cliente_id.label('cliente_id'),
+        ).where(
+            Cliente.psicologa_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+        select(
+            cliente_psicologi.c.user_id.label('user_id'),
+            Cliente.tipologia_cliente.label('tipo'),
+            cliente_psicologi.c.cliente_id.label('cliente_id'),
+        ).select_from(
+            cliente_psicologi.join(Cliente, cliente_psicologi.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_psicologi.c.user_id.in_(user_ids),
+            Cliente.stato_psicologia == StatoClienteEnum.attivo,
+        ),
+    ]
+    psico_sq = union_all(*psico_sources).subquery()
+    psico_rows = db.session.query(
+        psico_sq.c.user_id,
+        psico_sq.c.tipo,
+        func.count(distinct(psico_sq.c.cliente_id)).label('cnt'),
+    ).group_by(psico_sq.c.user_id, psico_sq.c.tipo).all()
+    _merge(psico_rows, 'psicologa')
+
+    # Health Manager: health_manager_id, stato_cliente = attivo OR service_status = pending_assignment
+    hm_rows = db.session.query(
+        Cliente.health_manager_id.label('user_id'),
+        Cliente.tipologia_cliente.label('tipo'),
+        func.count(distinct(Cliente.cliente_id)).label('cnt'),
+    ).filter(
+        Cliente.health_manager_id.in_(user_ids),
+        or_(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.service_status == 'pending_assignment',
+        ),
+    ).group_by(Cliente.health_manager_id, Cliente.tipologia_cliente).all()
+    _merge(hm_rows, 'health_manager')
 
     return result
 
@@ -2480,6 +2622,12 @@ def get_professionals_capacity():
 
     user_ids = [u.id for u in professionals]
     assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
+    type_breakdown_map = _get_assigned_clients_by_type(user_ids)
+    # Load weights
+    weight_rows = CapacityTypeWeight.query.all()
+    weights = {w.tipo: w.peso for w in weight_rows}
+    if not weights:
+        weights = {'a': 1.0, 'b': 1.0, 'c': 1.0}
     hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
     hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
 
@@ -2539,6 +2687,19 @@ def get_professionals_capacity():
             'is_over_capacity': contractual_capacity > 0 and assigned_clients > contractual_capacity,
         }
 
+        type_counts = type_breakdown_map.get((prof.id, role_type), {})
+        clienti_a = type_counts.get('a', 0)
+        clienti_b = type_counts.get('b', 0)
+        clienti_c = type_counts.get('c', 0)
+        row_data['clienti_tipo_a'] = clienti_a
+        row_data['clienti_tipo_b'] = clienti_b
+        row_data['clienti_tipo_c'] = clienti_c
+        row_data['capienza_ponderata'] = round(
+            clienti_a * weights.get('a', 1.0) +
+            clienti_b * weights.get('b', 1.0) +
+            clienti_c * weights.get('c', 1.0), 2
+        )
+
         if role_type == 'health_manager':
             split = hm_split.get(prof.id, {})
             row_data['clienti_convertiti'] = split.get('clienti_convertiti', 0)
@@ -2553,7 +2714,59 @@ def get_professionals_capacity():
         'success': True,
         'rows': rows,
         'total': len(rows),
-        'can_edit': _can_edit_professional_capacity(current_user)
+        'can_edit': _can_edit_professional_capacity(current_user),
+        'weights': weights,
+    })
+
+
+@team_api_bp.route("/capacity-weights", methods=["GET"])
+@login_required
+def get_capacity_weights():
+    """Get capacity type weights (admin only)."""
+    if not (current_user.is_admin or _is_cco_user(current_user)):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    weights = CapacityTypeWeight.query.all()
+    # If empty, seed defaults
+    if not weights:
+        for tipo in ['a', 'b', 'c']:
+            w = CapacityTypeWeight(tipo=tipo, peso=1.0)
+            db.session.add(w)
+        db.session.commit()
+        weights = CapacityTypeWeight.query.all()
+
+    return jsonify({
+        'success': True,
+        'weights': {w.tipo: w.peso for w in weights}
+    })
+
+
+@team_api_bp.route("/capacity-weights", methods=["PUT"])
+@login_required
+def update_capacity_weights():
+    """Update capacity type weights (admin only)."""
+    if not (current_user.is_admin or _is_cco_user(current_user)):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+
+    for tipo in ['a', 'b', 'c']:
+        if tipo in data:
+            peso = float(data[tipo])
+            weight = CapacityTypeWeight.query.get(tipo)
+            if weight:
+                weight.peso = peso
+            else:
+                weight = CapacityTypeWeight(tipo=tipo, peso=peso)
+                db.session.add(weight)
+
+    db.session.commit()
+    weights = CapacityTypeWeight.query.all()
+    return jsonify({
+        'success': True,
+        'weights': {w.tipo: w.peso for w in weights}
     })
 
 

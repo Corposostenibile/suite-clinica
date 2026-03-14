@@ -19,6 +19,14 @@ const taskService = {
     },
 
     /**
+     * Recupera statistiche admin dashboard (task stale + ranking velocità)
+     */
+    getAdminDashboardStats: async () => {
+        const response = await api.get('/tasks/admin-dashboard-stats');
+        return response.data;
+    },
+
+    /**
      * Crea un nuovo task (manuale)
      * @param {Object} data 
      */

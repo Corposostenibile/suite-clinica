@@ -60,7 +60,7 @@ import Documentation from './pages/documentation/Documentation';
 import Novita from './pages/Novita';
 
 // Admin pages
-import { GHLSettings, OriginSettings, ImpersonateUser } from './pages/admin';
+import { GHLSettings, OriginSettings, ImpersonateUser, CapacityWeightSettings } from './pages/admin';
 
 // Components
 import RoleProtectedRoute from './components/RoleProtectedRoute';
@@ -251,6 +251,11 @@ function App() {
             {/* Admin Pages */}
             <Route path="/admin/ghl-settings" element={<GHLSettings />} />
             <Route path="/admin/origins" element={<OriginSettings />} />
+            <Route path="/admin/capacity-weights" element={
+              <RoleProtectedRoute allowedRoles={['admin']}>
+                <CapacityWeightSettings />
+              </RoleProtectedRoute>
+            } />
             <Route path="/admin/impersonate" element={
               <RoleProtectedRoute allowedRoles={['admin']}>
                 <ImpersonateUser />

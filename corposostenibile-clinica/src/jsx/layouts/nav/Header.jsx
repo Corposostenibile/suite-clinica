@@ -198,19 +198,21 @@ const Header = ({ onNote }) => {
         <nav className="navbar navbar-expand">
           <div className="collapse navbar-collapse justify-content-between">
             <div className="header-left">
-              <GlobalSearch />
+              {user?.role !== 'influencer' && <GlobalSearch />}
             </div>
             <ul className="navbar-nav header-right">
-              <li className="nav-item dropdown notification_dropdown">
-                <Link
-                  to="/supporto"
-                  className="nav-link bell pulse-hover"
-                  title="Supporto"
-                  style={{ transition: 'all 0.3s ease' }}
-                >
-                  <i className="fas fa-question-circle" style={{ fontSize: '20px', color: '#64748b' }} />
-                </Link>
-              </li>
+              {user?.role !== 'influencer' && (
+                <li className="nav-item dropdown notification_dropdown">
+                  <Link
+                    to="/supporto"
+                    className="nav-link bell pulse-hover"
+                    title="Supporto"
+                    style={{ transition: 'all 0.3s ease' }}
+                  >
+                    <i className="fas fa-question-circle" style={{ fontSize: '20px', color: '#64748b' }} />
+                  </Link>
+                </li>
+              )}
               {fullScreen ? (
                 <li
                   className="nav-item dropdown notification_dropdown"
@@ -287,7 +289,7 @@ const Header = ({ onNote }) => {
                   </Link>
                 </li>
               )}
-              <Dropdown as="li" className="nav-item notification_dropdown" onToggle={handleNotificationToggle}>
+              {user?.role !== 'influencer' && <Dropdown as="li" className="nav-item notification_dropdown" onToggle={handleNotificationToggle}>
                 <Dropdown.Toggle variant="" as="a"
                   className="nav-link i-false c-pointer dropdown-toggle-no-caret"
                   role="button"
@@ -381,7 +383,7 @@ const Header = ({ onNote }) => {
                     )}
                   </div>
                 </Dropdown.Menu>
-              </Dropdown>
+              </Dropdown>}
               <Dropdown as="li" className="nav-item dropdown header-profile">
                 <Dropdown.Toggle variant="" as="a" className="nav-link i-false c-pointer dropdown-toggle-no-caret" style={{ background: '#f8fafc', borderRadius: '12px', padding: '6px 12px', marginLeft: '12px', border: '1px solid #f1f5f9' }}>
                   <img src={user?.avatar_path || defaultAvatar} width={34} height={34} alt="" style={{ borderRadius: '10px' }} />
@@ -411,7 +413,7 @@ const Header = ({ onNote }) => {
                   </button>
                 </Dropdown.Menu>
               </Dropdown>
-              <li className="nav-item right-sidebar ms-2" style={{ marginRight: '1rem' }}>
+              {user?.role !== 'influencer' && <li className="nav-item right-sidebar ms-2" style={{ marginRight: '1rem' }}>
                 <Link
                   to="#"
                   className="nav-link bell i-false c-pointer ai-icon p-2"
@@ -427,7 +429,7 @@ const Header = ({ onNote }) => {
                     <rect x="3" y="14" width="7" height="7" rx="1"></rect>
                   </svg>
                 </Link>
-              </li>
+              </li>}
             </ul>
           </div>
         </nav>

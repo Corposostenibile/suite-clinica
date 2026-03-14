@@ -20,6 +20,7 @@ import './Welcome.css';
 // Tab configuration
 const TABS = [
   { key: 'panoramica', label: 'Panoramica', icon: 'ri-dashboard-line' },
+  { key: 'task', label: 'Task', icon: 'ri-task-line' },
   { key: 'chat', label: 'Chat', icon: 'ri-chat-3-line' },
   { key: 'formazione', label: 'Formazione', icon: 'ri-book-open-line' },
   { key: 'pazienti', label: 'Pazienti', icon: 'ri-group-line' },
@@ -366,6 +367,12 @@ function LegacyWelcomeDashboard() {
   const [profLoaded, setProfLoaded] = useState(false);
   const [profError, setProfError] = useState(null);
 
+  // Task dashboard state
+  const [taskDashData, setTaskDashData] = useState(null);
+  const [taskDashLoading, setTaskDashLoading] = useState(false);
+  const [taskDashLoaded, setTaskDashLoaded] = useState(false);
+  const [taskDashError, setTaskDashError] = useState(null);
+
   const loadTrainingData = useCallback(async () => {
     if (trainingLoaded) return;
     setTrainingLoading(true);
@@ -428,9 +435,28 @@ function LegacyWelcomeDashboard() {
     }
   }, [profLoaded]);
 
+  const loadTaskDashData = useCallback(async () => {
+    if (taskDashLoaded) return;
+    setTaskDashLoading(true);
+    setTaskDashError(null);
+    try {
+      const data = await taskService.getAdminDashboardStats();
+      setTaskDashData(data);
+      setTaskDashLoaded(true);
+    } catch (err) {
+      console.error('Error loading task dashboard stats:', err);
+      setTaskDashError('Errore nel caricamento dei dati task');
+    } finally {
+      setTaskDashLoading(false);
+    }
+  }, [taskDashLoaded]);
+
   // Load tab data when tab becomes active
   useEffect(() => {
     if (isRestrictedTeamLeaderDashboard) return;
+    if (activeTab === 'task' && !taskDashLoaded) {
+      loadTaskDashData();
+    }
     if (activeTab === 'formazione' && !trainingLoaded) {
       loadTrainingData();
     }
@@ -443,7 +469,7 @@ function LegacyWelcomeDashboard() {
     if ((activeTab === 'professionisti' || activeTab === 'quality') && !profLoaded) {
       loadProfData();
     }
-  }, [activeTab, trainingLoaded, loadTrainingData, pazientiLoaded, loadPazientiData, checkDashLoaded, loadCheckDashData, profLoaded, loadProfData, isRestrictedTeamLeaderDashboard]);
+  }, [activeTab, taskDashLoaded, loadTaskDashData, trainingLoaded, loadTrainingData, pazientiLoaded, loadPazientiData, checkDashLoaded, loadCheckDashData, profLoaded, loadProfData, isRestrictedTeamLeaderDashboard]);
 
   // Load all data in parallel, each section independent
   useEffect(() => {
@@ -779,6 +805,13 @@ function LegacyWelcomeDashboard() {
             </>
           )}
         </>
+      ) : activeTab === 'task' ? (
+        <TaskTab
+          data={taskDashData}
+          loading={taskDashLoading}
+          error={taskDashError}
+          onRetry={() => { setTaskDashLoaded(false); loadTaskDashData(); }}
+        />
       ) : activeTab === 'pazienti' ? (
         <PazientiTab
           data={pazientiData}
@@ -1366,8 +1399,316 @@ function SimpleWelcome({ user }) {
   );
 }
 
+/* ── Influencer Welcome ── */
+function InfluencerWelcome({ user }) {
+  const greeting = (() => {
+    return 'Ciao';
+  })();
+
+  const firstName = user?.first_name || 'Partner';
+
+  return (
+    <div className="iw">
+      <style>{`
+        .iw {
+          --iw-green: #25B36A;
+          --iw-green-soft: #e8f8ef;
+          --iw-cream: #faf9f6;
+          --iw-warm: #f5f0eb;
+          --iw-text: #2d3a2e;
+          --iw-text-soft: #6b7c6e;
+          --iw-border: #e8e4df;
+          max-width: 920px;
+          margin: 0 auto;
+          font-family: "Roboto", sans-serif;
+        }
+
+        /* ---- hero ---- */
+        .iw-hero {
+          background: var(--iw-cream);
+          border: 1px solid var(--iw-border);
+          border-radius: 28px;
+          padding: 52px 48px 48px;
+          margin-bottom: 36px;
+          position: relative;
+          overflow: hidden;
+          animation: iwSlideUp .55s cubic-bezier(.23,1,.32,1) both;
+        }
+        @keyframes iwSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* decorative leaf cluster */
+        .iw-hero::before {
+          content: '';
+          position: absolute;
+          top: -30px; right: -20px;
+          width: 220px; height: 220px;
+          background:
+            radial-gradient(ellipse at 60% 40%, rgba(37,179,106,0.10) 0%, transparent 60%),
+            radial-gradient(ellipse at 30% 70%, rgba(37,179,106,0.06) 0%, transparent 55%);
+          border-radius: 50%;
+          pointer-events: none;
+        }
+        .iw-hero::after {
+          content: '';
+          position: absolute;
+          bottom: -40px; left: 30%;
+          width: 280px; height: 120px;
+          background: radial-gradient(ellipse, rgba(37,179,106,0.05) 0%, transparent 70%);
+          pointer-events: none;
+        }
+
+        .iw-hero-top {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 28px;
+          position: relative;
+          z-index: 1;
+        }
+        .iw-logo {
+          width: 64px;
+          height: auto;
+          object-fit: contain;
+        }
+        .iw-brand {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--iw-text-soft);
+          letter-spacing: .3px;
+        }
+
+        .iw-greeting {
+          font-size: 34px;
+          font-weight: 700;
+          color: var(--iw-text);
+          line-height: 1.2;
+          margin: 0 0 8px;
+          position: relative;
+          z-index: 1;
+          animation: iwSlideUp .55s cubic-bezier(.23,1,.32,1) .08s both;
+        }
+        .iw-greeting em {
+          color: var(--iw-green);
+          font-style: italic;
+        }
+
+        .iw-sub {
+          font-size: 16px;
+          color: var(--iw-text-soft);
+          line-height: 1.7;
+          margin: 0;
+          max-width: 560px;
+          position: relative;
+          z-index: 1;
+          animation: iwSlideUp .55s cubic-bezier(.23,1,.32,1) .14s both;
+        }
+
+        /* ---- divider ---- */
+        .iw-divider {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          margin-bottom: 28px;
+          animation: iwSlideUp .55s cubic-bezier(.23,1,.32,1) .2s both;
+        }
+        .iw-divider-line {
+          flex: 1;
+          height: 1px;
+          background: var(--iw-border);
+        }
+        .iw-divider-label {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 1.8px;
+          text-transform: uppercase;
+          color: var(--iw-text-soft);
+          white-space: nowrap;
+        }
+
+        /* ---- navigation cards ---- */
+        .iw-nav {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 18px;
+        }
+
+        .iw-card {
+          background: #fff;
+          border: 1px solid var(--iw-border);
+          border-radius: 20px;
+          padding: 32px 28px 28px;
+          text-decoration: none;
+          color: inherit;
+          display: block;
+          position: relative;
+          overflow: hidden;
+          transition: border-color .25s, box-shadow .25s, transform .25s;
+          animation: iwSlideUp .55s cubic-bezier(.23,1,.32,1) both;
+        }
+        .iw-card:nth-child(1) { animation-delay: .22s; }
+        .iw-card:nth-child(2) { animation-delay: .28s; }
+        .iw-card:nth-child(3) { animation-delay: .34s; }
+
+        .iw-card:hover {
+          border-color: var(--iw-green);
+          box-shadow: 0 8px 30px rgba(37,179,106,.08), 0 1px 3px rgba(0,0,0,.04);
+          transform: translateY(-2px);
+        }
+        .iw-card::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          height: 3px;
+          background: var(--iw-green);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform .3s cubic-bezier(.23,1,.32,1);
+          border-radius: 20px 20px 0 0;
+        }
+        .iw-card:hover::after {
+          transform: scaleX(1);
+        }
+
+        .iw-card-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .iw-card-icon {
+          width: 42px; height: 42px;
+          border-radius: 12px;
+          background: var(--iw-green-soft);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--iw-green);
+          font-size: 20px;
+          flex-shrink: 0;
+        }
+        .iw-card-arrow {
+          width: 32px; height: 32px;
+          border-radius: 50%;
+          background: transparent;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--iw-text-soft);
+          font-size: 18px;
+          transition: all .25s;
+        }
+        .iw-card:hover .iw-card-arrow {
+          background: var(--iw-green-soft);
+          color: var(--iw-green);
+          transform: translateX(2px);
+        }
+
+        .iw-card h3 {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--iw-text);
+          margin: 0 0 8px;
+          line-height: 1.3;
+        }
+        .iw-card p {
+          font-size: 14px;
+          color: var(--iw-text-soft);
+          line-height: 1.65;
+          margin: 0;
+        }
+        .iw-card-hint {
+          font-size: 12px;
+          color: #a3b0a6;
+          margin-top: 10px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+
+        /* ---- responsive ---- */
+        @media (max-width: 680px) {
+          .iw-hero { padding: 32px 24px 28px; border-radius: 20px; }
+          .iw-greeting { font-size: 28px; }
+          .iw-nav { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      {/* Hero */}
+      <div className="iw-hero">
+        <div className="iw-hero-top">
+          <img src="/corposostenibile.jpg" alt="" className="iw-logo" />
+          <div>
+            <span className="iw-brand">Area Partner</span>
+          </div>
+        </div>
+
+        <h1 className="iw-greeting">
+          {greeting}, <em>{firstName}</em>
+        </h1>
+        <p className="iw-sub">
+          Da qui puoi seguire il percorso dei pazienti che arrivano dal tuo canale:
+          progressi, risultati e check periodici, tutto in un unico posto.
+        </p>
+      </div>
+
+      {/* Divider */}
+      <div className="iw-divider">
+        <span className="iw-divider-line" />
+        <span className="iw-divider-label">Le tue sezioni</span>
+        <span className="iw-divider-line" />
+      </div>
+
+      {/* Navigation Cards */}
+      <div className="iw-nav">
+        {/* Pazienti */}
+        <Link to="/clienti-lista" className="iw-card">
+          <div className="iw-card-head">
+            <div className="iw-card-icon">
+              <i className="ri-group-line" />
+            </div>
+            <div className="iw-card-arrow">
+              <i className="ri-arrow-right-up-line" />
+            </div>
+          </div>
+          <h3>I tuoi Pazienti</h3>
+          <p>
+            La lista completa di chi segue un percorso grazie al tuo canale.
+            Accedi alla scheda di ciascuno per consultare anagrafica, programma e team.
+          </p>
+        </Link>
+
+        {/* Check */}
+        <Link to="/check-azienda" className="iw-card">
+          <div className="iw-card-head">
+            <div className="iw-card-icon">
+              <i className="ri-clipboard-line" />
+            </div>
+            <div className="iw-card-arrow">
+              <i className="ri-arrow-right-up-line" />
+            </div>
+          </div>
+          <h3>Check Periodici</h3>
+          <p>
+            I questionari settimanali compilati dai pazienti: peso, benessere,
+            energia, sonno e i voti che danno ai professionisti.
+          </p>
+        </Link>
+
+      </div>
+    </div>
+  );
+}
+
 function Welcome() {
   const { user } = useOutletContext();
+
+  // Influencer → dedicated welcome
+  if (user?.role === 'influencer') {
+    return <InfluencerWelcome user={user} />;
+  }
 
   // Admin/CCO → full dashboard with data and graphs
   if (!isHealthManagerScopeUser(user) && !isTeamLeaderRestricted(user) && !isProfessionistaStandard(user)) {
@@ -1386,6 +1727,612 @@ const REVIEW_TYPE_CONFIG = {
   progetto: { label: 'Progetto', color: '#f59e0b', bg: '#fef3c7', icon: 'ri-folder-line' },
   miglioramento: { label: 'Miglioramento', color: '#ef4444', bg: '#fee2e2', icon: 'ri-arrow-up-circle-line' },
 };
+
+// ==================== TASK TAB (Admin Dashboard) ====================
+const TASK_SPECIALTY_COLORS = {
+  nutrizione: { label: 'Nutrizione', color: '#22c55e', bg: '#dcfce7', icon: 'ri-restaurant-line' },
+  coach: { label: 'Coach', color: '#3b82f6', bg: '#dbeafe', icon: 'ri-run-line' },
+  psicologia: { label: 'Psicologia', color: '#a855f7', bg: '#f3e8ff', icon: 'ri-mental-health-line' },
+};
+
+function TaskTab({ data, loading, error, onRetry }) {
+  const [stalePage, setStalePage] = useState(1);
+  const [staleFilterSpec, setStaleFilterSpec] = useState('all');
+  const [staleFilterTeam, setStaleFilterTeam] = useState('all');
+  const [rankingView, setRankingView] = useState('specialty'); // 'specialty' | 'team'
+  const STALE_PER_PAGE = 8;
+
+  // All hooks MUST be before any early return (Rules of Hooks)
+  const stale_tasks = data?.stale_tasks;
+  const kpi = data?.kpi;
+  const rankings_by_specialty = data?.rankings_by_specialty;
+  const rankings_by_team = data?.rankings_by_team;
+  const available_teams = data?.available_teams;
+
+  // Team list for filters: grouped by department, from backend
+  const teamsByDept = useMemo(() => {
+    if (!available_teams) return {};
+    const grouped = {};
+    available_teams.forEach(t => {
+      if (!grouped[t.team_type]) grouped[t.team_type] = [];
+      grouped[t.team_type].push(t.name);
+    });
+    return grouped;
+  }, [available_teams]);
+
+  // Visible teams based on department filter
+  const visibleTeams = useMemo(() => {
+    if (!available_teams) return [];
+    if (staleFilterSpec === 'all') return available_teams.map(t => t.name).sort();
+    return (teamsByDept[staleFilterSpec] || []).sort();
+  }, [available_teams, staleFilterSpec, teamsByDept]);
+
+  // Filter stale tasks
+  const filteredStale = useMemo(() => {
+    if (!stale_tasks) return [];
+    return stale_tasks.filter(t => {
+      if (staleFilterSpec !== 'all' && t.team_type !== staleFilterSpec) return false;
+      if (staleFilterTeam !== 'all' && t.team_name !== staleFilterTeam) return false;
+      return true;
+    });
+  }, [stale_tasks, staleFilterSpec, staleFilterTeam]);
+
+  // Pagination for stale tasks
+  const totalStalePages = Math.ceil(filteredStale.length / STALE_PER_PAGE);
+  const staleStart = (stalePage - 1) * STALE_PER_PAGE;
+  const paginatedStale = filteredStale.slice(staleStart, staleStart + STALE_PER_PAGE);
+
+  if (error) {
+    return (
+      <div className="welcome-card">
+        <div className="welcome-error">
+          <i className="ri-error-warning-line text-danger" style={{ fontSize: '2.5rem' }}></i>
+          <h5>{error}</h5>
+          <p>Assicurati che il backend sia avviato e riprova.</p>
+          <button className="btn btn-primary btn-sm welcome-retry-btn" onClick={onRetry}>
+            <i className="ri-refresh-line me-1"></i> Riprova
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !data) {
+    return (
+      <div className="row g-3">
+        <div className="col-lg-3 col-sm-6"><SkeletonCard height="110px" /></div>
+        <div className="col-lg-3 col-sm-6"><SkeletonCard height="110px" /></div>
+        <div className="col-lg-3 col-sm-6"><SkeletonCard height="110px" /></div>
+        <div className="col-lg-3 col-sm-6"><SkeletonCard height="110px" /></div>
+        <div className="col-12"><SkeletonCard height="320px" /></div>
+        <div className="col-lg-6"><SkeletonCard height="280px" /></div>
+        <div className="col-lg-6"><SkeletonCard height="280px" /></div>
+      </div>
+    );
+  }
+
+  const formatAvgTime = (hours) => {
+    if (hours < 1) return `${Math.round(hours * 60)}min`;
+    if (hours < 24) return `${Math.round(hours)}h`;
+    const days = Math.floor(hours / 24);
+    const remainHours = Math.round(hours % 24);
+    return remainHours > 0 ? `${days}g ${remainHours}h` : `${days}g`;
+  };
+
+  const getCategoryInfo = (cat) => {
+    const map = {
+      onboarding: { label: 'Onboarding', color: '#17a2b8', icon: 'ri-user-add-line' },
+      check: { label: 'Check', color: '#28a745', icon: 'ri-file-list-3-line' },
+      reminder: { label: 'Reminder', color: '#dc8c14', icon: 'ri-alarm-warning-line' },
+      formazione: { label: 'Formazione', color: '#6f42c1', icon: 'ri-book-open-line' },
+      sollecito: { label: 'Solleciti', color: '#dc3545', icon: 'ri-time-line' },
+      generico: { label: 'Generico', color: '#6c757d', icon: 'ri-task-line' },
+    };
+    return map[cat] || map.generico;
+  };
+
+  const getDaysColor = (days) => {
+    if (days >= 7) return '#dc2626';
+    if (days >= 5) return '#f97316';
+    return '#f59e0b';
+  };
+
+  const renderRankingCard = (title, members, isFastest, specConfig) => {
+    if (!members || members.length === 0) return null;
+    return (
+      <div className="welcome-card" style={{ height: '100%' }}>
+        <div className="welcome-card-header" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '10px',
+            background: isFastest ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <i className={isFastest ? 'ri-rocket-line' : 'ri-hourglass-line'}
+              style={{ color: isFastest ? '#22c55e' : '#ef4444', fontSize: '18px' }}></i>
+          </div>
+          <div>
+            <h6 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{title}</h6>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+              {isFastest ? 'Più veloci a completare' : 'Più lenti a completare'}
+            </span>
+          </div>
+        </div>
+        <div className="welcome-card-body" style={{ padding: '8px 20px 16px' }}>
+          {members.map((m, idx) => {
+            const rankColors = ['#f59e0b', '#94a3b8', '#cd7f32'];
+            const spec = specConfig || TASK_SPECIALTY_COLORS[m.specialty] || {};
+            return (
+              <div key={m.user_id || m.team_id || idx} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '10px 0',
+                borderBottom: idx < members.length - 1 ? '1px solid #f1f5f9' : 'none',
+              }}>
+                <div className="welcome-rank-number" style={{
+                  width: '28px', height: '28px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isFastest && idx < 3 ? `${rankColors[idx]}18` : '#f8fafc',
+                  color: isFastest && idx < 3 ? rankColors[idx] : '#64748b',
+                }}>
+                  {idx + 1}
+                </div>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '50%',
+                  background: spec.bg || '#f1f5f9',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <i className={spec.icon || 'ri-user-line'}
+                    style={{ fontSize: '14px', color: spec.color || '#64748b' }}></i>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {m.name || m.team_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {m.tasks_completed} task completati
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: '13px', fontWeight: 700,
+                  color: isFastest ? '#22c55e' : '#ef4444',
+                  whiteSpace: 'nowrap',
+                }}>
+                  <i className={`ri-time-line me-1`} style={{ fontSize: '12px' }}></i>
+                  {formatAvgTime(m.avg_hours)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* KPI Cards */}
+      <div className="row g-3 mb-4">
+        {[
+          { label: 'Task Aperti', value: kpi.total_open, icon: 'ri-list-check-2', color: '#3b82f6' },
+          { label: 'Stale (+3gg)', value: kpi.total_stale, icon: 'ri-error-warning-line', color: kpi.total_stale > 0 ? '#ef4444' : '#22c55e' },
+          { label: 'Completati Oggi', value: kpi.completed_today, icon: 'ri-checkbox-circle-line', color: '#22c55e' },
+          { label: 'Scaduti', value: kpi.total_overdue, icon: 'ri-alarm-warning-line', color: kpi.total_overdue > 0 ? '#f97316' : '#22c55e' },
+        ].map((stat, idx) => (
+          <div key={idx} className="col-xl-3 col-sm-6">
+            <div className="welcome-kpi-card">
+              <div className="kpi-content">
+                <div>
+                  <div className="kpi-value">{stat.value ?? 0}</div>
+                  <span className="kpi-label">{stat.label}</span>
+                </div>
+                <div className="kpi-icon" style={{ background: `${stat.color}15`, color: stat.color }}>
+                  <i className={`${stat.icon} fs-4`}></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Stale Tasks Table */}
+      {stale_tasks && stale_tasks.length > 0 && (
+        <div className="welcome-card mb-4">
+          <div className="welcome-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '10px',
+                background: 'rgba(239,68,68,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <i className="ri-error-warning-line" style={{ color: '#ef4444', fontSize: '18px' }}></i>
+              </div>
+              <div>
+                <h6 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+                  Task in Stallo
+                </h6>
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                  Non completati da più di 3 giorni • {filteredStale.length} task
+                </span>
+              </div>
+            </div>
+            <Link to="/task" style={{ fontSize: '13px', color: '#25B36A', fontWeight: 500, textDecoration: 'none' }}>
+              Vedi tutti <i className="ri-arrow-right-s-line"></i>
+            </Link>
+          </div>
+          {/* Filters */}
+          <div style={{ padding: '4px 20px 16px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {[
+              { key: 'all', label: 'Tutti', icon: 'ri-layout-grid-line', color: '#64748b' },
+              { key: 'nutrizione', label: 'Nutrizione', icon: 'ri-restaurant-line', color: '#22c55e' },
+              { key: 'coach', label: 'Coach', icon: 'ri-run-line', color: '#3b82f6' },
+              { key: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#a855f7' },
+            ].map(opt => {
+              const isActive = staleFilterSpec === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => { setStaleFilterSpec(opt.key); setStaleFilterTeam('all'); setStalePage(1); }}
+                  style={{
+                    fontSize: '12px', fontWeight: isActive ? 600 : 500,
+                    padding: '5px 14px', borderRadius: '20px',
+                    border: isActive ? `1.5px solid ${opt.color}` : '1px solid #e2e8f0',
+                    background: isActive ? `${opt.color}0D` : 'white',
+                    color: isActive ? opt.color : '#64748b',
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  }}
+                >
+                  <i className={opt.icon} style={{ fontSize: '12px' }}></i>
+                  {opt.label}
+                </button>
+              );
+            })}
+            {/* Separatore verticale */}
+            {visibleTeams.length > 0 && (
+              <div style={{ width: '1px', height: '20px', background: '#e2e8f0', margin: '0 4px' }}></div>
+            )}
+            {visibleTeams.map(name => {
+              const isActive = staleFilterTeam === name;
+              const deptColor = staleFilterSpec !== 'all'
+                ? (TASK_SPECIALTY_COLORS[staleFilterSpec]?.color || '#25B36A')
+                : '#25B36A';
+              return (
+                <button
+                  key={name}
+                  onClick={() => { setStaleFilterTeam(isActive ? 'all' : name); setStalePage(1); }}
+                  style={{
+                    fontSize: '12px', fontWeight: isActive ? 600 : 500,
+                    padding: '5px 14px', borderRadius: '20px',
+                    border: isActive ? `1.5px solid ${deptColor}` : '1px solid #e2e8f0',
+                    background: isActive ? `${deptColor}0D` : 'white',
+                    color: isActive ? deptColor : '#94a3b8',
+                    cursor: 'pointer', transition: 'all 0.2s ease',
+                    display: 'inline-flex', alignItems: 'center', gap: '5px',
+                  }}
+                >
+                  <i className="ri-team-line" style={{ fontSize: '12px' }}></i>
+                  {name}
+                </button>
+              );
+            })}
+            <span style={{ fontSize: '12px', color: '#94a3b8', marginLeft: 'auto' }}>
+              {filteredStale.length} task
+            </span>
+          </div>
+          <div className="welcome-card-body" style={{ padding: '0 20px 16px', overflowX: 'auto' }}>
+            <table className="welcome-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ minWidth: '200px' }}>Task</th>
+                  <th style={{ minWidth: '140px' }}>Assegnato a</th>
+                  <th style={{ minWidth: '120px' }}>Team</th>
+                  <th style={{ minWidth: '100px' }}>Categoria</th>
+                  <th style={{ minWidth: '80px', textAlign: 'center' }}>Giorni</th>
+                  <th style={{ minWidth: '120px' }}>Cliente</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedStale.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>
+                      Nessun task trovato con i filtri selezionati
+                    </td>
+                  </tr>
+                ) : paginatedStale.map((task) => {
+                  const catInfo = getCategoryInfo(task.category);
+                  const daysColor = getDaysColor(task.days_old);
+                  const teamSpec = TASK_SPECIALTY_COLORS[task.team_type] || {};
+                  return (
+                    <tr key={task.id}>
+                      <td>
+                        <div style={{ fontSize: '13px', fontWeight: 500, color: '#1e293b', lineHeight: 1.4 }}>
+                          {task.title}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{
+                            width: '28px', height: '28px', borderRadius: '50%',
+                            background: TASK_SPECIALTY_COLORS[task.assignee_specialty]?.bg || '#f1f5f9',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <i className={TASK_SPECIALTY_COLORS[task.assignee_specialty]?.icon || 'ri-user-line'}
+                              style={{ fontSize: '12px', color: TASK_SPECIALTY_COLORS[task.assignee_specialty]?.color || '#64748b' }}></i>
+                          </div>
+                          <span style={{ fontSize: '13px', color: '#334155' }}>{task.assignee_name || '—'}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {task.team_name ? (
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px',
+                            background: teamSpec.bg || '#f1f5f9', color: teamSpec.color || '#64748b',
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          }}>
+                            <i className="ri-team-line" style={{ fontSize: '11px' }}></i>
+                            {task.team_name}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '13px', color: '#cbd5e1' }}>—</span>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{
+                          fontSize: '11px', fontWeight: 600, padding: '4px 10px', borderRadius: '6px',
+                          background: `${catInfo.color}15`, color: catInfo.color,
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        }}>
+                          <i className={catInfo.icon} style={{ fontSize: '11px' }}></i>
+                          {catInfo.label}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{
+                          fontSize: '13px', fontWeight: 700, color: daysColor,
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        }}>
+                          <i className="ri-time-line" style={{ fontSize: '13px' }}></i>
+                          {task.days_old}g
+                        </span>
+                      </td>
+                      <td>
+                        {task.client_name ? (
+                          <Link to={`/clienti/${task.client_id}`}
+                            style={{ fontSize: '13px', color: '#25B36A', textDecoration: 'none', fontWeight: 500 }}>
+                            {task.client_name}
+                          </Link>
+                        ) : (
+                          <span style={{ fontSize: '13px', color: '#cbd5e1' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {totalStalePages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '16px' }}>
+                <button
+                  onClick={() => setStalePage(p => Math.max(1, p - 1))}
+                  disabled={stalePage === 1}
+                  className="welcome-pagination-btn"
+                >
+                  <i className="ri-arrow-left-s-line"></i>
+                </button>
+                <span style={{ fontSize: '13px', color: '#64748b', padding: '6px 12px', display: 'flex', alignItems: 'center' }}>
+                  {stalePage} / {totalStalePages}
+                </span>
+                <button
+                  onClick={() => setStalePage(p => Math.min(totalStalePages, p + 1))}
+                  disabled={stalePage === totalStalePages}
+                  className="welcome-pagination-btn"
+                >
+                  <i className="ri-arrow-right-s-line"></i>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {stale_tasks && stale_tasks.length === 0 && (
+        <div className="welcome-card mb-4">
+          <div className="welcome-card-body" style={{ padding: '32px 20px', textAlign: 'center' }}>
+            <i className="ri-checkbox-circle-line" style={{ fontSize: '2.5rem', color: '#22c55e', marginBottom: '8px', display: 'block' }}></i>
+            <h6 style={{ color: '#1e293b', fontWeight: 600 }}>Nessun task in stallo</h6>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+              Tutti i task sono stati gestiti entro 3 giorni
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Rankings Section */}
+      <div className="welcome-card mb-4" style={{ padding: '0' }}>
+        <div className="welcome-card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(59,130,246,0.1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <i className="ri-bar-chart-grouped-line" style={{ color: '#3b82f6', fontSize: '18px' }}></i>
+            </div>
+            <div>
+              <h6 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+                Classifica Velocità
+              </h6>
+              <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                Tempo medio di completamento task
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '4px', background: '#f8fafc', borderRadius: '8px', padding: '3px' }}>
+            <button
+              onClick={() => setRankingView('specialty')}
+              style={{
+                fontSize: '12px', fontWeight: 500, padding: '6px 14px', borderRadius: '6px',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                background: rankingView === 'specialty' ? 'white' : 'transparent',
+                color: rankingView === 'specialty' ? '#25B36A' : '#64748b',
+                boxShadow: rankingView === 'specialty' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Per Specialità
+            </button>
+            <button
+              onClick={() => setRankingView('team')}
+              style={{
+                fontSize: '12px', fontWeight: 500, padding: '6px 14px', borderRadius: '6px',
+                border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                background: rankingView === 'team' ? 'white' : 'transparent',
+                color: rankingView === 'team' ? '#25B36A' : '#64748b',
+                boxShadow: rankingView === 'team' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Per Team
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {rankingView === 'specialty' ? (
+        <>
+          {Object.keys(TASK_SPECIALTY_COLORS).map((specKey) => {
+            const spec = TASK_SPECIALTY_COLORS[specKey];
+            const specData = rankings_by_specialty?.[specKey];
+            if (!specData) return null;
+            const hasFastest = specData.fastest && specData.fastest.length > 0;
+            const hasSlowest = specData.slowest && specData.slowest.length > 0;
+            if (!hasFastest && !hasSlowest) return null;
+
+            return (
+              <div key={specKey} className="mb-4">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '8px',
+                    background: spec.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className={spec.icon} style={{ fontSize: '14px', color: spec.color }}></i>
+                  </div>
+                  <h6 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{spec.label}</h6>
+                </div>
+                <div className="row g-3">
+                  {hasFastest && (
+                    <div className={hasSlowest ? 'col-lg-6' : 'col-12'}>
+                      {renderRankingCard(`Top ${spec.label}`, specData.fastest, true, spec)}
+                    </div>
+                  )}
+                  {hasSlowest && (
+                    <div className={hasFastest ? 'col-lg-6' : 'col-12'}>
+                      {renderRankingCard(`Bottom ${spec.label}`, specData.slowest, false, spec)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {(!rankings_by_specialty || Object.keys(rankings_by_specialty).length === 0) && (
+            <div className="welcome-card mb-4">
+              <div className="welcome-card-body" style={{ padding: '32px 20px', textAlign: 'center' }}>
+                <i className="ri-bar-chart-line" style={{ fontSize: '2.5rem', color: '#cbd5e1', marginBottom: '8px', display: 'block' }}></i>
+                <h6 style={{ color: '#64748b', fontWeight: 600 }}>Dati insufficienti</h6>
+                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                  Servono almeno 3 task completati per professionista per generare il ranking
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {Object.keys(TASK_SPECIALTY_COLORS).map((specKey) => {
+            const spec = TASK_SPECIALTY_COLORS[specKey];
+            const teamData = rankings_by_team?.[specKey];
+            if (!teamData || teamData.length === 0) return null;
+
+            return (
+              <div key={specKey} className="mb-4">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '8px',
+                    background: spec.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <i className={spec.icon} style={{ fontSize: '14px', color: spec.color }}></i>
+                  </div>
+                  <h6 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{spec.label}</h6>
+                </div>
+                <div className="welcome-card">
+                  <div className="welcome-card-body" style={{ padding: '8px 20px 16px' }}>
+                    {teamData.map((team, idx) => (
+                      <div key={team.team_id} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        padding: '12px 0',
+                        borderBottom: idx < teamData.length - 1 ? '1px solid #f1f5f9' : 'none',
+                      }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: idx === 0 ? 'rgba(245,158,11,0.1)' : '#f8fafc',
+                          color: idx === 0 ? '#f59e0b' : '#64748b',
+                        }}>
+                          {idx + 1}
+                        </div>
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '10px',
+                          background: spec.bg,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0,
+                        }}>
+                          <i className="ri-team-line" style={{ fontSize: '16px', color: spec.color }}></i>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 600, color: '#1e293b' }}>{team.team_name}</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>{team.tasks_completed} task completati</div>
+                        </div>
+                        <div style={{
+                          fontSize: '14px', fontWeight: 700,
+                          color: idx === 0 ? '#22c55e' : '#64748b',
+                        }}>
+                          <i className="ri-time-line me-1" style={{ fontSize: '13px' }}></i>
+                          {formatAvgTime(team.avg_hours)}
+                        </div>
+                        {/* Progress bar relative */}
+                        <div style={{ width: '120px' }}>
+                          <div style={{
+                            height: '6px', borderRadius: '3px', background: '#f1f5f9', overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              height: '100%', borderRadius: '3px',
+                              background: `linear-gradient(90deg, ${spec.color}, ${spec.color}aa)`,
+                              width: `${Math.min(100, Math.max(10, 100 - (team.avg_hours / (teamData[teamData.length - 1]?.avg_hours || 1)) * 80))}%`,
+                              transition: 'width 0.5s ease',
+                            }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {(!rankings_by_team || Object.keys(rankings_by_team).length === 0) && (
+            <div className="welcome-card mb-4">
+              <div className="welcome-card-body" style={{ padding: '32px 20px', textAlign: 'center' }}>
+                <i className="ri-team-line" style={{ fontSize: '2.5rem', color: '#cbd5e1', marginBottom: '8px', display: 'block' }}></i>
+                <h6 style={{ color: '#64748b', fontWeight: 600 }}>Dati insufficienti</h6>
+                <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+                  Servono almeno 3 task completati per membro per generare il ranking team
+                </p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
 
 function FormazioneTab({ data, loading }) {
   const [recentPage, setRecentPage] = useState(1);

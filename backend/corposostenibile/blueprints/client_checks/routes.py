@@ -2850,6 +2850,9 @@ def api_cliente_checks(cliente_id: int):
                     "sleep_rating": resp.sleep_rating,
                     "mood_rating": resp.mood_rating,
                     "motivation_rating": resp.motivation_rating,
+                    "photo_front": _photo_path_to_url(resp.photo_front),
+                    "photo_side": _photo_path_to_url(resp.photo_side),
+                    "photo_back": _photo_path_to_url(resp.photo_back),
                     "is_read": read_confirmation is not None,
                     "read_at": read_confirmation.read_at.strftime('%d/%m/%Y %H:%M') if read_confirmation else None
                 })
@@ -2950,6 +2953,9 @@ def api_cliente_checks(cliente_id: int):
                 "sleep_rating": resp.sleep_rating,
                 "mood_rating": resp.mood_rating,
                 "motivation_rating": resp.motivation_rating,
+                "photo_front": resp.photo_front or None,
+                "photo_side": resp.photo_side or None,
+                "photo_back": resp.photo_back or None,
                 "is_read": True,
                 "read_at": None,
             })

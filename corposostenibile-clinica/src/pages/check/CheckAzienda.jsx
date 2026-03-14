@@ -29,14 +29,14 @@ const getInitials = (name) => {
 };
 
 // ── ProfessionalCell ──
-const ProfessionalCell = ({ professionals, rating, progressRating }) => {
+const ProfessionalCell = ({ professionals, rating, progressRating, hideExtras }) => {
   const mps = (rating && progressRating) ? ((rating + progressRating) / 2).toFixed(1) : null;
 
   return (
     <div className="chk-prof-cell">
       <span className={`chk-rating ${ratingClass(rating)}`}>{rating ?? '-'}</span>
 
-      {mps && (
+      {!hideExtras && mps && (
         <span
           className="chk-mps"
           title={`Media: (Voto Professionista [${rating}] + Voto Progresso [${progressRating}]) / 2 = ${mps}`}
@@ -55,9 +55,11 @@ const ProfessionalCell = ({ professionals, rating, progressRating }) => {
                 className="chk-prof-avatar"
                 onError={(e) => { e.target.src = '/static/assets/immagini/logo_user.png'; }}
               />
-              <span className={`chk-read-badge ${prof.has_read ? 'read' : 'unread'}`}>
-                {prof.has_read ? '✓' : '⏳'}
-              </span>
+              {!hideExtras && (
+                <span className={`chk-read-badge ${prof.has_read ? 'read' : 'unread'}`}>
+                  {prof.has_read ? '✓' : '⏳'}
+                </span>
+              )}
             </div>
           ))}
         </div>
@@ -82,6 +84,7 @@ function CheckAzienda() {
   const [mostraTour, setMostraTour] = useState(false);
   const [searchParams] = useSearchParams();
   const isProfessionista = isProfessionistaStandard(user);
+  const isInfluencer = user?.role === 'influencer';
   const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
 
   useEffect(() => {
@@ -387,7 +390,7 @@ function CheckAzienda() {
                     <span className={`chk-kpi-badge ${ratingClass(stats?.avg_progresso)}`}>{stats?.avg_progresso ?? '-'}</span>
                   </div>
                 )}
-                {showQualityKpi && (
+                {showQualityKpi && !isInfluencer && (
                   <div className="chk-kpi-item">
                     <i className="ri-star-fill text-warning"></i>
                     <span className="chk-kpi-label d-none d-xl-inline">MPS</span>
@@ -418,105 +421,107 @@ function CheckAzienda() {
       </div>
 
       {/* ── Filter Card 2: Prof Type + Status ── */}
-      <div className="chk-filter-card">
-        {/* Professional Type — solo per admin/TL, non per professionisti */}
-        {!isProfessionista && (
-          <div className="chk-filter-row" style={{ justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }} data-tour="prof-filters">
-              <span className="chk-filter-label">Filtra per:</span>
-              {isRoleRestricted ? (
-                <span
-                  className="chk-locked-badge"
-                  style={{ background: `${PROF_TYPES[restrictedProfType]?.color || '#64748b'}15`, color: PROF_TYPES[restrictedProfType]?.color || '#64748b', border: `1px solid ${(PROF_TYPES[restrictedProfType]?.color || '#64748b')}33` }}
-                >
-                  <i className={PROF_TYPES[restrictedProfType]?.icon || 'ri-filter-line'}></i>
-                  Solo {PROF_TYPES[restrictedProfType]?.label || 'la tua area'}
-                </span>
-              ) : (
-                <div className="chk-filter-group">
-                  {Object.entries(PROF_TYPES).map(([key, config]) => (
-                    <button
-                      key={key}
-                      className={`chk-filter-btn ${profType === key ? config.activeClass : ''}`}
-                      onClick={() => handleProfTypeChange(key)}
-                      disabled={loading}
-                    >
-                      <i className={config.icon}></i> {config.label}
+      {!isInfluencer && (
+        <div className="chk-filter-card">
+          {/* Professional Type — solo per admin/TL, non per professionisti */}
+          {!isProfessionista && (
+            <div className="chk-filter-row" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }} data-tour="prof-filters">
+                <span className="chk-filter-label">Filtra per:</span>
+                {isRoleRestricted ? (
+                  <span
+                    className="chk-locked-badge"
+                    style={{ background: `${PROF_TYPES[restrictedProfType]?.color || '#64748b'}15`, color: PROF_TYPES[restrictedProfType]?.color || '#64748b', border: `1px solid ${(PROF_TYPES[restrictedProfType]?.color || '#64748b')}33` }}
+                  >
+                    <i className={PROF_TYPES[restrictedProfType]?.icon || 'ri-filter-line'}></i>
+                    Solo {PROF_TYPES[restrictedProfType]?.label || 'la tua area'}
+                  </span>
+                ) : (
+                  <div className="chk-filter-group">
+                    {Object.entries(PROF_TYPES).map(([key, config]) => (
+                      <button
+                        key={key}
+                        className={`chk-filter-btn ${profType === key ? config.activeClass : ''}`}
+                        onClick={() => handleProfTypeChange(key)}
+                        disabled={loading}
+                      >
+                        <i className={config.icon}></i> {config.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {profType && (
+                  <>
+                    <select className="chk-select" value={profId || ''} onChange={(e) => handleProfIdChange(e.target.value ? parseInt(e.target.value) : null)} disabled={loading || loadingProfs}>
+                      <option value="">Tutti i {PROF_TYPES[profType]?.label}</option>
+                      {professionals.map((prof) => <option key={prof.id} value={prof.id}>{prof.nome}</option>)}
+                    </select>
+                    <button className="chk-reset-link" onClick={handleResetFilters} title="Reset filtri">
+                      <i className="ri-close-circle-line" style={{ fontSize: '18px' }}></i>
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {profType && (
-                <>
-                  <select className="chk-select" value={profId || ''} onChange={(e) => handleProfIdChange(e.target.value ? parseInt(e.target.value) : null)} disabled={loading || loadingProfs}>
-                    <option value="">Tutti i {PROF_TYPES[profType]?.label}</option>
-                    {professionals.map((prof) => <option key={prof.id} value={prof.id}>{prof.nome}</option>)}
-                  </select>
-                  <button className="chk-reset-link" onClick={handleResetFilters} title="Reset filtri">
-                    <i className="ri-close-circle-line" style={{ fontSize: '18px' }}></i>
-                  </button>
-                </>
-              )}
-              {!profType && !isRoleRestricted && (
-                <span style={{ fontSize: '13px', color: 'var(--chk-text-light)', fontStyle: 'italic' }}>
-                  Seleziona un tipo di professionista per filtrare
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Check Type Filter */}
-        <div className="chk-filter-row">
-          <span className="chk-filter-label">Tipo check:</span>
-          <div className="chk-filter-group">
-            {[
-              { key: 'all', label: 'Tutti', icon: 'ri-list-check-3' },
-              { key: 'weekly', label: 'Settimanale', icon: 'ri-calendar-check-line' },
-              { key: 'dca', label: 'DCA', icon: 'ri-heart-pulse-line' },
-              { key: 'minor', label: 'Minori', icon: 'ri-user-heart-line' },
-            ].map((ct) => (
-              <button
-                key={ct.key}
-                className={`chk-filter-btn ${checkType === ct.key ? 'active' : ''}`}
-                onClick={() => handleCheckTypeChange(ct.key)}
-                disabled={loading}
-              >
-                <i className={ct.icon}></i> {ct.label}
-                {ct.key !== 'all' && stats && (
-                  <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '2px' }}>
-                    ({ct.key === 'weekly' ? (stats.weekly_count ?? '') : ct.key === 'dca' ? (stats.dca_count ?? '') : (stats.minor_count ?? '')})
+                  </>
+                )}
+                {!profType && !isRoleRestricted && (
+                  <span style={{ fontSize: '13px', color: 'var(--chk-text-light)', fontStyle: 'italic' }}>
+                    Seleziona un tipo di professionista per filtrare
                   </span>
                 )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Status Filters */}
-        <div className="chk-filter-row" data-tour="status-filters">
-          <span className="chk-filter-label">Stato:</span>
-          <div className="chk-filter-group">
-            <button className={`chk-filter-btn ${ratingFilter === 'da_migliorare' ? 'active-amber' : ''}`} onClick={() => handleRatingFilterChange('da_migliorare')} disabled={loading}>
-              <i className="ri-arrow-down-line"></i> Da Migliorare (&lt;8)
-            </button>
-            <button className={`chk-filter-btn ${ratingFilter === 'negativo' ? 'active-red' : ''}`} onClick={() => handleRatingFilterChange('negativo')} disabled={loading}>
-              <i className="ri-error-warning-line"></i> Voto Negativo (&lt;7)
-            </button>
-            <button className={`chk-filter-btn ${showUnreadOnly ? 'active-purple' : ''}`} onClick={handleUnreadFilterChange} disabled={loading}>
-              <i className="ri-eye-off-line"></i> Non Letto
-            </button>
-          </div>
-          {(ratingFilter || showUnreadOnly || profType || checkType !== 'all') && (
-            <button className="chk-reset-link" onClick={handleResetFilters} title="Reset tutti i filtri">
-              <i className="ri-refresh-line"></i> Reset filtri
-            </button>
+              </div>
+            </div>
           )}
+
+          {/* Check Type Filter */}
+          <div className="chk-filter-row">
+            <span className="chk-filter-label">Tipo check:</span>
+            <div className="chk-filter-group">
+              {[
+                { key: 'all', label: 'Tutti', icon: 'ri-list-check-3' },
+                { key: 'weekly', label: 'Settimanale', icon: 'ri-calendar-check-line' },
+                { key: 'dca', label: 'DCA', icon: 'ri-heart-pulse-line' },
+                { key: 'minor', label: 'Minori', icon: 'ri-user-heart-line' },
+              ].map((ct) => (
+                <button
+                  key={ct.key}
+                  className={`chk-filter-btn ${checkType === ct.key ? 'active' : ''}`}
+                  onClick={() => handleCheckTypeChange(ct.key)}
+                  disabled={loading}
+                >
+                  <i className={ct.icon}></i> {ct.label}
+                  {ct.key !== 'all' && stats && (
+                    <span style={{ fontSize: '11px', opacity: 0.8, marginLeft: '2px' }}>
+                      ({ct.key === 'weekly' ? (stats.weekly_count ?? '') : ct.key === 'dca' ? (stats.dca_count ?? '') : (stats.minor_count ?? '')})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Filters */}
+          <div className="chk-filter-row" data-tour="status-filters">
+            <span className="chk-filter-label">Stato:</span>
+            <div className="chk-filter-group">
+              <button className={`chk-filter-btn ${ratingFilter === 'da_migliorare' ? 'active-amber' : ''}`} onClick={() => handleRatingFilterChange('da_migliorare')} disabled={loading}>
+                <i className="ri-arrow-down-line"></i> Da Migliorare (&lt;8)
+              </button>
+              <button className={`chk-filter-btn ${ratingFilter === 'negativo' ? 'active-red' : ''}`} onClick={() => handleRatingFilterChange('negativo')} disabled={loading}>
+                <i className="ri-error-warning-line"></i> Voto Negativo (&lt;7)
+              </button>
+              <button className={`chk-filter-btn ${showUnreadOnly ? 'active-purple' : ''}`} onClick={handleUnreadFilterChange} disabled={loading}>
+                <i className="ri-eye-off-line"></i> Non Letto
+              </button>
+            </div>
+            {(ratingFilter || showUnreadOnly || profType || checkType !== 'all') && (
+              <button className="chk-reset-link" onClick={handleResetFilters} title="Reset tutti i filtri">
+                <i className="ri-refresh-line"></i> Reset filtri
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -586,7 +591,7 @@ function CheckAzienda() {
                       {visibleRatingColumns.nutrizione && (
                         <td className="text-center">
                           {response.type === 'weekly' ? (
-                            <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} />
+                            <ProfessionalCell professionals={response.nutrizionisti} rating={response.nutritionist_rating} progressRating={response.progress_rating} hideExtras={isInfluencer} />
                           ) : (
                             <span className="chk-rating neutral">–</span>
                           )}
@@ -595,7 +600,7 @@ function CheckAzienda() {
                       {visibleRatingColumns.psicologia && (
                         <td className="text-center">
                           {response.type === 'weekly' ? (
-                            <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} />
+                            <ProfessionalCell professionals={response.psicologi} rating={response.psychologist_rating} progressRating={response.progress_rating} hideExtras={isInfluencer} />
                           ) : (
                             <span className="chk-rating neutral">–</span>
                           )}
@@ -604,7 +609,7 @@ function CheckAzienda() {
                       {visibleRatingColumns.coach && (
                         <td className="text-center">
                           {response.type === 'weekly' ? (
-                            <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} />
+                            <ProfessionalCell professionals={response.coaches} rating={response.coach_rating} progressRating={response.progress_rating} hideExtras={isInfluencer} />
                           ) : (
                             <span className="chk-rating neutral">–</span>
                           )}
@@ -1161,24 +1166,28 @@ function CheckAzienda() {
         document.body
       )}
 
-      <SupportWidget
-        pageTitle="Check Azienda"
-        pageDescription="Monitora la qualità del servizio, analizza i KPI dei professionisti e gestisci le criticità in tempo reale."
-        pageIcon={({ size, color }) => <i className="ri-line-chart-line" style={{ fontSize: size, color }} />}
-        docsSection="check-azienda"
-        onStartTour={() => setMostraTour(true)}
-        brandName="Suite Clinica"
-        logoSrc="/suitemind.png"
-        accentColor="#22c55e"
-      />
+      {!isInfluencer && (
+        <>
+          <SupportWidget
+            pageTitle="Check Azienda"
+            pageDescription="Monitora la qualità del servizio, analizza i KPI dei professionisti e gestisci le criticità in tempo reale."
+            pageIcon={({ size, color }) => <i className="ri-line-chart-line" style={{ fontSize: size, color }} />}
+            docsSection="check-azienda"
+            onStartTour={() => setMostraTour(true)}
+            brandName="Suite Clinica"
+            logoSrc="/suitemind.png"
+            accentColor="#22c55e"
+          />
 
-      <GuidedTour
-        steps={tourSteps}
-        isOpen={mostraTour}
-        onClose={() => { setMostraTour(false); setShowCheckResponseModal(false); }}
-        onStepChange={handleTourStepChange}
-        onComplete={() => { setMostraTour(false); setShowCheckResponseModal(false); }}
-      />
+          <GuidedTour
+            steps={tourSteps}
+            isOpen={mostraTour}
+            onClose={() => { setMostraTour(false); setShowCheckResponseModal(false); }}
+            onStepChange={handleTourStepChange}
+            onComplete={() => { setMostraTour(false); setShowCheckResponseModal(false); }}
+          />
+        </>
+      )}
     </div>
   );
 }

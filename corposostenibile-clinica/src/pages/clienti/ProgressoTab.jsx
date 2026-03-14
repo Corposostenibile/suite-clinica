@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ResponsiveContainer, AreaChart, Area, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
+import ScrollableSubtabs from '../../components/ScrollableSubtabs';
 
 const ACCENT = '#25B36A';
 
@@ -41,6 +43,12 @@ const formatDate = (isoStr) => {
   return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'short' });
 };
 
+const formatDateFull = (isoStr) => {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return d.toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' });
+};
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -75,7 +83,242 @@ const cardTitleStyle = {
   display: 'flex', alignItems: 'center', gap: 8,
 };
 
-export default function ProgressoTab({ responses = [], loading }) {
+/* ── Photo comparison card (clickable) ── */
+function PhotoComparison({ label, firstUrl, lastUrl, firstDate, lastDate, onClick }) {
+  const imgStyle = {
+    width: '100%',
+    borderRadius: 12,
+    objectFit: 'cover',
+    aspectRatio: '3/4',
+    background: '#f1f5f9',
+  };
+  const labelStyle = {
+    fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px',
+    marginBottom: 6, textAlign: 'center',
+  };
+  const dateStyle = {
+    fontSize: 12, color: '#64748b', textAlign: 'center', marginTop: 6,
+  };
+  const hasAnyPhoto = firstUrl || lastUrl;
+
+  return (
+    <div
+      style={{ flex: 1, minWidth: 0, cursor: hasAnyPhoto ? 'pointer' : 'default', transition: 'transform .15s' }}
+      onClick={hasAnyPhoto ? onClick : undefined}
+      onMouseEnter={e => { if (hasAnyPhoto) e.currentTarget.style.transform = 'scale(1.02)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+    >
+      <div style={{ ...labelStyle, color: '#94a3b8' }}>
+        {label}
+        {hasAnyPhoto && <i className="ri-zoom-in-line" style={{ marginLeft: 4, fontSize: 12 }} />}
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ ...labelStyle, color: ACCENT }}>Prima</div>
+          {firstUrl ? (
+            <img src={firstUrl} alt={`${label} - prima`} style={imgStyle} />
+          ) : (
+            <div style={{ ...imgStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13, border: '2px dashed #e2e8f0' }}>
+              N/D
+            </div>
+          )}
+          {firstDate && <div style={dateStyle}>{firstDate}</div>}
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ ...labelStyle, color: '#3b82f6' }}>Dopo</div>
+          {lastUrl ? (
+            <img src={lastUrl} alt={`${label} - dopo`} style={imgStyle} />
+          ) : (
+            <div style={{ ...imgStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13, border: '2px dashed #e2e8f0' }}>
+              N/D
+            </div>
+          )}
+          {lastDate && <div style={dateStyle}>{lastDate}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Fullscreen comparison modal ── */
+function ComparisonModal({ label, firstUrl, lastUrl, firstDate, lastDate, onClose }) {
+  const imgStyle = {
+    maxWidth: '100%',
+    maxHeight: '70vh',
+    borderRadius: 14,
+    objectFit: 'contain',
+    background: '#f1f5f9',
+  };
+
+  return createPortal(
+    <div className="cd-modal-backdrop" onClick={onClose}>
+      <div className="cd-modal xl" onClick={e => e.stopPropagation()} style={{ maxWidth: 900 }}>
+        <div className="cd-modal-header green-bg">
+          <h5>
+            <i className="ri-camera-line"></i>
+            {label} — Prima & Dopo
+          </h5>
+          <button className="cd-modal-close" onClick={onClose}>
+            <i className="ri-close-line"></i>
+          </button>
+        </div>
+        <div className="cd-modal-body" style={{ padding: 24 }}>
+          <div style={{ display: 'flex', gap: 24, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200, textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Prima
+              </div>
+              {firstUrl ? (
+                <img src={firstUrl} alt={`${label} - prima`} style={imgStyle} />
+              ) : (
+                <div style={{ ...imgStyle, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: 14 }}>
+                  Non disponibile
+                </div>
+              )}
+              {firstDate && <div style={{ fontSize: 13, color: '#64748b', marginTop: 8 }}>{firstDate}</div>}
+            </div>
+            <div style={{ flex: 1, minWidth: 200, textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#3b82f6', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Dopo
+              </div>
+              {lastUrl ? (
+                <img src={lastUrl} alt={`${label} - dopo`} style={imgStyle} />
+              ) : (
+                <div style={{ ...imgStyle, height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: 14 }}>
+                  Non disponibile
+                </div>
+              )}
+              {lastDate && <div style={{ fontSize: 13, color: '#64748b', marginTop: 8 }}>{lastDate}</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ── Before & After Tab ── */
+function BeforeAfterTab({ responses }) {
+  const [modalView, setModalView] = useState(null); // 'frontale' | 'laterale' | 'posteriore' | null
+
+  // Collect all responses with at least one photo, sorted by date asc
+  const { first, last } = useMemo(() => {
+    const withPhotos = responses
+      .filter(r => r.photo_front || r.photo_side || r.photo_back)
+      .sort((a, b) => (a.submit_date_iso || '').localeCompare(b.submit_date_iso || ''));
+
+    if (withPhotos.length === 0) return { first: null, last: null };
+
+    // For "Prima": prioritize typeform (initial check) photos, then earliest weekly
+    const typeformPhotos = withPhotos.filter(r => r.source === 'typeform');
+    const firstPhoto = typeformPhotos.length > 0 ? typeformPhotos[0] : withPhotos[0];
+
+    // For "Dopo": latest photo overall (excluding the one used as "first")
+    const lastPhoto = withPhotos.length > 1 ? withPhotos[withPhotos.length - 1] : null;
+
+    // If first and last are the same response, no comparison possible
+    if (lastPhoto && lastPhoto.id === firstPhoto.id && lastPhoto.source === firstPhoto.source) {
+      return { first: firstPhoto, last: null };
+    }
+
+    return { first: firstPhoto, last: lastPhoto };
+  }, [responses]);
+
+  if (!first) {
+    return (
+      <div className="cd-empty">
+        <i className="ri-camera-off-line cd-empty-icon" />
+        <h5>Prima e dopo non disponibile</h5>
+        <p className="cd-empty-text">Nessuna foto trovata nei check settimanali o iniziali del paziente.</p>
+      </div>
+    );
+  }
+
+  const firstDate = formatDateFull(first.submit_date_iso);
+  const lastDate = last ? formatDateFull(last.submit_date_iso) : null;
+
+  if (!last) {
+    return (
+      <div className="cd-empty">
+        <i className="ri-camera-off-line cd-empty-icon" />
+        <h5>Prima e dopo non disponibile</h5>
+        <p className="cd-empty-text">È disponibile solo un set di foto ({firstDate}). Servono almeno due check con foto per il confronto.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={cardStyle}>
+        <div style={cardTitleStyle}>
+          <i className="ri-camera-line" style={{ color: ACCENT }} />
+          Confronto Prima & Dopo
+        </div>
+        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+          <PhotoComparison
+            label="Frontale"
+            firstUrl={first.photo_front}
+            lastUrl={last.photo_front}
+            firstDate={firstDate}
+            lastDate={lastDate}
+            onClick={() => setModalView('frontale')}
+          />
+          <PhotoComparison
+            label="Laterale"
+            firstUrl={first.photo_side}
+            lastUrl={last.photo_side}
+            firstDate={firstDate}
+            lastDate={lastDate}
+            onClick={() => setModalView('laterale')}
+          />
+          <PhotoComparison
+            label="Posteriore"
+            firstUrl={first.photo_back}
+            lastUrl={last.photo_back}
+            firstDate={firstDate}
+            lastDate={lastDate}
+            onClick={() => setModalView('posteriore')}
+          />
+        </div>
+      </div>
+
+      {modalView === 'frontale' && (
+        <ComparisonModal
+          label="Frontale"
+          firstUrl={first.photo_front}
+          lastUrl={last.photo_front}
+          firstDate={firstDate}
+          lastDate={lastDate}
+          onClose={() => setModalView(null)}
+        />
+      )}
+      {modalView === 'laterale' && (
+        <ComparisonModal
+          label="Laterale"
+          firstUrl={first.photo_side}
+          lastUrl={last.photo_side}
+          firstDate={firstDate}
+          lastDate={lastDate}
+          onClose={() => setModalView(null)}
+        />
+      )}
+      {modalView === 'posteriore' && (
+        <ComparisonModal
+          label="Posteriore"
+          firstUrl={first.photo_back}
+          lastUrl={last.photo_back}
+          firstDate={firstDate}
+          lastDate={lastDate}
+          onClose={() => setModalView(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Charts Tab ── */
+function ChartsTab({ responses }) {
   const [period, setPeriod] = useState('all');
 
   const { weeklyData, dcaData } = useMemo(() => {
@@ -111,7 +354,6 @@ export default function ProgressoTab({ responses = [], loading }) {
     return { weeklyData: weekly, dcaData: dca };
   }, [responses, period]);
 
-  // Check which wellness metrics actually have data
   const activeWellnessMetrics = useMemo(() =>
     WELLNESS_METRICS.filter(m => weeklyData.some(d => d[m.key] != null)),
     [weeklyData]
@@ -125,15 +367,6 @@ export default function ProgressoTab({ responses = [], loading }) {
   const hasWeightData = weeklyData.some(d => d.weight != null);
   const hasWeekly = weeklyData.length > 0 && (hasWeightData || activeWellnessMetrics.length > 0);
   const hasDca = dcaData.length > 0 && activeDcaMetrics.length > 0;
-
-  if (loading) {
-    return (
-      <div className="cd-loading">
-        <div className="spinner-border text-primary" role="status" />
-        <p className="cd-loading-text" style={{ marginTop: 8 }}>Caricamento dati progresso...</p>
-      </div>
-    );
-  }
 
   if (!hasWeekly && !hasDca) {
     return (
@@ -277,6 +510,48 @@ export default function ProgressoTab({ responses = [], loading }) {
             </ResponsiveContainer>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/* ── Main ProgressoTab with sub-tabs ── */
+export default function ProgressoTab({ responses = [], loading }) {
+  const [activeSubTab, setActiveSubTab] = useState('grafici');
+
+  if (loading) {
+    return (
+      <div className="cd-loading">
+        <div className="spinner-border text-primary" role="status" />
+        <p className="cd-loading-text" style={{ marginTop: 8 }}>Caricamento dati progresso...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <ScrollableSubtabs style={{ marginBottom: '20px' }}>
+        <button
+          className={`cd-subtab ${activeSubTab === 'grafici' ? 'active green' : ''}`}
+          onClick={() => setActiveSubTab('grafici')}
+        >
+          <i className="ri-line-chart-line"></i>
+          Grafici
+        </button>
+        <button
+          className={`cd-subtab ${activeSubTab === 'prima_dopo' ? 'active green' : ''}`}
+          onClick={() => setActiveSubTab('prima_dopo')}
+        >
+          <i className="ri-camera-line"></i>
+          Prima & Dopo
+        </button>
+      </ScrollableSubtabs>
+
+      {activeSubTab === 'grafici' && (
+        <ChartsTab responses={responses} />
+      )}
+      {activeSubTab === 'prima_dopo' && (
+        <BeforeAfterTab responses={responses} />
       )}
     </div>
   );

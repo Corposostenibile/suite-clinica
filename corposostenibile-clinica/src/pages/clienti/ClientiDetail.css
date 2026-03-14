@@ -10,10 +10,10 @@
   pointer-events: none;
   opacity: 0.75;
 }
-.cd-readonly button:not(.cd-btn-back):not(.cd-tab):not(.cd-subtab):not(.cd-tabs-arrow) {
+.cd-readonly button:not(.cd-btn-back):not(.cd-tab):not(.cd-subtab):not(.cd-tabs-arrow):not(.cd-btn-preview) {
   display: none;
 }
-.cd-readonly .cd-btn-save {
+.cd-readonly .cd-btn-save:not(.cd-btn-preview) {
   display: none;
 }
 
@@ -1232,7 +1232,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1050;
+  z-index: 99999;
   padding: 20px;
   animation: cd-fadeIn 0.2s ease;
 }
