@@ -95,6 +95,8 @@ const FIGURA_RIF_LABELS = {
   psicologa: 'Psicologa',
 };
 
+const SUPPORT_TIPOLOGIA_OPTIONS = ['a', 'b', 'c', 'secondario'];
+
 // Lista professioni
 const PROFESSIONI_OPTIONS = [
   { group: 'Sanità e Benessere', options: ['Medico', 'Infermiere/a', 'Farmacista', 'Fisioterapista', 'Odontoiatra (Dentista)', 'Psicologo/a', 'Veterinario/a', 'Operatore Socio-Sanitario (OSS)', 'Tecnico di laboratorio', 'Nutrizionista'] },
@@ -837,6 +839,8 @@ function ClientiDetail() {
     stato_cliente_data: '',
     programma_attuale: '',
     tipologia_cliente: '',
+    tipologia_supporto_nutrizione: '',
+    tipologia_supporto_coach: '',
     data_inizio_abbonamento: '',
     durata_programma_giorni: '',
     data_rinnovo: '',
@@ -2349,6 +2353,8 @@ function ClientiDetail() {
       stato_cliente_data: c.stato_cliente_data || c.statoClienteData || '',
       programma_attuale: c.programma_attuale || c.programmaAttuale || '',
       tipologia_cliente: c.tipologia_cliente || c.tipologiaCliente || '',
+      tipologia_supporto_nutrizione: c.tipologia_supporto_nutrizione || c.tipologiaSupportoNutrizione || '',
+      tipologia_supporto_coach: c.tipologia_supporto_coach || c.tipologiaSupportoCoach || '',
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
       durata_programma_giorni: c.durata_programma_giorni ?? c.durataProgrammaGiorni ?? '',
       data_rinnovo: c.data_rinnovo || c.dataRinnovo || '',
@@ -2625,7 +2631,8 @@ function ClientiDetail() {
     statoCliente: cliente.stato_cliente || cliente.statoCliente || 'ghost',
     alert: cliente.alert,
     programma: cliente.programma_attuale || cliente.programmaAttuale,
-    tipologia: cliente.tipologia_cliente || cliente.tipologiaCliente,
+    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione,
+    tipologiaSupportoCoach: cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach,
     dataInizio: cliente.data_inizio_abbonamento || cliente.dataInizioAbbonamento,
     dataRinnovo: cliente.data_rinnovo || cliente.dataRinnovo,
     giorniRimanenti: cliente.giorni_rimanenti_calcolati || cliente.giorniRimanentiCalcolati,
@@ -2761,9 +2768,14 @@ function ClientiDetail() {
 
               {/* Badges */}
               <div className="cd-profile-tags">
-                {c.tipologia && (
+                {c.tipologiaSupportoNutrizione && (
                   <span className="cd-tag cd-tag-info">
-                    {TIPOLOGIA_LABELS[c.tipologia] || c.tipologia}
+                    Nutrizione: {TIPOLOGIA_LABELS[c.tipologiaSupportoNutrizione] || c.tipologiaSupportoNutrizione}
+                  </span>
+                )}
+                {c.tipologiaSupportoCoach && (
+                  <span className="cd-tag cd-tag-info">
+                    Coach: {TIPOLOGIA_LABELS[c.tipologiaSupportoCoach] || c.tipologiaSupportoCoach}
                   </span>
                 )}
                 {c.programma && (
@@ -3180,16 +3192,33 @@ function ClientiDetail() {
                       </select>
                     </div>
                     <div className="cd-field">
-                      <label className="cd-field-label">Tipologia</label>
+                      <label className="cd-field-label">Tipologia supporto nutrizione</label>
                       <select
                         className="cd-select"
-                        value={formData.tipologia_cliente}
-                        onChange={(e) => handleInputChange('tipologia_cliente', e.target.value)}
+                        value={formData.tipologia_supporto_nutrizione}
+                        onChange={(e) => handleInputChange('tipologia_supporto_nutrizione', e.target.value)}
                       >
                         <option value="">Seleziona...</option>
-                        <option value="a">A</option>
-                        <option value="b">B</option>
-                        <option value="c">C</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {TIPOLOGIA_LABELS[value] || value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Tipologia supporto coach</label>
+                      <select
+                        className="cd-select"
+                        value={formData.tipologia_supporto_coach}
+                        onChange={(e) => handleInputChange('tipologia_supporto_coach', e.target.value)}
+                      >
+                        <option value="">Seleziona...</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {TIPOLOGIA_LABELS[value] || value}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
