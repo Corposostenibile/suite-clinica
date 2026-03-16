@@ -17,8 +17,10 @@ from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente, User, CheckForm, CheckFormTypeEnum,
     ClientCheckAssignment, GHLOpportunityData,
+    TipologiaClienteEnum,
 )
 from corposostenibile.blueprints.client_checks.services import _public_checks_base_url
+from corposostenibile.package_support import parse_package_support
 
 
 # Check iniziali da assegnare
@@ -61,6 +63,8 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
 
     nome = (opp_data.nome or "N/D").strip()
     lead_phone = (opp_data.lead_phone or "").strip()
+    package_info = parse_package_support(opp_data.pacchetto)
+    parsed_tipologia = package_info.get("client_type")
     if nome == "N/D" and opp_data.raw_payload:
         payload = opp_data.raw_payload or {}
         custom = payload.get("customData", {})
@@ -92,6 +96,9 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 mail=email,
                 service_status='pending_assignment',
                 show_in_clienti_lista=False,
+                programma_attuale=opp_data.pacchetto,
+                tipologia_supporto_nutrizione=package_info.get("support_types", {}).get("nutrizione"),
+                tipologia_supporto_coach=package_info.get("support_types", {}).get("coach"),
             )
             db.session.add(cliente)
             db.session.flush()
@@ -102,10 +109,16 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 cliente.nome_cognome = nome
             if lead_phone:
                 cliente.cellulare = lead_phone
+            if opp_data.pacchetto:
+                cliente.programma_attuale = opp_data.pacchetto
+            cliente.tipologia_supporto_nutrizione = package_info.get("support_types", {}).get("nutrizione")
+            cliente.tipologia_supporto_coach = package_info.get("support_types", {}).get("coach")
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
 
         if lead_phone and not getattr(cliente, "cellulare", None):
             cliente.cellulare = lead_phone
+        if parsed_tipologia in {"a", "b", "c"}:
+            cliente.tipologia_cliente = TipologiaClienteEnum(parsed_tipologia)
 
         # 2. Ottieni admin per assigned_by_id
         admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()

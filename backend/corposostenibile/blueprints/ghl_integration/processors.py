@@ -12,7 +12,8 @@ from corposostenibile.models import (
     Cliente,
     ServiceClienteAssignment,
     ServiceClienteNote,
-    User
+    User,
+    TipologiaClienteEnum,
 )
 
 
@@ -168,6 +169,11 @@ class OpportunityProcessor:
                 # Salva il cambio pacchetto nelle note
                 old_package = cliente.programma_attuale
                 cliente.programma_attuale = parsed_data.get('pacchetto_comprato')
+                parsed_tipologia = parsed_data.get('tipologia_cliente')
+                if parsed_tipologia in {e.value for e in TipologiaClienteEnum if e.value in {'a', 'b', 'c'}}:
+                    cliente.tipologia_cliente = TipologiaClienteEnum(parsed_tipologia)
+                cliente.tipologia_supporto_nutrizione = parsed_data.get('tipologia_supporto_nutrizione')
+                cliente.tipologia_supporto_coach = parsed_data.get('tipologia_supporto_coach')
                 # Questo verrà salvato nelle note più sotto
 
             db.session.add(cliente)
@@ -384,6 +390,11 @@ class OpportunityProcessor:
         cliente.acquisition_channel = parsed_data.get('origine_contatto')
         cliente.programma_attuale = parsed_data.get('pacchetto_comprato')
         cliente.modalita_pagamento = parsed_data.get('modalita_pagamento')
+        parsed_tipologia = parsed_data.get('tipologia_cliente')
+        if parsed_tipologia in {e.value for e in TipologiaClienteEnum if e.value in {'a', 'b', 'c'}}:
+            cliente.tipologia_cliente = TipologiaClienteEnum(parsed_tipologia)
+        cliente.tipologia_supporto_nutrizione = parsed_data.get('tipologia_supporto_nutrizione')
+        cliente.tipologia_supporto_coach = parsed_data.get('tipologia_supporto_coach')
         if is_new_cliente:
             # Clienti creati da webhook restano nascosti in /clienti-lista
             # fino al completamento delle assegnazioni professionisti.

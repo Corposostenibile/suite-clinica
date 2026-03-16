@@ -15,6 +15,7 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     SalesLead, User, Cliente, ServiceClienteAssignment,
     ClienteProfessionistaHistory, ServiceClienteNote,
+    TipologiaClienteEnum,
 )
 from . import bp
 from .package_parser import parse_package_name
@@ -580,6 +581,8 @@ def api_confirm_assignment():
                 storia_cliente=lead.client_story,
                 programma_attuale=lead.custom_package_name,
                 durata_programma_giorni=parsed_pkg.get('duration_days') or None,
+                tipologia_supporto_nutrizione=parsed_pkg.get('support_types', {}).get('nutrizione'),
+                tipologia_supporto_coach=parsed_pkg.get('support_types', {}).get('coach'),
                 health_manager_id=lead.health_manager_id,
                 consulente_alimentare_id=lead.sales_user_id,
                 data_inizio_abbonamento=lead.onboarding_date,
@@ -599,6 +602,11 @@ def api_confirm_assignment():
             lead.converted_to_client_id = cliente.cliente_id
             lead.converted_at = datetime.utcnow()
             lead.converted_by = current_user.id
+
+        if parsed_pkg.get('client_type') in {'a', 'b', 'c'}:
+            cliente.tipologia_cliente = TipologiaClienteEnum(parsed_pkg['client_type'])
+        cliente.tipologia_supporto_nutrizione = parsed_pkg.get('support_types', {}).get('nutrizione')
+        cliente.tipologia_supporto_coach = parsed_pkg.get('support_types', {}).get('coach')
 
         # 4. Crea/aggiorna ServiceClienteAssignment
         assignment = ServiceClienteAssignment.query.filter_by(

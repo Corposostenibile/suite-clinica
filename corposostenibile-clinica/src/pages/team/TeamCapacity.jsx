@@ -149,6 +149,7 @@ function TeamCapacity() {
     const tipoA = row.clienti_tipo_a ?? 0;
     const tipoB = row.clienti_tipo_b ?? 0;
     const tipoC = row.clienti_tipo_c ?? 0;
+    const tipoSecondario = row.clienti_tipo_secondario ?? 0;
     const ponderata = row.capienza_ponderata ?? 0;
     const contrattuale = row.capienza_contrattuale || 0;
     const percPonderata = contrattuale > 0 ? Math.round((ponderata / contrattuale) * 100 * 10) / 10 : 0;
@@ -188,6 +189,7 @@ function TeamCapacity() {
         <td><span className="tc-badge tc-badge-tipo-a">{tipoA}</span></td>
         <td><span className="tc-badge tc-badge-tipo-b">{tipoB}</span></td>
         <td><span className="tc-badge tc-badge-tipo-c">{tipoC}</span></td>
+        <td><span className="tc-badge tc-badge-default">{tipoSecondario}</span></td>
         <td>
           <span className={`tc-badge ${isOverPonderata ? 'tc-badge-danger' : 'tc-badge-default'}`} style={{ fontWeight: 700 }}>
             {ponderata}
@@ -271,6 +273,7 @@ function TeamCapacity() {
             <th><span className="tc-th-tipo" style={{ color: '#22c55e' }}>A</span></th>
             <th><span className="tc-th-tipo" style={{ color: '#f59e0b' }}>B</span></th>
             <th><span className="tc-th-tipo" style={{ color: '#ef4444' }}>C</span></th>
+            <th><span className="tc-th-tipo">Secondario</span></th>
             <th>Ponderata</th>
             <th>% Capienza</th>
             <th style={{ textAlign: 'right' }}>Profilo</th>

@@ -27,6 +27,50 @@
   padding: 24px;
 }
 
+.cws-area-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.cws-area-tab {
+  border: 1px solid #dbe3ec;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cws-area-tab.active {
+  background: #1f6feb;
+  color: white;
+  border-color: #1f6feb;
+}
+
+.cws-area-summary {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fafc, #eef6ff);
+  border: 1px solid #dbeafe;
+  margin-bottom: 20px;
+}
+
+.cws-area-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cws-area-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
 .cws-weights-grid {
   display: flex;
   flex-direction: column;
@@ -118,6 +162,15 @@
   margin-top: 1px;
 }
 
+.cws-info-muted {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+.cws-info-muted i {
+  color: #334155;
+}
+
 .cws-actions {
   display: flex;
   justify-content: flex-end;
@@ -190,4 +243,24 @@
   margin-top: 16px;
   color: #64748b;
   font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .cws-card {
+    padding: 18px;
+  }
+
+  .cws-area-tabs {
+    flex-wrap: wrap;
+  }
+
+  .cws-weight-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .cws-weight-input {
+    width: 100%;
+  }
 }

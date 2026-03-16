@@ -23,17 +23,52 @@ from corposostenibile.models import (
     ServiceClienteNote, Cliente, GHLOpportunityData, GHLOpportunity,
     ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
     cliente_psicologi, cliente_consulenti, SalesLead,
-    CapacityTypeWeight, TipologiaClienteEnum,
+    CapacityRoleTypeWeight, TipologiaClienteEnum,
 )
 
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+CAPACITY_SUPPORT_TYPES = ("a", "b", "c", "secondario")
+DEFAULT_CAPACITY_WEIGHTS = {
+    "nutrizione": {
+        "a": 2.0,
+        "b": 1.5,
+        "c": 1.0,
+        "secondario": 0.5,
+    },
+    "coach": {
+        "a": 2.0,
+        "b": 1.5,
+        "c": 1.0,
+        "secondario": 0.5,
+    },
+}
 
 
 def allowed_file(filename):
     """Check if file has allowed extension."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def _get_capacity_weight_role(role_type: str | None) -> str | None:
+    if role_type == "nutrizionista":
+        return "nutrizione"
+    if role_type == "coach":
+        return "coach"
+    return None
+
+
+def _get_capacity_weights_by_role() -> dict[str, dict[str, float]]:
+    weights = {
+        area: values.copy()
+        for area, values in DEFAULT_CAPACITY_WEIGHTS.items()
+    }
+    for row in CapacityRoleTypeWeight.query.all():
+        area = row.role_type.value if hasattr(row.role_type, "value") else row.role_type
+        if area in weights and row.tipo in CAPACITY_SUPPORT_TYPES:
+            weights[area][row.tipo] = row.peso
+    return weights
 
 
 # Create API blueprint with /api/team prefix
@@ -398,8 +433,8 @@ def _get_hm_split_counts(user_ids: list[int]) -> dict[int, dict]:
 
 def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], dict[str, int]]:
     """
-    Conteggio clienti assegnati per (user_id, role_type) raggruppati per tipologia_cliente (a, b, c).
-    Stessa logica di _get_assigned_clients_count_map_active_by_role ma con breakdown per tipo.
+    Conteggio clienti assegnati per (user_id, role_type) raggruppati per tipologia.
+    Per nutrizione/coach usa i nuovi campi di supporto; per HM continua a usare tipologia_cliente.
     """
     if not user_ids:
         return {}
@@ -412,46 +447,50 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
             if key not in result:
                 result[key] = {}
             tipo_val = tipo.value if hasattr(tipo, 'value') else (tipo or '')
-            if tipo_val in ('a', 'b', 'c'):
+            if tipo_val in CAPACITY_SUPPORT_TYPES:
                 result[key][tipo_val] = result[key].get(tipo_val, 0) + int(cnt)
 
     # Nutrizionista: nutrizionista_id, consulente_alimentare_id, m2m nutrizionisti/consulenti + stato_nutrizione = attivo
     nut_sources = [
         select(
             Cliente.nutrizionista_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_nutrizione.label('tipo'),
             Cliente.cliente_id.label('cliente_id'),
         ).where(
             Cliente.nutrizionista_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_nutrizione.isnot(None),
         ),
         select(
             Cliente.consulente_alimentare_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_nutrizione.label('tipo'),
             Cliente.cliente_id.label('cliente_id'),
         ).where(
             Cliente.consulente_alimentare_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_nutrizione.isnot(None),
         ),
         select(
             cliente_nutrizionisti.c.user_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_nutrizione.label('tipo'),
             cliente_nutrizionisti.c.cliente_id.label('cliente_id'),
         ).select_from(
             cliente_nutrizionisti.join(Cliente, cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_nutrizionisti.c.user_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_nutrizione.isnot(None),
         ),
         select(
             cliente_consulenti.c.user_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_nutrizione.label('tipo'),
             cliente_consulenti.c.cliente_id.label('cliente_id'),
         ).select_from(
             cliente_consulenti.join(Cliente, cliente_consulenti.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_consulenti.c.user_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_nutrizione.isnot(None),
         ),
     ]
     nut_sq = union_all(*nut_sources).subquery()
@@ -466,21 +505,23 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
     coach_sources = [
         select(
             Cliente.coach_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_coach.label('tipo'),
             Cliente.cliente_id.label('cliente_id'),
         ).where(
             Cliente.coach_id.in_(user_ids),
             Cliente.stato_coach == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_coach.isnot(None),
         ),
         select(
             cliente_coaches.c.user_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            Cliente.tipologia_supporto_coach.label('tipo'),
             cliente_coaches.c.cliente_id.label('cliente_id'),
         ).select_from(
             cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_coaches.c.user_id.in_(user_ids),
             Cliente.stato_coach == StatoClienteEnum.attivo,
+            Cliente.tipologia_supporto_coach.isnot(None),
         ),
     ]
     coach_sq = union_all(*coach_sources).subquery()
@@ -495,7 +536,7 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
     psico_sources = [
         select(
             Cliente.psicologa_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            cast(None, String).label('tipo'),
             Cliente.cliente_id.label('cliente_id'),
         ).where(
             Cliente.psicologa_id.in_(user_ids),
@@ -503,7 +544,7 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
         ),
         select(
             cliente_psicologi.c.user_id.label('user_id'),
-            Cliente.tipologia_cliente.label('tipo'),
+            cast(None, String).label('tipo'),
             cliente_psicologi.c.cliente_id.label('cliente_id'),
         ).select_from(
             cliente_psicologi.join(Cliente, cliente_psicologi.c.cliente_id == Cliente.cliente_id)
@@ -2623,11 +2664,7 @@ def get_professionals_capacity():
     user_ids = [u.id for u in professionals]
     assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
     type_breakdown_map = _get_assigned_clients_by_type(user_ids)
-    # Load weights
-    weight_rows = CapacityTypeWeight.query.all()
-    weights = {w.tipo: w.peso for w in weight_rows}
-    if not weights:
-        weights = {'a': 1.0, 'b': 1.0, 'c': 1.0}
+    weights_by_role = _get_capacity_weights_by_role()
     hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
     hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
 
@@ -2691,17 +2728,23 @@ def get_professionals_capacity():
         clienti_a = type_counts.get('a', 0)
         clienti_b = type_counts.get('b', 0)
         clienti_c = type_counts.get('c', 0)
+        clienti_secondario = type_counts.get('secondario', 0)
         row_data['clienti_tipo_a'] = clienti_a
         row_data['clienti_tipo_b'] = clienti_b
         row_data['clienti_tipo_c'] = clienti_c
+        row_data['clienti_tipo_secondario'] = clienti_secondario
         # Psicologi: peso sempre 1 per qualsiasi tipologia
         if role_type == 'psicologa':
             row_data['capienza_ponderata'] = round(float(assigned_clients), 2)
         else:
+            weight_role = _get_capacity_weight_role(role_type)
+            role_weights = weights_by_role.get(weight_role or "", {})
             row_data['capienza_ponderata'] = round(
-                clienti_a * weights.get('a', 1.0) +
-                clienti_b * weights.get('b', 1.0) +
-                clienti_c * weights.get('c', 1.0), 2
+                clienti_a * role_weights.get('a', 1.0) +
+                clienti_b * role_weights.get('b', 1.0) +
+                clienti_c * role_weights.get('c', 1.0) +
+                clienti_secondario * role_weights.get('secondario', 1.0),
+                2,
             )
 
         if role_type == 'health_manager':
@@ -2719,7 +2762,7 @@ def get_professionals_capacity():
         'rows': rows,
         'total': len(rows),
         'can_edit': _can_edit_professional_capacity(current_user),
-        'weights': weights,
+        'weights': weights_by_role,
     })
 
 
@@ -2730,18 +2773,25 @@ def get_capacity_weights():
     if not (current_user.is_admin or _is_cco_user(current_user)):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
 
-    weights = CapacityTypeWeight.query.all()
-    # If empty, seed defaults
-    if not weights:
-        for tipo in ['a', 'b', 'c']:
-            w = CapacityTypeWeight(tipo=tipo, peso=1.0)
-            db.session.add(w)
+    existing = {
+        (
+            row.role_type.value if hasattr(row.role_type, "value") else row.role_type,
+            row.tipo,
+        ): row
+        for row in CapacityRoleTypeWeight.query.all()
+    }
+    changed = False
+    for area, values in DEFAULT_CAPACITY_WEIGHTS.items():
+        for tipo, peso in values.items():
+            if (area, tipo) not in existing:
+                db.session.add(CapacityRoleTypeWeight(role_type=area, tipo=tipo, peso=peso))
+                changed = True
+    if changed:
         db.session.commit()
-        weights = CapacityTypeWeight.query.all()
 
     return jsonify({
         'success': True,
-        'weights': {w.tipo: w.peso for w in weights}
+        'weights': _get_capacity_weights_by_role(),
     })
 
 
@@ -2756,21 +2806,24 @@ def update_capacity_weights():
     if not data:
         return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
 
-    for tipo in ['a', 'b', 'c']:
-        if tipo in data:
-            peso = float(data[tipo])
-            weight = CapacityTypeWeight.query.get(tipo)
+    for area in DEFAULT_CAPACITY_WEIGHTS:
+        area_data = data.get(area)
+        if not isinstance(area_data, dict):
+            continue
+        for tipo in CAPACITY_SUPPORT_TYPES:
+            if tipo not in area_data:
+                continue
+            peso = float(area_data[tipo])
+            weight = CapacityRoleTypeWeight.query.filter_by(role_type=area, tipo=tipo).first()
             if weight:
                 weight.peso = peso
             else:
-                weight = CapacityTypeWeight(tipo=tipo, peso=peso)
-                db.session.add(weight)
+                db.session.add(CapacityRoleTypeWeight(role_type=area, tipo=tipo, peso=peso))
 
     db.session.commit()
-    weights = CapacityTypeWeight.query.all()
     return jsonify({
         'success': True,
-        'weights': {w.tipo: w.peso for w in weights}
+        'weights': _get_capacity_weights_by_role(),
     })
 
 

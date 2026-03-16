@@ -8,6 +8,8 @@ from decimal import Decimal
 import json
 from flask import current_app
 
+from corposostenibile.package_support import parse_package_support
+
 
 class GHLPayloadParser:
     """
@@ -50,6 +52,15 @@ class GHLPayloadParser:
                     parsed_custom[our_field] = custom_fields[name]
                     break
 
+        package_name = (
+            parsed_custom.get('pacchetto')
+            or opportunity.get('pacchetto')
+            or opportunity.get('package')
+            or payload.get('pacchetto')
+            or payload.get('package')
+        )
+        package_info = parse_package_support(package_name)
+
         # Costruisci il risultato standardizzato
         result = {
             # Dati opportunità
@@ -73,18 +84,16 @@ class GHLPayloadParser:
             'modalita_pagamento': parsed_custom.get('modalita_pagamento'),
 
             # Altri dati
-            'pacchetto_comprato': (
-                parsed_custom.get('pacchetto')
-                or opportunity.get('pacchetto')
-                or opportunity.get('package')
-                or payload.get('pacchetto')
-                or payload.get('package')
-            ),
+            'pacchetto_comprato': package_name,
             'sales_consultant': parsed_custom.get('sales_consultant'),
             'note_cliente': parsed_custom.get('note'),
             'data_inizio': GHLPayloadParser._parse_date(parsed_custom.get('data_inizio')),
             'contabile_allegata': parsed_custom.get('contabile_allegata'),
             'origine_contatto': parsed_custom.get('origine_contatto'),
+            'tipologia_cliente': package_info.get('client_type'),
+            'tipologia_supporto_nutrizione': package_info.get('support_types', {}).get('nutrizione'),
+            'tipologia_supporto_coach': package_info.get('support_types', {}).get('coach'),
+            'package_info': package_info,
 
             # Metadata
             'webhook_type': payload.get('event_type'),

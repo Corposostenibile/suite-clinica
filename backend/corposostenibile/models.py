@@ -227,6 +227,11 @@ class TipologiaClienteEnum(str, Enum):
     pausa_gt_30 = "pausa_gt_30"
 
 
+class CapacityWeightAreaEnum(str, Enum):
+    nutrizione = "nutrizione"
+    coach = "coach"
+
+
 class CatEnum(str, Enum):
     trasformazione = "trasformazione"
     trasformazione_dca = "trasformazione_dca"
@@ -1845,6 +1850,14 @@ class Cliente(TimestampMixin, db.Model):
     modalita_pagamento      = db.Column(_def(PagamentoEnum))
     note_rinnovo            = db.Column(db.Text)
     tipologia_cliente       = db.Column(_def(TipologiaClienteEnum))
+    tipologia_supporto_nutrizione = db.Column(
+        db.String(20),
+        comment="Tipologia supporto nutrizione: a, b, c, secondario",
+    )
+    tipologia_supporto_coach = db.Column(
+        db.String(20),
+        comment="Tipologia supporto coach: a, b, c, secondario",
+    )
 
     # Staff (ora stringhe singole per compatibilità Excel)
     nutrizionista           = db.Column(db.String(255))  # Nome singolo
@@ -10498,6 +10511,31 @@ class CapacityTypeWeight(TimestampMixin, db.Model):
 
     tipo = db.Column(db.String(10), primary_key=True, comment="Tipologia cliente: a, b, c")
     peso = db.Column(db.Float, nullable=False, default=1.0, comment="Peso per il calcolo capienza")
+
+
+class CapacityRoleTypeWeight(TimestampMixin, db.Model):
+    """
+    Pesi per tipologia supporto capienza separati per area professionale.
+    Una riga per coppia (role_type, tipo): es. nutrizione/a, coach/secondario.
+    """
+    __tablename__ = "capacity_role_type_weights"
+
+    role_type = db.Column(
+        db.String(20),
+        primary_key=True,
+        comment="Area professionale: nutrizione, coach",
+    )
+    tipo = db.Column(
+        db.String(20),
+        primary_key=True,
+        comment="Tipologia supporto: a, b, c, secondario",
+    )
+    peso = db.Column(
+        db.Float,
+        nullable=False,
+        default=1.0,
+        comment="Peso per il calcolo capienza",
+    )
 
 
 # --------------------------------------------------------------------------- #
