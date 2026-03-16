@@ -18,3 +18,5 @@ Note:
 - `stamp_heads.py` allinea Alembic allo schema creato da `flask create-db`.
 - `repair_alembic_version.py` riscrive `alembic_version` con gli head reali presenti nel repository.
 - `import_cached_migrated_sql.py` importa il dump SQL migrato locale e reimposta l'utente `dev@corposostenibile.it`.
+- `backfill_support_types_from_program.py` popola `tipologia_supporto_nutrizione` / `tipologia_supporto_coach`
+  a partire da `clienti.programma_attuale`, con supporto `--dry-run` e `--overwrite`.
