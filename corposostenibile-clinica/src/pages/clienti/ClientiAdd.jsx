@@ -4,7 +4,6 @@ import DatePicker from '../../components/DatePicker';
 import clientiService, {
   STATO_CLIENTE,
   STATO_LABELS,
-  TIPOLOGIA_CLIENTE,
   TIPOLOGIA_LABELS,
   GENERE,
   GENERE_LABELS,
@@ -19,6 +18,8 @@ import clientiService, {
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import originsService from '../../services/originsService';
+
+const SUPPORT_TIPOLOGIA_OPTIONS = ['a', 'b', 'c', 'secondario'];
 
 function ClientiAdd() {
   const { id } = useParams();
@@ -56,6 +57,8 @@ function ClientiAdd() {
     programma_attuale_dettaglio: '',
     macrocategoria: '',
     tipologia_cliente: '',
+    tipologia_supporto_nutrizione: '',
+    tipologia_supporto_coach: '',
     categoria: '',
     di_team: '',
     // Stati
@@ -135,6 +138,8 @@ function ClientiAdd() {
             programma_attuale_dettaglio: cliente.programma_attuale_dettaglio || cliente.programmaAttualeDettaglio || '',
             macrocategoria: cliente.macrocategoria || '',
             tipologia_cliente: cliente.tipologia_cliente || cliente.tipologiaCliente || '',
+            tipologia_supporto_nutrizione: cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione || '',
+            tipologia_supporto_coach: cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach || '',
             categoria: cliente.categoria || '',
             di_team: cliente.di_team || cliente.diTeam || '',
             stato_cliente: cliente.stato_cliente || cliente.statoCliente || 'attivo',
@@ -490,16 +495,30 @@ function ClientiAdd() {
                       </select>
                     </div>
                     <div className="col-md-6">
-                      <label className="form-label fw-semibold">Tipologia Cliente</label>
+                      <label className="form-label fw-semibold">Tipologia supporto nutrizione</label>
                       <select
                         className="form-select"
-                        name="tipologia_cliente"
-                        value={formData.tipologia_cliente}
+                        name="tipologia_supporto_nutrizione"
+                        value={formData.tipologia_supporto_nutrizione}
                         onChange={handleChange}
                       >
                         <option value="">Seleziona...</option>
-                        {Object.entries(TIPOLOGIA_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Tipologia supporto coach</label>
+                      <select
+                        className="form-select"
+                        name="tipologia_supporto_coach"
+                        value={formData.tipologia_supporto_coach}
+                        onChange={handleChange}
+                      >
+                        <option value="">Seleziona...</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
                         ))}
                       </select>
                     </div>
@@ -745,9 +764,14 @@ function ClientiAdd() {
                     {STATO_LABELS[formData.stato_cliente]}
                   </span>
                 )}
-                {formData.tipologia_cliente && (
-                  <span className={`badge bg-${clientiService.getTipologiaBadgeColor(formData.tipologia_cliente)}`}>
-                    {TIPOLOGIA_LABELS[formData.tipologia_cliente]}
+                {formData.tipologia_supporto_nutrizione && (
+                  <span className={`badge bg-${clientiService.getTipologiaBadgeColor(formData.tipologia_supporto_nutrizione)}`}>
+                    Nutrizione: {TIPOLOGIA_LABELS[formData.tipologia_supporto_nutrizione]}
+                  </span>
+                )}
+                {formData.tipologia_supporto_coach && (
+                  <span className={`badge bg-${clientiService.getTipologiaBadgeColor(formData.tipologia_supporto_coach)}`}>
+                    Coach: {TIPOLOGIA_LABELS[formData.tipologia_supporto_coach]}
                   </span>
                 )}
               </div>
