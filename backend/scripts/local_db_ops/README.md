@@ -20,3 +20,5 @@ Note:
 - `import_cached_migrated_sql.py` importa il dump SQL migrato locale e reimposta l'utente `dev@corposostenibile.it`.
 - `backfill_support_types_from_program.py` popola `tipologia_supporto_nutrizione` / `tipologia_supporto_coach`
   a partire da `clienti.programma_attuale`, con supporto `--dry-run` e `--overwrite`.
+- `validate_capacity_real_data.py` ricompone la capienza dai dati reali e confronta i risultati
+  con la logica backend corrente, evidenziando mismatch e clienti attivi ancora senza tipologia supporto.
