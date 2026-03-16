@@ -5,6 +5,7 @@ import clientiService, {
   GIORNI_LABELS,
   STATI_PROFESSIONISTA_COLORS,
   LUOGO_LABELS,
+  TIPOLOGIA_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
@@ -89,7 +90,7 @@ function ClientiListaCoach() {
 
   const [filters, setFilters] = useState({
     stato: searchParams.get('stato_cliente') || '',
-    tipologia: searchParams.get('tipologia') || '',
+    tipologia: searchParams.get('tipologia_supporto_coach') || '',
     coach: searchParams.get('coach_id') || '',
     statoCoach: searchParams.get('stato_coach') || '',
     statoChatCoaching: searchParams.get('stato_chat_coaching') || '',
@@ -143,7 +144,7 @@ function ClientiListaCoach() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        tipologia_supporto_coach: filters.tipologia || undefined,
         coach_id: filters.coach || undefined,
         stato_coach: filters.statoCoach || undefined,
         stato_chat_coaching: filters.statoChatCoaching || undefined,
@@ -198,7 +199,7 @@ function ClientiListaCoach() {
   const FILTER_KEY_MAP = {
     search: 'q',
     stato: 'stato_cliente',
-    tipologia: 'tipologia',
+    tipologia: 'tipologia_supporto_coach',
     coach: 'coach_id',
     statoCoach: 'stato_coach',
     statoChatCoaching: 'stato_chat_coaching',
@@ -577,6 +578,13 @@ function ClientiListaCoach() {
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-name-link">
                             {nomeCognome}
                           </Link>
+                          {(cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach) && (
+                            <div style={{ marginTop: '6px' }}>
+                              <span className="cl-badge cl-badge-programma">
+                                Coach: {TIPOLOGIA_LABELS[cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach] || cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td>
                           <div className="cl-team-avatars">

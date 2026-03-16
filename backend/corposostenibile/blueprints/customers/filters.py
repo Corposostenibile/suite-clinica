@@ -42,6 +42,15 @@ __all__ = [
     "init_app",
 ]
 
+SUPPORT_TYPE_VALUES = {"a", "b", "c", "secondario"}
+
+
+def _parse_support_type(value: str) -> str:
+    value = value.strip().lower()
+    if value not in SUPPORT_TYPE_VALUES:
+        raise ValueError()
+    return value
+
 # ────────────────────────────────────────────────────────────────────────────
 # Patch globale: len(AppenderQuery) → count()
 # ────────────────────────────────────────────────────────────────────────────
@@ -107,6 +116,8 @@ class CustomerFilterParams:
 
     q: Optional[str] = None
     tipologia: List[TipologiaClienteEnum] = field(default_factory=list)
+    tipologia_supporto_nutrizione: List[str] = field(default_factory=list)
+    tipologia_supporto_coach: List[str] = field(default_factory=list)
     
     # Filtri professionisti (FK)
     nutrizionista_id: Optional[int] = None
@@ -417,6 +428,14 @@ class CustomerFilterParams:
             tipologia=_parse_multi_value(
                 _val("tipologia_cliente", "tipologia"), TipologiaClienteEnum
             ),
+            tipologia_supporto_nutrizione=_parse_multi_value(
+                _val("tipologia_supporto_nutrizione"),
+                _parse_support_type,
+            ),
+            tipologia_supporto_coach=_parse_multi_value(
+                _val("tipologia_supporto_coach"),
+                _parse_support_type,
+            ),
             nutrizionista_id=_parse_int(args.get("nutrizionista_id"), None, 0) if args.get("nutrizionista_id") else None,
             nutrizionista_ids=nutrizionista_ids,
             coach_id=_parse_int(args.get("coach_id"), None, 0) if args.get("coach_id") else None,
@@ -668,6 +687,10 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
+    if p.tipologia_supporto_nutrizione:
+        qry = qry.filter(Cliente.tipologia_supporto_nutrizione.in_(p.tipologia_supporto_nutrizione))
+    if p.tipologia_supporto_coach:
+        qry = qry.filter(Cliente.tipologia_supporto_coach.in_(p.tipologia_supporto_coach))
 
     # -------- origine filter (Influencer) ------
     if p.origine_ids:

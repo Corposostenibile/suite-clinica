@@ -5,6 +5,7 @@ import clientiService, {
   GIORNI_LABELS,
   STATI_PROFESSIONISTA_COLORS,
   PATOLOGIE_NUTRI,
+  TIPOLOGIA_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import { useAuth } from '../../context/AuthContext';
@@ -83,7 +84,7 @@ function ClientiListaNutrizione() {
   const [filters, setFilters] = useState(() => {
     const init = {
       stato: searchParams.get('stato_cliente') || '',
-      tipologia: searchParams.get('tipologia') || '',
+      tipologia: searchParams.get('tipologia_supporto_nutrizione') || '',
       nutrizionista: searchParams.get('nutrizionista_id') || '',
       statoNutrizione: searchParams.get('stato_nutrizione') || '',
       statoChatNutrizione: searchParams.get('stato_chat_nutrizione') || '',
@@ -143,7 +144,7 @@ function ClientiListaNutrizione() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        tipologia_supporto_nutrizione: filters.tipologia || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
         stato_nutrizione: filters.statoNutrizione || undefined,
         stato_chat_nutrizione: filters.statoChatNutrizione || undefined,
@@ -198,7 +199,7 @@ function ClientiListaNutrizione() {
   const FILTER_KEY_MAP = {
     search: 'q',
     stato: 'stato_cliente',
-    tipologia: 'tipologia',
+    tipologia: 'tipologia_supporto_nutrizione',
     nutrizionista: 'nutrizionista_id',
     statoNutrizione: 'stato_nutrizione',
     statoChatNutrizione: 'stato_chat_nutrizione',
@@ -563,6 +564,13 @@ function ClientiListaNutrizione() {
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-name-link">
                             {cliente.nome_cognome || cliente.nomeCognome}
                           </Link>
+                          {(cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione) && (
+                            <div style={{ marginTop: '6px' }}>
+                              <span className="cl-badge cl-badge-programma">
+                                Nutrizione: {TIPOLOGIA_LABELS[cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione] || cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione}
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td>
                           <div className="cl-team-avatars">

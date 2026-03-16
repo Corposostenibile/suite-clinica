@@ -24,6 +24,9 @@ import {
     LUOGO_LABELS,
 } from '../../services/clientiService';
 
+const SUPPORT_TIPOLOGIA_KEYS = ['a', 'b', 'c', 'secondario'];
+const LEGACY_TIPOLOGIA_KEYS = ['a', 'b', 'c', 'stop', 'recupero', 'pausa_gt_30'];
+
 // Full day entries only (filter out legacy short codes)
 const GIORNI_FULL = Object.entries(GIORNI_LABELS).filter(([k]) =>
     !['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'].includes(k)
@@ -54,6 +57,15 @@ const ClientiFilters = ({
     // Local draft so changes only apply on "Applica"
     const [draft, setDraft] = useState({ ...filters });
     const isGeneral = mode === 'general';
+    const showTipologiaFilter = mode !== 'psicologia';
+    const tipologiaLabel = mode === 'nutrizione'
+        ? 'Tipologia supporto nutrizione'
+        : mode === 'coach'
+            ? 'Tipologia supporto coach'
+            : 'Tipologia';
+    const tipologiaOptions = (mode === 'nutrizione' || mode === 'coach')
+        ? SUPPORT_TIPOLOGIA_KEYS.map((key) => [key, TIPOLOGIA_LABELS[key] || key])
+        : LEGACY_TIPOLOGIA_KEYS.map((key) => [key, TIPOLOGIA_LABELS[key] || key]);
 
     // Sync draft when modal opens
     useEffect(() => {
@@ -130,19 +142,21 @@ const ClientiFilters = ({
                                 ))}
                             </select>
                         </div>
-                        <div className="col-md-4">
-                            <label className="form-label mb-1">Tipologia</label>
-                            <select
-                                className="form-select"
-                                value={draft.tipologia || ''}
-                                onChange={(e) => handleDraftChange('tipologia', e.target.value)}
-                            >
-                                <option value="">Tutte</option>
-                                {Object.entries(TIPOLOGIA_LABELS).map(([value, label]) => (
-                                    <option key={value} value={value}>{label}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {showTipologiaFilter && (
+                            <div className="col-md-4">
+                                <label className="form-label mb-1">{tipologiaLabel}</label>
+                                <select
+                                    className="form-select"
+                                    value={draft.tipologia || ''}
+                                    onChange={(e) => handleDraftChange('tipologia', e.target.value)}
+                                >
+                                    <option value="">Tutte</option>
+                                    {tipologiaOptions.map(([value, label]) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
                     {/* ── Professional Filters ── */}

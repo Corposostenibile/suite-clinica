@@ -83,7 +83,6 @@ function ClientiListaPsicologia() {
   const [filters, setFilters] = useState(() => {
     const init = {
       stato: searchParams.get('stato_cliente') || '',
-      tipologia: searchParams.get('tipologia') || '',
       psicologa: searchParams.get('psicologa_id') || '',
       statoPsicologia: searchParams.get('stato_psicologia') || '',
       statoChatPsicologia: searchParams.get('stato_chat_psicologia') || '',
@@ -135,7 +134,6 @@ function ClientiListaPsicologia() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
         psicologa_id: filters.psicologa || undefined,
         stato_psicologia: filters.statoPsicologia || undefined,
         stato_chat_psicologia: filters.statoChatPsicologia || undefined,
@@ -187,7 +185,6 @@ function ClientiListaPsicologia() {
   const FILTER_KEY_MAP = {
     search: 'q',
     stato: 'stato_cliente',
-    tipologia: 'tipologia',
     psicologa: 'psicologa_id',
     statoPsicologia: 'stato_psicologia',
     statoChatPsicologia: 'stato_chat_psicologia',
@@ -239,7 +236,7 @@ function ClientiListaPsicologia() {
     setSearchInput('');
     setDebouncedSearch('');
     const clean = {
-      stato: '', tipologia: '', psicologa: '',
+      stato: '', psicologa: '',
       statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
       callInizialePsicologa: '',
     };
