@@ -258,6 +258,16 @@ def create_task():
     db.session.add(task)
     db.session.commit()
 
+    # Notifica Teams: solo se si assegna il task a qualcun altro
+    if int(requested_assignee_id) != int(current_user.id):
+        try:
+            from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+            send_task_notification_task.delay(task.id, assigner_name=current_user.full_name)
+        except Exception:
+            current_app.logger.warning(
+                "[TASKS] Impossibile accodare notifica Teams per task %s", task.id
+            )
+
     return jsonify(_serialize_task(task)), 201
 
 @bp.route('/<int:task_id>', methods=['PUT'])
