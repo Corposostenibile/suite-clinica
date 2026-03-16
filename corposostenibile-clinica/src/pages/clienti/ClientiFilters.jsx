@@ -58,6 +58,7 @@ const ClientiFilters = ({
     const [draft, setDraft] = useState({ ...filters });
     const isGeneral = mode === 'general';
     const showTipologiaFilter = mode !== 'psicologia';
+    const showDualSupportFilters = isGeneral;
     const tipologiaLabel = mode === 'nutrizione'
         ? 'Tipologia supporto nutrizione'
         : mode === 'coach'
@@ -142,7 +143,37 @@ const ClientiFilters = ({
                                 ))}
                             </select>
                         </div>
-                        {showTipologiaFilter && (
+                        {showDualSupportFilters && (
+                            <>
+                                <div className="col-md-4">
+                                    <label className="form-label mb-1">Tipologia supporto nutrizione</label>
+                                    <select
+                                        className="form-select"
+                                        value={draft.tipologia_supporto_nutrizione || ''}
+                                        onChange={(e) => handleDraftChange('tipologia_supporto_nutrizione', e.target.value)}
+                                    >
+                                        <option value="">Tutte</option>
+                                        {SUPPORT_TIPOLOGIA_KEYS.map((value) => (
+                                            <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="col-md-4">
+                                    <label className="form-label mb-1">Tipologia supporto coach</label>
+                                    <select
+                                        className="form-select"
+                                        value={draft.tipologia_supporto_coach || ''}
+                                        onChange={(e) => handleDraftChange('tipologia_supporto_coach', e.target.value)}
+                                    >
+                                        <option value="">Tutte</option>
+                                        {SUPPORT_TIPOLOGIA_KEYS.map((value) => (
+                                            <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+                        {!showDualSupportFilters && showTipologiaFilter && (
                             <div className="col-md-4">
                                 <label className="form-label mb-1">{tipologiaLabel}</label>
                                 <select

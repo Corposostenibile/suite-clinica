@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import clientiService, {
   STATO_LABELS,
+  TIPOLOGIA_LABELS,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
@@ -137,7 +138,8 @@ function ClientiList() {
 
   const [filters, setFilters] = useState({
     stato: searchParams.get('stato') || '',
-    tipologia: searchParams.get('tipologia') || '',
+    tipologia_supporto_nutrizione: searchParams.get('tipologia_supporto_nutrizione') || '',
+    tipologia_supporto_coach: searchParams.get('tipologia_supporto_coach') || '',
     nutrizionista: searchParams.get('nutrizionista') || '',
     coach: searchParams.get('coach') || '',
     psicologa: searchParams.get('psicologa') || '',
@@ -208,7 +210,8 @@ function ClientiList() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        tipologia_supporto_nutrizione: filters.tipologia_supporto_nutrizione || undefined,
+        tipologia_supporto_coach: filters.tipologia_supporto_coach || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
         coach_id: filters.coach || undefined,
         psicologa_id: filters.psicologa || undefined,
@@ -315,7 +318,7 @@ function ClientiList() {
     setSearchInput('');
     setDebouncedSearch('');
     setFilters({
-      stato: '', tipologia: '', nutrizionista: '', coach: '', psicologa: '', health_manager: '',
+      stato: '', tipologia_supporto_nutrizione: '', tipologia_supporto_coach: '', nutrizionista: '', coach: '', psicologa: '', health_manager: '',
       check_day: '', reach_out: '', trasformazione_fisica: '', trasformazione_fisica_condivisa: '',
       allenamento_dal_from: '', allenamento_dal_to: '', nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
       marketing_usabile: '', marketing_stories: '', marketing_carosello: '', marketing_videofeedback: '',
@@ -563,6 +566,8 @@ function ClientiList() {
                     const dataRinnovo = cliente.data_rinnovo || cliente.dataRinnovo;
                     const programma = cliente.programma_attuale || cliente.programmaAttuale || cliente.storico_programma || cliente.storicoProgramma;
                     const statoCliente = cliente.stato_cliente || cliente.statoCliente;
+                    const tipologiaSupportoNutrizione = cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione;
+                    const tipologiaSupportoCoach = cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach;
 
                     const healthManager = cliente.health_manager_user || cliente.healthManagerUser;
                     const nutrizionistiList = cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [];
@@ -578,6 +583,20 @@ function ClientiList() {
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-name-link">
                             {nomeCognome}
                           </Link>
+                          {(tipologiaSupportoNutrizione || tipologiaSupportoCoach) && (
+                            <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {tipologiaSupportoNutrizione && (
+                                <span className="cl-badge cl-badge-programma">
+                                  Nutrizione: {TIPOLOGIA_LABELS[tipologiaSupportoNutrizione] || tipologiaSupportoNutrizione}
+                                </span>
+                              )}
+                              {tipologiaSupportoCoach && (
+                                <span className="cl-badge cl-badge-programma">
+                                  Coach: {TIPOLOGIA_LABELS[tipologiaSupportoCoach] || tipologiaSupportoCoach}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         <td>
