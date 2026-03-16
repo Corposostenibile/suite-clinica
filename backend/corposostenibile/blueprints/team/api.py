@@ -578,6 +578,56 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
     return result
 
 
+def _calculate_capacity_metrics(
+    role_type: str,
+    assigned_clients: int,
+    contractual_capacity: int,
+    type_counts: dict[str, int] | None,
+    weights_by_role: dict[str, dict[str, float]],
+) -> dict[str, float | int | bool]:
+    """
+    Calcola breakdown e metriche di capienza.
+
+    Per nutrizione/coach la percentuale segue la capienza ponderata, come richiesto in call.
+    Psicologia e Health Manager restano count-based.
+    """
+    counts = type_counts or {}
+    clienti_a = int(counts.get("a", 0) or 0)
+    clienti_b = int(counts.get("b", 0) or 0)
+    clienti_c = int(counts.get("c", 0) or 0)
+    clienti_secondario = int(counts.get("secondario", 0) or 0)
+
+    if role_type == "psicologa":
+        weighted_load = float(assigned_clients)
+    elif role_type == "health_manager":
+        weighted_load = float(assigned_clients)
+    else:
+        weight_role = _get_capacity_weight_role(role_type)
+        role_weights = weights_by_role.get(weight_role or "", {})
+        weighted_load = (
+            clienti_a * role_weights.get("a", 1.0)
+            + clienti_b * role_weights.get("b", 1.0)
+            + clienti_c * role_weights.get("c", 1.0)
+            + clienti_secondario * role_weights.get("secondario", 1.0)
+        )
+
+    capacity_percentage = (
+        0
+        if contractual_capacity <= 0
+        else round((weighted_load / contractual_capacity) * 100, 2)
+    )
+
+    return {
+        "clienti_tipo_a": clienti_a,
+        "clienti_tipo_b": clienti_b,
+        "clienti_tipo_c": clienti_c,
+        "clienti_tipo_secondario": clienti_secondario,
+        "capienza_ponderata": round(float(weighted_load), 2),
+        "percentuale_capienza": capacity_percentage,
+        "is_over_capacity": contractual_capacity > 0 and weighted_load > contractual_capacity,
+    }
+
+
 def _serialize_user(user, include_details=False, include_teams_led=True):
     """Serialize user object to JSON-safe dict."""
     data = {
@@ -2700,7 +2750,14 @@ def get_professionals_capacity():
             changed = True
 
         contractual_capacity = capacity.max_clients or 0
-        capacity_percentage = 0 if contractual_capacity <= 0 else round((assigned_clients / contractual_capacity) * 100, 2)
+        type_counts = type_breakdown_map.get((prof.id, role_type), {})
+        metrics = _calculate_capacity_metrics(
+            role_type=role_type,
+            assigned_clients=assigned_clients,
+            contractual_capacity=contractual_capacity,
+            type_counts=type_counts,
+            weights_by_role=weights_by_role,
+        )
 
         row_data = {
             'user_id': prof.id,
@@ -2720,32 +2777,15 @@ def get_professionals_capacity():
             ],
             'capienza_contrattuale': contractual_capacity,
             'clienti_assegnati': assigned_clients,
-            'percentuale_capienza': capacity_percentage,
-            'is_over_capacity': contractual_capacity > 0 and assigned_clients > contractual_capacity,
+            'percentuale_capienza': metrics['percentuale_capienza'],
+            'is_over_capacity': metrics['is_over_capacity'],
         }
 
-        type_counts = type_breakdown_map.get((prof.id, role_type), {})
-        clienti_a = type_counts.get('a', 0)
-        clienti_b = type_counts.get('b', 0)
-        clienti_c = type_counts.get('c', 0)
-        clienti_secondario = type_counts.get('secondario', 0)
-        row_data['clienti_tipo_a'] = clienti_a
-        row_data['clienti_tipo_b'] = clienti_b
-        row_data['clienti_tipo_c'] = clienti_c
-        row_data['clienti_tipo_secondario'] = clienti_secondario
-        # Psicologi: peso sempre 1 per qualsiasi tipologia
-        if role_type == 'psicologa':
-            row_data['capienza_ponderata'] = round(float(assigned_clients), 2)
-        else:
-            weight_role = _get_capacity_weight_role(role_type)
-            role_weights = weights_by_role.get(weight_role or "", {})
-            row_data['capienza_ponderata'] = round(
-                clienti_a * role_weights.get('a', 1.0) +
-                clienti_b * role_weights.get('b', 1.0) +
-                clienti_c * role_weights.get('c', 1.0) +
-                clienti_secondario * role_weights.get('secondario', 1.0),
-                2,
-            )
+        row_data['clienti_tipo_a'] = metrics['clienti_tipo_a']
+        row_data['clienti_tipo_b'] = metrics['clienti_tipo_b']
+        row_data['clienti_tipo_c'] = metrics['clienti_tipo_c']
+        row_data['clienti_tipo_secondario'] = metrics['clienti_tipo_secondario']
+        row_data['capienza_ponderata'] = metrics['capienza_ponderata']
 
         if role_type == 'health_manager':
             split = hm_split.get(prof.id, {})
@@ -2900,7 +2940,14 @@ def update_professional_capacity(user_id: int):
 
     db.session.commit()
 
-    capacity_percentage = 0 if max_clients <= 0 else round((assigned_clients / max_clients) * 100, 2)
+    type_counts = _get_assigned_clients_by_type([user.id]).get((user.id, role_type), {})
+    metrics = _calculate_capacity_metrics(
+        role_type=role_type,
+        assigned_clients=assigned_clients,
+        contractual_capacity=max_clients,
+        type_counts=type_counts,
+        weights_by_role=_get_capacity_weights_by_role(),
+    )
     return jsonify({
         'success': True,
         'message': 'Capienza contrattuale aggiornata',
@@ -2919,8 +2966,13 @@ def update_professional_capacity(user_id: int):
             ],
             'capienza_contrattuale': max_clients,
             'clienti_assegnati': assigned_clients,
-            'percentuale_capienza': capacity_percentage,
-            'is_over_capacity': max_clients > 0 and assigned_clients > max_clients,
+            'clienti_tipo_a': metrics['clienti_tipo_a'],
+            'clienti_tipo_b': metrics['clienti_tipo_b'],
+            'clienti_tipo_c': metrics['clienti_tipo_c'],
+            'clienti_tipo_secondario': metrics['clienti_tipo_secondario'],
+            'capienza_ponderata': metrics['capienza_ponderata'],
+            'percentuale_capienza': metrics['percentuale_capienza'],
+            'is_over_capacity': metrics['is_over_capacity'],
         }
     })
 

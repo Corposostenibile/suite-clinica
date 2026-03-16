@@ -1,12 +1,11 @@
-"""
-Security module for GHL webhook verification
-"""
+"""Security module for GHL webhook verification."""
 
-import hmac
 import hashlib
+import hmac
+import os
 from functools import wraps
-from flask import request, abort, current_app
-import json
+
+from flask import abort, current_app, request
 
 
 def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
@@ -35,6 +34,29 @@ def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
     return hmac.compare_digest(expected_signature, signature)
 
 
+def _is_signature_verification_optional() -> bool:
+    """
+    In ambienti locali/shared di sviluppo il secret puo' non essere configurato.
+
+    Il VPS DuckDNS usa ``FLASK_ENV=development`` ma gira con ``debug`` disattivato,
+    quindi non possiamo affidarci solo a ``current_app.debug``.
+    """
+    env_name = str(
+        current_app.config.get("FLASK_ENV")
+        or current_app.config.get("ENV")
+        or os.getenv("FLASK_ENV")
+        or ""
+    ).strip().lower()
+
+    return bool(
+        current_app.testing
+        or current_app.debug
+        or current_app.config.get("TESTING")
+        or current_app.config.get("DEBUG")
+        or env_name in {"development", "testing"}
+    )
+
+
 def require_webhook_signature(f):
     """
     Decorator che richiede una firma webhook valida
@@ -46,7 +68,7 @@ def require_webhook_signature(f):
 
         # Se non c'è secret configurato in development, logga warning ma procedi
         if not secret:
-            if current_app.config.get('FLASK_ENV') == 'development' or current_app.debug:
+            if _is_signature_verification_optional():
                 current_app.logger.warning(
                     '[GHL Security] No webhook secret configured - skipping verification (DEV MODE)'
                 )

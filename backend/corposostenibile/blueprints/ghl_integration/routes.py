@@ -9,7 +9,12 @@ from typing import Any, Dict
 import json
 
 from . import bp
-from .security import require_webhook_signature, require_permission, rate_limiter
+from .security import (
+    _is_signature_verification_optional,
+    require_permission,
+    rate_limiter,
+    require_webhook_signature,
+)
 from .validators import WebhookValidator
 from .tasks import process_acconto_open_webhook, process_chiuso_won_webhook, retry_failed_webhook
 from corposostenibile.extensions import db, csrf
@@ -73,6 +78,18 @@ def _first_non_empty(*values: Any) -> Any:
             continue
         return value
     return None
+
+
+def _dispatch_webhook_task(task, payload: Dict[str, Any]):
+    """
+    In ambienti dev/testing esegue il task inline.
+
+    Sul VPS DuckDNS condiviso non gira sempre un worker Celery dedicato:
+    l'endpoint deve comunque creare subito cliente/assegnazione.
+    """
+    if _is_signature_verification_optional():
+        return task.apply(args=[payload])
+    return task.delay(payload)
 
 
 def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -319,7 +336,7 @@ def webhook_acconto_open():
         )
 
         # Queue il task per processing asincrono
-        task = process_acconto_open_webhook.delay(payload)
+        task = _dispatch_webhook_task(process_acconto_open_webhook, payload)
 
         # Rispondi immediatamente a GHL
         return jsonify({
@@ -363,7 +380,7 @@ def webhook_nuovo_cliente():
         )
 
         # Queue il task per processing asincrono
-        task = process_acconto_open_webhook.delay(payload)
+        task = _dispatch_webhook_task(process_acconto_open_webhook, payload)
 
         # Rispondi immediatamente a GHL
         return jsonify({
@@ -503,7 +520,7 @@ def webhook_chiuso_won():
         )
 
         # Queue il task per processing asincrono
-        task = process_chiuso_won_webhook.delay(payload)
+        task = _dispatch_webhook_task(process_chiuso_won_webhook, payload)
 
         # Rispondi immediatamente a GHL
         return jsonify({
