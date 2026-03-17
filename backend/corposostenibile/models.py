@@ -1990,6 +1990,7 @@ class Cliente(TimestampMixin, db.Model):
     # Campi per gestione onboarding iniziale
     onboarding_date = db.Column(db.Date)  # Data di onboarding del cliente
     note_criticita_iniziali = db.Column(db.Text)  # Note sulle criticità iniziali rilevate durante onboarding
+    loom_link = db.Column(db.String(500))  # Link Loom (dal Sales Lead)
 
     # ───────────────────── RELAZIONI "CORE" ─────────────────────── #
 
@@ -12070,6 +12071,8 @@ class SalesLead(TimestampMixin, db.Model):
     assigned_by = db.Column(db.Integer, db.ForeignKey("users.id"))
     assigned_at = db.Column(db.DateTime)
     assignment_notes = db.Column(db.Text)
+    onboarding_notes = db.Column(db.Text)  # Note criticità onboarding (Health Manager)
+    loom_link = db.Column(db.String(500))  # Link Loom (Health Manager)
 
     # Conversione
     converted_to_client_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"))

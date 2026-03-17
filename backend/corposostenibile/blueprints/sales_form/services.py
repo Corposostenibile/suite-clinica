@@ -1324,6 +1324,8 @@ class HealthManagerService:
         lead.assigned_by = user_id
         lead.assigned_at = datetime.now()
         lead.assignment_notes = assignments.get('notes')
+        lead.onboarding_notes = assignments.get('onboarding_notes')
+        lead.loom_link = assignments.get('loom_link')
         lead.onboarding_date = assignments.get('onboarding_date')  # Data inizio abbonamento
         lead.status = LeadStatusEnum.ASSIGNED
 
@@ -1348,7 +1350,8 @@ class HealthManagerService:
         ConversionService.convert_lead_to_client(
             lead_id,
             user_id,
-            note_onboarding=assignments.get('note_onboarding'),
+            onboarding_notes=lead.onboarding_notes,
+            loom_link=lead.loom_link,
             data_call_iniziale_nutrizionista=assignments.get('data_call_iniziale_nutrizionista'),
             data_call_iniziale_coach=assignments.get('data_call_iniziale_coach'),
             data_call_iniziale_psicologia=assignments.get('data_call_iniziale_psicologia')
@@ -1364,7 +1367,8 @@ class ConversionService:
     def convert_lead_to_client(
         lead_id: int,
         user_id: int,
-        note_onboarding: str = None,
+        onboarding_notes: str = None,
+        loom_link: str = None,
         data_call_iniziale_nutrizionista = None,
         data_call_iniziale_coach = None,
         data_call_iniziale_psicologia = None
@@ -1431,7 +1435,8 @@ class ConversionService:
             # ══════════════ NUOVI CAMPI ONBOARDING ══════════════
             # Data e note onboarding (Health Manager)
             onboarding_date=lead.onboarding_date or datetime.now().date(),
-            note_criticita_iniziali=note_onboarding,
+            note_criticita_iniziali=onboarding_notes,
+            loom_link=loom_link,
 
             # Date call iniziali per i professionisti
             data_call_iniziale_nutrizionista=data_call_iniziale_nutrizionista,

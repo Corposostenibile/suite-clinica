@@ -713,6 +713,7 @@ function ClientiDetail() {
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
+  const [healthManagerSubTab, setHealthManagerSubTab] = useState('onboarding');
   // Training Plans
   const [trainingPlans, setTrainingPlans] = useState([]);
   const [loadingTrainingPlans, setLoadingTrainingPlans] = useState(false);
@@ -2573,7 +2574,8 @@ function ClientiDetail() {
     { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
     { id: 'programma', label: 'Programma', icon: 'ri-file-list-3-line' },
     { id: 'team', label: 'Team', icon: 'ri-team-line' },
-    { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
+    { id: 'health_manager', label: 'Health Manager', icon: 'ri-hospital-line' },
+    { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-restaurant-line' },
     { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
     { id: 'medico', label: 'Medico', icon: 'ri-stethoscope-line' },
@@ -3870,6 +3872,90 @@ function ClientiDetail() {
                           ) : (
                             <span className="cd-empty-text">Nessun Health Manager assegnato</span>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========== HEALTH MANAGER TAB ========== */}
+              {activeTab === 'health_manager' && (
+                <div className="cd-tab-pane">
+                  <div className="cd-inner-tabs mb-4">
+                    <button
+                      className={`cd-inner-tab ${healthManagerSubTab === 'onboarding' ? 'active' : ''}`}
+                      onClick={() => setHealthManagerSubTab('onboarding')}
+                    >
+                      <i className="ri-information-line me-2"></i>
+                      Onboarding
+                    </button>
+                  </div>
+
+                  {healthManagerSubTab === 'onboarding' && (
+                    <div className="cd-onboarding-content">
+                      <div className="row g-4">
+                        <div className="col-lg-8">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-chat-history-line me-2"></i>
+                                Note Criticità Onboarding
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body">
+                              {cliente.note_criticita_iniziali ? (
+                                <div className="cd-onboarding-notes-box p-3 rounded" style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
+                                  {cliente.note_criticita_iniziali.split('\n').map((line, i) => (
+                                    <p key={i} className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>{line}</p>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center py-5 text-muted">
+                                  <i className="ri-chat-off-line ri-2x mb-3 d-block"></i>
+                                  <p className="mb-0">Nessuna nota di criticità inserita durante l'onboarding.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-lg-4">
+                          <div className="cd-inner-card h-100">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-video-line me-2"></i>
+                                Registrazione Loom
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body d-flex flex-column align-items-center justify-content-center">
+                              {cliente.loom_link ? (
+                                <div className="text-center w-100 p-3">
+                                  <div className="cd-loom-preview mb-4 text-primary">
+                                    <i className="ri-video-chat-line" style={{ fontSize: '4rem' }}></i>
+                                  </div>
+                                  <h6 className="fw-bold mb-3">Video di Onboarding</h6>
+                                  <p className="small text-muted mb-4">
+                                    È stata registrata una video call di presentazione per questo cliente.
+                                  </p>
+                                  <a
+                                    href={cliente.loom_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary w-100 rounded-pill py-2"
+                                  >
+                                    <i className="ri-external-link-line me-2"></i>
+                                    Apri Video Loom
+                                  </a>
+                                </div>
+                              ) : (
+                                <div className="text-center py-5 text-muted">
+                                  <i className="ri-video-off-line ri-2x mb-3 d-block"></i>
+                                  <p className="mb-0 small">Nessun link Loom disponibile.</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

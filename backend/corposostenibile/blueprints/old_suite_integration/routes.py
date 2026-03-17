@@ -116,6 +116,8 @@ def _serialize_lead(lead, parsed_pkg=None):
         'health_manager_name': lead.form_responses.get('health_manager_name', '') if lead.form_responses else '',
         'onboarding_date': lead.onboarding_date.isoformat() if lead.onboarding_date else None,
         'onboarding_time': lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else None,
+        'onboarding_notes': lead.onboarding_notes,
+        'loom_link': lead.loom_link,
         'checks': checks,
         'assignments': assignments,
         'ai_analysis': lead.ai_analysis,
@@ -511,6 +513,10 @@ def api_confirm_assignment():
         lead.assigned_at = datetime.utcnow()
         if data.get('notes'):
             lead.assignment_notes = data['notes']
+        if data.get('onboarding_notes'):
+            lead.onboarding_notes = data['onboarding_notes']
+        if data.get('loom_link'):
+            lead.loom_link = data['loom_link']
 
         # Salva AI analysis
         if data.get('ai_analysis'):
@@ -578,6 +584,8 @@ def api_confirm_assignment():
                 indirizzo=lead.indirizzo,
                 paese=lead.paese,
                 storia_cliente=lead.client_story,
+                note_criticita_iniziali=lead.onboarding_notes,
+                loom_link=lead.loom_link,
                 programma_attuale=lead.custom_package_name,
                 durata_programma_giorni=parsed_pkg.get('duration_days') or None,
                 health_manager_id=lead.health_manager_id,
