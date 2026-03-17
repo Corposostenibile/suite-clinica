@@ -475,6 +475,50 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== CHECK IN INTERVENTIONS ====================
+
+  /**
+   * Get check-in interventions
+   * @param {number} id - Client ID
+   * @returns {Promise} - Interventions array
+   */
+  async getCheckInInterventions(id) {
+    const response = await api.get(`${API_BASE}/${id}/check-in-interventions`);
+    return response.data;
+  },
+
+  /**
+   * Create check-in intervention
+   * @param {number} id - Client ID
+   * @param {Object} data - Intervention data
+   * @returns {Promise} - Created intervention
+   */
+  async createCheckInIntervention(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/check-in-interventions`, data);
+    return response.data;
+  },
+
+  /**
+   * Update check-in intervention
+   * @param {number} interventionId - Intervention ID
+   * @param {Object} data - Updated data
+   * @returns {Promise} - Updated intervention
+   */
+  async updateCheckInIntervention(interventionId, data) {
+    const response = await api.put(`${API_BASE}/check-in-interventions/${interventionId}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete check-in intervention
+   * @param {number} interventionId - Intervention ID
+   * @returns {Promise} - Success response
+   */
+  async deleteCheckInIntervention(interventionId) {
+    const response = await api.delete(`${API_BASE}/check-in-interventions/${interventionId}`);
+    return response.data;
+  },
+
   // ==================== PROFESSIONAL ASSIGNMENT ====================
 
   /**

@@ -154,7 +154,7 @@ function ClientiDetail() {
   const getAllowedMainTabsForUser = useCallback(() => {
     // Tutti i ruoli vedono tutte le tab della scheda paziente
     return new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
+      'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
       'check_periodici', 'progresso', 'check_iniziali', 'tickets', 'call_bonus'
     ]);
   }, []);
@@ -714,6 +714,29 @@ function ClientiDetail() {
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
   const [healthManagerSubTab, setHealthManagerSubTab] = useState('onboarding');
+  const [onboardingDraft, setOnboardingDraft] = useState({
+    note_criticita_iniziali: '',
+    loom_link: '',
+  });
+  const [savingOnboarding, setSavingOnboarding] = useState(false);
+  const [customerCareInterventions, setCustomerCareInterventions] = useState([]);
+  const [loadingCustomerCare, setLoadingCustomerCare] = useState(false);
+  const [savingCustomerCare, setSavingCustomerCare] = useState(false);
+  const [editingCustomerCareId, setEditingCustomerCareId] = useState(null);
+  const [customerCareForm, setCustomerCareForm] = useState({
+    intervention_date: '',
+    notes: '',
+    loom_link: '',
+  });
+  const [checkInInterventions, setCheckInInterventions] = useState([]);
+  const [loadingCheckIn, setLoadingCheckIn] = useState(false);
+  const [savingCheckIn, setSavingCheckIn] = useState(false);
+  const [editingCheckInId, setEditingCheckInId] = useState(null);
+  const [checkInForm, setCheckInForm] = useState({
+    intervention_date: '',
+    notes: '',
+    loom_link: '',
+  });
   // Training Plans
   const [trainingPlans, setTrainingPlans] = useState([]);
   const [loadingTrainingPlans, setLoadingTrainingPlans] = useState(false);
@@ -945,6 +968,14 @@ function ClientiDetail() {
     };
     fetchCliente();
   }, [id]);
+
+  useEffect(() => {
+    if (!cliente) return;
+    setOnboardingDraft({
+      note_criticita_iniziali: cliente.note_criticita_iniziali || '',
+      loom_link: cliente.loom_link || '',
+    });
+  }, [cliente]);
 
   // Preload professionisti history once so HM/team badges are available immediately
   useEffect(() => {
@@ -2486,6 +2517,183 @@ function ClientiDetail() {
     }
   };
 
+  const fetchCustomerCareInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingCustomerCare(true);
+    try {
+      const response = await clientiService.getCustomerCareInterventions(id);
+      setCustomerCareInterventions(response?.data || []);
+    } catch (err) {
+      console.error('Error fetching customer care interventions:', err);
+      setError('Errore nel caricamento interventi Customer Care');
+    } finally {
+      setLoadingCustomerCare(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') {
+      fetchCustomerCareInterventions();
+    }
+  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions]);
+
+  const fetchCheckInInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingCheckIn(true);
+    try {
+      const response = await clientiService.getCheckInInterventions(id);
+      setCheckInInterventions(response?.data || []);
+    } catch (err) {
+      console.error('Error fetching check-in interventions:', err);
+      setError('Errore nel caricamento interventi Check In');
+    } finally {
+      setLoadingCheckIn(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') {
+      fetchCheckInInterventions();
+    }
+  }, [activeTab, healthManagerSubTab, fetchCheckInInterventions]);
+
+  const handleSaveOnboarding = async () => {
+    setSavingOnboarding(true);
+    try {
+      await clientiService.updateCliente(id, {
+        note_criticita_iniziali: onboardingDraft.note_criticita_iniziali || null,
+        loom_link: onboardingDraft.loom_link || null,
+      });
+      const refreshed = await clientiService.getCliente(id);
+      const c = refreshed.data || refreshed;
+      setCliente(c);
+      populateForm(c);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving onboarding:', err);
+      setError('Errore nel salvataggio onboarding');
+    } finally {
+      setSavingOnboarding(false);
+    }
+  };
+
+  const resetCustomerCareForm = () => {
+    setCustomerCareForm({
+      intervention_date: '',
+      notes: '',
+      loom_link: '',
+    });
+    setEditingCustomerCareId(null);
+  };
+
+  const handleSubmitCustomerCare = async (e) => {
+    e.preventDefault();
+    if (!customerCareForm.intervention_date || !customerCareForm.notes.trim()) {
+      setError('Inserisci data e note per l’intervento Customer Care');
+      return;
+    }
+    setSavingCustomerCare(true);
+    try {
+      const payload = {
+        intervention_date: customerCareForm.intervention_date,
+        notes: customerCareForm.notes.trim(),
+        loom_link: customerCareForm.loom_link?.trim() || null,
+      };
+      if (editingCustomerCareId) {
+        await clientiService.updateCustomerCareIntervention(editingCustomerCareId, payload);
+      } else {
+        await clientiService.createCustomerCareIntervention(id, payload);
+      }
+      await fetchCustomerCareInterventions();
+      resetCustomerCareForm();
+    } catch (err) {
+      console.error('Error saving customer care intervention:', err);
+      setError('Errore nel salvataggio intervento Customer Care');
+    } finally {
+      setSavingCustomerCare(false);
+    }
+  };
+
+  const handleEditCustomerCare = (item) => {
+    setEditingCustomerCareId(item.id);
+    setCustomerCareForm({
+      intervention_date: item.intervention_date || '',
+      notes: item.notes || '',
+      loom_link: item.loom_link || '',
+    });
+  };
+
+  const handleDeleteCustomerCare = async (interventionId) => {
+    if (!window.confirm('Eliminare questo intervento Customer Care?')) return;
+    try {
+      await clientiService.deleteCustomerCareIntervention(interventionId);
+      await fetchCustomerCareInterventions();
+      if (editingCustomerCareId === interventionId) resetCustomerCareForm();
+    } catch (err) {
+      console.error('Error deleting customer care intervention:', err);
+      setError('Errore nell’eliminazione intervento Customer Care');
+    }
+  };
+
+  const resetCheckInForm = () => {
+    setCheckInForm({
+      intervention_date: '',
+      notes: '',
+      loom_link: '',
+    });
+    setEditingCheckInId(null);
+  };
+
+  const handleSubmitCheckIn = async (e) => {
+    e.preventDefault();
+    if (!checkInForm.intervention_date || !checkInForm.notes.trim()) {
+      setError('Inserisci data e note per l’intervento Check In');
+      return;
+    }
+    setSavingCheckIn(true);
+    try {
+      const payload = {
+        intervention_date: checkInForm.intervention_date,
+        notes: checkInForm.notes.trim(),
+        loom_link: checkInForm.loom_link?.trim() || null,
+      };
+      if (editingCheckInId) {
+        await clientiService.updateCheckInIntervention(editingCheckInId, payload);
+      } else {
+        await clientiService.createCheckInIntervention(id, payload);
+      }
+      await fetchCheckInInterventions();
+      resetCheckInForm();
+    } catch (err) {
+      console.error('Error saving check-in intervention:', err);
+      setError('Errore nel salvataggio intervento Check In');
+    } finally {
+      setSavingCheckIn(false);
+    }
+  };
+
+  const handleEditCheckIn = (item) => {
+    setEditingCheckInId(item.id);
+    setCheckInForm({
+      intervention_date: item.intervention_date || '',
+      notes: item.notes || '',
+      loom_link: item.loom_link || '',
+    });
+  };
+
+  const handleDeleteCheckIn = async (interventionId) => {
+    if (!window.confirm('Eliminare questo intervento Check In?')) return;
+    try {
+      await clientiService.deleteCheckInIntervention(interventionId);
+      await fetchCheckInInterventions();
+      if (editingCheckInId === interventionId) resetCheckInForm();
+    } catch (err) {
+      console.error('Error deleting check-in intervention:', err);
+      setError('Errore nell’eliminazione intervento Check In');
+    }
+  };
+
   // Save form
   const handleSave = async () => {
     setSaving(true);
@@ -3890,6 +4098,20 @@ function ClientiDetail() {
                       <i className="ri-information-line me-2"></i>
                       Onboarding
                     </button>
+                    <button
+                      className={`cd-inner-tab ${healthManagerSubTab === 'customer_care' ? 'active' : ''}`}
+                      onClick={() => setHealthManagerSubTab('customer_care')}
+                    >
+                      <i className="ri-customer-service-2-line me-2"></i>
+                      Customer Care
+                    </button>
+                    <button
+                      className={`cd-inner-tab ${healthManagerSubTab === 'check_in' ? 'active' : ''}`}
+                      onClick={() => setHealthManagerSubTab('check_in')}
+                    >
+                      <i className="ri-phone-find-line me-2"></i>
+                      Check In
+                    </button>
                   </div>
 
                   {healthManagerSubTab === 'onboarding' && (
@@ -3904,18 +4126,28 @@ function ClientiDetail() {
                               </span>
                             </div>
                             <div className="cd-inner-card-body">
-                              {cliente.note_criticita_iniziali ? (
-                                <div className="cd-onboarding-notes-box p-3 rounded" style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
-                                  {cliente.note_criticita_iniziali.split('\n').map((line, i) => (
-                                    <p key={i} className="mb-2" style={{ whiteSpace: 'pre-wrap' }}>{line}</p>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="text-center py-5 text-muted">
-                                  <i className="ri-chat-off-line ri-2x mb-3 d-block"></i>
-                                  <p className="mb-0">Nessuna nota di criticità inserita durante l'onboarding.</p>
-                                </div>
-                              )}
+                              <textarea
+                                className="form-control"
+                                rows={9}
+                                placeholder="Inserisci note criticità onboarding..."
+                                value={onboardingDraft.note_criticita_iniziali}
+                                onChange={(e) => setOnboardingDraft((prev) => ({ ...prev, note_criticita_iniziali: e.target.value }))}
+                                disabled={!canSaveGlobalClientCard}
+                              />
+                              <div className="d-flex justify-content-end mt-3">
+                                <button
+                                  className="cd-btn-save"
+                                  type="button"
+                                  onClick={handleSaveOnboarding}
+                                  disabled={savingOnboarding || !canSaveGlobalClientCard}
+                                >
+                                  {savingOnboarding ? (
+                                    <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
+                                  ) : (
+                                    <><i className="ri-save-line"></i>Salva Onboarding</>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -3925,33 +4157,303 @@ function ClientiDetail() {
                             <div className="cd-inner-card-header">
                               <span className="cd-inner-card-title">
                                 <i className="ri-video-line me-2"></i>
-                                Registrazione Loom
+                                Link Loom Onboarding
                               </span>
                             </div>
-                            <div className="cd-inner-card-body d-flex flex-column align-items-center justify-content-center">
-                              {cliente.loom_link ? (
-                                <div className="text-center w-100 p-3">
-                                  <div className="cd-loom-preview mb-4 text-primary">
-                                    <i className="ri-video-chat-line" style={{ fontSize: '4rem' }}></i>
-                                  </div>
-                                  <h6 className="fw-bold mb-3">Video di Onboarding</h6>
-                                  <p className="small text-muted mb-4">
-                                    È stata registrata una video call di presentazione per questo cliente.
-                                  </p>
-                                  <a
-                                    href={cliente.loom_link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="btn btn-primary w-100 rounded-pill py-2"
+                            <div className="cd-inner-card-body">
+                              <input
+                                type="url"
+                                className="form-control mb-3"
+                                placeholder="https://www.loom.com/share/..."
+                                value={onboardingDraft.loom_link}
+                                onChange={(e) => setOnboardingDraft((prev) => ({ ...prev, loom_link: e.target.value }))}
+                                disabled={!canSaveGlobalClientCard}
+                              />
+                              {onboardingDraft.loom_link ? (
+                                <a
+                                  href={onboardingDraft.loom_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-outline-primary w-100"
+                                >
+                                  <i className="ri-external-link-line me-2"></i>
+                                  Apri Video Loom
+                                </a>
+                              ) : (
+                                <div className="text-center py-4 text-muted small">
+                                  Nessun link Loom disponibile.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {healthManagerSubTab === 'customer_care' && (
+                    <div className="cd-onboarding-content">
+                      <div className="row g-4">
+                        <div className="col-lg-5">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-phone-line me-2"></i>
+                                Intervento Customer Care Call
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body">
+                              <form onSubmit={handleSubmitCustomerCare}>
+                                <div className="mb-3">
+                                  <label className="form-label">Data</label>
+                                  <input
+                                    type="date"
+                                    className="form-control"
+                                    value={customerCareForm.intervention_date}
+                                    onChange={(e) => setCustomerCareForm((prev) => ({ ...prev, intervention_date: e.target.value }))}
+                                    disabled={!canSaveGlobalClientCard}
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Note</label>
+                                  <textarea
+                                    className="form-control"
+                                    rows={5}
+                                    value={customerCareForm.notes}
+                                    onChange={(e) => setCustomerCareForm((prev) => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Descrivi l'intervento customer care..."
+                                    disabled={!canSaveGlobalClientCard}
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Link Loom</label>
+                                  <input
+                                    type="url"
+                                    className="form-control"
+                                    value={customerCareForm.loom_link}
+                                    onChange={(e) => setCustomerCareForm((prev) => ({ ...prev, loom_link: e.target.value }))}
+                                    placeholder="https://www.loom.com/share/..."
+                                    disabled={!canSaveGlobalClientCard}
+                                  />
+                                </div>
+                                <div className="d-flex gap-2 justify-content-end">
+                                  {editingCustomerCareId && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-secondary"
+                                      onClick={resetCustomerCareForm}
+                                      disabled={!canSaveGlobalClientCard}
+                                    >
+                                      Annulla
+                                    </button>
+                                  )}
+                                  <button
+                                    type="submit"
+                                    className="cd-btn-save"
+                                    disabled={savingCustomerCare || !canSaveGlobalClientCard}
                                   >
-                                    <i className="ri-external-link-line me-2"></i>
-                                    Apri Video Loom
-                                  </a>
+                                    {savingCustomerCare ? (
+                                      <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
+                                    ) : (
+                                      <>{editingCustomerCareId ? 'Aggiorna Intervento' : 'Aggiungi Intervento'}</>
+                                    )}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-lg-7">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-list-check-2 me-2"></i>
+                                Storico Interventi
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body">
+                              {loadingCustomerCare ? (
+                                <div className="text-center py-4 text-muted">Caricamento interventi...</div>
+                              ) : customerCareInterventions.length === 0 ? (
+                                <div className="text-center py-5 text-muted">
+                                  <i className="ri-inbox-line ri-2x mb-2 d-block"></i>
+                                  Nessun intervento customer care registrato.
                                 </div>
                               ) : (
+                                <div className="d-flex flex-column gap-3">
+                                  {customerCareInterventions.map((item) => (
+                                    <div key={item.id} className="p-3 rounded border">
+                                      <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <div className="fw-semibold">
+                                          <i className="ri-calendar-line me-2 text-primary"></i>
+                                          {item.intervention_date || '-'}
+                                        </div>
+                                        <div className="d-flex gap-2">
+                                          {canSaveGlobalClientCard && (
+                                            <button className="btn btn-sm btn-outline-primary" onClick={() => handleEditCustomerCare(item)}>
+                                              <i className="ri-edit-line"></i>
+                                            </button>
+                                          )}
+                                          {canSaveGlobalClientCard && (
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteCustomerCare(item.id)}>
+                                              <i className="ri-delete-bin-line"></i>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{item.notes || '-'}</div>
+                                      {item.loom_link && (
+                                        <a
+                                          href={item.loom_link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="d-inline-flex align-items-center gap-2 mt-2 small"
+                                        >
+                                          <i className="ri-external-link-line"></i>
+                                          Apri Loom
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {healthManagerSubTab === 'check_in' && (
+                    <div className="cd-onboarding-content">
+                      <div className="row g-4">
+                        <div className="col-lg-5">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-phone-find-line me-2"></i>
+                                Intervento Check In Call
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body">
+                              <form onSubmit={handleSubmitCheckIn}>
+                                <div className="mb-3">
+                                  <label className="form-label">Data</label>
+                                  <input
+                                    type="date"
+                                    className="form-control"
+                                    value={checkInForm.intervention_date}
+                                    onChange={(e) => setCheckInForm((prev) => ({ ...prev, intervention_date: e.target.value }))}
+                                    disabled={!canSaveGlobalClientCard}
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Note</label>
+                                  <textarea
+                                    className="form-control"
+                                    rows={5}
+                                    value={checkInForm.notes}
+                                    onChange={(e) => setCheckInForm((prev) => ({ ...prev, notes: e.target.value }))}
+                                    placeholder="Descrivi l'intervento check in..."
+                                    disabled={!canSaveGlobalClientCard}
+                                    required
+                                  />
+                                </div>
+                                <div className="mb-3">
+                                  <label className="form-label">Link Loom</label>
+                                  <input
+                                    type="url"
+                                    className="form-control"
+                                    value={checkInForm.loom_link}
+                                    onChange={(e) => setCheckInForm((prev) => ({ ...prev, loom_link: e.target.value }))}
+                                    placeholder="https://www.loom.com/share/..."
+                                    disabled={!canSaveGlobalClientCard}
+                                  />
+                                </div>
+                                <div className="d-flex gap-2 justify-content-end">
+                                  {editingCheckInId && (
+                                    <button
+                                      type="button"
+                                      className="btn btn-outline-secondary"
+                                      onClick={resetCheckInForm}
+                                      disabled={!canSaveGlobalClientCard}
+                                    >
+                                      Annulla
+                                    </button>
+                                  )}
+                                  <button
+                                    type="submit"
+                                    className="cd-btn-save"
+                                    disabled={savingCheckIn || !canSaveGlobalClientCard}
+                                  >
+                                    {savingCheckIn ? (
+                                      <><span className="spinner-border spinner-border-sm"></span>Salvataggio...</>
+                                    ) : (
+                                      <>{editingCheckInId ? 'Aggiorna Intervento' : 'Aggiungi Intervento'}</>
+                                    )}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="col-lg-7">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-header">
+                              <span className="cd-inner-card-title">
+                                <i className="ri-list-check-2 me-2"></i>
+                                Storico Check In
+                              </span>
+                            </div>
+                            <div className="cd-inner-card-body">
+                              {loadingCheckIn ? (
+                                <div className="text-center py-4 text-muted">Caricamento interventi...</div>
+                              ) : checkInInterventions.length === 0 ? (
                                 <div className="text-center py-5 text-muted">
-                                  <i className="ri-video-off-line ri-2x mb-3 d-block"></i>
-                                  <p className="mb-0 small">Nessun link Loom disponibile.</p>
+                                  <i className="ri-inbox-line ri-2x mb-2 d-block"></i>
+                                  Nessun intervento check in registrato.
+                                </div>
+                              ) : (
+                                <div className="d-flex flex-column gap-3">
+                                  {checkInInterventions.map((item) => (
+                                    <div key={item.id} className="p-3 rounded border">
+                                      <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <div className="fw-semibold">
+                                          <i className="ri-calendar-line me-2 text-primary"></i>
+                                          {item.intervention_date || '-'}
+                                        </div>
+                                        <div className="d-flex gap-2">
+                                          {canSaveGlobalClientCard && (
+                                            <button className="btn btn-sm btn-outline-primary" onClick={() => handleEditCheckIn(item)}>
+                                              <i className="ri-edit-line"></i>
+                                            </button>
+                                          )}
+                                          {canSaveGlobalClientCard && (
+                                            <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteCheckIn(item.id)}>
+                                              <i className="ri-delete-bin-line"></i>
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{item.notes || '-'}</div>
+                                      {item.loom_link && (
+                                        <a
+                                          href={item.loom_link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="d-inline-flex align-items-center gap-2 mt-2 small"
+                                        >
+                                          <i className="ri-external-link-line"></i>
+                                          Apri Loom
+                                        </a>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
                               )}
                             </div>
