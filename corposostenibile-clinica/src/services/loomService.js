@@ -49,6 +49,51 @@ loomApi.interceptors.response.use(
 );
 
 const loomService = {
+  saveSupportRecording: async (payload) => {
+    const csrfToken = getCsrfToken() || '';
+    const response = await axios.post(
+      '/loom/api/recordings',
+      {
+        loom_link: payload.loomLink,
+        title: payload.title,
+        note: payload.note,
+        cliente_id: payload.clienteId ?? null,
+      },
+      {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+          'X-CSRF-Token': csrfToken,
+        },
+      }
+    );
+    return response.data;
+  },
+
+  searchPatients: async (query, limit = 20) => {
+    const response = await axios.get('/loom/api/patients/search', {
+      params: {
+        q: query || '',
+        limit,
+      },
+      withCredentials: true,
+    });
+    return response?.data?.items || [];
+  },
+
+  getRecordings: async (params = {}) => {
+    const response = await axios.get('/loom/api/recordings', {
+      params: {
+        cliente_id: params.clienteId,
+        with_cliente: typeof params.withCliente === 'boolean' ? String(params.withCliente) : undefined,
+        submitter_user_id: params.submitterUserId,
+      },
+      withCredentials: true,
+    });
+    return response?.data?.recordings || [];
+  },
+
   /**
    * Salva link Loom per un evento GHL
    * Crea o aggiorna il record Meeting locale associato

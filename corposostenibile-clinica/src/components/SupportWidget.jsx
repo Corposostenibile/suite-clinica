@@ -2,186 +2,202 @@
  * =============================================================================
  * SUPPORT WIDGET - BOTTONE DI ASSISTENZA FLOTTANTE
  * =============================================================================
- *
- * Questo componente crea un bottone flottante (FAB - Floating Action Button)
- * che apre un pannello di assistenza contestuale.
- *
- * Offre accesso rapido a:
- * - Tour Guidato
- * - Pagina Supporto
- * - Documentazione
- * - Contatto Supporto
- *
- * AUTORE: Pitch Partner Team
- * VERSIONE: 1.0.0
- * LICENZA: MIT
- *
- * =============================================================================
- *
- * DIPENDENZE RICHIESTE:
- * ---------------------
- * npm install react-icons react-router-dom
- *
- * Icone utilizzate da react-icons/fa:
- * - FaTimes (chiudi)
- * - FaRoute (tour)
- * - FaLifeRing (pagina supporto)
- * - FaBook (documentazione)
- * - FaHeadset (supporto)
- * - FaBoxOpen (icona pagina default)
- * - FaChevronRight (freccia)
- *
- * =============================================================================
- *
- * COME USARE QUESTO COMPONENTE:
- * -----------------------------
- *
- * 1. Copia questo file nella tua cartella components:
- *    /src/components/SupportWidget.js
- *
- * 2. Importa il componente nella tua pagina:
- *    import SupportWidget from './components/SupportWidget';
- *
- * 3. Aggiungi il componente alla tua pagina:
- *    <SupportWidget
- *      pageTitle="Titolo della Pagina"
- *      pageDescription="Descrizione di cosa fa questa pagina"
- *      onStartTour={() => setMostraTour(true)}
- *      onContactSupport={() => window.open('mailto:support@tuaapp.com')}
- *    />
- *
- * =============================================================================
- *
- * PROPS DEL COMPONENTE:
- * ---------------------
- *
- * | Prop             | Tipo         | Obbligatorio | Descrizione                           |
- * |------------------|--------------|--------------|---------------------------------------|
- * | pageTitle        | string       | NO           | Titolo della pagina corrente          |
- * | pageDescription  | string       | NO           | Descrizione della pagina              |
- * | pageIcon         | ReactElement | NO           | Icona della pagina (default: FaBoxOpen)|
- * | docsSection      | string       | NO           | Ancora per link documentazione        |
- * | onStartTour      | function     | NO           | Callback click "Tour Guidato"         |
- * | onOpenDocs       | function     | NO           | Callback click "Documentazione"       |
- * | onContactSupport | function     | NO           | Callback click "Supporto"             |
- * | logoSrc          | string       | NO           | URL logo personalizzato               |
- * | brandName        | string       | NO           | Nome brand (default: 'Pitch Partner') |
- * | accentColor      | string       | NO           | Colore accento (default: '#85FF00')   |
- *
- * =============================================================================
- *
- * ESEMPIO COMPLETO DI UTILIZZO:
- * -----------------------------
- *
- * import React, { useState } from 'react';
- * import SupportWidget from './components/SupportWidget';
- * import GuidedTour from './components/GuidedTour';
- * import { FaBoxOpen } from 'react-icons/fa';
- *
- * function MiaPagina() {
- *   const [mostraTour, setMostraTour] = useState(false);
- *
- *   const stepDelTour = [
- *     // ... definisci i tuoi step qui
- *   ];
- *
- *   return (
- *     <div>
- *       <h1>La Mia Pagina</h1>
- *
- *       {/* Il widget apparirà in basso a destra *\/}
- *       <SupportWidget
- *         pageTitle="Gestione Inventario"
- *         pageDescription="In questa pagina puoi gestire tutti gli elementi del tuo inventario. Filtra, cerca e modifica i tuoi asset."
- *         pageIcon={FaBoxOpen}
- *         docsSection="inventario"
- *         onStartTour={() => setMostraTour(true)}
- *         onOpenDocs={() => window.open('/docs#inventario', '_blank')}
- *         onContactSupport={() => window.open('mailto:supporto@miaapp.com')}
- *         brandName="La Mia App"
- *         accentColor="#3B82F6"
- *       />
- *
- *       {/* Integra con GuidedTour *\/}
- *       <GuidedTour
- *         steps={stepDelTour}
- *         isOpen={mostraTour}
- *         onClose={() => setMostraTour(false)}
- *         onComplete={() => setMostraTour(false)}
- *       />
- *     </div>
- *   );
- * }
- *
- * =============================================================================
- *
- * PERSONALIZZAZIONE COLORI:
- * -------------------------
- *
- * Il colore principale del widget può essere cambiato tramite la prop accentColor:
- *
- * - Verde (default): accentColor="#85FF00"
- * - Blu:             accentColor="#3B82F6"
- * - Viola:           accentColor="#8B5CF6"
- * - Rosa:            accentColor="#EC4899"
- *
- * Questo colore viene usato per:
- * - Bordo del bottone flottante
- * - Glow effect
- * - Hover sui pulsanti del menu
- *
- * =============================================================================
  */
 
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { FaTimes, FaRoute, FaBook, FaHeadset, FaBoxOpen, FaChevronRight, FaLifeRing } from 'react-icons/fa';
+import {
+  FaBook,
+  FaBoxOpen,
+  FaChevronRight,
+  FaHeadset,
+  FaLifeRing,
+  FaRoute,
+  FaTimes,
+  FaVideo,
+} from 'react-icons/fa';
+import Swal from 'sweetalert2';
+import AuthContext from '../context/AuthContext';
+import useLoom from '../hooks/useLoom';
+import loomService from '../services/loomService';
+import { getTourContext, normalizeTourSpecialtyKey } from '../utils/tourScope';
+
+let pageWidgetInstances = 0;
+const pageWidgetListeners = new Set();
+
+const emitPageWidgetInstances = () => {
+  pageWidgetListeners.forEach((listener) => listener(pageWidgetInstances));
+};
 
 function SupportWidget({
   pageTitle,
   pageDescription,
   pageIcon,
   docsSection,
+  docsAudience,
+  docsSpecialty,
+  tourOptions,
   onStartTour,
   onOpenDocs,
   onContactSupport,
   logoSrc,
   brandName = 'Pitch Partner',
-  accentColor = '#85FF00'
+  accentColor = '#85FF00',
+  variant = 'page',
+  minimal = false,
 }) {
-  // =========================================================================
-  // STATO DEL COMPONENTE
-  // =========================================================================
-  const [isOpen, setIsOpen] = useState(false);  // Controlla apertura pannello
+  const [isOpen, setIsOpen] = useState(false);
+  const [isSavingLoom, setIsSavingLoom] = useState(false);
+  const [isLoomDecisionOpen, setIsLoomDecisionOpen] = useState(false);
+  const [loomDraftVideo, setLoomDraftVideo] = useState(null);
+  const [associatePatient, setAssociatePatient] = useState(false);
+  const [patientQuery, setPatientQuery] = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState(null);
+  const [patientOptions, setPatientOptions] = useState([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+  const [hasPageScopedWidget, setHasPageScopedWidget] = useState(pageWidgetInstances > 0);
+
   const navigate = useNavigate();
+  const auth = useContext(AuthContext);
+  const currentUser = auth?.user || null;
+  const {
+    isAdminOrCco,
+    audience: inferredDocsAudience,
+    specialtyKey: inferredSpecialtyKey,
+  } = getTourContext(currentUser);
+  const guideAudience = docsAudience || inferredDocsAudience;
+  const guideSpecialty = normalizeTourSpecialtyKey(docsSpecialty)
+    || (isAdminOrCco ? 'all' : inferredSpecialtyKey || 'all');
+  const resolvedTourOptions = Array.isArray(tourOptions) && tourOptions.length > 0
+    ? tourOptions
+    : isAdminOrCco
+      ? [
+          {
+            title: 'Tour Team Leader',
+            description: 'Apri il percorso di coordinamento e supervisione del team',
+            audience: 'team_leader',
+            iconColor: '#059669',
+            iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+          },
+          {
+            title: 'Tour Professionista',
+            description: 'Apri il percorso operativo pensato per il professionista',
+            audience: 'professionista',
+            iconColor: '#0F766E',
+            iconBg: 'linear-gradient(135deg, #CCFBF1, #99F6E4)',
+          },
+        ]
+      : [
+          {
+            title: guideAudience === 'team_leader' ? 'Tour Team Leader' : 'Tour Guidato',
+            description: guideAudience === 'team_leader'
+              ? 'Scopri il percorso di coordinamento del team passo dopo passo'
+              : 'Scopri le funzionalità passo dopo passo',
+            audience: guideAudience,
+            iconColor: '#059669',
+            iconBg: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)',
+          },
+        ];
 
+  const {
+    startRecording,
+    isRecording,
+    error: loomError,
+    isReady: isLoomReady,
+    isInitialized: isLoomInitialized,
+    isSupported: isLoomSupported,
+  } = useLoom();
 
-  // =========================================================================
-  // HANDLERS
-  // =========================================================================
+  const showToast = (icon, title) => {
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon,
+      title,
+      showConfirmButton: false,
+      timer: 2600,
+      timerProgressBar: true,
+    });
+  };
 
-  // Avvia il tour guidato
-  const handleStartTour = () => {
+  useEffect(() => {
+    const listener = (count) => {
+      setHasPageScopedWidget(count > 0);
+    };
+    pageWidgetListeners.add(listener);
+    listener(pageWidgetInstances);
+    return () => {
+      pageWidgetListeners.delete(listener);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (variant !== 'page') return undefined;
+    pageWidgetInstances += 1;
+    emitPageWidgetInstances();
+    return () => {
+      pageWidgetInstances = Math.max(0, pageWidgetInstances - 1);
+      emitPageWidgetInstances();
+    };
+  }, [variant]);
+
+  useEffect(() => {
+    if (!isLoomDecisionOpen || !associatePatient) {
+      setPatientOptions([]);
+      setIsLoadingPatients(false);
+      return;
+    }
+
+    let isActive = true;
+    const timerId = window.setTimeout(async () => {
+      try {
+        setIsLoadingPatients(true);
+        const items = await loomService.searchPatients(patientQuery, 20);
+        if (isActive) {
+          setPatientOptions(items);
+        }
+      } catch (err) {
+        if (isActive) {
+          console.error('[LoomWidget] patients search error', err);
+          setPatientOptions([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingPatients(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      isActive = false;
+      window.clearTimeout(timerId);
+    };
+  }, [isLoomDecisionOpen, associatePatient, patientQuery]);
+
+  const handleStartTour = (audience = guideAudience, tourType = 'general') => {
     setIsOpen(false);
     if (onStartTour) {
-      // Piccolo delay per permettere la chiusura del pannello
-      setTimeout(() => onStartTour(), 300);
+      setTimeout(() => onStartTour(audience, tourType), 300);
     }
   };
 
-  // Apri documentazione
   const handleOpenDocs = () => {
     setIsOpen(false);
     if (onOpenDocs) {
       onOpenDocs();
-    } else {
-      // Comportamento default: naviga alla pagina docs
-      const docsUrl = docsSection ? `/documentazione#${docsSection}` : '/documentazione';
-      navigate(docsUrl);
+      return;
     }
+
+    const params = new URLSearchParams();
+    params.set('audience', guideAudience);
+    params.set('specialty', guideSpecialty || 'all');
+    const docsUrl = docsSection
+      ? `/documentazione?${params.toString()}#${docsSection}`
+      : `/documentazione?${params.toString()}`;
+    navigate(docsUrl);
   };
 
-  // Contatta supporto
   const handleContactSupport = () => {
     setIsOpen(false);
     if (onContactSupport) {
@@ -189,24 +205,75 @@ function SupportWidget({
     }
   };
 
-  // Vai alla pagina supporto
   const handleGoToSupport = () => {
     setIsOpen(false);
     navigate('/supporto');
   };
 
-  // Icona della pagina (usa quella passata o quella default)
+  const resetLoomDecisionState = () => {
+    setIsLoomDecisionOpen(false);
+    setLoomDraftVideo(null);
+    setAssociatePatient(false);
+    setPatientQuery('');
+    setSelectedPatientId(null);
+    setPatientOptions([]);
+    setIsLoadingPatients(false);
+  };
+
+  const handleSaveLoomDecision = async () => {
+    if (!loomDraftVideo?.sharedUrl) {
+      showToast('error', 'Link Loom non disponibile');
+      return;
+    }
+
+    if (associatePatient && !selectedPatientId) {
+      showToast('warning', 'Seleziona un paziente o disattiva l\'associazione');
+      return;
+    }
+
+    try {
+      setIsSavingLoom(true);
+      await loomService.saveSupportRecording({
+        loomLink: loomDraftVideo.sharedUrl,
+        title: loomDraftVideo.title || pageTitle || 'Registrazione supporto',
+        clienteId: associatePatient ? selectedPatientId : null,
+      });
+      showToast('success', 'Loom salvato nella tua libreria');
+      resetLoomDecisionState();
+    } catch (err) {
+      console.error('[LoomWidget] save error', err);
+      const message = err?.response?.data?.message || err?.message || 'Errore salvataggio Loom';
+      showToast('error', message);
+    } finally {
+      setIsSavingLoom(false);
+    }
+  };
+
+  const handleRecordLoom = () => {
+    if (!isLoomReady) {
+      showToast('error', loomError || 'Loom non pronto. Verifica APP_ID e ricarica la pagina.');
+      return;
+    }
+
+    setIsOpen(false);
+    startRecording((video) => {
+      if (!video?.sharedUrl) {
+        showToast('error', 'Registrazione completata ma link Loom non disponibile');
+        return;
+      }
+      setLoomDraftVideo(video);
+      setIsLoomDecisionOpen(true);
+    });
+  };
+
   const PageIcon = pageIcon || FaBoxOpen;
 
-  // =========================================================================
-  // RENDER COMPONENTE
-  // =========================================================================
-  return (
+  if (variant === 'global' && hasPageScopedWidget) {
+    return null;
+  }
+
+  return createPortal(
     <>
-      {/* =====================================================================
-          BOTTONE FLOTTANTE (FAB)
-          Posizionato in basso a destra, sempre visibile
-          ===================================================================== */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         style={{
@@ -223,10 +290,10 @@ function SupportWidget({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 9999,
+          zIndex: 2147483004,
           transition: 'all 0.3s ease',
           transform: isOpen ? 'scale(0.9) rotate(90deg)' : 'scale(1)',
-          overflow: 'hidden'
+          overflow: 'hidden',
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = isOpen ? 'scale(0.95) rotate(90deg)' : 'scale(1.1)';
@@ -238,29 +305,22 @@ function SupportWidget({
         }}
       >
         {isOpen ? (
-          // Icona X quando aperto
           <FaTimes size={24} color={accentColor} />
         ) : logoSrc ? (
-          // Logo personalizzato se fornito
           <img
             src={logoSrc}
             alt="Supporto"
             style={{
               width: '100%',
               height: '100%',
-              objectFit: 'cover'
+              objectFit: 'cover',
             }}
           />
         ) : (
-          // Icona ? di default
           <span style={{ color: accentColor, fontSize: '28px', fontWeight: 'bold' }}>?</span>
         )}
       </button>
 
-      {/* =====================================================================
-          OVERLAY SFONDO
-          Sfondo scuro con blur quando il pannello è aperto
-          ===================================================================== */}
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
@@ -272,16 +332,12 @@ function SupportWidget({
             bottom: 0,
             background: 'rgba(0, 0, 0, 0.5)',
             backdropFilter: 'blur(4px)',
-            zIndex: 9997,
-            animation: 'fadeIn 0.2s ease'
+            zIndex: 2147483002,
+            animation: 'fadeIn 0.2s ease',
           }}
         />
       )}
 
-      {/* =====================================================================
-          PANNELLO ASSISTENZA
-          Pannello che si apre sopra il bottone flottante
-          ===================================================================== */}
       {isOpen && (
         <div
           style={{
@@ -290,25 +346,27 @@ function SupportWidget({
             right: '24px',
             width: '380px',
             maxWidth: 'calc(100vw - 48px)',
+            maxHeight: 'calc(100vh - 140px)',
             background: 'white',
             borderRadius: '20px',
             boxShadow: '0 10px 60px rgba(0,0,0,0.2)',
-            zIndex: 9998,
+            zIndex: 2147483003,
             overflow: 'hidden',
-            animation: 'slideUp 0.3s ease'
+            display: 'flex',
+            flexDirection: 'column',
+            animation: 'slideUp 0.3s ease',
           }}
         >
-          {/* Header del Pannello */}
           <div
             style={{
               background: 'linear-gradient(135deg, #1A1A1A, #2D2D2D)',
               padding: '20px',
               display: 'flex',
               alignItems: 'center',
-              gap: '14px'
+              gap: '14px',
+              flexShrink: 0,
             }}
           >
-            {/* Logo/Icona Brand */}
             <div
               style={{
                 width: '44px',
@@ -317,7 +375,7 @@ function SupportWidget({
                 background: 'white',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
               }}
             >
               {logoSrc ? (
@@ -330,7 +388,6 @@ function SupportWidget({
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#1A1A1A' }}>?</span>
               )}
             </div>
-            {/* Titolo */}
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '16px', color: 'white' }}>
                 {brandName}
@@ -339,7 +396,6 @@ function SupportWidget({
                 Centro Assistenza
               </div>
             </div>
-            {/* Bottone Chiudi */}
             <button
               onClick={() => setIsOpen(false)}
               style={{
@@ -352,124 +408,128 @@ function SupportWidget({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+              }}
             >
               <FaTimes size={16} color="white" />
             </button>
           </div>
 
-          {/* Informazioni Pagina Corrente */}
-          <div style={{ padding: '24px' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '14px',
-              marginBottom: '20px'
-            }}>
-              {/* Icona Pagina */}
-              <div style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <PageIcon size={20} color="#6366F1" />
-              </div>
-              {/* Titolo Pagina */}
-              <div>
-                <div style={{
-                  fontSize: '13px',
-                  color: '#6B7280',
-                  marginBottom: '4px'
-                }}>
-                  Ti trovi nella pagina
+          <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {pageTitle && (
+            <>
+              <div style={{ padding: '24px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '14px',
+                    marginBottom: '20px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '44px',
+                      height: '44px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <PageIcon size={20} color="#6366F1" />
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        fontSize: '13px',
+                        color: '#6B7280',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Ti trovi nella pagina
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '17px',
+                        fontWeight: 700,
+                        color: '#1A1A1A',
+                        lineHeight: '1.3',
+                      }}
+                    >
+                      {pageTitle}
+                    </div>
+                  </div>
                 </div>
-                <div style={{
-                  fontSize: '17px',
-                  fontWeight: 700,
-                  color: '#1A1A1A',
-                  lineHeight: '1.3'
-                }}>
-                  {pageTitle || 'Pagina Corrente'}
-                </div>
+
+                {pageDescription && (
+                  <div
+                    style={{
+                      background: '#F9FAFB',
+                      borderRadius: '12px',
+                      padding: '16px',
+                      fontSize: '14px',
+                      lineHeight: '1.6',
+                      color: '#4B5563',
+                    }}
+                  >
+                    {pageDescription}
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Descrizione Pagina */}
-            {pageDescription && (
-              <div style={{
-                background: '#F9FAFB',
-                borderRadius: '12px',
-                padding: '16px',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                color: '#4B5563'
-              }}>
-                {pageDescription}
-              </div>
-            )}
-          </div>
+              <div
+                style={{
+                  height: '1px',
+                  background: '#E5E7EB',
+                  margin: '0 24px',
+                }}
+              />
+            </>
+          )}
 
-          {/* Linea Separatore */}
-          <div style={{
-            height: '1px',
-            background: '#E5E7EB',
-            margin: '0 24px'
-          }} />
-
-          {/* Opzioni di Aiuto */}
           <div style={{ padding: '24px' }}>
-            <div style={{
-              fontSize: '14px',
-              fontWeight: 600,
-              color: '#1A1A1A',
-              marginBottom: '16px'
-            }}>
-              Hai bisogno?
-            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-              {/* Opzione 1: Tour Guidato */}
-              {onStartTour && (
-                <OpzioneAiuto
-                  icon={<FaRoute size={18} color="#059669" />}
-                  iconBg="linear-gradient(135deg, #ECFDF5, #D1FAE5)"
-                  titolo="Tour Guidato"
-                  descrizione="Scopri le funzionalità passo dopo passo"
-                  onClick={handleStartTour}
-                  accentColor={accentColor}
-                />
-              )}
-
-              {/* Opzione 2: Pagina Supporto */}
-              <OpzioneAiuto
-                icon={<FaLifeRing size={18} color="#8B5CF6" />}
-                iconBg="linear-gradient(135deg, #F3E8FF, #E9D5FF)"
-                titolo="Pagina Supporto"
-                descrizione="Accedi al centro assistenza completo"
-                onClick={handleGoToSupport}
-                accentColor={accentColor}
-              />
-
-              {/* Opzione 3: Documentazione */}
               <OpzioneAiuto
                 icon={<FaBook size={18} color="#6366F1" />}
                 iconBg="linear-gradient(135deg, #EEF2FF, #E0E7FF)"
-                titolo="Documentazione Ufficiale"
+                titolo="Documentazione"
                 descrizione="Guide e manuali dettagliati"
                 onClick={handleOpenDocs}
                 accentColor={accentColor}
               />
 
-              {/* Opzione 4: Contatta Supporto */}
+              <OpzioneAiuto
+                icon={<FaVideo size={18} color="#DC2626" />}
+                iconBg="linear-gradient(135deg, #FEE2E2, #FECACA)"
+                titolo={isRecording || isSavingLoom ? 'Registrazione in corso...' : isLoomDecisionOpen ? 'Conferma salvataggio...' : 'Registra Loom'}
+                descrizione="Registra e salva un Loom nella tua libreria"
+                onClick={handleRecordLoom}
+                accentColor={accentColor}
+                disabled={isRecording || isSavingLoom || isLoomDecisionOpen}
+              />
+
+              {onStartTour && resolvedTourOptions.map((option, index) => (
+                <OpzioneAiuto
+                  key={`${option.title}-${option.audience || guideAudience}-${option.tourType || 'general'}-${index}`}
+                  icon={<FaRoute size={18} color={option.iconColor || '#059669'} />}
+                  iconBg={option.iconBg || 'linear-gradient(135deg, #ECFDF5, #D1FAE5)'}
+                  titolo={option.title}
+                  descrizione={option.description}
+                  onClick={() => handleStartTour(option.audience || guideAudience, option.tourType || 'general')}
+                  accentColor={accentColor}
+                />
+              ))}
+
               {onContactSupport && (
                 <OpzioneAiuto
                   icon={<FaHeadset size={18} color="#D97706" />}
@@ -482,13 +542,168 @@ function SupportWidget({
               )}
             </div>
           </div>
+          </div>
         </div>
       )}
 
-      {/* =====================================================================
-          ANIMAZIONI CSS
-          Definisce le animazioni di apertura
-          ===================================================================== */}
+      {isLoomDecisionOpen && (
+        <>
+          <div
+            onClick={() => {
+              if (!isSavingLoom) resetLoomDecisionState();
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 2147483005,
+              animation: 'fadeIn 0.2s ease',
+            }}
+          />
+          <div
+            style={{
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '560px',
+              maxWidth: 'calc(100vw - 32px)',
+              background: 'white',
+              borderRadius: '16px',
+              boxShadow: '0 18px 80px rgba(0,0,0,0.35)',
+              zIndex: 2147483006,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '18px', fontWeight: 700, color: '#111827' }}>Salva registrazione Loom</div>
+              <button
+                onClick={() => {
+                  if (!isSavingLoom) resetLoomDecisionState();
+                }}
+                disabled={isSavingLoom}
+                style={{ border: 'none', background: 'transparent', cursor: isSavingLoom ? 'not-allowed' : 'pointer', color: '#6B7280' }}
+              >
+                <FaTimes size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '10px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '6px' }}>Video registrato</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>
+                  {loomDraftVideo?.title || 'Registrazione supporto'}
+                </div>
+                <a
+                  href={loomDraftVideo?.sharedUrl || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ fontSize: '13px', color: '#2563EB', wordBreak: 'break-all' }}
+                >
+                  {loomDraftVideo?.sharedUrl}
+                </a>
+              </div>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '14px', color: '#111827' }}>
+                <input
+                  type="checkbox"
+                  checked={associatePatient}
+                  disabled={isSavingLoom}
+                  onChange={(e) => {
+                    const nextValue = e.target.checked;
+                    setAssociatePatient(nextValue);
+                    if (!nextValue) {
+                      setPatientQuery('');
+                      setSelectedPatientId(null);
+                      setPatientOptions([]);
+                    }
+                  }}
+                />
+                Associa a un paziente
+              </label>
+
+              {associatePatient && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Cerca paziente..."
+                    value={patientQuery}
+                    disabled={isSavingLoom}
+                    onChange={(e) => setPatientQuery(e.target.value)}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                    }}
+                  />
+                  <select
+                    value={selectedPatientId || ''}
+                    disabled={isSavingLoom || isLoadingPatients || patientOptions.length === 0}
+                    onChange={(e) => setSelectedPatientId(e.target.value ? Number(e.target.value) : null)}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #D1D5DB',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      background: 'white',
+                    }}
+                  >
+                    <option value="">
+                      {isLoadingPatients ? 'Ricerca in corso...' : patientOptions.length ? 'Seleziona un paziente' : 'Nessun paziente trovato'}
+                    </option>
+                    {patientOptions.map((patient) => (
+                      <option key={patient.cliente_id} value={patient.cliente_id}>
+                        {patient.nome_cognome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #E5E7EB', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={resetLoomDecisionState}
+                disabled={isSavingLoom}
+                style={{
+                  border: '1px solid #D1D5DB',
+                  background: 'white',
+                  color: '#111827',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  cursor: isSavingLoom ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleSaveLoomDecision}
+                disabled={isSavingLoom || !loomDraftVideo?.sharedUrl || (associatePatient && !selectedPatientId)}
+                style={{
+                  border: 'none',
+                  background: '#2563EB',
+                  color: 'white',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  fontWeight: 600,
+                  cursor: isSavingLoom ? 'not-allowed' : 'pointer',
+                  opacity: (isSavingLoom || !loomDraftVideo?.sharedUrl || (associatePatient && !selectedPatientId)) ? 0.6 : 1,
+                }}
+              >
+                {isSavingLoom ? 'Salvataggio...' : 'Salva'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <style>{`
         @keyframes slideUp {
           from {
@@ -509,22 +724,16 @@ function SupportWidget({
           }
         }
       `}</style>
-    </>
+    </>,
+    document.body
   );
 }
 
-/**
- * =============================================================================
- * COMPONENTE INTERNO: OpzioneAiuto
- * =============================================================================
- *
- * Renderizza una singola opzione nel menu di aiuto.
- * Usato internamente da SupportWidget.
- */
-function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor }) {
+function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor, disabled = false }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -533,34 +742,37 @@ function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor 
         background: 'white',
         border: '2px solid #E5E7EB',
         borderRadius: '12px',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.2s',
         textAlign: 'left',
-        width: '100%'
+        width: '100%',
+        opacity: disabled ? 0.6 : 1,
       }}
       onMouseEnter={(e) => {
+        if (disabled) return;
         e.currentTarget.style.borderColor = accentColor;
-        e.currentTarget.style.background = `${accentColor}0D`; // 5% opacità
+        e.currentTarget.style.background = `${accentColor}0D`;
       }}
       onMouseLeave={(e) => {
+        if (disabled) return;
         e.currentTarget.style.borderColor = '#E5E7EB';
         e.currentTarget.style.background = 'white';
       }}
     >
-      {/* Icona */}
-      <div style={{
-        width: '40px',
-        height: '40px',
-        borderRadius: '10px',
-        background: iconBg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0
-      }}>
+      <div
+        style={{
+          width: '40px',
+          height: '40px',
+          borderRadius: '10px',
+          background: iconBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
         {icon}
       </div>
-      {/* Testo */}
       <div style={{ flex: 1 }}>
         <div style={{ fontWeight: 600, fontSize: '14px', color: '#1A1A1A' }}>
           {titolo}
@@ -569,7 +781,6 @@ function OpzioneAiuto({ icon, iconBg, titolo, descrizione, onClick, accentColor 
           {descrizione}
         </div>
       </div>
-      {/* Freccia */}
       <FaChevronRight size={14} color="#9CA3AF" />
     </button>
   );

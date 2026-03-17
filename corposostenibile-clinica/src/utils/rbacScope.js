@@ -35,8 +35,8 @@ export function isProfessionistaStandard(user) {
 export function normalizeSpecialtyGroup(specialty) {
   const s = String(specialty || '').toLowerCase();
   if (s === 'nutrizione' || s === 'nutrizionista') return 'nutrizione';
-  if (s === 'psicologia' || s === 'psicologo') return 'psicologia';
-  if (s === 'coach') return 'coach';
+  if (s === 'psicologia' || s === 'psicologo' || s === 'psicologa') return 'psicologia';
+  if (s === 'coach' || s === 'coaching') return 'coach';
   if (s === 'medico') return 'medico';
   return null;
 }
@@ -92,4 +92,10 @@ export function canAccessTrainingPage(user) {
 
 export function canAccessSecondaryModules(user) {
   return !isHealthManagerScopeUser(user);
+}
+
+export function canAccessLoomLibrary(user) {
+  if (!user) return false;
+  if (user.role === 'influencer') return false;
+  return true;
 }

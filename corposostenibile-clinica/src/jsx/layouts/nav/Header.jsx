@@ -204,9 +204,9 @@ const Header = ({ onNote }) => {
               {user?.role !== 'influencer' && (
                 <li className="nav-item dropdown notification_dropdown">
                   <Link
-                    to="/supporto"
+                    to="/documentazione"
                     className="nav-link bell pulse-hover"
-                    title="Supporto"
+                    title="Documentazione"
                     style={{ transition: 'all 0.3s ease' }}
                   >
                     <i className="fas fa-question-circle" style={{ fontSize: '20px', color: '#64748b' }} />

@@ -31,6 +31,7 @@ const SUPPORT_SECTIONS = [
         description: 'Gestione attività, scadenze, solleciti automatici e organizzazione del lavoro.',
         icon: 'ri-task-line',
         gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+        docsGuideKey: 'task',
     },
     {
         id: 'post-it',
@@ -45,6 +46,7 @@ const SUPPORT_SECTIONS = [
         description: 'Training assegnati, formazione erogata e richieste di crescita professionale tra colleghi.',
         icon: 'ri-graduation-cap-line',
         gradient: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+        docsGuideKey: 'formazione',
     },
     {
         id: 'pazienti',
@@ -52,6 +54,7 @@ const SUPPORT_SECTIONS = [
         description: 'Lista pazienti, scheda dettagliata, filtri avanzati e monitoraggio percorsi.',
         icon: 'ri-group-line',
         gradient: 'linear-gradient(135deg, #10b981, #059669)',
+        docsGuideKey: 'lista-pazienti',
     },
     {
         id: 'assegnazioni',
@@ -66,6 +69,7 @@ const SUPPORT_SECTIONS = [
         description: 'Compilazione check, monitoraggio progressi e storico dei pazienti.',
         icon: 'ri-checkbox-circle-line',
         gradient: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+        docsGuideKey: 'check-azienda',
     },
     {
         id: 'team',
@@ -158,6 +162,14 @@ const Support = () => {
                                     <button className="sup-btn-go disabled" disabled>
                                         <i className="ri-time-line"></i>
                                         In Arrivo
+                                    </button>
+                                ) : section.docsGuideKey ? (
+                                    <button
+                                        className="sup-btn-go"
+                                        onClick={() => navigate(`/documentazione#${section.docsGuideKey}`)}
+                                    >
+                                        Vai alla Documentazione
+                                        <i className="ri-arrow-right-line"></i>
                                     </button>
                                 ) : (
                                     <button

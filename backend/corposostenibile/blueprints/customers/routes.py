@@ -32,6 +32,8 @@ from corposostenibile.models import (
     CartellaClinica,
     Cliente,
     ClientCheckAssignment,
+    WeeklyCheck,
+    WeeklyCheckResponse,
     MealPlan,
     TrainingPlan,
     TrainingLocation,
@@ -1476,6 +1478,12 @@ def api_list() -> Any:
     # Filtro per Influencer: vincola alle origini assegnate (M2M)
     if current_user.role == UserRoleEnum.influencer:
         origine_ids = [o.id for o in current_user.influencer_origins]
+        if not origine_ids:
+            return jsonify({
+                "items": [],
+                "pagination": {"page": 1, "pages": 0, "total": 0},
+                "message": "Nessuna origine associata"
+            })
         params = replace(params, origine_ids=origine_ids)
 
     # Apply trial user filter to query
@@ -1557,6 +1565,286 @@ def api_list() -> Any:
             }
 
     return jsonify(result)
+
+
+@api_bp.route("/expiring", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_expiring() -> Any:
+    """Clienti in scadenza filtrati per fascia temporale (30/60/90 giorni)."""
+    from datetime import date, timedelta
+
+    days = request.args.get("days", 30, type=int)
+    if days not in (30, 60, 90):
+        days = 30
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    q = (request.args.get("q") or "").strip()
+
+    today = date.today()
+    limit_date = today + timedelta(days=days)
+    # Range: 30 = 0-30, 60 = 30-60, 90 = 60-90
+    range_start = today if days == 30 else today + timedelta(days=days - 30)
+    hm_filter = request.args.get("health_manager_id", type=int)
+
+    query = apply_role_filtering(
+        db.session.query(Cliente).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= range_start,
+            Cliente.data_rinnovo <= limit_date,
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(Cliente.data_rinnovo.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for c in pagination.items:
+        giorni = (c.data_rinnovo - today).days if c.data_rinnovo else None
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "data_rinnovo": c.data_rinnovo.isoformat() if c.data_rinnovo else None,
+            "giorni_rimanenti": giorni,
+            "programma_attuale": c.programma_attuale or None,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    # Conteggi per fascia
+    count_base = apply_role_filtering(
+        db.session.query(db.func.count(Cliente.cliente_id)).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= today,
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+    count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
+    count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
+    count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+        "counts": {
+            "30": count_30,
+            "60": count_60,
+            "90": count_90,
+        },
+    })
+
+
+@api_bp.route("/unsatisfied", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_unsatisfied() -> Any:
+    """Clienti insoddisfatti in base alla media voti weekly check."""
+    from sqlalchemy import func as sa_func
+
+    threshold = request.args.get("threshold", 8, type=int)
+    if threshold not in (6, 7, 8):
+        threshold = 8
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    q = (request.args.get("q") or "").strip()
+    hm_filter = request.args.get("health_manager_id", type=int)
+
+    # Subquery: media dei voti professionista + progresso per cliente
+    # Prende solo le ultime 4 risposte (ultimo mese circa) per ciascun weekly check
+    rating_cols = [
+        WeeklyCheckResponse.nutritionist_rating,
+        WeeklyCheckResponse.coach_rating,
+        WeeklyCheckResponse.psychologist_rating,
+        WeeklyCheckResponse.progress_rating,
+    ]
+
+    # Calcolo media: AVG di tutti i rating non-null tra professionisti + progresso
+    avg_expr = sa_func.avg(
+        sa_func.coalesce(WeeklyCheckResponse.nutritionist_rating, None)
+    )
+
+    # Subquery con join per ottenere cliente_id e media combinata
+    from sqlalchemy import case, literal_column, and_
+
+    # Calcoliamo la media di tutti i rating disponibili per response
+    # (nutritionist + coach + psychologist + progress) / count_non_null
+    subq = (
+        db.session.query(
+            WeeklyCheck.cliente_id.label("cliente_id"),
+            sa_func.avg(
+                (
+                    sa_func.coalesce(WeeklyCheckResponse.nutritionist_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.coach_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.psychologist_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.progress_rating.cast(db.Float), 0)
+                ) / sa_func.nullif(
+                    (
+                        case((WeeklyCheckResponse.nutritionist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.coach_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.psychologist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.progress_rating.isnot(None), 1), else_=0)
+                    ),
+                    0,
+                )
+            ).label("avg_rating"),
+            sa_func.avg(WeeklyCheckResponse.nutritionist_rating.cast(db.Float)).label("avg_nutrizione"),
+            sa_func.avg(WeeklyCheckResponse.coach_rating.cast(db.Float)).label("avg_coach"),
+            sa_func.avg(WeeklyCheckResponse.psychologist_rating.cast(db.Float)).label("avg_psicologia"),
+            sa_func.avg(WeeklyCheckResponse.progress_rating.cast(db.Float)).label("avg_percorso"),
+            sa_func.max(WeeklyCheckResponse.submit_date).label("last_check_date"),
+            sa_func.count(WeeklyCheckResponse.id).label("total_responses"),
+        )
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(
+            # Almeno un rating deve essere compilato
+            db.or_(
+                WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                WeeklyCheckResponse.coach_rating.isnot(None),
+                WeeklyCheckResponse.psychologist_rating.isnot(None),
+                WeeklyCheckResponse.progress_rating.isnot(None),
+            )
+        )
+        .group_by(WeeklyCheck.cliente_id)
+        .subquery()
+    )
+
+    # Query principale: clienti con media sotto la soglia
+    query = apply_role_filtering(
+        db.session.query(
+            Cliente, subq.c.avg_rating,
+            subq.c.avg_nutrizione, subq.c.avg_coach, subq.c.avg_psicologia, subq.c.avg_percorso,
+            subq.c.last_check_date, subq.c.total_responses,
+        )
+        .join(subq, Cliente.cliente_id == subq.c.cliente_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+            subq.c.avg_rating < threshold,
+            *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(subq.c.avg_rating.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for row in pagination.items:
+        c = row[0]
+        avg_r = row[1]
+        avg_n = row[2]
+        avg_c = row[3]
+        avg_p = row[4]
+        avg_perc = row[5]
+        last_date = row[6]
+        total_resp = row[7]
+
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "avg_rating": round(float(avg_r), 1) if avg_r else None,
+            "avg_nutrizione": round(float(avg_n), 1) if avg_n else None,
+            "avg_coach": round(float(avg_c), 1) if avg_c else None,
+            "avg_psicologia": round(float(avg_p), 1) if avg_p else None,
+            "avg_percorso": round(float(avg_perc), 1) if avg_perc else None,
+            "last_check_date": last_date.isoformat() if last_date else None,
+            "total_responses": total_resp or 0,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    # Conteggi per soglia
+    count_base = (
+        db.session.query(sa_func.count(sa_func.distinct(subq.c.cliente_id)))
+        .select_from(Cliente)
+        .join(subq, Cliente.cliente_id == subq.c.cliente_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+    count_base = apply_role_filtering(count_base)
+    count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
+    count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
+    count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+        "counts": {
+            "8": count_8,
+            "7": count_7,
+            "6": count_6,
+        },
+    })
 
 
 def _require_cliente_scope_or_403(cliente_id: int) -> None:

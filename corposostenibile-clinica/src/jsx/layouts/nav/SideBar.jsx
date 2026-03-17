@@ -9,6 +9,7 @@ import {
   canAccessAiAssignments,
   canAccessCapacity,
   canAccessGlobalCheckPage,
+  canAccessLoomLibrary,
   canAccessQualityPage,
   canAccessTeamLists,
   canAccessTrialPages,
@@ -91,9 +92,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'CLIENTI', 'TEAM'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Dashboard', 'Pazienti', 'Check', 'MAIN MENU', 'CLIENTI'].includes(item.title))
             : user?.is_trial
@@ -126,6 +127,7 @@ const SideBar = () => {
                 if (item.title === 'Capienze' && !canAccessCapacity(user)) return false;
                 if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
                 if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
+                if (item.title === 'Libreria Loom' && !canAccessLoomLibrary(user)) return false;
                 if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
                   return false;
                 }

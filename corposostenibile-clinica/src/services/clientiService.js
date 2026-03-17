@@ -386,6 +386,16 @@ const clientiService = {
     return response.data;
   },
 
+  async getClientiExpiring(params = {}) {
+    const response = await api.get(`${API_BASE}/expiring`, { params });
+    return response.data;
+  },
+
+  async getClientiUnsatisfied(params = {}) {
+    const response = await api.get(`${API_BASE}/unsatisfied`, { params });
+    return response.data;
+  },
+
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'

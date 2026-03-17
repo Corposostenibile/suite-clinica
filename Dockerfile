@@ -2,6 +2,8 @@
 # STAGE 1a: Clinica Frontend Build (Node.js)
 # ==========================================
 FROM node:20-alpine AS frontend-builder
+ARG VITE_LOOM_PUBLIC_APP_ID=a0db7b3b-987d-4b5f-ae28-67ca5f025c85
+ENV VITE_LOOM_PUBLIC_APP_ID=${VITE_LOOM_PUBLIC_APP_ID}
 WORKDIR /app
 COPY corposostenibile-clinica/package*.json ./frontend/
 WORKDIR /app/frontend

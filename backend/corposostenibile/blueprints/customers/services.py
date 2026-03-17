@@ -1348,6 +1348,13 @@ def apply_role_filtering(query):
             )
         )
 
+    # Influencer: vede solo i clienti con origine tra quelle assegnate (M2M)
+    elif user_role == UserRoleEnum.influencer:
+        origine_ids = [o.id for o in current_user.influencer_origins]
+        if not origine_ids:
+            return query.filter(False)  # Nessuna origine → nessun cliente
+        return query.filter(Cliente.origine_id.in_(origine_ids))
+
     # health_manager: gestito sopra con admin/CCO (vede e modifica tutti i clienti)
 
     return query

@@ -18,11 +18,8 @@ const taskService = {
         return response.data;
     },
 
-    /**
-     * Recupera statistiche admin dashboard (task stale + ranking velocità)
-     */
-    getAdminDashboardStats: async () => {
-        const response = await api.get('/tasks/admin-dashboard-stats');
+    getFilterOptions: async () => {
+        const response = await api.get('/tasks/filter-options');
         return response.data;
     },
 

@@ -56,7 +56,7 @@ function Login() {
       );
 
       if (response.success) {
-        const defaultRoute = response.user?.role === 'influencer' ? '/clienti-lista' : '/welcome';
+        const defaultRoute = '/welcome';
         const next = searchParams.get('next') || defaultRoute;
         window.location.href = next;
       }

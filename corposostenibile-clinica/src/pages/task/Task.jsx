@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, useRef } from 'react';
 import { useOutletContext, useNavigate, useSearchParams } from 'react-router-dom';
 import taskService, { TASK_CATEGORIES, TASK_PRIORITIES } from '../../services/taskService';
-import teamService, { ROLE_LABELS, SPECIALTY_LABELS } from '../../services/teamService';
+import { ROLE_LABELS, SPECIALTY_LABELS } from '../../services/teamService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
 import {
@@ -12,6 +12,7 @@ import {
     FaArrowRight,
     FaFilter
 } from 'react-icons/fa';
+import { getRequestedTourAudience, getTourContext } from '../../utils/tourScope';
 import './Task.css';
 
 function Task() {
@@ -26,6 +27,7 @@ function Task() {
     const [loading, setLoading] = useState(true);
     const [filterOptionsLoading, setFilterOptionsLoading] = useState(false);
     const [mostraTour, setMostraTour] = useState(false);
+    const [tourAudienceOverride, setTourAudienceOverride] = useState(null);
     const [searchParams] = useSearchParams();
     const [adminFilters, setAdminFilters] = useState({
         team_id: '',
@@ -35,123 +37,215 @@ function Task() {
     });
     const [adminFilterOptions, setAdminFilterOptions] = useState({
         teams: [],
-        members: [],
+        assignees: [],
+        roles: [],
+        specialties: [],
     });
     const [teamLeaderAssigneeId, setTeamLeaderAssigneeId] = useState('');
     const [detailTask, setDetailTask] = useState(null);
 
     const PAGE_SIZE = 15;
+    const deferredSearchTerm = useDeferredValue(searchTerm.trim());
+    const filterOptionsLoadedRef = useRef(false);
+    const [pagination, setPagination] = useState({
+        page: 1,
+        per_page: PAGE_SIZE,
+        total: 0,
+        pages: 1,
+    });
     const isGlobalTaskViewer = Boolean(
         user?.is_admin ||
         user?.role === 'admin' ||
         user?.specialty === 'cco'
     );
-    const isTeamLeaderTaskViewer = Boolean(user?.role === 'team_leader' && !isGlobalTaskViewer);
+    const {
+        isRestrictedTeamLeader: isTeamLeaderTaskViewer,
+        specialtyMeta: tourSpecialtyMeta,
+        isTeamLeaderTour: isTeamLeaderTaskTour,
+    } = getTourContext(user, tourAudienceOverride);
     const showAssigneeColumn = isGlobalTaskViewer || isTeamLeaderTaskViewer;
 
     useEffect(() => {
         if (searchParams.get('startTour') === 'true') {
+            const requestedAudience = getRequestedTourAudience(searchParams);
+            if (requestedAudience) {
+                setTourAudienceOverride(requestedAudience);
+            }
             setMostraTour(true);
         }
     }, [searchParams]);
 
-    const filteredTasks = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
-        if (!q) return tasks;
-        return tasks.filter((task) => {
-            const title = (task.title || '').toLowerCase();
-            const description = (task.description || '').toLowerCase();
-            const client = (task.client_name || '').toLowerCase();
-            const category = (task.category || '').toLowerCase();
-            return (
-                title.includes(q) ||
-                description.includes(q) ||
-                client.includes(q) ||
-                category.includes(q)
-            );
-        });
-    }, [tasks, searchTerm]);
+    const totalPages = Math.max(1, pagination.pages || 1);
+    const totalItems = pagination.total || 0;
+    const currentPerPage = pagination.per_page || PAGE_SIZE;
+    const pageStart = totalItems > 0 ? ((currentPage - 1) * currentPerPage) + 1 : 0;
+    const pageEnd = totalItems > 0 ? Math.min(currentPage * currentPerPage, totalItems) : 0;
 
-    const totalPages = Math.max(1, Math.ceil(filteredTasks.length / PAGE_SIZE));
-    const pageStart = (currentPage - 1) * PAGE_SIZE;
-    const paginatedTasks = filteredTasks.slice(pageStart, pageStart + PAGE_SIZE);
-
-    const firstActionableIndex = paginatedTasks.findIndex(
+    const firstActionableIndex = tasks.findIndex(
         (t) => !t.completed && (t.client_id || (t.payload && (t.payload.client_id || t.payload.url)))
     );
 
-    const tourSteps = [
-        {
-            target: '[data-tour="header"]',
-            title: 'Benvenuto al Sistema Task',
-            content: 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
-            placement: 'bottom',
-            icon: <FaTasks size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
-        },
-        {
-            target: '[data-tour="stats-cards"]',
-            title: 'Dashboard Task',
-            content: 'Le card mostrano il numero di attività aperte per categoria.',
-            placement: 'bottom',
-            icon: <FaStream size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
-        },
-        {
-            target: '[data-tour="task-table"]',
-            title: 'La Tua Lista Attività',
-            content: 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
-            placement: 'top',
-            icon: <FaClipboardList size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
-        },
-        {
-            target: '[data-tour="task-checkbox"]',
-            title: 'Completamento Task',
-            content: 'Clicca la checkbox quando hai finito l’attività.',
-            placement: 'right',
-            icon: <FaCheckCircle size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
-        },
-        {
-            target: '[data-tour="task-action"]',
-            title: 'Navigazione Intelligente',
-            content: 'Il pulsante Vai ti porta direttamente nel punto operativo.',
-            placement: 'left',
-            icon: <FaArrowRight size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
-        },
-        {
-            target: '[data-tour="task-tabs"]',
-            title: 'Filtri Comodi',
-            content: 'Usa tab, ricerca e switch completate per restringere la vista.',
-            placement: 'bottom',
-            icon: <FaFilter size={18} color="white" />,
-            iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+    const specialtyScopeLabel = tourSpecialtyMeta?.scopeLabel || 'area operativa';
+
+    const tourSteps = useMemo(() => {
+        const base = isTeamLeaderTaskTour ? [
+            {
+                target: '[data-tour="header"]',
+                title: 'Console Team Task',
+                content: tourSpecialtyMeta
+                    ? `Qui leggi il carico operativo della tua ${specialtyScopeLabel} e capisci dove intervenire prima che il backlog peggiori.`
+                    : 'Qui leggi il carico operativo del team e capisci dove intervenire prima che il backlog peggiori.',
+                placement: 'bottom',
+                icon: <FaTasks size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+            },
+            {
+                target: '[data-tour="stats-cards"]',
+                title: 'Backlog per Categoria',
+                content: tourSpecialtyMeta
+                    ? `Le card ti aiutano a capire dove si concentra il lavoro aperto nella tua ${specialtyScopeLabel}: onboarding, reminder, solleciti e check.`
+                    : 'Le card ti aiutano a capire dove si concentra il lavoro aperto: onboarding, reminder, solleciti e check.',
+                placement: 'bottom',
+                icon: <FaStream size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+            },
+            {
+                target: '[data-tour="task-table"]',
+                title: 'Lista Operativa Team',
+                content: tourSpecialtyMeta
+                    ? `Questa lista deve dirti chi e in ritardo nella tua ${specialtyScopeLabel}, su quali pazienti e con che priorita.`
+                    : 'Questa lista deve dirti chi e in ritardo, su quali pazienti e con che priorita.',
+                placement: 'top',
+                icon: <FaClipboardList size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+            },
+            {
+                target: '[data-tour="task-checkbox"]',
+                title: 'Lettura dell Avanzamento',
+                content: 'La checkbox ti fa capire subito cosa viene chiuso davvero e cosa resta aperto per troppo tempo.',
+                placement: 'right',
+                icon: <FaCheckCircle size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+            },
+            {
+                target: '[data-tour="task-action"]',
+                title: 'Vai al Contesto',
+                content: tourSpecialtyMeta
+                    ? `Apri il task nel punto operativo corretto quando devi verificare un caso della tua ${specialtyScopeLabel} o fare coaching.`
+                    : 'Apri il task nel punto operativo corretto quando devi verificare un caso o fare coaching.',
+                placement: 'left',
+                icon: <FaArrowRight size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+            },
+            {
+                target: '[data-tour="task-tabs"]',
+                title: 'Vista di Supervisione',
+                content: 'Usa tab, ricerca e completate per leggere continuita, ritardi e task che stanno invecchiando male.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+            }
+        ] : [
+            {
+                target: '[data-tour="header"]',
+                title: 'Benvenuto al Sistema Task',
+                content: tourSpecialtyMeta
+                    ? `Questa è la tua centrale operativa per gestire attività, scadenze e solleciti della tua ${specialtyScopeLabel}.`
+                    : 'Questa è la tua centrale operativa per gestire attività, scadenze e solleciti.',
+                placement: 'bottom',
+                icon: <FaTasks size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #6366F1, #8B5CF6)'
+            },
+            {
+                target: '[data-tour="stats-cards"]',
+                title: 'Dashboard Task',
+                content: tourSpecialtyMeta
+                    ? `Le card mostrano il numero di attività aperte nella tua ${specialtyScopeLabel} per categoria.`
+                    : 'Le card mostrano il numero di attività aperte per categoria.',
+                placement: 'bottom',
+                icon: <FaStream size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #3B82F6, #60A5FA)'
+            },
+            {
+                target: '[data-tour="task-table"]',
+                title: 'La Tua Lista Attività',
+                content: tourSpecialtyMeta
+                    ? `Ogni riga contiene attività rilevanti per la tua ${specialtyScopeLabel}, con cliente, scadenza e priorità.`
+                    : 'Ogni riga contiene tipo attività, cliente, scadenza e priorità.',
+                placement: 'top',
+                icon: <FaClipboardList size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #10B981, #34D399)'
+            },
+            {
+                target: '[data-tour="task-checkbox"]',
+                title: 'Completamento Task',
+                content: 'Clicca la checkbox quando hai finito l attività e tieni la dashboard pulita.',
+                placement: 'right',
+                icon: <FaCheckCircle size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #22c55e, #16a34a)'
+            },
+            {
+                target: '[data-tour="task-action"]',
+                title: 'Navigazione Intelligente',
+                content: tourSpecialtyMeta
+                    ? `Il pulsante Vai ti porta direttamente nel punto operativo corretto della tua ${specialtyScopeLabel}, senza navigazione manuale.`
+                    : 'Il pulsante Vai ti porta direttamente nel punto operativo corretto senza navigazione manuale.',
+                placement: 'left',
+                icon: <FaArrowRight size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #8B5CF6, #D946EF)'
+            },
+            {
+                target: '[data-tour="task-tabs"]',
+                title: 'Filtri Comodi',
+                content: 'Usa tab, ricerca e switch completate per restringere la vista.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #F59E0B, #FBBF24)'
+            }
+        ];
+
+        if (isGlobalTaskViewer && isTeamLeaderTaskTour) {
+            base.push({
+                target: '[data-tour="task-admin-filters"]',
+                title: 'Filtri di Supervisione',
+                content: 'Puoi filtrare per team, ruolo, specialità e assegnatario per individuare colli di bottiglia trasversali.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
+            });
+        } else if (isTeamLeaderTaskViewer && isTeamLeaderTaskTour) {
+            base.push({
+                target: '[data-tour="task-team-filters"]',
+                title: 'Filtro Team Leader',
+                content: tourSpecialtyMeta
+                    ? `Seleziona un ${tourSpecialtyMeta.roleLabel} del tuo team per fare focus su carico, ritardi e avanzamento reale nella ${specialtyScopeLabel}.`
+                    : 'Seleziona un professionista del tuo team per fare focus su carico, ritardi e avanzamento reale.',
+                placement: 'bottom',
+                icon: <FaFilter size={18} color="white" />,
+                iconBg: 'linear-gradient(135deg, #0ea5e9, #0284c7)'
+            });
         }
-    ];
+
+        return base;
+    }, [isGlobalTaskViewer, isTeamLeaderTaskTour, isTeamLeaderTaskViewer, specialtyScopeLabel, tourSpecialtyMeta]);
 
     const filteredTourSteps = tourSteps.filter(step => {
         if (step.target === '[data-tour="task-action"]' && firstActionableIndex === -1) return false;
         return true;
     });
 
-    const fetchStats = useCallback(async () => {
-        try {
-            const data = await taskService.getStats();
-            setStats(data);
-        } catch (error) {
-            console.error('Error fetching stats:', error);
-        }
-    }, []);
-
     const fetchTasks = useCallback(async () => {
         setLoading(true);
         try {
             const params = {
-                completed: showCompleted ? 'true' : 'false'
+                completed: showCompleted ? 'true' : 'false',
+                paginate: 'true',
+                page: currentPage,
+                per_page: PAGE_SIZE,
+                include_summary: 'true',
             };
             if (activeTab !== 'all') params.category = activeTab;
+            if (deferredSearchTerm) params.q = deferredSearchTerm;
             if (isGlobalTaskViewer) {
                 if (adminFilters.team_id) params.team_id = Number(adminFilters.team_id);
                 if (adminFilters.assignee_id) params.assignee_id = Number(adminFilters.assignee_id);
@@ -161,52 +255,62 @@ function Task() {
                 params.assignee_id = Number(teamLeaderAssigneeId);
             }
             const data = await taskService.getAll(params);
-            setTasks(data);
+            if (Array.isArray(data)) {
+                setTasks(data);
+                setPagination({
+                    page: 1,
+                    per_page: data.length || PAGE_SIZE,
+                    total: data.length,
+                    pages: 1,
+                });
+            } else {
+                setTasks(data?.items || []);
+                setPagination(data?.pagination || {
+                    page: currentPage,
+                    per_page: PAGE_SIZE,
+                    total: 0,
+                    pages: 1,
+                });
+            }
+            if (data?.summary) {
+                setStats(data.summary);
+            }
         } catch (error) {
             console.error('Error fetching tasks:', error);
         } finally {
             setLoading(false);
         }
-    }, [activeTab, showCompleted, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
+    }, [activeTab, showCompleted, currentPage, deferredSearchTerm, isGlobalTaskViewer, isTeamLeaderTaskViewer, adminFilters, teamLeaderAssigneeId]);
 
-    const fetchAdminFilterOptions = useCallback(async () => {
+    const fetchFilterOptions = useCallback(async () => {
         if (!isGlobalTaskViewer && !isTeamLeaderTaskViewer) return;
+        if (filterOptionsLoadedRef.current) return;
         setFilterOptionsLoading(true);
         try {
-            const requests = [teamService.getTeamMembers({ per_page: 5000, active: '1' })];
-            if (isGlobalTaskViewer) {
-                requests.unshift(teamService.getTeams({ per_page: 500, active: '1' }));
-            }
-            const results = await Promise.all(requests);
-            const teamsRes = isGlobalTaskViewer ? results[0] : { teams: [] };
-            const membersRes = isGlobalTaskViewer ? results[1] : results[0];
+            const data = await taskService.getFilterOptions();
             setAdminFilterOptions({
-                teams: teamsRes.teams || [],
-                members: membersRes.members || [],
+                teams: data.teams || [],
+                assignees: data.assignees || [],
+                roles: data.roles || [],
+                specialties: data.specialties || [],
             });
+            filterOptionsLoadedRef.current = true;
         } catch (error) {
-            console.error('Error fetching task admin filter options:', error);
-            setAdminFilterOptions({ teams: [], members: [] });
+            console.error('Error fetching task filter options:', error);
         } finally {
             setFilterOptionsLoading(false);
         }
     }, [isGlobalTaskViewer, isTeamLeaderTaskViewer]);
 
     useEffect(() => {
-        fetchStats();
-    }, [fetchStats]);
-
-    useEffect(() => {
         fetchTasks();
     }, [fetchTasks]);
 
     useEffect(() => {
-        fetchAdminFilterOptions();
-    }, [fetchAdminFilterOptions]);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeTab, showCompleted, searchTerm, adminFilters, teamLeaderAssigneeId]);
+        if (currentPage !== 1) {
+            setCurrentPage(1);
+        }
+    }, [activeTab, showCompleted, deferredSearchTerm, adminFilters, teamLeaderAssigneeId]);
 
     useEffect(() => {
         if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -216,7 +320,6 @@ function Task() {
         setTasks(prev => prev.map(task => task.id === taskId ? { ...task, completed: !task.completed } : task));
         try {
             await taskService.toggleComplete(taskId, !currentStatus);
-            fetchStats();
             if (!showCompleted) fetchTasks();
         } catch (error) {
             console.error('Error updating task:', error);
@@ -261,17 +364,19 @@ function Task() {
 
     const getPriorityColor = (priority) => TASK_PRIORITIES[priority]?.color || '#6c757d';
     const getCategoryInfo = (catKey) => TASK_CATEGORIES[catKey] || { label: catKey, color: '#6c757d', bg: 'secondary' };
+    const ensureFilterOptionsLoaded = useCallback(() => {
+        if (filterOptionsLoadedRef.current || filterOptionsLoading) return;
+        fetchFilterOptions();
+    }, [fetchFilterOptions, filterOptionsLoading]);
     const roleOptions = useMemo(() => {
-        const roles = new Set((adminFilterOptions.members || []).map((m) => m.role).filter(Boolean));
-        return Array.from(roles).sort();
-    }, [adminFilterOptions.members]);
+        return adminFilterOptions.roles || [];
+    }, [adminFilterOptions.roles]);
     const specialtyOptions = useMemo(() => {
-        const specs = new Set((adminFilterOptions.members || []).map((m) => m.specialty).filter(Boolean));
-        return Array.from(specs).sort();
-    }, [adminFilterOptions.members]);
+        return adminFilterOptions.specialties || [];
+    }, [adminFilterOptions.specialties]);
     const filteredMemberOptions = useMemo(() => {
         if (!isGlobalTaskViewer) return [];
-        return (adminFilterOptions.members || []).filter((m) => {
+        return (adminFilterOptions.assignees || []).filter((m) => {
             if (adminFilters.assignee_role && m.role !== adminFilters.assignee_role) return false;
             if (adminFilters.assignee_specialty && m.specialty !== adminFilters.assignee_specialty) return false;
             if (adminFilters.team_id) {
@@ -280,11 +385,11 @@ function Task() {
             }
             return true;
         });
-    }, [adminFilterOptions.members, adminFilters, isGlobalTaskViewer]);
+    }, [adminFilterOptions.assignees, adminFilters, isGlobalTaskViewer]);
     const teamLeaderMemberOptions = useMemo(() => {
         if (!isTeamLeaderTaskViewer) return [];
-        return (adminFilterOptions.members || []).filter((m) => m.role !== 'admin');
-    }, [adminFilterOptions.members, isTeamLeaderTaskViewer]);
+        return (adminFilterOptions.assignees || []).filter((m) => m.role !== 'admin');
+    }, [adminFilterOptions.assignees, isTeamLeaderTaskViewer]);
 
     const completedCount = stats.total_completed || 0;
     const totalTaskCount = (stats.total_open || 0) + completedCount;
@@ -341,23 +446,11 @@ function Task() {
                 </div>
             </div>
 
-            {/* --- PROGRESS BAR --- */}
-            {showProgress && (
-                <div className="task-progress-bar-container">
-                    <div className="task-progress-info">
-                        <i className="ri-bar-chart-box-line"></i>
-                        <span className="task-progress-label">Progresso</span>
-                    </div>
-                    <div className="task-progress-track">
-                        <div className="task-progress-fill" style={{ width: `${progressPct}%` }}></div>
-                    </div>
-                    <span className="task-progress-pct">{progressPct}%</span>
-                </div>
-            )}
+            {/* Progress bar rimossa */}
 
             {/* --- ADMIN FILTERS --- */}
             {isGlobalTaskViewer && (
-                <div className="task-filter-card">
+                <div className="task-filter-card" data-tour="task-admin-filters">
                     <div className="task-filter-header">
                         <h6>Filtri Admin</h6>
                         <button
@@ -367,11 +460,18 @@ function Task() {
                             Reset filtri
                         </button>
                     </div>
+                    {filterOptionsLoading && (
+                        <div className="task-filter-hint" style={{ marginBottom: '10px' }}>
+                            Caricamento filtri in corso...
+                        </div>
+                    )}
                     <div className="task-filter-grid">
                         <select
                             className="task-filter-select"
                             value={adminFilters.team_id}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, team_id: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti i team</option>
@@ -383,6 +483,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_role}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_role: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti i ruoli</option>
@@ -394,6 +496,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_specialty}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_specialty: e.target.value, assignee_id: '' }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutte le specialit&agrave;</option>
@@ -405,6 +509,8 @@ function Task() {
                             className="task-filter-select"
                             value={adminFilters.assignee_id}
                             onChange={(e) => setAdminFilters((prev) => ({ ...prev, assignee_id: e.target.value }))}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutti gli assegnatari</option>
@@ -420,18 +526,25 @@ function Task() {
 
             {/* --- TEAM LEADER FILTERS --- */}
             {isTeamLeaderTaskViewer && (
-                <div className="task-filter-card">
+                <div className="task-filter-card" data-tour="task-team-filters">
                     <div className="task-filter-header">
                         <h6>Filtri Team</h6>
                         <button className="task-filter-reset-btn" onClick={() => setTeamLeaderAssigneeId('')}>
                             Reset filtro
                         </button>
                     </div>
+                    {filterOptionsLoading && (
+                        <div className="task-filter-hint" style={{ marginBottom: '10px' }}>
+                            Caricamento filtri in corso...
+                        </div>
+                    )}
                     <div className="task-filter-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                         <select
                             className="task-filter-select"
                             value={teamLeaderAssigneeId}
                             onChange={(e) => setTeamLeaderAssigneeId(e.target.value)}
+                            onFocus={ensureFilterOptionsLoaded}
+                            onClick={ensureFilterOptionsLoaded}
                             disabled={filterOptionsLoading}
                         >
                             <option value="">Tutto il team</option>
@@ -485,7 +598,7 @@ function Task() {
                         <div className="task-spinner"></div>
                         <p>Caricamento task...</p>
                     </div>
-                ) : filteredTasks.length === 0 ? (
+                ) : tasks.length === 0 ? (
                     <div className="task-empty">
                         <div className="task-empty-icon">
                             <i className="ri-checkbox-circle-line"></i>
@@ -508,7 +621,7 @@ function Task() {
                 ) : (
                     <>
                         <div className="task-list">
-                            {paginatedTasks.map((task, index) => {
+                            {tasks.map((task, index) => {
                                 const category = getCategoryInfo(task.category);
                                 const priorityColor = getPriorityColor(task.priority);
                                 const hasAction = task.client_id || (task.payload && (task.payload.client_id || task.payload.url));
@@ -622,9 +735,9 @@ function Task() {
                         {/* --- PAGINATION --- */}
                         <div className="task-pagination-wrapper">
                             <span className="task-pagination-info">
-                                Visualizzi {filteredTasks.length} task &middot; Pagina {currentPage}/{totalPages}
+                                Mostrando {pageStart}-{pageEnd} di {totalItems} task &middot; Pagina {currentPage}/{totalPages}
                             </span>
-                            {filteredTasks.length > PAGE_SIZE && (
+                            {totalPages > 1 && (
                                 <div className="task-pagination-buttons">
                                     <button
                                         className="task-page-btn"
@@ -765,7 +878,10 @@ function Task() {
                 pageDescription="Organizza il tuo lavoro, gestisci i solleciti e monitora le scadenze dei pazienti."
                 pageIcon={FaTasks}
                 docsSection="task"
-                onStartTour={() => setMostraTour(true)}
+                onStartTour={(audience) => {
+                    setTourAudienceOverride(audience);
+                    setMostraTour(true);
+                }}
                 brandName="Suite Clinica"
                 logoSrc="/suitemind.png"
                 accentColor="#85FF00"

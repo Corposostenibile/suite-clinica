@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request, abort, current_app
 from flask_login import login_required, current_user
-from datetime import datetime, date, timedelta
-from sqlalchemy import desc, asc, func, or_, case, extract
-from collections import defaultdict
+from datetime import datetime, date
+from sqlalchemy import desc, func, or_
+from sqlalchemy.orm import joinedload
 
-from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, UserSpecialtyEnum, Team, db
+from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, Team, db, team_members
 
 bp = Blueprint('tasks', __name__, url_prefix='/api/tasks')
 
@@ -131,37 +131,175 @@ def _can_view_all_tasks(user) -> bool:
     return bool(user.is_admin or user_role == UserRoleEnum.admin or _is_cco_user(user))
 
 
+def _apply_visibility_scope(query, user, mine_only: bool = False):
+    user_role = getattr(user, 'role', None)
+
+    if mine_only:
+        return query.filter(Task.assignee_id == user.id)
+    if _can_view_all_tasks(user):
+        return query
+    if user_role == UserRoleEnum.team_leader:
+        team_member_ids = set()
+        for team in (user.teams_led or []):
+            for member in (team.members or []):
+                team_member_ids.add(member.id)
+        team_member_ids.add(user.id)
+        if team_member_ids:
+            return query.filter(Task.assignee_id.in_(list(team_member_ids)))
+    return query.filter(Task.assignee_id == user.id)
+
+
+def _apply_admin_filters(query):
+    assignee_id = request.args.get('assignee_id', type=int)
+    if assignee_id:
+        query = query.filter(Task.assignee_id == assignee_id)
+
+    assignee_role = request.args.get('assignee_role', '').strip()
+    if assignee_role:
+        query = query.filter(Task.assignee.has(User.role == assignee_role))
+
+    assignee_specialty = request.args.get('assignee_specialty', '').strip()
+    if assignee_specialty:
+        query = query.filter(Task.assignee.has(User.specialty == assignee_specialty))
+
+    team_id = request.args.get('team_id', type=int)
+    if team_id:
+        query = query.filter(Task.assignee.has(User.teams.any(id=team_id)))
+
+    return query
+
+
+def _build_stats(scope_query):
+    open_counts_query = (
+        scope_query
+        .filter(Task.status != TaskStatusEnum.done)
+        .filter(Task.status != TaskStatusEnum.archived)
+        .with_entities(Task.category, func.count(Task.id))
+        .group_by(Task.category)
+    )
+    completed_total = (
+        scope_query
+        .filter(Task.status == TaskStatusEnum.done)
+        .with_entities(func.count(Task.id))
+        .scalar()
+        or 0
+    )
+
+    cat_counts = {c.value: 0 for c in TaskCategoryEnum}
+    total_open = 0
+    for cat, count in open_counts_query.all():
+        val = cat.value if hasattr(cat, 'value') else cat
+        cat_counts[val] = count
+        total_open += count
+
+    return {
+        'by_category': cat_counts,
+        'total_open': total_open,
+        'total_completed': completed_total,
+    }
+
+
+def _build_filter_options():
+    if not (_can_view_all_tasks(current_user) or getattr(current_user, 'role', None) == UserRoleEnum.team_leader):
+        return None
+
+    member_query = User.query.filter(User.role.isnot(None), User.is_active == True)
+    if _can_view_all_tasks(current_user):
+        pass
+    elif getattr(current_user, 'role', None) == UserRoleEnum.team_leader:
+        visible_ids = {current_user.id}
+        for team in (current_user.teams_led or []):
+            for member in (team.members or []):
+                visible_ids.add(member.id)
+        member_query = member_query.filter(User.id.in_(list(visible_ids)))
+    else:
+        member_query = member_query.filter(User.id == current_user.id)
+
+    members = (
+        member_query
+        .with_entities(
+            User.id,
+            User.first_name,
+            User.last_name,
+            User.email,
+            User.role,
+            User.specialty,
+        )
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+    member_ids = [member.id for member in members]
+
+    team_map = {member_id: [] for member_id in member_ids}
+    if member_ids:
+        memberships = (
+            db.session.query(team_members.c.user_id, Team.id, Team.name)
+            .join(Team, Team.id == team_members.c.team_id)
+            .filter(team_members.c.user_id.in_(member_ids), Team.is_active == True)
+            .all()
+        )
+        for user_id, team_id, team_name in memberships:
+            team_map[user_id].append({'id': team_id, 'name': team_name})
+
+    roles = sorted({
+        m.role.value if hasattr(m.role, 'value') else m.role
+        for m in members
+        if m.role
+    })
+    specialties = sorted({
+        m.specialty.value if hasattr(m.specialty, 'value') else m.specialty
+        for m in members
+        if m.specialty
+    })
+
+    teams = []
+    if _can_view_all_tasks(current_user):
+        team_rows = (
+            Team.query
+            .filter_by(is_active=True)
+            .order_by(Team.name)
+            .all()
+        )
+        teams = [{'id': team.id, 'name': team.name} for team in team_rows]
+
+    assignees = [
+        {
+            'id': member.id,
+            'full_name': ' '.join(part for part in [member.first_name, member.last_name] if part).strip() or member.email,
+            'email': member.email,
+            'role': member.role.value if hasattr(member.role, 'value') else member.role,
+            'specialty': member.specialty.value if hasattr(member.specialty, 'value') else member.specialty,
+            'teams': team_map.get(member.id, []),
+        }
+        for member in members
+    ]
+
+    return {
+        'teams': teams,
+        'assignees': assignees,
+        'roles': roles,
+        'specialties': specialties,
+    }
+
+
 @bp.route('/', methods=['GET'])
 @login_required
 def list_tasks():
     """Ritorna la lista dei task, filtrata in base al ruolo."""
-    query = Task.query
-    
-    user_role = getattr(current_user, 'role', None)
-    
-    # Parametro mine=true → forza solo task dell'utente corrente (usato dalla sidebar)
-    mine_only = request.args.get('mine', '').lower() == 'true'
+    scope_query = _apply_visibility_scope(Task.query, current_user, mine_only=request.args.get('mine', '').lower() == 'true')
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    requested_per_page = request.args.get('per_page', type=int)
+    page_size = max(1, min(requested_per_page, 100)) if requested_per_page else 15
+    legacy_limit = max(1, min(requested_per_page, 100)) if requested_per_page else 100
+    use_paginated_response = request.args.get('paginate', '').lower() == 'true'
+    include_summary = request.args.get('include_summary', '').lower() == 'true'
+    include_filter_options = request.args.get('include_filter_options', '').lower() == 'true'
 
-    if mine_only:
-        query = query.filter(Task.assignee_id == current_user.id)
-    elif _can_view_all_tasks(current_user):
-        # Admin / CCO: vede tutto
-        pass
-    elif user_role == UserRoleEnum.team_leader:
-        # Team Leader: vede task propri e dei membri del team
-        team_member_ids = set()
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        team_member_ids.add(current_user.id)
-
-        if team_member_ids:
-            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
-        else:
-            query = query.filter(Task.assignee_id == current_user.id)
-    else:
-        # Professionista o altro: solo i propri task
-        query = query.filter(Task.assignee_id == current_user.id)
+    scope_query = _apply_admin_filters(scope_query)
+    query = scope_query.options(
+        joinedload(Task.assignee),
+        joinedload(Task.client),
+    )
 
     # Filtri
     category = request.args.get('category')
@@ -178,22 +316,6 @@ def list_tasks():
         query = query.filter(Task.status == TaskStatusEnum.done)
     elif completed == 'false':
         query = query.filter(Task.status != TaskStatusEnum.done)
-
-    assignee_id = request.args.get('assignee_id', type=int)
-    if assignee_id:
-        query = query.filter(Task.assignee_id == assignee_id)
-
-    assignee_role = request.args.get('assignee_role', '').strip()
-    if assignee_role:
-        query = query.filter(Task.assignee.has(User.role == assignee_role))
-
-    assignee_specialty = request.args.get('assignee_specialty', '').strip()
-    if assignee_specialty:
-        query = query.filter(Task.assignee.has(User.specialty == assignee_specialty))
-
-    team_id = request.args.get('team_id', type=int)
-    if team_id:
-        query = query.filter(Task.assignee.has(User.teams.any(id=team_id)))
 
     search_query = request.args.get('q', '').strip()
     if search_query:
@@ -215,7 +337,27 @@ def list_tasks():
         desc(Task.created_at)
     )
 
-    tasks = query.limit(100).all()
+    if use_paginated_response:
+        total = query.order_by(None).count()
+        items = query.offset((page - 1) * page_size).limit(page_size).all()
+        total_pages = max(1, (total + page_size - 1) // page_size)
+        payload = {
+            'items': [_serialize_task(t) for t in items],
+            'pagination': {
+                'page': page,
+                'per_page': page_size,
+                'total': total,
+                'pages': total_pages,
+            }
+        }
+        if include_summary:
+            payload['summary'] = _build_stats(scope_query)
+        if include_filter_options:
+            payload['filter_options'] = _build_filter_options()
+        return jsonify(payload)
+
+    # Compatibilità legacy: endpoint che si aspettano una lista semplice.
+    tasks = query.limit(legacy_limit).all()
 
     return jsonify([_serialize_task(t) for t in tasks])
 
@@ -302,244 +444,18 @@ def update_task(task_id):
 @login_required
 def get_stats():
     """Ritorna conteggi per la dashboard."""
-    query = db.session.query(Task.category, func.count(Task.id))
-    
-    user_role = getattr(current_user, 'role', None) 
-    
-    # Appliciamo la stessa logica di filtraggio di list_tasks
-    if _can_view_all_tasks(current_user):
-        pass
-    elif user_role == UserRoleEnum.team_leader:
-        team_member_ids = set()
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        team_member_ids.add(current_user.id)
-        
-        if team_member_ids:
-            query = query.filter(Task.assignee_id.in_(list(team_member_ids)))
-        else:
-            query = query.filter(Task.assignee_id == current_user.id)
-    else:
-        query = query.filter(Task.assignee_id == current_user.id)
-    
-    # Filtri standard
-    query = query.filter(Task.status != TaskStatusEnum.done).\
-                  filter(Task.status != TaskStatusEnum.archived).\
-                  group_by(Task.category)
-
-    categories = query.all()
-    
-    cat_counts = {c.value: 0 for c in TaskCategoryEnum}
-    
-    # Fill con i dati reali
-    total_open = 0
-    for cat, count in categories:
-        val = cat.value if hasattr(cat, 'value') else cat
-        cat_counts[val] = count
-        total_open += count
-
-    return jsonify({
-        'by_category': cat_counts,
-        'total_open': total_open
-    })
-
-def _normalize_specialty_to_department(specialty_val):
-    """Normalizza specialty utente (nutrizionista/psicologo/etc.) a dipartimento (nutrizione/coach/psicologia)."""
-    mapping = {
-        'nutrizione': 'nutrizione',
-        'nutrizionista': 'nutrizione',
-        'coach': 'coach',
-        'psicologia': 'psicologia',
-        'psicologo': 'psicologia',
-    }
-    return mapping.get(str(specialty_val).lower(), str(specialty_val).lower() if specialty_val else None)
+    scope_query = _apply_visibility_scope(Task.query, current_user)
+    scope_query = _apply_admin_filters(scope_query)
+    return jsonify(_build_stats(scope_query))
 
 
-@bp.route('/admin-dashboard-stats', methods=['GET'])
+@bp.route('/filter-options', methods=['GET'])
 @login_required
-def admin_dashboard_stats():
-    """Statistiche task per la dashboard admin: task stale + ranking velocità professionisti."""
-    if not _can_view_all_tasks(current_user):
-        abort(403, "Accesso riservato ad admin/CCO")
-
-    now = datetime.utcnow()
-    three_days_ago = now - timedelta(days=3)
-
-    # ── Pre-load ALL team memberships (user_id → list of teams) ──
-    all_teams = Team.query.filter(Team.is_active == True).all()
-    user_team_map = {}  # user_id → {team_name, team_type}
-    for team in all_teams:
-        t_type = team.team_type.value if hasattr(team.team_type, 'value') else str(team.team_type)
-        for member in (team.members or []):
-            user_team_map[member.id] = {'team_name': team.name, 'team_type': t_type}
-
-    # ── 1. Task stale: non completate dopo 3+ giorni dalla creazione ──
-    stale_query = (
-        Task.query
-        .filter(Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived]))
-        .filter(Task.created_at <= three_days_ago)
-        .order_by(asc(Task.created_at))
-        .limit(100)
-    )
-    stale_tasks = stale_query.all()
-
-    stale_list = []
-    for t in stale_tasks:
-        days_old = (now - t.created_at).days if t.created_at else 0
-        team_info = user_team_map.get(t.assignee_id, {})
-        # Se non è in un team, ricava il dipartimento dalla specialty dell'utente
-        dept = team_info.get('team_type')
-        if not dept and t.assignee:
-            spec_val = t.assignee.specialty.value if t.assignee.specialty and hasattr(t.assignee.specialty, 'value') else str(t.assignee.specialty) if t.assignee.specialty else None
-            dept = _normalize_specialty_to_department(spec_val)
-        stale_list.append({
-            **_serialize_task(t),
-            'days_old': days_old,
-            'team_name': team_info.get('team_name'),
-            'team_type': dept,
-        })
-
-    # ── 2. Ranking velocità: tempo medio di completamento per professionista ──
-    # Per task completati (done), updated_at ≈ completion time
-    # Includiamo TUTTE le specialty cliniche (nutrizionista, nutrizione, coach, psicologo, psicologia)
-    clinical_specialties = [
-        UserSpecialtyEnum.nutrizione, UserSpecialtyEnum.nutrizionista,
-        UserSpecialtyEnum.coach,
-        UserSpecialtyEnum.psicologia, UserSpecialtyEnum.psicologo,
-    ]
-    completed_tasks = (
-        Task.query
-        .join(User, Task.assignee_id == User.id)
-        .filter(Task.status == TaskStatusEnum.done)
-        .filter(Task.created_at.isnot(None))
-        .filter(Task.updated_at.isnot(None))
-        .filter(User.is_active == True)
-        .filter(User.specialty.in_(clinical_specialties))
-        .with_entities(
-            Task.assignee_id,
-            User.first_name,
-            User.last_name,
-            User.specialty,
-            User.avatar_path,
-            Task.created_at,
-            Task.updated_at,
-        )
-        .all()
-    )
-
-    # Aggreghiamo in Python per flessibilità
-    prof_stats = defaultdict(lambda: {'total_hours': 0.0, 'count': 0, 'name': '', 'specialty': '', 'department': '', 'avatar_path': None})
-    for row in completed_tasks:
-        uid = row.assignee_id
-        delta = row.updated_at - row.created_at
-        hours = delta.total_seconds() / 3600.0
-        entry = prof_stats[uid]
-        entry['total_hours'] += hours
-        entry['count'] += 1
-        entry['name'] = f"{row.first_name} {row.last_name}"
-        spec = row.specialty
-        spec_val = spec.value if hasattr(spec, 'value') else str(spec) if spec else ''
-        entry['specialty'] = spec_val
-        entry['department'] = _normalize_specialty_to_department(spec_val)
-        entry['avatar_path'] = row.avatar_path
-        # Enrichisci con team info
-        if uid in user_team_map:
-            entry['team_name'] = user_team_map[uid]['team_name']
-
-    # Calcola media e raggruppa per DIPARTIMENTO normalizzato (nutrizione/coach/psicologia)
-    # Soglia minima: 1 task (così vediamo tutti)
-    rankings = defaultdict(list)
-    for uid, data in prof_stats.items():
-        if data['count'] < 1:
-            continue
-        avg_hours = data['total_hours'] / data['count']
-        entry = {
-            'user_id': uid,
-            'name': data['name'],
-            'specialty': data['department'],  # normalizzato
-            'avatar_path': data['avatar_path'],
-            'avg_hours': round(avg_hours, 1),
-            'tasks_completed': data['count'],
-            'team_name': data.get('team_name'),
-        }
-        rankings[data['department']].append(entry)
-
-    # Ordina per specialty: i più veloci prima
-    result_rankings = {}
-    for dept, members in rankings.items():
-        if not dept:
-            continue
-        sorted_members = sorted(members, key=lambda x: x['avg_hours'])
-        result_rankings[dept] = {
-            'fastest': sorted_members[:5],
-            'slowest': list(reversed(sorted_members[-5:])) if len(sorted_members) > 1 else [],
-        }
-
-    # ── 3. Ranking per team ──
-    team_stats_agg = defaultdict(lambda: {'total_hours': 0.0, 'count': 0, 'name': '', 'team_type': ''})
-    for uid, data in prof_stats.items():
-        if data['count'] < 1:
-            continue
-        if uid in user_team_map:
-            t_info = user_team_map[uid]
-            t_key = t_info['team_name']  # use name as key (unique per type)
-            entry = team_stats_agg[t_key]
-            entry['total_hours'] += data['total_hours']
-            entry['count'] += data['count']
-            entry['name'] = t_info['team_name']
-            entry['team_type'] = t_info['team_type']
-
-    team_rankings = {}
-    for t_key, data in team_stats_agg.items():
-        if data['count'] == 0:
-            continue
-        avg_hours = data['total_hours'] / data['count']
-        team_type = data['team_type']
-        if team_type not in team_rankings:
-            team_rankings[team_type] = []
-        team_rankings[team_type].append({
-            'team_name': data['name'],
-            'avg_hours': round(avg_hours, 1),
-            'tasks_completed': data['count'],
-        })
-
-    for team_type in team_rankings:
-        team_rankings[team_type] = sorted(team_rankings[team_type], key=lambda x: x['avg_hours'])
-
-    # ── 4. KPI riassuntivi ──
-    total_open = Task.query.filter(
-        Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived])
-    ).count()
-    total_stale = len(stale_list)
-    completed_today = Task.query.filter(
-        Task.status == TaskStatusEnum.done,
-        func.date(Task.updated_at) == date.today()
-    ).count()
-    total_overdue = Task.query.filter(
-        Task.status.notin_([TaskStatusEnum.done, TaskStatusEnum.archived]),
-        Task.due_date < date.today()
-    ).count()
-
-    # ── 5. Lista team disponibili (per i filtri frontend) ──
-    available_teams = []
-    for team in all_teams:
-        t_type = team.team_type.value if hasattr(team.team_type, 'value') else str(team.team_type)
-        available_teams.append({'name': team.name, 'team_type': t_type})
-
-    return jsonify({
-        'kpi': {
-            'total_open': total_open,
-            'total_stale': total_stale,
-            'completed_today': completed_today,
-            'total_overdue': total_overdue,
-        },
-        'stale_tasks': stale_list,
-        'rankings_by_specialty': result_rankings,
-        'rankings_by_team': team_rankings,
-        'available_teams': available_teams,
-    })
-
+def get_filter_options():
+    payload = _build_filter_options()
+    if payload is None:
+        return jsonify({'teams': [], 'assignees': [], 'roles': [], 'specialties': []})
+    return jsonify(payload)
 
 def _serialize_task(task):
     return {
