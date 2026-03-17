@@ -1,10 +1,20 @@
 import React, { useState, useRef, useCallback } from 'react'
 import { kanbanService } from '../services/kanbanService'
 
-export default function CreateTicketModal({ token, onClose, onCreated }) {
+const IT_SYSTEM_OPTIONS = [
+  { value: 'suite_clinica', label: 'Suite Clinica' },
+  { value: 'ghl', label: 'GHL' },
+  { value: 'respondio', label: 'Respond.io' },
+  { value: 'teams', label: 'Teams' },
+  { value: 'manychat', label: 'Manychat' },
+]
+
+export default function CreateTicketModal({ token, onClose, onCreated, board = 'general' }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [priority, setPriority] = useState('media')
+  const [priority, setPriority] = useState(board === 'it' ? 'non_bloccante' : 'media')
+  const [system, setSystem] = useState('suite_clinica')
+  const [file, setFile] = useState(null)
 
   // Assignee typeahead
   const [assigneeId, setAssigneeId] = useState('')
@@ -86,6 +96,10 @@ export default function CreateTicketModal({ token, onClose, onCreated }) {
       setError('Titolo e descrizione sono obbligatori')
       return
     }
+    if (board === 'it' && !system) {
+      setError('Sistema obbligatorio')
+      return
+    }
 
     setSubmitting(true)
     setError('')
@@ -94,11 +108,23 @@ export default function CreateTicketModal({ token, onClose, onCreated }) {
         title: title.trim(),
         description: description.trim(),
         priority,
+        board,
       }
-      if (assigneeId) payload.assignee_ids = [Number(assigneeId)]
-      if (clienteId) payload.cliente_id = Number(clienteId)
+      if (board === 'it') {
+        payload.system = system
+      } else {
+        if (assigneeId) payload.assignee_ids = [Number(assigneeId)]
+        if (clienteId) payload.cliente_id = Number(clienteId)
+      }
 
       const ticket = await kanbanService.createTicket(token, payload)
+      if (file) {
+        try {
+          await kanbanService.uploadAttachment(token, ticket.id, file)
+        } catch (err) {
+          console.error('Upload failed:', err)
+        }
+      }
       onCreated(ticket)
     } catch (err) {
       setError(err.response?.data?.error || 'Errore nella creazione')
@@ -154,11 +180,17 @@ export default function CreateTicketModal({ token, onClose, onCreated }) {
           <div className="kb-form-group">
             <label className="kb-form-label">Priorita'</label>
             <div className="kb-priority-group">
-              {[
-                { value: 'alta', label: 'Alta', color: '#ef4444' },
-                { value: 'media', label: 'Media', color: '#f59e0b' },
-                { value: 'bassa', label: 'Bassa', color: '#10b981' },
-              ].map(p => (
+              {(board === 'it'
+                ? [
+                  { value: 'bloccante', label: 'Bloccante', color: '#ef4444' },
+                  { value: 'non_bloccante', label: 'Non bloccante', color: '#10b981' },
+                ]
+                : [
+                  { value: 'alta', label: 'Alta', color: '#ef4444' },
+                  { value: 'media', label: 'Media', color: '#f59e0b' },
+                  { value: 'bassa', label: 'Bassa', color: '#10b981' },
+                ]
+              ).map(p => (
                 <button
                   key={p.value}
                   type="button"
@@ -172,61 +204,89 @@ export default function CreateTicketModal({ token, onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Assignee typeahead */}
-          <div className="kb-form-group">
-            <label className="kb-form-label">Assegnatario</label>
-            <div className="kb-typeahead">
-              <input
-                className="kb-form-input"
-                value={assigneeSearch}
-                onChange={e => handleAssigneeSearch(e.target.value)}
-                placeholder="Cerca per nome o email..."
-              />
-              {assigneeResults.length > 0 && (
-                <div className="kb-typeahead-results">
-                  {assigneeResults.map(u => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      className="kb-typeahead-item"
-                      onClick={() => selectAssignee(u)}
-                    >
-                      <strong>{u.name}</strong>
-                      <span>{u.email}</span>
-                    </button>
+          {board === 'it' ? (
+            <>
+              <div className="kb-form-group">
+                <label className="kb-form-label">Sistema *</label>
+                <select
+                  className="kb-select"
+                  value={system}
+                  onChange={e => setSystem(e.target.value)}
+                >
+                  {IT_SYSTEM_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </div>
-              )}
-            </div>
-          </div>
+                </select>
+              </div>
 
-          {/* Patient typeahead */}
-          <div className="kb-form-group">
-            <label className="kb-form-label">Paziente</label>
-            <div className="kb-typeahead">
-              <input
-                className="kb-form-input"
-                value={clienteSearch}
-                onChange={e => handleClienteSearch(e.target.value)}
-                placeholder="Cerca paziente..."
-              />
-              {clienteResults.length > 0 && (
-                <div className="kb-typeahead-results">
-                  {clienteResults.map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="kb-typeahead-item"
-                      onClick={() => selectPatient(p)}
-                    >
-                      <strong>{p.nome}</strong>
-                      {p.email && <span>{p.email}</span>}
-                    </button>
-                  ))}
+              <div className="kb-form-group">
+                <label className="kb-form-label">Allegato</label>
+                <input
+                  type="file"
+                  className="kb-form-input"
+                  onChange={e => setFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Assignee typeahead */}
+              <div className="kb-form-group">
+                <label className="kb-form-label">Assegnatario</label>
+                <div className="kb-typeahead">
+                  <input
+                    className="kb-form-input"
+                    value={assigneeSearch}
+                    onChange={e => handleAssigneeSearch(e.target.value)}
+                    placeholder="Cerca per nome o email..."
+                  />
+                  {assigneeResults.length > 0 && (
+                    <div className="kb-typeahead-results">
+                      {assigneeResults.map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          className="kb-typeahead-item"
+                          onClick={() => selectAssignee(u)}
+                        >
+                          <strong>{u.name}</strong>
+                          <span>{u.email}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+
+              {/* Patient typeahead */}
+              <div className="kb-form-group">
+                <label className="kb-form-label">Paziente</label>
+                <div className="kb-typeahead">
+                  <input
+                    className="kb-form-input"
+                    value={clienteSearch}
+                    onChange={e => handleClienteSearch(e.target.value)}
+                    placeholder="Cerca paziente..."
+                  />
+                  {clienteResults.length > 0 && (
+                    <div className="kb-typeahead-results">
+                      {clienteResults.map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          className="kb-typeahead-item"
+                          onClick={() => selectPatient(p)}
+                        >
+                          <strong>{p.nome}</strong>
+                          {p.email && <span>{p.email}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="kb-modal-footer">
             <button

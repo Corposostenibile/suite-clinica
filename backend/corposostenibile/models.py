@@ -465,6 +465,7 @@ class TicketCategoryEnum(str, Enum):
 class TeamTicketStatusEnum(str, Enum):
     aperto = "aperto"
     in_lavorazione = "in_lavorazione"
+    standby = "standby"
     risolto = "risolto"
     chiuso = "chiuso"
 
@@ -473,6 +474,8 @@ class TeamTicketPriorityEnum(str, Enum):
     alta = "alta"
     media = "media"
     bassa = "bassa"
+    bloccante = "bloccante"
+    non_bloccante = "non_bloccante"
 
 
 class TeamTicketSourceEnum(str, Enum):
@@ -14304,6 +14307,8 @@ class TeamTicket(TimestampMixin, db.Model):
 
     title = db.Column(db.String(200), nullable=True)
     description = db.Column(db.Text, nullable=False)
+    board = db.Column(db.String(50), nullable=False, default="general", index=True)
+    system = db.Column(db.String(50), nullable=True, index=True)
     status = db.Column(
         _def(TeamTicketStatusEnum),
         default=TeamTicketStatusEnum.aperto,
@@ -14375,6 +14380,8 @@ class TeamTicket(TimestampMixin, db.Model):
             "ticket_number": self.ticket_number,
             "title": self.title,
             "description": self.description,
+            "board": self.board,
+            "system": self.system,
             "status": self.status.value if self.status else None,
             "priority": self.priority.value if self.priority else None,
             "source": self.source.value if self.source else None,

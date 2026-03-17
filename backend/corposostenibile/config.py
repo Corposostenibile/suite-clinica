@@ -18,6 +18,7 @@ Key points
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Type
 
@@ -95,6 +96,22 @@ class BaseConfig:
     TEAMS_BOT_APP_ID: str = os.getenv("TEAMS_BOT_APP_ID", "")
     TEAMS_BOT_APP_PASSWORD: str = os.getenv("TEAMS_BOT_APP_PASSWORD", "")
     TEAMS_BOT_TENANT_ID: str = os.getenv("TEAMS_BOT_TENANT_ID", "")
+
+    # ---------------------- Team Tickets (IT Board) ----------------
+    TEAM_TICKETS_IT_TAB_URL: str = os.getenv(
+        "TEAM_TICKETS_IT_TAB_URL",
+        "https://clinica.corposostenibile.com/teams-kanban/?board=it",
+    )
+    # JSON: {"suite_clinica":["ema@..."],"ghl":["matteo@..."],"respondio":["samu@..."],"teams":["samu@..."],"manychat":["samu@..."]}
+    TEAM_TICKETS_IT_SYSTEM_ASSIGNEES: dict = json.loads(
+        os.getenv("TEAM_TICKETS_IT_SYSTEM_ASSIGNEES", "{}") or "{}"
+    )
+    # JSON conversation reference to send messages to a Teams channel (requires bot installed in that channel)
+    TEAMS_IT_CHANNEL_CONVERSATION_REF: dict | None = (
+        json.loads(os.getenv("TEAMS_IT_CHANNEL_CONVERSATION_REF", "null") or "null")
+        if os.getenv("TEAMS_IT_CHANNEL_CONVERSATION_REF") is not None
+        else None
+    )
 
     # --------------------------- CSRF ------------------------------
     WTF_CSRF_ENABLED: bool = True                   # disattivare solo nei test

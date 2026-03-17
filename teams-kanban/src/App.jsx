@@ -7,10 +7,41 @@ import CreateTicketModal from './components/CreateTicketModal'
 import FilterBar from './components/FilterBar'
 import { kanbanService } from './services/kanbanService'
 
-const STATUSES = ['aperto', 'in_lavorazione', 'risolto', 'chiuso']
+function getBoardKey() {
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return (params.get('board') || 'general').trim() || 'general'
+  } catch {
+    return 'general'
+  }
+}
+
+const BOARD_CONFIG = {
+  general: {
+    title: 'Ticket Board',
+    statuses: ['aperto', 'in_lavorazione', 'risolto', 'chiuso'],
+    priorityOptions: [
+      { value: '', label: 'Tutte' },
+      { value: 'alta', label: 'Alta' },
+      { value: 'media', label: 'Media' },
+      { value: 'bassa', label: 'Bassa' },
+    ],
+  },
+  it: {
+    title: 'Ticket IT',
+    statuses: ['aperto', 'in_lavorazione', 'standby', 'risolto'],
+    priorityOptions: [
+      { value: '', label: 'Tutte' },
+      { value: 'bloccante', label: 'Bloccante' },
+      { value: 'non_bloccante', label: 'Non bloccante' },
+    ],
+  },
+}
 
 export default function App() {
   const { user, token, loading: authLoading, error: authError, devLogin } = useTeamsAuth()
+  const board = getBoardKey()
+  const boardCfg = BOARD_CONFIG[board] || BOARD_CONFIG.general
 
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +55,7 @@ export default function App() {
   const [filters, setFilters] = useState({
     scope: 'all',       // all | created | assigned
     search: '',
-    priority: '',       // '' | alta | media | bassa
+    priority: '',       // '' | <board-specific>
   })
 
   // Ref to keep tickets current in socket callbacks
@@ -36,7 +67,7 @@ export default function App() {
     if (!token) return
     try {
       setLoading(true)
-      const data = await kanbanService.listTickets(token)
+      const data = await kanbanService.listTickets(token, { board })
       setTickets(data)
       setError(null)
     } catch (err) {
@@ -45,7 +76,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, board])
 
   useEffect(() => {
     if (token) fetchTickets()
@@ -123,9 +154,20 @@ export default function App() {
     return true
   })
 
+  const sortedTickets = [...filteredTickets].sort((a, b) => {
+    if (board === 'it') {
+      const ap = a.priority === 'bloccante' ? 0 : 1
+      const bp = b.priority === 'bloccante' ? 0 : 1
+      if (ap !== bp) return ap - bp
+    }
+    const at = new Date(a.updated_at || a.created_at || 0).getTime()
+    const bt = new Date(b.updated_at || b.created_at || 0).getTime()
+    return bt - at
+  })
+
   // Group by status
-  const columns = STATUSES.reduce((acc, status) => {
-    acc[status] = filteredTickets.filter(t => t.status === status)
+  const columns = boardCfg.statuses.reduce((acc, status) => {
+    acc[status] = sortedTickets.filter(t => t.status === status)
     return acc
   }, {})
 
@@ -159,7 +201,7 @@ export default function App() {
     <div className="kb-app">
       <header className="kb-header">
         <div className="kb-header-left">
-          <h1 className="kb-title">Ticket Board</h1>
+          <h1 className="kb-title">{boardCfg.title}</h1>
           <span className="kb-ticket-count">{tickets.length} ticket</span>
         </div>
         <div className="kb-header-right">
@@ -176,6 +218,8 @@ export default function App() {
         filters={filters}
         onChange={setFilters}
         onCreateClick={() => setShowCreate(true)}
+        board={board}
+        priorityOptions={boardCfg.priorityOptions}
       />
 
       {error && (
@@ -191,6 +235,7 @@ export default function App() {
         loading={loading}
         onStatusChange={handleStatusChange}
         onCardClick={setSelectedTicket}
+        statuses={boardCfg.statuses}
       />
 
       {selectedTicket && (
@@ -200,6 +245,7 @@ export default function App() {
           currentUserId={user?.id}
           onClose={() => setSelectedTicket(null)}
           onUpdated={handleTicketUpdated}
+          board={board}
         />
       )}
 
@@ -208,6 +254,7 @@ export default function App() {
           token={token}
           onClose={() => setShowCreate(false)}
           onCreated={handleTicketCreated}
+          board={board}
         />
       )}
     </div>

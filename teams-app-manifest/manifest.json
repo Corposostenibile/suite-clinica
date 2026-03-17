@@ -56,6 +56,13 @@
       "contentUrl": "https://clinica.corposostenibile.com/teams-kanban/",
       "websiteUrl": "https://clinica.corposostenibile.com/teams-kanban/",
       "scopes": ["personal"]
+    },
+    {
+      "entityId": "ticketBoardIt",
+      "name": "Ticket IT",
+      "contentUrl": "https://clinica.corposostenibile.com/teams-kanban/?board=it",
+      "websiteUrl": "https://clinica.corposostenibile.com/teams-kanban/?board=it",
+      "scopes": ["personal"]
     }
   ],
   "permissions": ["identity", "messageTeamMembers"],
