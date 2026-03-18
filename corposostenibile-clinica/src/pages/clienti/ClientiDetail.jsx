@@ -7965,24 +7965,120 @@ function ClientiDetail() {
               )}
 
               {/* ==================== CALL BONUS TAB ==================== */}
+              {/* ==================== CALL BONUS TAB ==================== */}
               {activeTab === 'call_bonus' && (
-                <div className="cal-coming-soon">
-                  <div className="cal-hero">
-                    <div className="cal-hero-icon">
-                      <i className="ri-phone-line"></i>
-                    </div>
-                    <h3 className="cal-hero-title">Call Bonus</h3>
-                    <p className="cal-hero-desc">
-                      Qui potrai richiedere call bonus per i tuoi pazienti,
-                      gestire le proposte AI e monitorare lo storico delle sessioni.
-                      <br />
-                      <strong>Disponibile con la versione 1.1 della Suite Clinica.</strong>
-                    </p>
-                    <div className="cal-soon-badge">
-                      <i className="ri-rocket-2-line"></i>
-                      In arrivo — v1.1
-                    </div>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h5 style={{ fontWeight: 700, margin: 0 }}>
+                      <i className="ri-phone-line" style={{ marginRight: 8, color: '#3b82f6' }}></i>
+                      Gestione Call Bonus
+                    </h5>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={handleOpenCallBonusModal}
+                      style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
+                    >
+                      <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
+                    </button>
                   </div>
+
+                  {loadingCallBonus ? (
+                    <div className="text-center py-4"><div className="spinner-border text-primary"></div></div>
+                  ) : callBonusHistory && callBonusHistory.length > 0 ? (
+                    <div className="cd-table-wrap">
+                      <table className="cd-table">
+                        <thead>
+                          <tr>
+                            <th>Data</th>
+                            <th>Professionista Richiesto</th>
+                            <th>Note / Obiettivo</th>
+                            <th>Stato</th>
+                            <th>Calendly</th>
+                            <th style={{ textAlign: 'right' }}>Azioni</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {callBonusHistory.map((cb) => {
+                            const statusColor = {
+                              'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
+                              'accettata': { bg: '#fef3c7', color: '#92400e', label: 'In Attesa Risposta' },
+                              'interessato': { bg: '#dcfce7', color: '#166534', label: 'Interessato' },
+                              'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' }
+                            }[cb.status] || { bg: '#f3f4f6', color: '#374151', label: cb.status };
+
+                            return (
+                              <tr key={cb.id}>
+                                <td>
+                                  {cb.data_richiesta
+                                    ? new Date(cb.data_richiesta).toLocaleDateString('it-IT')
+                                    : '—'}
+                                </td>
+                                <td>
+                                  <span className="fw-semibold">
+                                    {cb.tipo_professionista.charAt(0).toUpperCase() + cb.tipo_professionista.slice(1)}
+                                  </span>
+                                  {cb.professionista_nome && (
+                                    <div className="small text-muted" style={{ marginTop: 2 }}>
+                                      {cb.professionista_nome}
+                                    </div>
+                                  )}
+                                </td>
+                                <td><span className="small text-muted">{cb.note_richiesta || '—'}</span></td>
+                                <td>
+                                  <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
+                                    {statusColor.label}
+                                  </span>
+                                </td>
+                                <td>
+                                  {cb.status === 'interessato' ? (
+                                    <span className="cd-badge" style={{ background: '#dcfce7', color: '#166534' }}>
+                                      <i className="ri-check-line me-1"></i>Confermata
+                                    </span>
+                                  ) : '-'}
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  {/* Solo il professionista assegnato può rispondere quando in attesa */}
+                                  {cb.status === 'accettata' && cb.is_assigned_professional ? (
+                                    <button
+                                      type="button"
+                                      className="btn btn-sm btn-primary"
+                                      style={{ padding: '2px 10px', fontSize: 12, fontWeight: 700 }}
+                                      onClick={() => { setCallBonusResponseModal(cb); setCallBonusInterestStep('ask'); }}
+                                    >
+                                      Rispondi
+                                    </button>
+                                  ) : cb.status === 'accettata' && cb.is_requester ? (
+                                    <span className="small text-muted">In attesa del professionista</span>
+                                  ) : cb.status === 'interessato' && cb.hm_calendar_link ? (
+                                    <a
+                                      href={cb.hm_calendar_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn btn-sm btn-outline-primary"
+                                      style={{ padding: '2px 8px', fontSize: 12 }}
+                                    >
+                                      <i className="ri-calendar-event-line me-1"></i>Calendly HM
+                                    </a>
+                                  ) : '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="cd-empty">
+                      <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
+                      <p className="cd-empty-text">Nessuna request Call Bonus effettuata finora.</p>
+                      <button
+                        className="btn btn-outline-primary mt-3"
+                        onClick={handleOpenCallBonusModal}
+                      >
+                        Fai la Prima Richiesta
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
