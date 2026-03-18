@@ -36,7 +36,14 @@ def setup_tracking_middleware(app):
             response_time_ms = int((time.time() - g.start_time) * 1000)
 
         # Ottieni user_id
-        user_id = current_user.id if current_user.is_authenticated else None
+        user_id = None
+        try:
+            # In caso di errori DB durante la request, la sessione può essere in PendingRollback:
+            # evitare accessi lazy-load su current_user che potrebbero far esplodere l'after_request.
+            if getattr(current_user, "is_authenticated", False):
+                user_id = getattr(current_user, "id", None)
+        except Exception:
+            user_id = None
 
         # Salva log (in modo asincrono per non rallentare la response)
         try:
