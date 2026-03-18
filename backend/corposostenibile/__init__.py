@@ -379,6 +379,7 @@ def create_app(config_name: str | None = None) -> Flask:
         appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
         documentation,  # AGGIUNTO: Import del blueprint documentation
+        loom,  # AGGIUNTO: Import del blueprint loom
         search,  # AGGIUNTO: Import del blueprint search
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
@@ -449,6 +450,12 @@ def create_app(config_name: str | None = None) -> Flask:
     
     # Documentation Blueprint
     app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
+    app.register_blueprint(
+        documentation.documentation_bp,
+        url_prefix='/api/documentation',
+        name='documentation_api',
+    )
+    app.register_blueprint(loom.loom_bp, url_prefix='/loom')
 
     # Quality Score
     from corposostenibile.blueprints.quality import bp as quality_bp
@@ -509,7 +516,11 @@ def create_app(config_name: str | None = None) -> Flask:
         @app.login_manager.unauthorized_handler
         def unauthorized():
             """Redirect to React login for pages, 401 for API calls."""
-            if flask_request.path.startswith('/api/'):
+            if (
+                flask_request.path.startswith('/api/')
+                or flask_request.path.startswith('/calendar/api/')
+                or flask_request.path.startswith('/loom/api/')
+            ):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
             return redirect('/auth/login')
 
@@ -527,6 +538,8 @@ def create_app(config_name: str | None = None) -> Flask:
         # Paths that should NOT be intercepted (handled by Flask)
         _flask_prefixes = [
             '/api/',
+            '/calendar/',
+            '/loom/',
             '/client-checks/',
             '/customers/',
             '/uploads/',

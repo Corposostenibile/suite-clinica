@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from http import HTTPStatus
 import logging
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 from dateutil.relativedelta import relativedelta
 
@@ -32,6 +33,8 @@ from corposostenibile.models import (
     CartellaClinica,
     Cliente,
     ClientCheckAssignment,
+    WeeklyCheck,
+    WeeklyCheckResponse,
     MealPlan,
     TrainingPlan,
     TrainingLocation,
@@ -50,6 +53,8 @@ from corposostenibile.models import (
     PlanExtraFile,
     PlanTypeEnum,
     CallBonusStatusEnum,
+    TrustpilotReview,
+    VideoReviewRequest,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
@@ -63,6 +68,11 @@ from .services import (
     update_cliente,
     calculate_dashboard_kpis,
     apply_role_filtering,
+)
+from .trustpilot_service import (
+    TrustpilotAPIError,
+    TrustpilotConfigError,
+    TrustpilotService,
 )
 
 logger = logging.getLogger(__name__)
@@ -1476,6 +1486,12 @@ def api_list() -> Any:
     # Filtro per Influencer: vincola alle origini assegnate (M2M)
     if current_user.role == UserRoleEnum.influencer:
         origine_ids = [o.id for o in current_user.influencer_origins]
+        if not origine_ids:
+            return jsonify({
+                "items": [],
+                "pagination": {"page": 1, "pages": 0, "total": 0},
+                "message": "Nessuna origine associata"
+            })
         params = replace(params, origine_ids=origine_ids)
 
     # Apply trial user filter to query
@@ -1557,6 +1573,286 @@ def api_list() -> Any:
             }
 
     return jsonify(result)
+
+
+@api_bp.route("/expiring", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_expiring() -> Any:
+    """Clienti in scadenza filtrati per fascia temporale (30/60/90 giorni)."""
+    from datetime import date, timedelta
+
+    days = request.args.get("days", 30, type=int)
+    if days not in (30, 60, 90):
+        days = 30
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    q = (request.args.get("q") or "").strip()
+
+    today = date.today()
+    limit_date = today + timedelta(days=days)
+    # Range: 30 = 0-30, 60 = 30-60, 90 = 60-90
+    range_start = today if days == 30 else today + timedelta(days=days - 30)
+    hm_filter = request.args.get("health_manager_id", type=int)
+
+    query = apply_role_filtering(
+        db.session.query(Cliente).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= range_start,
+            Cliente.data_rinnovo <= limit_date,
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(Cliente.data_rinnovo.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for c in pagination.items:
+        giorni = (c.data_rinnovo - today).days if c.data_rinnovo else None
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "data_rinnovo": c.data_rinnovo.isoformat() if c.data_rinnovo else None,
+            "giorni_rimanenti": giorni,
+            "programma_attuale": c.programma_attuale or None,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    # Conteggi per fascia
+    count_base = apply_role_filtering(
+        db.session.query(db.func.count(Cliente.cliente_id)).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo >= today,
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+    count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
+    count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
+    count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+        "counts": {
+            "30": count_30,
+            "60": count_60,
+            "90": count_90,
+        },
+    })
+
+
+@api_bp.route("/unsatisfied", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_unsatisfied() -> Any:
+    """Clienti insoddisfatti in base alla media voti weekly check."""
+    from sqlalchemy import func as sa_func
+
+    threshold = request.args.get("threshold", 8, type=int)
+    if threshold not in (6, 7, 8):
+        threshold = 8
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    q = (request.args.get("q") or "").strip()
+    hm_filter = request.args.get("health_manager_id", type=int)
+
+    # Subquery: media dei voti professionista + progresso per cliente
+    # Prende solo le ultime 4 risposte (ultimo mese circa) per ciascun weekly check
+    rating_cols = [
+        WeeklyCheckResponse.nutritionist_rating,
+        WeeklyCheckResponse.coach_rating,
+        WeeklyCheckResponse.psychologist_rating,
+        WeeklyCheckResponse.progress_rating,
+    ]
+
+    # Calcolo media: AVG di tutti i rating non-null tra professionisti + progresso
+    avg_expr = sa_func.avg(
+        sa_func.coalesce(WeeklyCheckResponse.nutritionist_rating, None)
+    )
+
+    # Subquery con join per ottenere cliente_id e media combinata
+    from sqlalchemy import case, literal_column, and_
+
+    # Calcoliamo la media di tutti i rating disponibili per response
+    # (nutritionist + coach + psychologist + progress) / count_non_null
+    subq = (
+        db.session.query(
+            WeeklyCheck.cliente_id.label("cliente_id"),
+            sa_func.avg(
+                (
+                    sa_func.coalesce(WeeklyCheckResponse.nutritionist_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.coach_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.psychologist_rating.cast(db.Float), 0)
+                    + sa_func.coalesce(WeeklyCheckResponse.progress_rating.cast(db.Float), 0)
+                ) / sa_func.nullif(
+                    (
+                        case((WeeklyCheckResponse.nutritionist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.coach_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.psychologist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.progress_rating.isnot(None), 1), else_=0)
+                    ),
+                    0,
+                )
+            ).label("avg_rating"),
+            sa_func.avg(WeeklyCheckResponse.nutritionist_rating.cast(db.Float)).label("avg_nutrizione"),
+            sa_func.avg(WeeklyCheckResponse.coach_rating.cast(db.Float)).label("avg_coach"),
+            sa_func.avg(WeeklyCheckResponse.psychologist_rating.cast(db.Float)).label("avg_psicologia"),
+            sa_func.avg(WeeklyCheckResponse.progress_rating.cast(db.Float)).label("avg_percorso"),
+            sa_func.max(WeeklyCheckResponse.submit_date).label("last_check_date"),
+            sa_func.count(WeeklyCheckResponse.id).label("total_responses"),
+        )
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(
+            # Almeno un rating deve essere compilato
+            db.or_(
+                WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                WeeklyCheckResponse.coach_rating.isnot(None),
+                WeeklyCheckResponse.psychologist_rating.isnot(None),
+                WeeklyCheckResponse.progress_rating.isnot(None),
+            )
+        )
+        .group_by(WeeklyCheck.cliente_id)
+        .subquery()
+    )
+
+    # Query principale: clienti con media sotto la soglia
+    query = apply_role_filtering(
+        db.session.query(
+            Cliente, subq.c.avg_rating,
+            subq.c.avg_nutrizione, subq.c.avg_coach, subq.c.avg_psicologia, subq.c.avg_percorso,
+            subq.c.last_check_date, subq.c.total_responses,
+        )
+        .join(subq, Cliente.cliente_id == subq.c.cliente_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+            subq.c.avg_rating < threshold,
+            *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(subq.c.avg_rating.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for row in pagination.items:
+        c = row[0]
+        avg_r = row[1]
+        avg_n = row[2]
+        avg_c = row[3]
+        avg_p = row[4]
+        avg_perc = row[5]
+        last_date = row[6]
+        total_resp = row[7]
+
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "avg_rating": round(float(avg_r), 1) if avg_r else None,
+            "avg_nutrizione": round(float(avg_n), 1) if avg_n else None,
+            "avg_coach": round(float(avg_c), 1) if avg_c else None,
+            "avg_psicologia": round(float(avg_p), 1) if avg_p else None,
+            "avg_percorso": round(float(avg_perc), 1) if avg_perc else None,
+            "last_check_date": last_date.isoformat() if last_date else None,
+            "total_responses": total_resp or 0,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    # Conteggi per soglia
+    count_base = (
+        db.session.query(sa_func.count(sa_func.distinct(subq.c.cliente_id)))
+        .select_from(Cliente)
+        .join(subq, Cliente.cliente_id == subq.c.cliente_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+        )
+    )
+    count_base = apply_role_filtering(count_base)
+    count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
+    count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
+    count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+        "counts": {
+            "8": count_8,
+            "7": count_7,
+            "6": count_6,
+        },
+    })
 
 
 def _require_cliente_scope_or_403(cliente_id: int) -> None:
@@ -6387,6 +6683,439 @@ def api_call_bonus_decline(call_bonus_id: int):
         "call_bonus_id": call_bonus.id,
         "message": "Call bonus rifiutata.",
     })
+
+
+# --------------------------------------------------------------------------- #
+#  Video Review (Marketing Tab)                                               #
+# --------------------------------------------------------------------------- #
+def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "cliente_id": item.cliente_id,
+        "status": item.status,
+        "booking_confirmed_at": item.booking_confirmed_at.isoformat() if item.booking_confirmed_at else None,
+        "hm_confirmed_at": item.hm_confirmed_at.isoformat() if item.hm_confirmed_at else None,
+        "loom_link": item.loom_link,
+        "hm_note": item.hm_note,
+        "requested_by_user_id": item.requested_by_user_id,
+        "requested_by_name": getattr(item.requested_by_user, "full_name", None),
+        "hm_user_id": item.hm_user_id,
+        "hm_name": getattr(item.hm_user, "full_name", None),
+    }
+
+
+def _is_valid_absolute_url(url_value: str) -> bool:
+    try:
+        parsed = urlparse(url_value)
+    except Exception:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_review_requests(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    rows = (
+        db.session.query(VideoReviewRequest)
+        .filter(VideoReviewRequest.cliente_id == cliente_id)
+        .order_by(VideoReviewRequest.created_at.desc(), VideoReviewRequest.id.desc())
+        .all()
+    )
+    return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_booked(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    existing_open = (
+        db.session.query(VideoReviewRequest)
+        .filter(
+            VideoReviewRequest.cliente_id == cliente_id,
+            VideoReviewRequest.status == "booked",
+        )
+        .order_by(VideoReviewRequest.id.desc())
+        .first()
+    )
+    if existing_open:
+        return jsonify({
+            "success": True,
+            "data": _serialize_video_review_request(existing_open),
+            "message": "Esiste già una richiesta video recensione in stato prenotata.",
+        }), HTTPStatus.OK
+
+    request_item = VideoReviewRequest(
+        cliente_id=cliente_id,
+        requested_by_user_id=current_user.id,
+        hm_user_id=cliente.health_manager_id,
+        status="booked",
+        booking_confirmed_at=datetime.utcnow(),
+    )
+    db.session.add(request_item)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(request_item),
+        "message": "Prenotazione video recensione registrata.",
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/video-review-requests/<int:request_id>/hm-confirm", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_hm_confirm(request_id: int):
+    item = db.session.get(VideoReviewRequest, request_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND, description="Richiesta video recensione non trovata.")
+
+    cliente = db.session.get(Cliente, item.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    role = getattr(current_user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    is_hm = role_value == "health_manager"
+    if not (is_admin or (is_hm and getattr(cliente, "health_manager_id", None) == current_user.id)):
+        abort(HTTPStatus.FORBIDDEN, description="Solo HM assegnato o admin possono confermare.")
+
+    payload = request.get_json(silent=True) or {}
+    loom_link = (payload.get("loom_link") or "").strip()
+    hm_note = (payload.get("hm_note") or "").strip()
+    if not loom_link:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'loom_link' obbligatorio.")
+    if not _is_valid_absolute_url(loom_link):
+        abort(HTTPStatus.BAD_REQUEST, description="Loom link non valido.")
+
+    item.status = "hm_confirmed"
+    item.hm_confirmed_at = datetime.utcnow()
+    item.loom_link = loom_link
+    item.hm_note = hm_note or None
+    item.hm_user_id = getattr(cliente, "health_manager_id", None) or current_user.id
+
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(item),
+        "message": "Video recensione confermata da HM.",
+    }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  Trustpilot Integration                                                     #
+# --------------------------------------------------------------------------- #
+
+def _can_manage_trustpilot(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_val = role.value if hasattr(role, "value") else str(role) if role else ""
+    specialty = getattr(user, "specialty", None)
+    spec_val = specialty.value if hasattr(specialty, "value") else str(specialty) if specialty else ""
+    return role_val == "health_manager" or spec_val == "cco"
+
+
+def _require_trustpilot_manager_or_403():
+    if not _can_manage_trustpilot(current_user):
+        abort(HTTPStatus.FORBIDDEN, description="Operazione Trustpilot non consentita.")
+
+
+def _serialize_trustpilot_review(review: TrustpilotReview) -> dict:
+    return {
+        "id": review.id,
+        "cliente_id": review.cliente_id,
+        "requested_by_user_id": review.richiesta_da_professionista_id,
+        "requested_by_name": getattr(review.richiesta_da, "full_name", None),
+        "data_richiesta": review.data_richiesta.isoformat() if review.data_richiesta else None,
+        "invitation_method": review.invitation_method,
+        "invitation_status": review.invitation_status,
+        "trustpilot_reference_id": review.trustpilot_reference_id,
+        "trustpilot_invitation_id": review.trustpilot_invitation_id,
+        "trustpilot_review_id": review.trustpilot_review_id,
+        "trustpilot_link": review.trustpilot_link,
+        "pubblicata": bool(review.pubblicata),
+        "data_pubblicazione": review.data_pubblicazione.isoformat() if review.data_pubblicazione else None,
+        "stelle": review.stelle,
+        "titolo_recensione": review.titolo_recensione,
+        "testo_recensione": review.testo_recensione,
+        "deleted_at_trustpilot": review.deleted_at_trustpilot.isoformat() if review.deleted_at_trustpilot else None,
+        "webhook_received_at": review.webhook_received_at.isoformat() if review.webhook_received_at else None,
+        "created_at": review.created_at.isoformat() if review.created_at else None,
+        "updated_at": review.updated_at.isoformat() if review.updated_at else None,
+    }
+
+
+def _get_latest_trustpilot_review(cliente_id: int):
+    return (
+        db.session.query(TrustpilotReview)
+        .filter(TrustpilotReview.cliente_id == cliente_id)
+        .order_by(TrustpilotReview.data_richiesta.desc(), TrustpilotReview.id.desc())
+        .first()
+    )
+
+
+def _get_trustpilot_history(cliente_id: int, limit: int = 20):
+    return (
+        db.session.query(TrustpilotReview)
+        .filter(TrustpilotReview.cliente_id == cliente_id)
+        .order_by(TrustpilotReview.data_richiesta.desc(), TrustpilotReview.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@api_bp.route("/trustpilot-overview", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_overview():
+    """Panoramica Trustpilot: tutti i clienti attivi con lo stato review."""
+    from sqlalchemy import outerjoin
+    from sqlalchemy.orm import aliased
+
+    page = max(request.args.get('page', 1, type=int), 1)
+    per_page = min(max(request.args.get('per_page', 25, type=int), 1), 100)
+    search = (request.args.get('q') or '').strip()
+    hm_filter = request.args.get('health_manager_id', type=int)
+    status_filter = request.args.get('status', '').strip()  # all, pending, reviewed, none
+
+    query = db.session.query(Cliente).filter(
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
+        Cliente.show_in_clienti_lista == True,
+    )
+    if search:
+        query = query.filter(Cliente.nome_cognome.ilike(f'%{search}%'))
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    query = query.order_by(Cliente.nome_cognome)
+    total = query.count()
+    clienti = query.offset((page - 1) * per_page).limit(per_page).all()
+
+    client_ids = [c.cliente_id for c in clienti]
+    reviews_map = {}
+    if client_ids:
+        latest_reviews = (
+            db.session.query(TrustpilotReview)
+            .filter(TrustpilotReview.cliente_id.in_(client_ids))
+            .order_by(TrustpilotReview.data_richiesta.desc())
+            .all()
+        )
+        for r in latest_reviews:
+            if r.cliente_id not in reviews_map:
+                reviews_map[r.cliente_id] = []
+            reviews_map[r.cliente_id].append(r)
+
+    data = []
+    for c in clienti:
+        reviews = reviews_map.get(c.cliente_id, [])
+        latest = reviews[0] if reviews else None
+        has_published = any(r.pubblicata for r in reviews)
+        best_stars = max((r.stelle for r in reviews if r.stelle), default=None)
+
+        row = {
+            'cliente_id': c.cliente_id,
+            'nome_cognome': c.nome_cognome,
+            'mail': c.mail,
+            'stato_cliente': c.stato_cliente.value if c.stato_cliente else None,
+            'programma_attuale': c.programma_attuale,
+            'health_manager_user': {
+                'id': c.health_manager_user.id,
+                'full_name': c.health_manager_user.full_name,
+            } if c.health_manager_user else None,
+            'trustpilot': {
+                'total_inviti': len(reviews),
+                'ha_recensione': has_published,
+                'stelle_migliore': best_stars,
+                'ultimo_invito': _serialize_trustpilot_review(latest) if latest else None,
+            },
+        }
+
+        if status_filter == 'reviewed' and not has_published:
+            continue
+        if status_filter == 'pending' and not (latest and not has_published):
+            continue
+        if status_filter == 'none' and len(reviews) > 0:
+            continue
+
+        data.append(row)
+
+    # Count stats
+    all_client_ids_q = db.session.query(Cliente.cliente_id).filter(
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
+        Cliente.show_in_clienti_lista == True,
+    )
+    if hm_filter:
+        all_client_ids_q = all_client_ids_q.filter(Cliente.health_manager_id == hm_filter)
+    all_ids = [r[0] for r in all_client_ids_q.all()]
+
+    reviewed_ids = set()
+    pending_ids = set()
+    if all_ids:
+        all_reviews = db.session.query(
+            TrustpilotReview.cliente_id, TrustpilotReview.pubblicata
+        ).filter(TrustpilotReview.cliente_id.in_(all_ids)).all()
+        clients_with_reviews = set()
+        for cid, pub in all_reviews:
+            clients_with_reviews.add(cid)
+            if pub:
+                reviewed_ids.add(cid)
+        pending_ids = clients_with_reviews - reviewed_ids
+
+    return jsonify({
+        'success': True,
+        'data': data,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': max(1, (total + per_page - 1) // per_page),
+        },
+        'counts': {
+            'totale_attivi': len(all_ids),
+            'con_recensione': len(reviewed_ids),
+            'in_attesa': len(pending_ids),
+            'mai_invitati': len(all_ids) - len(reviewed_ids) - len(pending_ids),
+        },
+    })
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_status(cliente_id: int):
+    cliente = customers_repo.get_one(cliente_id)
+    latest_review = _get_latest_trustpilot_review(cliente_id)
+    history = _get_trustpilot_history(cliente_id, limit=10)
+
+    return jsonify({
+        "success": True,
+        "enabled": TrustpilotService.is_enabled(),
+        "can_manage": _can_manage_trustpilot(current_user),
+        "email_configured": bool(
+            current_app.config.get("TRUSTPILOT_EMAIL_TEMPLATE_ID")
+            and current_app.config.get("TRUSTPILOT_SENDER_EMAIL")
+            and current_app.config.get("TRUSTPILOT_REPLY_TO")
+        ),
+        "cliente": {
+            "cliente_id": cliente.cliente_id,
+            "nome_cognome": cliente.nome_cognome,
+            "mail": cliente.mail,
+        },
+        "latest": _serialize_trustpilot_review(latest_review) if latest_review else None,
+        "history": [_serialize_trustpilot_review(item) for item in history],
+    })
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot/link", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_generate_link(cliente_id: int):
+    _require_trustpilot_manager_or_403()
+    cliente = customers_repo.get_one(cliente_id)
+
+    if not cliente.mail:
+        abort(HTTPStatus.BAD_REQUEST, description="Il paziente non ha una email configurata.")
+
+    payload = request.get_json(silent=True) or {}
+    locale = (payload.get("locale") or TrustpilotService.get_default_locale()).strip()
+
+    try:
+        TrustpilotService.ensure_enabled()
+        reference_id = TrustpilotService.generate_reference_id(cliente_id)
+        response = TrustpilotService.create_invitation_link(
+            email=cliente.mail,
+            name=cliente.nome_cognome,
+            reference_id=reference_id,
+            locale=locale,
+        )
+    except TrustpilotConfigError as exc:
+        abort(HTTPStatus.BAD_REQUEST, description=str(exc))
+    except TrustpilotAPIError as exc:
+        abort(HTTPStatus.BAD_GATEWAY, description=str(exc))
+
+    invitation_link = response.get("url") or response.get("invitationLink") or response.get("href")
+    invitation_id = response.get("id") or response.get("invitationId")
+
+    review = TrustpilotReview(
+        cliente_id=cliente.cliente_id,
+        richiesta_da_professionista_id=current_user.id,
+        data_richiesta=datetime.utcnow(),
+        invitation_method="generated_link",
+        invitation_status="generated",
+        trustpilot_reference_id=reference_id,
+        trustpilot_invitation_id=invitation_id,
+        trustpilot_link=invitation_link,
+        trustpilot_payload_last=response,
+        note_interne="Link recensione generato via API Trustpilot.",
+    )
+    db.session.add(review)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Link Trustpilot generato.",
+        "data": _serialize_trustpilot_review(review),
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot/invite", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_send_invite(cliente_id: int):
+    _require_trustpilot_manager_or_403()
+    cliente = customers_repo.get_one(cliente_id)
+
+    if not cliente.mail:
+        abort(HTTPStatus.BAD_REQUEST, description="Il paziente non ha una email configurata.")
+
+    payload = request.get_json(silent=True) or {}
+    locale = (payload.get("locale") or TrustpilotService.get_default_locale()).strip()
+    tags = payload.get("tags") if isinstance(payload.get("tags"), list) else None
+
+    try:
+        TrustpilotService.ensure_enabled()
+        reference_id = TrustpilotService.generate_reference_id(cliente_id)
+        response = TrustpilotService.create_email_invitation(
+            email=cliente.mail,
+            name=cliente.nome_cognome,
+            reference_id=reference_id,
+            locale=locale,
+            tags=tags,
+        )
+    except TrustpilotConfigError as exc:
+        abort(HTTPStatus.BAD_REQUEST, description=str(exc))
+    except TrustpilotAPIError as exc:
+        abort(HTTPStatus.BAD_GATEWAY, description=str(exc))
+
+    invitation_id = response.get("id") or response.get("invitationId")
+
+    review = TrustpilotReview(
+        cliente_id=cliente.cliente_id,
+        richiesta_da_professionista_id=current_user.id,
+        data_richiesta=datetime.utcnow(),
+        invitation_method="email_invitation",
+        invitation_status="sent",
+        trustpilot_reference_id=reference_id,
+        trustpilot_invitation_id=invitation_id,
+        trustpilot_payload_last=response,
+        note_interne="Invito email Trustpilot inviato via API.",
+    )
+    db.session.add(review)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Invito email Trustpilot inviato.",
+        "data": _serialize_trustpilot_review(review),
+    }), HTTPStatus.CREATED
 
 
 # --------------------------------------------------------------------------- #

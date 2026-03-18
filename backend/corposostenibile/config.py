@@ -389,6 +389,22 @@ class ProductionConfig(BaseConfig):
     # Rate limiting più stringente in produzione
     PERISKOPE_RATE_LIMIT: int = int(os.getenv("PERISKOPE_RATE_LIMIT", "50"))  # Più conservativo
 
+    # ── Trustpilot Integration ──
+    TRUSTPILOT_ENABLED: bool = str(os.getenv("TRUSTPILOT_ENABLED", "0")).lower() in ("1", "true", "yes")
+    TRUSTPILOT_API_KEY: str = os.getenv("TRUSTPILOT_API_KEY", "")
+    TRUSTPILOT_API_SECRET: str = os.getenv("TRUSTPILOT_API_SECRET", "")
+    TRUSTPILOT_BUSINESS_UNIT_ID: str = os.getenv("TRUSTPILOT_BUSINESS_UNIT_ID", "")
+    TRUSTPILOT_BUSINESS_USER_ID: str = os.getenv("TRUSTPILOT_BUSINESS_USER_ID", "")
+    TRUSTPILOT_REDIRECT_URI: str = os.getenv("TRUSTPILOT_REDIRECT_URI", "")
+    TRUSTPILOT_WEBHOOK_USERNAME: str = os.getenv("TRUSTPILOT_WEBHOOK_USERNAME", "")
+    TRUSTPILOT_WEBHOOK_PASSWORD: str = os.getenv("TRUSTPILOT_WEBHOOK_PASSWORD", "")
+    TRUSTPILOT_EMAIL_TEMPLATE_ID: str = os.getenv("TRUSTPILOT_EMAIL_TEMPLATE_ID", "")
+    TRUSTPILOT_SENDER_NAME: str = os.getenv("TRUSTPILOT_SENDER_NAME", "")
+    TRUSTPILOT_SENDER_EMAIL: str = os.getenv("TRUSTPILOT_SENDER_EMAIL", "")
+    TRUSTPILOT_REPLY_TO: str = os.getenv("TRUSTPILOT_REPLY_TO", "")
+    TRUSTPILOT_LOCALE_DEFAULT: str = os.getenv("TRUSTPILOT_LOCALE_DEFAULT", "it-IT")
+    TRUSTPILOT_TIMEOUT_SECONDS: int = int(os.getenv("TRUSTPILOT_TIMEOUT_SECONDS", "20"))
+
 
 # ---------------------------------------------------------------- Dispatcher
 class Config:

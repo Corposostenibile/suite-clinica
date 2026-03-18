@@ -5,6 +5,7 @@ import NavHader from '../jsx/layouts/nav/NavHader';
 import SideBar from '../jsx/layouts/nav/SideBar';
 import Header from '../jsx/layouts/nav/Header';
 import ChatBox from '../jsx/layouts/ChatBox';
+import SupportWidget from '../components/SupportWidget';
 import { ThemeContext } from '../context/ThemeContext';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
@@ -124,7 +125,7 @@ function DashboardContent() {
           </div>
         )}
         <div className="copyright">
-          <p>© <span className="text-success fw-semibold">Suite Clinica</span> · v1.0 · Sviluppata col ❤️ dal team IT</p>
+          <p>© <span className="text-success fw-semibold">Suite Clinica</span> · v2.0 · Sviluppata col ❤️ dal team IT</p>
         </div>
       </div>
 
@@ -148,6 +149,12 @@ function DashboardContent() {
           </button>
         </Modal.Footer>
       </Modal>
+
+      <SupportWidget
+        variant="global"
+        logoSrc="/suitemind.png"
+        brandName="Suite Clinica"
+      />
     </div>
   );
 }

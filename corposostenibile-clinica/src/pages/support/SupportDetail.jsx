@@ -1,6 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import './SupportDetail.css';
+
+// Sezioni che hanno documentazione MkDocs reale → redirect a /documentazione#guideKey
+const DOCS_REDIRECT = {
+    task: 'task',
+    formazione: 'formazione',
+    pazienti: 'lista-pazienti',
+    check: 'check-azienda',
+};
 
 const SECTIONS = {
     dashboard: {
@@ -87,6 +95,14 @@ const SupportDetail = () => {
     const { section } = useParams();
     const navigate = useNavigate();
     const info = SECTIONS[section];
+
+    // Redirect a documentazione se la sezione ha docs MkDocs
+    useEffect(() => {
+        const guideKey = DOCS_REDIRECT[section];
+        if (guideKey) {
+            navigate(`/documentazione#${guideKey}`, { replace: true });
+        }
+    }, [section, navigate]);
 
     if (!info) {
         return (

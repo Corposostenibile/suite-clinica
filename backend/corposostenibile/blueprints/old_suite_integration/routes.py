@@ -15,6 +15,7 @@ from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     SalesLead, User, Cliente, ServiceClienteAssignment,
     ClienteProfessionistaHistory, ServiceClienteNote,
+    TipologiaClienteEnum,
 )
 from . import bp
 from .package_parser import parse_package_name
@@ -116,6 +117,8 @@ def _serialize_lead(lead, parsed_pkg=None):
         'health_manager_name': lead.form_responses.get('health_manager_name', '') if lead.form_responses else '',
         'onboarding_date': lead.onboarding_date.isoformat() if lead.onboarding_date else None,
         'onboarding_time': lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else None,
+        'onboarding_notes': lead.onboarding_notes,
+        'loom_link': lead.loom_link,
         'checks': checks,
         'assignments': assignments,
         'ai_analysis': lead.ai_analysis,
@@ -511,6 +514,10 @@ def api_confirm_assignment():
         lead.assigned_at = datetime.utcnow()
         if data.get('notes'):
             lead.assignment_notes = data['notes']
+        if data.get('onboarding_notes'):
+            lead.onboarding_notes = data['onboarding_notes']
+        if data.get('loom_link'):
+            lead.loom_link = data['loom_link']
 
         # Salva AI analysis
         if data.get('ai_analysis'):
@@ -568,6 +575,13 @@ def api_confirm_assignment():
             cliente = Cliente.query.filter_by(mail=lead.email).first() if lead.email else None
 
         if not cliente:
+            # Deriva tipologia supporto dal pacchetto
+            support = parsed_pkg.get('support_types', {})
+            parsed_tipologia = parsed_pkg.get('client_type')
+            tipologia_enum = None
+            if parsed_tipologia in {'a', 'b', 'c'}:
+                tipologia_enum = TipologiaClienteEnum(parsed_tipologia)
+
             cliente = Cliente(
                 nome_cognome=lead.full_name,
                 mail=lead.email,
@@ -580,6 +594,11 @@ def api_confirm_assignment():
                 storia_cliente=lead.client_story,
                 programma_attuale=lead.custom_package_name,
                 durata_programma_giorni=parsed_pkg.get('duration_days') or None,
+                tipologia_cliente=tipologia_enum,
+                tipologia_supporto_nutrizione=support.get('nutrizione'),
+                tipologia_supporto_coach=support.get('coach'),
+                note_criticita_iniziali=lead.onboarding_notes,
+                loom_link=lead.loom_link,
                 health_manager_id=lead.health_manager_id,
                 consulente_alimentare_id=lead.sales_user_id,
                 data_inizio_abbonamento=lead.onboarding_date,

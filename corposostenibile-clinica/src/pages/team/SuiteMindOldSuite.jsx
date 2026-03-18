@@ -42,6 +42,8 @@ function SuiteMindOldSuite() {
   const [aiMatches, setAiMatches] = useState(null);
   const [selectedMatches, setSelectedMatches] = useState({ nutrition: '', coach: '', psychology: '' });
   const [assignmentNotes, setAssignmentNotes] = useState('');
+  const [onboardingNotes, setOnboardingNotes] = useState(location.state?.lead?.onboarding_notes || '');
+  const [loomLink, setLoomLink] = useState(location.state?.lead?.loom_link || '');
   const [activeRoleFlow, setActiveRoleFlow] = useState(null);
   const [assignmentSuccess, setAssignmentSuccess] = useState(false);
   const [lastAssignedProf, setLastAssignedProf] = useState(null);
@@ -191,6 +193,8 @@ function SuiteMindOldSuite() {
         coach_id,
         psychologist_id,
         notes: assignmentNotes,
+        onboarding_notes: onboardingNotes,
+        loom_link: loomLink,
         ai_analysis: aiAnalysis,
       });
 
@@ -473,15 +477,40 @@ function SuiteMindOldSuite() {
               {activeRoleFlow === 'psychology' && renderMatchSection('psychology', 'warning', 'ri-mental-health-line', 'Psicologo', 'psicologia', '-- Seleziona uno Psicologo --')}
 
               <div className="sm-notes-section">
-                <label className="sm-select-label">Note Generali Assegnazione</label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  placeholder="Note opzionali visibili al professionista..."
-                  value={assignmentNotes}
-                  onChange={(e) => setAssignmentNotes(e.target.value)}
-                  className="sm-notes-input"
-                />
+                <div className="mb-3">
+                  <label className="sm-select-label">Note Criticita Onboarding</label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="Note su criticità rilevate in fase di onboarding..."
+                    value={onboardingNotes}
+                    onChange={(e) => { setOnboardingNotes(e.target.value); setHasNewInteraction(true); }}
+                    className="sm-notes-input"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="sm-select-label">Link Loom Onboarding</label>
+                  <Form.Control
+                    type="url"
+                    placeholder="https://www.loom.com/share/..."
+                    value={loomLink}
+                    onChange={(e) => { setLoomLink(e.target.value); setHasNewInteraction(true); }}
+                    className="sm-notes-input"
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="sm-select-label">Note Interne Professionista</label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    placeholder="Note opzionali visibili al professionista..."
+                    value={assignmentNotes}
+                    onChange={(e) => { setAssignmentNotes(e.target.value); setHasNewInteraction(true); }}
+                    className="sm-notes-input"
+                  />
+                </div>
               </div>
             </div>
           </div>

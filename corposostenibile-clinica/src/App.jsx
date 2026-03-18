@@ -27,6 +27,7 @@ import {
   ClientiListaNutrizione,
   ClientiListaCoach,
   ClientiListaPsicologia,
+  ClientiListaHealthManager,
 } from './pages/clienti';
 
 // Chat pages
@@ -55,6 +56,7 @@ import GlobalSearchPage from './pages/GlobalSearchPage';
 
 // Documentation
 import Documentation from './pages/documentation/Documentation';
+import LoomLibrary from './pages/loom/LoomLibrary';
 
 // Novità
 import Novita from './pages/Novita';
@@ -69,6 +71,7 @@ import {
   canAccessAiAssignments,
   canAccessCapacity,
   canAccessGlobalCheckPage,
+  canAccessLoomLibrary,
   canAccessQualityPage,
   canAccessSecondaryModules,
   canAccessSpecializzazione,
@@ -130,6 +133,9 @@ function App() {
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
           <Route path="/client-checks/public/:token" element={<PublicClientCheckRedirect />} />
+
+          {/* Documentazione — layout standalone con auth */}
+          <Route path="/documentazione" element={<Documentation />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
@@ -205,6 +211,7 @@ function App() {
             <Route path="/clienti-nutrizione" element={<ClientiListaNutrizione />} />
             <Route path="/clienti-coach" element={<ClientiListaCoach />} />
             <Route path="/clienti-psicologia" element={<ClientiListaPsicologia />} />
+            <Route path="/clienti-health-manager" element={<ClientiListaHealthManager />} />
 
             {/* Chat */}
             <Route path="/chat" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Chat /></RoleProtectedRoute>} />
@@ -232,6 +239,7 @@ function App() {
 
             {/* Calendario */}
             <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />
+            <Route path="/loom-library" element={<RoleProtectedRoute allowIf={canAccessLoomLibrary}><LoomLibrary /></RoleProtectedRoute>} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
             <Route path="/profilo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Profilo /></RoleProtectedRoute>} />
 
@@ -245,8 +253,7 @@ function App() {
             {/* Novità */}
             <Route path="/novita" element={<Novita />} />
 
-            {/* Documentazione */}
-            <Route path="/documentazione" element={<Documentation />} />
+            {/* Documentazione → layout standalone (fuori da qui) */}
 
             {/* Admin Pages */}
             <Route path="/admin/ghl-settings" element={<GHLSettings />} />

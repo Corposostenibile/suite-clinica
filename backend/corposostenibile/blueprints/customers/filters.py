@@ -107,7 +107,9 @@ class CustomerFilterParams:
 
     q: Optional[str] = None
     tipologia: List[TipologiaClienteEnum] = field(default_factory=list)
-    
+    tipologia_supporto_nutrizione: Optional[str] = None
+    tipologia_supporto_coach: Optional[str] = None
+
     # Filtri professionisti (FK)
     nutrizionista_id: Optional[int] = None
     nutrizionista_ids: List[int] = field(default_factory=list)  # Per filtrare per più nutrizionisti (team leader)
@@ -417,6 +419,8 @@ class CustomerFilterParams:
             tipologia=_parse_multi_value(
                 _val("tipologia_cliente", "tipologia"), TipologiaClienteEnum
             ),
+            tipologia_supporto_nutrizione=args.get("tipologia_supporto_nutrizione") or None,
+            tipologia_supporto_coach=args.get("tipologia_supporto_coach") or None,
             nutrizionista_id=_parse_int(args.get("nutrizionista_id"), None, 0) if args.get("nutrizionista_id") else None,
             nutrizionista_ids=nutrizionista_ids,
             coach_id=_parse_int(args.get("coach_id"), None, 0) if args.get("coach_id") else None,
@@ -668,6 +672,12 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
+
+    if p.tipologia_supporto_nutrizione:
+        qry = qry.filter(Cliente.tipologia_supporto_nutrizione == p.tipologia_supporto_nutrizione)
+
+    if p.tipologia_supporto_coach:
+        qry = qry.filter(Cliente.tipologia_supporto_coach == p.tipologia_supporto_coach)
 
     # -------- origine filter (Influencer) ------
     if p.origine_ids:

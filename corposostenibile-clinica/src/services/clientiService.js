@@ -39,6 +39,7 @@ export const TIPOLOGIA_LABELS = {
   a: 'Tipo A',
   b: 'Tipo B',
   c: 'Tipo C',
+  secondario: 'Secondario',
   stop: 'Ex-Cliente',
   recupero: 'Recupero',
   pausa_gt_30: 'Pausa > 30gg',
@@ -48,6 +49,7 @@ export const TIPOLOGIA_COLORS = {
   a: 'success',
   b: 'warning',
   c: 'info',
+  secondario: 'secondary',
   stop: 'danger',
   recupero: 'secondary',
   pausa_gt_30: 'dark',
@@ -386,6 +388,16 @@ const clientiService = {
     return response.data;
   },
 
+  async getClientiExpiring(params = {}) {
+    const response = await api.get(`${API_BASE}/expiring`, { params });
+    return response.data;
+  },
+
+  async getClientiUnsatisfied(params = {}) {
+    const response = await api.get(`${API_BASE}/unsatisfied`, { params });
+    return response.data;
+  },
+
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'
@@ -472,6 +484,67 @@ const clientiService = {
    */
   async deleteCustomerCareIntervention(interventionId) {
     const response = await api.delete(`${API_BASE}/customer-care-interventions/${interventionId}`);
+    return response.data;
+  },
+
+  // ==================== CHECK IN INTERVENTIONS ====================
+
+  async getCheckInInterventions(id) {
+    const response = await api.get(`${API_BASE}/${id}/check-in-interventions`);
+    return response.data;
+  },
+
+  async createCheckInIntervention(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/check-in-interventions`, data);
+    return response.data;
+  },
+
+  async updateCheckInIntervention(interventionId, data) {
+    const response = await api.put(`${API_BASE}/check-in-interventions/${interventionId}`, data);
+    return response.data;
+  },
+
+  async deleteCheckInIntervention(interventionId) {
+    const response = await api.delete(`${API_BASE}/check-in-interventions/${interventionId}`);
+    return response.data;
+  },
+
+  // ==================== TRUSTPILOT ====================
+
+  async getTrustpilotOverview(params = {}) {
+    const response = await api.get(`${API_BASE}/trustpilot-overview`, { params });
+    return response.data;
+  },
+
+  async getTrustpilotStatus(id) {
+    const response = await api.get(`${API_BASE}/${id}/trustpilot`);
+    return response.data;
+  },
+
+  async generateTrustpilotLink(id, data = {}) {
+    const response = await api.post(`${API_BASE}/${id}/trustpilot/link`, data);
+    return response.data;
+  },
+
+  async sendTrustpilotInvite(id, data = {}) {
+    const response = await api.post(`${API_BASE}/${id}/trustpilot/invite`, data);
+    return response.data;
+  },
+
+  // ==================== VIDEO REVIEW (MARKETING) ====================
+
+  async getVideoReviewRequests(id) {
+    const response = await api.get(`${API_BASE}/${id}/video-review-requests`);
+    return response.data;
+  },
+
+  async createVideoReviewBooked(id) {
+    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`);
+    return response.data;
+  },
+
+  async confirmVideoReviewByHm(requestId, data) {
+    const response = await api.post(`${API_BASE}/video-review-requests/${requestId}/hm-confirm`, data);
     return response.data;
   },
 

@@ -341,10 +341,12 @@ function ClientiList() {
     { key: 'nutrizione', to: '/clienti-nutrizione', label: 'Visuale Nutrizione', icon: 'ri-restaurant-line' },
     { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
+    { key: 'health_manager', to: '/clienti-health-manager', label: 'Health Manager', icon: 'ri-heart-pulse-line' },
   ].filter((btn) => {
     if (isInfluencer) return btn.key === 'generale';
-    if (user?.role === 'health_manager') return btn.key === 'generale';
+    if (isHealthManager) return btn.key === 'generale' || btn.key === 'health_manager';
     if (isProfessionista) return btn.key === 'generale' || btn.key === teamLeaderSpecialtyGroup;
+    if (isAdminOrCco) return true;
     if (!isTeamLeaderRestricted) return true;
     if (btn.key === 'generale') return true;
     return btn.key === teamLeaderSpecialtyGroup;

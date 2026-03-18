@@ -42,6 +42,13 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           navigateFallback: 'index.html',
+          navigateFallbackDenylist: [
+            /^\/api(?:\/|$)/,
+            /^\/calendar\/api(?:\/|$)/,
+            /^\/loom(?:\/|$)/,
+            /^\/ghl\/api(?:\/|$)/,
+            /^\/quality\/api(?:\/|$)/,
+          ],
           importScripts: ['push-sw.js'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         },
@@ -124,6 +131,10 @@ export default defineConfig(({ mode }) => {
             },
             // Proxy Documentation (MkDocs)
             '/documentation': {
+              target: backendUrl,
+              changeOrigin: true,
+            },
+            '/loom': {
               target: backendUrl,
               changeOrigin: true,
             },

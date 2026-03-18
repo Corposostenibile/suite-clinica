@@ -56,6 +56,8 @@ function ClientiAdd() {
     programma_attuale_dettaglio: '',
     macrocategoria: '',
     tipologia_cliente: '',
+    tipologia_supporto_nutrizione: '',
+    tipologia_supporto_coach: '',
     categoria: '',
     di_team: '',
     // Stati
@@ -135,6 +137,8 @@ function ClientiAdd() {
             programma_attuale_dettaglio: cliente.programma_attuale_dettaglio || cliente.programmaAttualeDettaglio || '',
             macrocategoria: cliente.macrocategoria || '',
             tipologia_cliente: cliente.tipologia_cliente || cliente.tipologiaCliente || '',
+            tipologia_supporto_nutrizione: cliente.tipologia_supporto_nutrizione || '',
+            tipologia_supporto_coach: cliente.tipologia_supporto_coach || '',
             categoria: cliente.categoria || '',
             di_team: cliente.di_team || cliente.diTeam || '',
             stato_cliente: cliente.stato_cliente || cliente.statoCliente || 'attivo',
@@ -501,6 +505,36 @@ function ClientiAdd() {
                         {Object.entries(TIPOLOGIA_LABELS).map(([value, label]) => (
                           <option key={value} value={value}>{label}</option>
                         ))}
+                      </select>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Tipologia Supporto Nutrizione</label>
+                      <select
+                        className="form-select"
+                        name="tipologia_supporto_nutrizione"
+                        value={formData.tipologia_supporto_nutrizione}
+                        onChange={handleChange}
+                      >
+                        <option value="">Seleziona...</option>
+                        <option value="a">Tipo A</option>
+                        <option value="b">Tipo B</option>
+                        <option value="c">Tipo C</option>
+                        <option value="secondario">Secondario</option>
+                      </select>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Tipologia Supporto Coach</label>
+                      <select
+                        className="form-select"
+                        name="tipologia_supporto_coach"
+                        value={formData.tipologia_supporto_coach}
+                        onChange={handleChange}
+                      >
+                        <option value="">Seleziona...</option>
+                        <option value="a">Tipo A</option>
+                        <option value="b">Tipo B</option>
+                        <option value="c">Tipo C</option>
+                        <option value="secondario">Secondario</option>
                       </select>
                     </div>
                     <div className="col-md-6">

@@ -227,6 +227,11 @@ class TipologiaClienteEnum(str, Enum):
     pausa_gt_30 = "pausa_gt_30"
 
 
+class CapacityWeightAreaEnum(str, Enum):
+    nutrizione = "nutrizione"
+    coach = "coach"
+
+
 class CatEnum(str, Enum):
     trasformazione = "trasformazione"
     trasformazione_dca = "trasformazione_dca"
@@ -1845,6 +1850,14 @@ class Cliente(TimestampMixin, db.Model):
     modalita_pagamento      = db.Column(_def(PagamentoEnum))
     note_rinnovo            = db.Column(db.Text)
     tipologia_cliente       = db.Column(_def(TipologiaClienteEnum))
+    tipologia_supporto_nutrizione = db.Column(
+        db.String(20),
+        comment="Tipologia supporto nutrizione: a, b, c, secondario",
+    )
+    tipologia_supporto_coach = db.Column(
+        db.String(20),
+        comment="Tipologia supporto coach: a, b, c, secondario",
+    )
 
     # Staff (ora stringhe singole per compatibilità Excel)
     nutrizionista           = db.Column(db.String(255))  # Nome singolo
@@ -1990,6 +2003,7 @@ class Cliente(TimestampMixin, db.Model):
     # Campi per gestione onboarding iniziale
     onboarding_date = db.Column(db.Date)  # Data di onboarding del cliente
     note_criticita_iniziali = db.Column(db.Text)  # Note sulle criticità iniziali rilevate durante onboarding
+    loom_link = db.Column(db.String(500))  # Link Loom (dal Sales Lead)
 
     # ───────────────────── RELAZIONI "CORE" ─────────────────────── #
 
@@ -2749,6 +2763,66 @@ class ContinuityCallIntervention(TimestampMixin, db.Model):
                 "avatar_url": self.created_by.avatar_url
             } if self.created_by else None
         }
+
+
+# ───────────────── TRUSTPILOT REVIEWS ────────────────── #
+class TrustpilotReview(TimestampMixin, db.Model):
+    """
+    Tracciamento recensioni per distribuzione bonus BRec.
+    Supporta sia workflow manuale sia integrazione API/webhook Trustpilot.
+    """
+    __tablename__ = 'trustpilot_reviews'
+    __table_args__ = (
+        db.Index('idx_cliente_review', 'cliente_id'),
+        db.Index('idx_richiedente', 'richiesta_da_professionista_id'),
+        db.Index('idx_quarter', 'applied_to_quarter'),
+        db.Index('idx_pubblicata', 'pubblicata'),
+        db.Index('idx_trustpilot_reference', 'trustpilot_reference_id'),
+        db.Index('idx_trustpilot_review_id', 'trustpilot_review_id'),
+        {'extend_existing': True},
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Riferimenti
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey('clienti.cliente_id'), nullable=False)
+    cliente = relationship('Cliente', foreign_keys=[cliente_id], backref='trustpilot_reviews')
+
+    # Richiesta Recensione
+    richiesta_da_professionista_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    richiesta_da = relationship('User', foreign_keys=[richiesta_da_professionista_id])
+    data_richiesta = db.Column(db.DateTime, nullable=False, index=True)
+    invitation_method = db.Column(db.String(50), default='manual')
+    invitation_status = db.Column(db.String(50), default='pending', index=True)
+    trustpilot_reference_id = db.Column(db.String(120), unique=True, index=True)
+    trustpilot_invitation_id = db.Column(db.String(120), index=True)
+    trustpilot_review_id = db.Column(db.String(120), unique=True, index=True)
+    trustpilot_link = db.Column(db.Text)
+
+    # Pubblicazione
+    pubblicata = db.Column(db.Boolean, default=False, index=True)
+    data_pubblicazione = db.Column(db.DateTime)
+    stelle = db.Column(db.Integer)
+    testo_recensione = db.Column(db.Text)
+    titolo_recensione = db.Column(db.String(255))
+    deleted_at_trustpilot = db.Column(db.DateTime)
+    webhook_received_at = db.Column(db.DateTime)
+    trustpilot_payload_last = db.Column(db.JSON)
+
+    # Distribuzione Bonus
+    bonus_distribution = db.Column(db.JSON)
+    applied_to_quarter = db.Column(db.String(10), index=True)
+    applied_to_week_start = db.Column(db.Date, index=True)
+
+    # Conferma HM
+    confermata_da_hm_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    confermata_da_hm = relationship('User', foreign_keys=[confermata_da_hm_id])
+    data_conferma_hm = db.Column(db.DateTime)
+
+    note_interne = db.Column(db.Text)
+
+    def __repr__(self):
+        return f"<TrustpilotReview client={self.cliente_id} richiedente={self.richiesta_da_professionista_id} pubblicata={self.pubblicata}>"
 
 
 # ───────────────── 3) CARTELLA CLINICA & ALLEGATI ───────────────── #
@@ -10500,6 +10574,31 @@ class CapacityTypeWeight(TimestampMixin, db.Model):
     peso = db.Column(db.Float, nullable=False, default=1.0, comment="Peso per il calcolo capienza")
 
 
+class CapacityRoleTypeWeight(TimestampMixin, db.Model):
+    """
+    Pesi per tipologia supporto capienza separati per area professionale.
+    Una riga per coppia (role_type, tipo): es. nutrizione/a, coach/secondario.
+    """
+    __tablename__ = "capacity_role_type_weights"
+
+    role_type = db.Column(
+        db.String(20),
+        primary_key=True,
+        comment="Area professionale: nutrizione, coach",
+    )
+    tipo = db.Column(
+        db.String(20),
+        primary_key=True,
+        comment="Tipologia supporto: a, b, c, secondario",
+    )
+    peso = db.Column(
+        db.Float,
+        nullable=False,
+        default=1.0,
+        comment="Peso per il calcolo capienza",
+    )
+
+
 # --------------------------------------------------------------------------- #
 #  Meeting (Google Calendar Integration)
 # --------------------------------------------------------------------------- #
@@ -10643,6 +10742,63 @@ class Meeting(TimestampMixin, db.Model):
             delta = self.end_time - self.start_time
             return int(delta.total_seconds() / 60)
         return 0
+
+
+# --------------------------------------------------------------------------- #
+#  LoomRecording (Support Widget Integration)
+# --------------------------------------------------------------------------- #
+class LoomRecording(TimestampMixin, db.Model):
+    """
+    Registrazioni Loom generate dal widget di supporto interno.
+
+    Separato dalla logica meeting/calendario:
+    - submitter_user_id è obbligatorio
+    - cliente_id è opzionale
+    """
+
+    __tablename__ = "loom_recordings"
+    __versioned__ = {}
+
+    id = db.Column(db.Integer, primary_key=True)
+    loom_link = db.Column(db.String(500), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    source = db.Column(
+        db.String(50),
+        nullable=False,
+        default="support_widget",
+        comment="Origine registrazione (es. support_widget)",
+    )
+    submitter_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Utente che ha inviato la registrazione",
+    )
+    cliente_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("clienti.cliente_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Paziente associato (opzionale)",
+    )
+
+    submitter_user = db.relationship(
+        "User",
+        backref=db.backref("loom_recordings", lazy="dynamic"),
+    )
+    cliente = db.relationship(
+        "Cliente",
+        backref=db.backref("loom_recordings", lazy="dynamic"),
+    )
+
+    @property
+    def has_cliente(self) -> bool:
+        return bool(self.cliente_id)
+
+    def __repr__(self) -> str:
+        return f"<LoomRecording {self.id} submitter={self.submitter_user_id}>"
 
 
 # ─────────────────────────── CLIENT CHECKS MODELS ─────────────────────────── #
@@ -11700,6 +11856,35 @@ class CallBonus(TimestampMixin, db.Model):
         return f"<CallBonus cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
 
 
+class VideoReviewRequest(TimestampMixin, db.Model):
+    """
+    Flusso video recensione in tab Marketing:
+    - professionista/HM prenota (booked)
+    - HM conferma call svolta e inserisce link Loom (hm_confirmed)
+    """
+    __tablename__ = "video_review_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
+    requested_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    hm_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+
+    # Stati supportati: booked, hm_confirmed
+    status = db.Column(db.String(32), nullable=False, default="booked", index=True)
+    booking_confirmed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    hm_confirmed_at = db.Column(db.DateTime)
+
+    loom_link = db.Column(db.String(500))
+    hm_note = db.Column(db.Text)
+
+    cliente = db.relationship("Cliente", backref="video_review_requests")
+    requested_by_user = db.relationship("User", foreign_keys=[requested_by_user_id], backref="video_review_requests_created")
+    hm_user = db.relationship("User", foreign_keys=[hm_user_id], backref="video_review_requests_confirmed")
+
+    def __repr__(self):
+        return f"<VideoReviewRequest cliente={self.cliente_id} status={self.status}>"
+
+
 # Indice per ricerca risposte per data
 Index(
     'ix_client_check_responses_created_at',
@@ -12070,6 +12255,8 @@ class SalesLead(TimestampMixin, db.Model):
     assigned_by = db.Column(db.Integer, db.ForeignKey("users.id"))
     assigned_at = db.Column(db.DateTime)
     assignment_notes = db.Column(db.Text)
+    onboarding_notes = db.Column(db.Text)  # Note criticità onboarding (Health Manager)
+    loom_link = db.Column(db.String(500))  # Link Loom (Health Manager)
 
     # Conversione
     converted_to_client_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"))
@@ -13061,65 +13248,6 @@ class QualityClientScore(TimestampMixin, db.Model):
 
     def __repr__(self):
         return f"<QualityClientScore client={self.cliente_id} prof={self.professionista_id} week={self.week_start_date} score={self.quality_score}>"
-
-
-class TrustpilotReview(TimestampMixin, db.Model):
-    """
-    Tracciamento recensioni per distribuzione bonus BRec.
-    NO integrazione API Trustpilot - gestione manuale da HM.
-    """
-    __tablename__ = 'trustpilot_reviews'
-    __table_args__ = (
-        db.Index('idx_cliente_review', 'cliente_id'),
-        db.Index('idx_richiedente', 'richiesta_da_professionista_id'),
-        db.Index('idx_quarter', 'applied_to_quarter'),
-        db.Index('idx_pubblicata', 'pubblicata'),
-    )
-
-    # ─── Primary Key ───
-    id = db.Column(db.Integer, primary_key=True)
-
-    # ─── Riferimenti ───
-    cliente_id = db.Column(db.BigInteger, db.ForeignKey('clienti.cliente_id'), nullable=False)
-    cliente = relationship('Cliente', foreign_keys=[cliente_id], backref='trustpilot_reviews')
-
-    # ─── Richiesta Recensione ───
-    richiesta_da_professionista_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    richiesta_da = relationship('User', foreign_keys=[richiesta_da_professionista_id])
-    data_richiesta = db.Column(db.DateTime, nullable=False, index=True)
-
-    # ─── Pubblicazione ───
-    pubblicata = db.Column(db.Boolean, default=False, index=True)
-    data_pubblicazione = db.Column(db.DateTime)
-    stelle = db.Column(db.Integer)  # 1-5 (copiato da Cliente.recensione_stelle)
-    testo_recensione = db.Column(db.Text)  # Copiato da Cliente.recensione_testo
-
-    # ─── Distribuzione Bonus (JSON) ───
-    bonus_distribution = db.Column(db.JSON)
-    # Esempio:
-    # {
-    #   "richiedente_id": 123,
-    #   "richiedente_bonus": 0.03,
-    #   "team_ids": [124, 125, 126],
-    #   "team_bonus_total": 0.02,
-    #   "team_bonus_each": 0.0067,
-    #   "team_count": 3
-    # }
-
-    # ─── Applicazione Trimestre ───
-    applied_to_quarter = db.Column(db.String(10), index=True)  # "2025-Q4"
-    applied_to_week_start = db.Column(db.Date, index=True)     # Settimana specifica
-
-    # ─── Metadata ───
-    confermata_da_hm_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    confermata_da_hm = relationship('User', foreign_keys=[confermata_da_hm_id])
-    data_conferma_hm = db.Column(db.DateTime)
-
-    # ─── Note ───
-    note_interne = db.Column(db.Text)
-
-    def __repr__(self):
-        return f"<TrustpilotReview client={self.cliente_id} richiedente={self.richiesta_da_professionista_id} pubblicata={self.pubblicata}>"
 
 
 class EleggibilitaSettimanale(TimestampMixin, db.Model):

@@ -16,8 +16,14 @@ const TaskSidebar = ({ isActive, toggle, openTaskModal }) => {
       setLoadingTasks(true);
       try {
          // Get top 20 incomplete tasks
-         const res = await taskService.getAll({ completed: 'false', per_page: 20 });
-         setTasks(res || []);
+         const res = await taskService.getAll({
+            completed: 'false',
+            mine: 'true',
+            paginate: 'true',
+            page: 1,
+            per_page: 20
+         });
+         setTasks(Array.isArray(res) ? (res || []) : (res?.items || []));
       } catch (err) {
          console.error('Errore caricamento tasks:', err);
       } finally {
