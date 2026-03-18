@@ -10,7 +10,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "version_tables_parity_01"
-down_revision = "video_review_requests_01"
+down_revision = "capacity_type_weights_01"
 branch_labels = None
 depends_on = None
 
