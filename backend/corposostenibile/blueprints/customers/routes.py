@@ -6606,6 +6606,57 @@ def api_call_bonus_select_professional(call_bonus_id: int):
 
     db.session.commit()
 
+    # Create a Task for the assigned professional (so they get notified)
+    try:
+        from corposostenibile.models import Task, TaskStatusEnum, TaskPriorityEnum, TaskCategoryEnum
+
+        task_title = f"Call Bonus — Rispondi interesse paziente (CB#{call_bonus.id})"
+        base_url = (current_app.config.get("BASE_URL") or "").rstrip("/")
+        path = f"/clienti-dettaglio/{cliente.cliente_id}?tab=call_bonus"
+        detail_url = f"{base_url}{path}" if base_url else path
+
+        existing = (
+            Task.query
+            .filter(
+                Task.assignee_id == prof.id,
+                Task.title == task_title,
+                Task.status.in_([TaskStatusEnum.todo, TaskStatusEnum.in_progress]),
+            )
+            .first()
+        )
+        if not existing:
+            t = Task(
+                title=task_title,
+                description=(
+                    f"Paziente: {getattr(cliente, 'nome_cognome', '')}\n"
+                    f"Richiesta da: {current_user.full_name}\n"
+                    f"Note: {call_bonus.note_richiesta or '-'}\n"
+                    f"Apri: {detail_url}\n"
+                ),
+                category=TaskCategoryEnum.generico,
+                priority=TaskPriorityEnum.high,
+                status=TaskStatusEnum.todo,
+                assignee_id=prof.id,
+                client_id=cliente.cliente_id,
+                payload={"call_bonus_id": call_bonus.id, "cliente_id": cliente.cliente_id},
+            )
+            db.session.add(t)
+            db.session.commit()
+
+            try:
+                from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+                send_task_notification_task.delay(t.id, assigner_name=current_user.full_name)
+            except Exception:
+                current_app.logger.warning(
+                    "[call_bonus] Impossibile accodare notifica Teams per task %s", t.id
+                )
+    except Exception:
+        current_app.logger.exception("[call_bonus] Errore creazione task per professionista assegnato")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
     # Get link_call_bonus from professional's ai_notes
     ai_notes = prof.assignment_ai_notes or {}
     if isinstance(ai_notes, str):
