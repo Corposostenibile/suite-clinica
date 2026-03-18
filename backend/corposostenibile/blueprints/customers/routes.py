@@ -6195,7 +6195,7 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 
 def _is_assigned_to_cliente(user, cliente) -> bool:
     """Verifica se l'utente è assegnato al paziente come professionista (o admin).
-    Include anche professionisti con call bonus attive (status=accettata).
+    Include anche professionisti coinvolti in call bonus sul paziente.
     """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
@@ -6223,12 +6223,19 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
         or user in cliente.consulenti_multipli
     ):
         return True
-    # Professionista assegnato tramite call bonus attiva
+    # Professionista assegnato tramite call bonus (anche dopo la risposta interesse)
     from corposostenibile.models import CallBonus
     has_active_cb = db.session.query(CallBonus.id).filter(
         CallBonus.cliente_id == cliente.cliente_id,
         CallBonus.professionista_id == user.id,
-        CallBonus.status == CallBonusStatusEnum.accettata,
+        CallBonus.status.in_([
+            CallBonusStatusEnum.accettata,
+            CallBonusStatusEnum.interessato,
+            CallBonusStatusEnum.non_interessato,
+            CallBonusStatusEnum.confermata,
+            CallBonusStatusEnum.rifiutata,
+            CallBonusStatusEnum.non_andata_buon_fine,
+        ]),
     ).first()
     return has_active_cb is not None
 

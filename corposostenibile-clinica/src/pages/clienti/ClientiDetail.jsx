@@ -8471,9 +8471,14 @@ function ClientiDetail() {
                     <button
                       className="cd-btn-save"
                       style={{ background: '#22c55e', padding: '12px 20px' }}
-                      onClick={() => setCallBonusInterestStep('book_hm')}
+                      onClick={handleConfirmCallBonusInterest}
+                      disabled={confirmingBooking}
                     >
-                      <i className="ri-thumb-up-line"></i>Sì, interessato
+                      {confirmingBooking ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
+                      ) : (
+                        <><i className="ri-thumb-up-line"></i>Sì, interessato</>
+                      )}
                     </button>
                     <button
                       className="cd-btn-save"
