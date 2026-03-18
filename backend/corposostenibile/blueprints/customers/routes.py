@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from http import HTTPStatus
 import logging
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 from dateutil.relativedelta import relativedelta
 
@@ -53,6 +54,7 @@ from corposostenibile.models import (
     PlanTypeEnum,
     CallBonusStatusEnum,
     TrustpilotReview,
+    VideoReviewRequest,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
@@ -6681,6 +6683,132 @@ def api_call_bonus_decline(call_bonus_id: int):
         "call_bonus_id": call_bonus.id,
         "message": "Call bonus rifiutata.",
     })
+
+
+# --------------------------------------------------------------------------- #
+#  Video Review (Marketing Tab)                                               #
+# --------------------------------------------------------------------------- #
+def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "cliente_id": item.cliente_id,
+        "status": item.status,
+        "booking_confirmed_at": item.booking_confirmed_at.isoformat() if item.booking_confirmed_at else None,
+        "hm_confirmed_at": item.hm_confirmed_at.isoformat() if item.hm_confirmed_at else None,
+        "loom_link": item.loom_link,
+        "hm_note": item.hm_note,
+        "requested_by_user_id": item.requested_by_user_id,
+        "requested_by_name": getattr(item.requested_by_user, "full_name", None),
+        "hm_user_id": item.hm_user_id,
+        "hm_name": getattr(item.hm_user, "full_name", None),
+    }
+
+
+def _is_valid_absolute_url(url_value: str) -> bool:
+    try:
+        parsed = urlparse(url_value)
+    except Exception:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_review_requests(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    rows = (
+        db.session.query(VideoReviewRequest)
+        .filter(VideoReviewRequest.cliente_id == cliente_id)
+        .order_by(VideoReviewRequest.created_at.desc(), VideoReviewRequest.id.desc())
+        .all()
+    )
+    return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_booked(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    existing_open = (
+        db.session.query(VideoReviewRequest)
+        .filter(
+            VideoReviewRequest.cliente_id == cliente_id,
+            VideoReviewRequest.status == "booked",
+        )
+        .order_by(VideoReviewRequest.id.desc())
+        .first()
+    )
+    if existing_open:
+        return jsonify({
+            "success": True,
+            "data": _serialize_video_review_request(existing_open),
+            "message": "Esiste già una richiesta video recensione in stato prenotata.",
+        }), HTTPStatus.OK
+
+    request_item = VideoReviewRequest(
+        cliente_id=cliente_id,
+        requested_by_user_id=current_user.id,
+        hm_user_id=cliente.health_manager_id,
+        status="booked",
+        booking_confirmed_at=datetime.utcnow(),
+    )
+    db.session.add(request_item)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(request_item),
+        "message": "Prenotazione video recensione registrata.",
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/video-review-requests/<int:request_id>/hm-confirm", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_hm_confirm(request_id: int):
+    item = db.session.get(VideoReviewRequest, request_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND, description="Richiesta video recensione non trovata.")
+
+    cliente = db.session.get(Cliente, item.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    role = getattr(current_user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    is_hm = role_value == "health_manager"
+    if not (is_admin or (is_hm and getattr(cliente, "health_manager_id", None) == current_user.id)):
+        abort(HTTPStatus.FORBIDDEN, description="Solo HM assegnato o admin possono confermare.")
+
+    payload = request.get_json(silent=True) or {}
+    loom_link = (payload.get("loom_link") or "").strip()
+    hm_note = (payload.get("hm_note") or "").strip()
+    if not loom_link:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'loom_link' obbligatorio.")
+    if not _is_valid_absolute_url(loom_link):
+        abort(HTTPStatus.BAD_REQUEST, description="Loom link non valido.")
+
+    item.status = "hm_confirmed"
+    item.hm_confirmed_at = datetime.utcnow()
+    item.loom_link = loom_link
+    item.hm_note = hm_note or None
+    item.hm_user_id = getattr(cliente, "health_manager_id", None) or current_user.id
+
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(item),
+        "message": "Video recensione confermata da HM.",
+    }), HTTPStatus.OK
 
 
 # --------------------------------------------------------------------------- #

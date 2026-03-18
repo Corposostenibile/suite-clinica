@@ -531,6 +531,23 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== VIDEO REVIEW (MARKETING) ====================
+
+  async getVideoReviewRequests(id) {
+    const response = await api.get(`${API_BASE}/${id}/video-review-requests`);
+    return response.data;
+  },
+
+  async createVideoReviewBooked(id) {
+    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`);
+    return response.data;
+  },
+
+  async confirmVideoReviewByHm(requestId, data) {
+    const response = await api.post(`${API_BASE}/video-review-requests/${requestId}/hm-confirm`, data);
+    return response.data;
+  },
+
   // ==================== PROFESSIONAL ASSIGNMENT ====================
 
   /**

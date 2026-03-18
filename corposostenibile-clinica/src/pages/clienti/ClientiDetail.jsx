@@ -132,6 +132,8 @@ function ClientiDetail() {
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
   const isHealthManager = isHealthManagerUser(user);
+  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
+  const isCco = user?.specialty === 'cco';
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
@@ -142,8 +144,8 @@ function ClientiDetail() {
   // il backend applica il vero controllo RBAC sul paziente.
   const canGenerateCheckLinks = true;
   const canCreateCallBonus = true;
-  const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
-  const canViewMarketingTab = Boolean(user?.is_admin || user?.role === 'admin' || isHealthManager || user?.specialty === 'cco');
+  const canDeleteClientRecord = isAdmin;
+  const canViewMarketingTab = Boolean(isAdmin || isHealthManager || isCco || isProfessionista);
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
@@ -743,6 +745,13 @@ function ClientiDetail() {
   const [trustpilotData, setTrustpilotData] = useState(null);
   const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
   const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
+  const [videoReviewRequests, setVideoReviewRequests] = useState([]);
+  const [loadingVideoReviewRequests, setLoadingVideoReviewRequests] = useState(false);
+  const [showVideoReviewBookingModal, setShowVideoReviewBookingModal] = useState(false);
+  const [showVideoReviewConfirmModal, setShowVideoReviewConfirmModal] = useState(false);
+  const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
+  const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
+  const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -1207,6 +1216,30 @@ function ClientiDetail() {
     }
   }, [activeTab, fetchPatientLoomRecordings]);
 
+  const isAssignedProfessionalForCliente = useMemo(() => {
+    if (!isProfessionista || !user?.id || !cliente) return false;
+    const uid = Number(user.id);
+    const singleAssignments = [
+      cliente?.nutrizionista_id,
+      cliente?.coach_id,
+      cliente?.psicologa_id,
+      cliente?.consulente_alimentare_id,
+    ]
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v > 0);
+    if (singleAssignments.includes(uid)) return true;
+
+    const multiAssignments = [
+      ...(Array.isArray(cliente?.nutrizionisti_multipli) ? cliente.nutrizionisti_multipli : []),
+      ...(Array.isArray(cliente?.coaches_multipli) ? cliente.coaches_multipli : []),
+      ...(Array.isArray(cliente?.psicologi_multipli) ? cliente.psicologi_multipli : []),
+    ];
+    return multiAssignments.some((entry) => Number(entry?.id ?? entry?.user_id ?? entry) === uid);
+  }, [isProfessionista, user?.id, cliente]);
+
+  const canUseVideoReviewFlow = Boolean(isAdmin || isHealthManager || isAssignedProfessionalForCliente);
+  const canConfirmVideoReviewHm = Boolean(isAdmin || (isHealthManager && Number(cliente?.health_manager_id) === Number(user?.id)));
+
   const sortedPatientLoomRecordings = useMemo(() => {
     const rows = [...patientLoomRecordings];
     rows.sort((a, b) => {
@@ -1241,6 +1274,26 @@ function ClientiDetail() {
     if (activeTab === 'marketing') fetchTrustpilotStatus();
   }, [activeTab, fetchTrustpilotStatus]);
 
+  const fetchVideoReviewRequests = useCallback(async () => {
+    if (!id || !canUseVideoReviewFlow) return;
+    setLoadingVideoReviewRequests(true);
+    try {
+      const data = await clientiService.getVideoReviewRequests(id);
+      setVideoReviewRequests(Array.isArray(data?.data) ? data.data : []);
+    } catch (err) {
+      console.error('Error fetching video review requests:', err);
+      setVideoReviewRequests([]);
+    } finally {
+      setLoadingVideoReviewRequests(false);
+    }
+  }, [id, canUseVideoReviewFlow]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') {
+      fetchVideoReviewRequests();
+    }
+  }, [activeTab, fetchVideoReviewRequests]);
+
   const handleGenerateTrustpilotLink = async () => {
     if (!id) return;
     setSendingTrustpilotAction('link');
@@ -1263,6 +1316,44 @@ function ClientiDetail() {
     } catch (err) {
       console.error('Error sending Trustpilot invite:', err);
     } finally { setSendingTrustpilotAction(null); }
+  };
+
+  const handleVideoReviewBooked = async () => {
+    if (!id) return;
+    setSavingVideoReviewAction(true);
+    try {
+      await clientiService.createVideoReviewBooked(id);
+      setShowVideoReviewBookingModal(false);
+      await fetchVideoReviewRequests();
+    } catch (err) {
+      console.error('Error creating video review booking:', err);
+      alert('Errore nella registrazione della prenotazione.');
+    } finally {
+      setSavingVideoReviewAction(false);
+    }
+  };
+
+  const openVideoReviewConfirmModal = (requestItem) => {
+    setSelectedVideoReviewRequest(requestItem);
+    setVideoReviewHmForm({ loom_link: requestItem?.loom_link || '', hm_note: requestItem?.hm_note || '' });
+    setShowVideoReviewConfirmModal(true);
+  };
+
+  const handleVideoReviewHmConfirm = async () => {
+    if (!selectedVideoReviewRequest?.id) return;
+    setSavingVideoReviewAction(true);
+    try {
+      await clientiService.confirmVideoReviewByHm(selectedVideoReviewRequest.id, videoReviewHmForm);
+      setShowVideoReviewConfirmModal(false);
+      setSelectedVideoReviewRequest(null);
+      setVideoReviewHmForm({ loom_link: '', hm_note: '' });
+      await fetchVideoReviewRequests();
+    } catch (err) {
+      console.error('Error confirming video review:', err);
+      alert('Errore nella conferma HM.');
+    } finally {
+      setSavingVideoReviewAction(false);
+    }
   };
 
   // ── Health Manager: fetch interventions ──
@@ -7839,6 +7930,76 @@ function ClientiDetail() {
                     Marketing — Trustpilot
                   </h5>
 
+                  {canUseVideoReviewFlow && (
+                    <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
+                            Video Recensione con HM
+                          </div>
+                          <div style={{ fontSize: 13, color: '#64748b' }}>
+                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
+                          </div>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setShowVideoReviewBookingModal(true)}
+                        >
+                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
+                          Prenota video recensione con HM
+                        </button>
+                      </div>
+
+                      {loadingVideoReviewRequests ? (
+                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : videoReviewRequests.length === 0 ? (
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
+                            <thead>
+                              <tr>
+                                <th>Stato</th>
+                                <th>Prenotata da</th>
+                                <th>Data prenotazione</th>
+                                <th>Loom</th>
+                                <th>Azione</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {videoReviewRequests.map((item) => (
+                                <tr key={item.id}>
+                                  <td>
+                                    <span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>
+                                      {item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}
+                                    </span>
+                                  </td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
+                                  <td>
+                                    {item.loom_link ? (
+                                      <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
+                                        <i className="ri-external-link-line"></i>
+                                      </a>
+                                    ) : '—'}
+                                  </td>
+                                  <td>
+                                    {canConfirmVideoReviewHm && item.status === 'booked' ? (
+                                      <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>
+                                        Conferma + Loom
+                                      </button>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {loadingTrustpilot ? (
                     <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
                   ) : (
@@ -8444,6 +8605,84 @@ function ClientiDetail() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVideoReviewBookingModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewBookingModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-video-line text-primary"></i>
+                Prenota video recensione con HM
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoReviewBookingModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body" style={{ textAlign: 'center' }}>
+              <div className="cd-response-item" style={{ marginBottom: 12 }}>
+                <strong>QUI CI SARA IL LINK PER PRENOTARE</strong>
+              </div>
+              <p className="small text-muted" style={{ marginBottom: 0 }}>
+                Dopo la prenotazione clicca su "Ho prenotato" per inviare la richiesta all&apos;HM.
+              </p>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Chiudi</button>
+              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction}>
+                {savingVideoReviewAction ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-check-line"></i>Ho prenotato</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVideoReviewConfirmModal && selectedVideoReviewRequest && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewConfirmModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-shield-check-line text-success"></i>
+                Conferma video recensione (HM)
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoReviewConfirmModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Link Loom *</label>
+                <input
+                  type="url"
+                  className="form-control"
+                  placeholder="https://www.loom.com/share/..."
+                  value={videoReviewHmForm.loom_link}
+                  onChange={(e) => setVideoReviewHmForm((prev) => ({ ...prev, loom_link: e.target.value }))}
+                />
+              </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Nota HM (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Aggiungi una nota..."
+                  value={videoReviewHmForm.hm_note}
+                  onChange={(e) => setVideoReviewHmForm((prev) => ({ ...prev, hm_note: e.target.value }))}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoReviewConfirmModal(false)}>Annulla</button>
+              <button className="cd-btn-save" onClick={handleVideoReviewHmConfirm} disabled={savingVideoReviewAction || !videoReviewHmForm.loom_link.trim()}>
+                {savingVideoReviewAction ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                ) : (
+                  <><i className="ri-check-double-line"></i>Conferma e salva Loom</>
+                )}
+              </button>
             </div>
           </div>
         </div>
