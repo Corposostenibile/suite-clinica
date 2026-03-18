@@ -2477,8 +2477,8 @@ def get_available_professionals(team_type):
     """
     Get available professionals for a specific team type.
 
-    For nutrizione/coach/psicologia: role = professionista and compatible specialty.
-    For medico: role = professionista and specialty = medico.
+    For nutrizione/coach/psicologia: role in (professionista, team_leader) and compatible specialty.
+    For medico: role in (professionista, team_leader) and specialty = medico.
     For health_manager: role = health_manager (or department_id = 13 if present).
     """
     team_type = (team_type or "").strip().lower()
@@ -2510,7 +2510,7 @@ def get_available_professionals(team_type):
     if team_type == "medico":
         query = User.query.filter(
             User.is_active == True,
-            User.role == UserRoleEnum.professionista,
+            User.role.in_([UserRoleEnum.professionista, UserRoleEnum.team_leader]),
             cast(User.specialty, String) == "medico",
         )
         if tl_visible_member_ids is not None:
@@ -2531,10 +2531,10 @@ def get_available_professionals(team_type):
     # Get compatible specialties
     compatible_specialties = TEAM_TYPE_PROFESSIONAL_SPECIALTIES.get(team_type, [])
 
-    # Query users with professionista role and compatible specialty
+    # Query users with professional-compatible role and specialty
     query = User.query.filter(
         User.is_active == True,
-        User.role == UserRoleEnum.professionista,
+        User.role.in_([UserRoleEnum.professionista, UserRoleEnum.team_leader]),
         User.specialty.in_(compatible_specialties)
     ).order_by(User.first_name, User.last_name)
     if tl_visible_member_ids is not None:
