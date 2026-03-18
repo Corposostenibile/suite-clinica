@@ -52,6 +52,7 @@ from corposostenibile.models import (
     PlanExtraFile,
     PlanTypeEnum,
     CallBonusStatusEnum,
+    TrustpilotReview,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
@@ -65,6 +66,11 @@ from .services import (
     update_cliente,
     calculate_dashboard_kpis,
     apply_role_filtering,
+)
+from .trustpilot_service import (
+    TrustpilotAPIError,
+    TrustpilotConfigError,
+    TrustpilotService,
 )
 
 logger = logging.getLogger(__name__)
@@ -6675,6 +6681,313 @@ def api_call_bonus_decline(call_bonus_id: int):
         "call_bonus_id": call_bonus.id,
         "message": "Call bonus rifiutata.",
     })
+
+
+# --------------------------------------------------------------------------- #
+#  Trustpilot Integration                                                     #
+# --------------------------------------------------------------------------- #
+
+def _can_manage_trustpilot(user) -> bool:
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_admin", False):
+        return True
+    role = getattr(user, "role", None)
+    role_val = role.value if hasattr(role, "value") else str(role) if role else ""
+    specialty = getattr(user, "specialty", None)
+    spec_val = specialty.value if hasattr(specialty, "value") else str(specialty) if specialty else ""
+    return role_val == "health_manager" or spec_val == "cco"
+
+
+def _require_trustpilot_manager_or_403():
+    if not _can_manage_trustpilot(current_user):
+        abort(HTTPStatus.FORBIDDEN, description="Operazione Trustpilot non consentita.")
+
+
+def _serialize_trustpilot_review(review: TrustpilotReview) -> dict:
+    return {
+        "id": review.id,
+        "cliente_id": review.cliente_id,
+        "requested_by_user_id": review.richiesta_da_professionista_id,
+        "requested_by_name": getattr(review.richiesta_da, "full_name", None),
+        "data_richiesta": review.data_richiesta.isoformat() if review.data_richiesta else None,
+        "invitation_method": review.invitation_method,
+        "invitation_status": review.invitation_status,
+        "trustpilot_reference_id": review.trustpilot_reference_id,
+        "trustpilot_invitation_id": review.trustpilot_invitation_id,
+        "trustpilot_review_id": review.trustpilot_review_id,
+        "trustpilot_link": review.trustpilot_link,
+        "pubblicata": bool(review.pubblicata),
+        "data_pubblicazione": review.data_pubblicazione.isoformat() if review.data_pubblicazione else None,
+        "stelle": review.stelle,
+        "titolo_recensione": review.titolo_recensione,
+        "testo_recensione": review.testo_recensione,
+        "deleted_at_trustpilot": review.deleted_at_trustpilot.isoformat() if review.deleted_at_trustpilot else None,
+        "webhook_received_at": review.webhook_received_at.isoformat() if review.webhook_received_at else None,
+        "created_at": review.created_at.isoformat() if review.created_at else None,
+        "updated_at": review.updated_at.isoformat() if review.updated_at else None,
+    }
+
+
+def _get_latest_trustpilot_review(cliente_id: int):
+    return (
+        db.session.query(TrustpilotReview)
+        .filter(TrustpilotReview.cliente_id == cliente_id)
+        .order_by(TrustpilotReview.data_richiesta.desc(), TrustpilotReview.id.desc())
+        .first()
+    )
+
+
+def _get_trustpilot_history(cliente_id: int, limit: int = 20):
+    return (
+        db.session.query(TrustpilotReview)
+        .filter(TrustpilotReview.cliente_id == cliente_id)
+        .order_by(TrustpilotReview.data_richiesta.desc(), TrustpilotReview.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+
+@api_bp.route("/trustpilot-overview", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_overview():
+    """Panoramica Trustpilot: tutti i clienti attivi con lo stato review."""
+    from sqlalchemy import outerjoin
+    from sqlalchemy.orm import aliased
+
+    page = max(request.args.get('page', 1, type=int), 1)
+    per_page = min(max(request.args.get('per_page', 25, type=int), 1), 100)
+    search = (request.args.get('q') or '').strip()
+    hm_filter = request.args.get('health_manager_id', type=int)
+    status_filter = request.args.get('status', '').strip()  # all, pending, reviewed, none
+
+    query = db.session.query(Cliente).filter(
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
+        Cliente.show_in_clienti_lista == True,
+    )
+    if search:
+        query = query.filter(Cliente.nome_cognome.ilike(f'%{search}%'))
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    query = query.order_by(Cliente.nome_cognome)
+    total = query.count()
+    clienti = query.offset((page - 1) * per_page).limit(per_page).all()
+
+    client_ids = [c.cliente_id for c in clienti]
+    reviews_map = {}
+    if client_ids:
+        latest_reviews = (
+            db.session.query(TrustpilotReview)
+            .filter(TrustpilotReview.cliente_id.in_(client_ids))
+            .order_by(TrustpilotReview.data_richiesta.desc())
+            .all()
+        )
+        for r in latest_reviews:
+            if r.cliente_id not in reviews_map:
+                reviews_map[r.cliente_id] = []
+            reviews_map[r.cliente_id].append(r)
+
+    data = []
+    for c in clienti:
+        reviews = reviews_map.get(c.cliente_id, [])
+        latest = reviews[0] if reviews else None
+        has_published = any(r.pubblicata for r in reviews)
+        best_stars = max((r.stelle for r in reviews if r.stelle), default=None)
+
+        row = {
+            'cliente_id': c.cliente_id,
+            'nome_cognome': c.nome_cognome,
+            'mail': c.mail,
+            'stato_cliente': c.stato_cliente.value if c.stato_cliente else None,
+            'programma_attuale': c.programma_attuale,
+            'health_manager_user': {
+                'id': c.health_manager_user.id,
+                'full_name': c.health_manager_user.full_name,
+            } if c.health_manager_user else None,
+            'trustpilot': {
+                'total_inviti': len(reviews),
+                'ha_recensione': has_published,
+                'stelle_migliore': best_stars,
+                'ultimo_invito': _serialize_trustpilot_review(latest) if latest else None,
+            },
+        }
+
+        if status_filter == 'reviewed' and not has_published:
+            continue
+        if status_filter == 'pending' and not (latest and not has_published):
+            continue
+        if status_filter == 'none' and len(reviews) > 0:
+            continue
+
+        data.append(row)
+
+    # Count stats
+    all_client_ids_q = db.session.query(Cliente.cliente_id).filter(
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
+        Cliente.show_in_clienti_lista == True,
+    )
+    if hm_filter:
+        all_client_ids_q = all_client_ids_q.filter(Cliente.health_manager_id == hm_filter)
+    all_ids = [r[0] for r in all_client_ids_q.all()]
+
+    reviewed_ids = set()
+    pending_ids = set()
+    if all_ids:
+        all_reviews = db.session.query(
+            TrustpilotReview.cliente_id, TrustpilotReview.pubblicata
+        ).filter(TrustpilotReview.cliente_id.in_(all_ids)).all()
+        clients_with_reviews = set()
+        for cid, pub in all_reviews:
+            clients_with_reviews.add(cid)
+            if pub:
+                reviewed_ids.add(cid)
+        pending_ids = clients_with_reviews - reviewed_ids
+
+    return jsonify({
+        'success': True,
+        'data': data,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': total,
+            'pages': max(1, (total + per_page - 1) // per_page),
+        },
+        'counts': {
+            'totale_attivi': len(all_ids),
+            'con_recensione': len(reviewed_ids),
+            'in_attesa': len(pending_ids),
+            'mai_invitati': len(all_ids) - len(reviewed_ids) - len(pending_ids),
+        },
+    })
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_status(cliente_id: int):
+    cliente = customers_repo.get_one(cliente_id)
+    latest_review = _get_latest_trustpilot_review(cliente_id)
+    history = _get_trustpilot_history(cliente_id, limit=10)
+
+    return jsonify({
+        "success": True,
+        "enabled": TrustpilotService.is_enabled(),
+        "can_manage": _can_manage_trustpilot(current_user),
+        "email_configured": bool(
+            current_app.config.get("TRUSTPILOT_EMAIL_TEMPLATE_ID")
+            and current_app.config.get("TRUSTPILOT_SENDER_EMAIL")
+            and current_app.config.get("TRUSTPILOT_REPLY_TO")
+        ),
+        "cliente": {
+            "cliente_id": cliente.cliente_id,
+            "nome_cognome": cliente.nome_cognome,
+            "mail": cliente.mail,
+        },
+        "latest": _serialize_trustpilot_review(latest_review) if latest_review else None,
+        "history": [_serialize_trustpilot_review(item) for item in history],
+    })
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot/link", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_generate_link(cliente_id: int):
+    _require_trustpilot_manager_or_403()
+    cliente = customers_repo.get_one(cliente_id)
+
+    if not cliente.mail:
+        abort(HTTPStatus.BAD_REQUEST, description="Il paziente non ha una email configurata.")
+
+    payload = request.get_json(silent=True) or {}
+    locale = (payload.get("locale") or TrustpilotService.get_default_locale()).strip()
+
+    try:
+        TrustpilotService.ensure_enabled()
+        reference_id = TrustpilotService.generate_reference_id(cliente_id)
+        response = TrustpilotService.create_invitation_link(
+            email=cliente.mail,
+            name=cliente.nome_cognome,
+            reference_id=reference_id,
+            locale=locale,
+        )
+    except TrustpilotConfigError as exc:
+        abort(HTTPStatus.BAD_REQUEST, description=str(exc))
+    except TrustpilotAPIError as exc:
+        abort(HTTPStatus.BAD_GATEWAY, description=str(exc))
+
+    invitation_link = response.get("url") or response.get("invitationLink") or response.get("href")
+    invitation_id = response.get("id") or response.get("invitationId")
+
+    review = TrustpilotReview(
+        cliente_id=cliente.cliente_id,
+        richiesta_da_professionista_id=current_user.id,
+        data_richiesta=datetime.utcnow(),
+        invitation_method="generated_link",
+        invitation_status="generated",
+        trustpilot_reference_id=reference_id,
+        trustpilot_invitation_id=invitation_id,
+        trustpilot_link=invitation_link,
+        trustpilot_payload_last=response,
+        note_interne="Link recensione generato via API Trustpilot.",
+    )
+    db.session.add(review)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Link Trustpilot generato.",
+        "data": _serialize_trustpilot_review(review),
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/<int:cliente_id>/trustpilot/invite", methods=["POST"])
+@permission_required(CustomerPerm.VIEW)
+def api_trustpilot_send_invite(cliente_id: int):
+    _require_trustpilot_manager_or_403()
+    cliente = customers_repo.get_one(cliente_id)
+
+    if not cliente.mail:
+        abort(HTTPStatus.BAD_REQUEST, description="Il paziente non ha una email configurata.")
+
+    payload = request.get_json(silent=True) or {}
+    locale = (payload.get("locale") or TrustpilotService.get_default_locale()).strip()
+    tags = payload.get("tags") if isinstance(payload.get("tags"), list) else None
+
+    try:
+        TrustpilotService.ensure_enabled()
+        reference_id = TrustpilotService.generate_reference_id(cliente_id)
+        response = TrustpilotService.create_email_invitation(
+            email=cliente.mail,
+            name=cliente.nome_cognome,
+            reference_id=reference_id,
+            locale=locale,
+            tags=tags,
+        )
+    except TrustpilotConfigError as exc:
+        abort(HTTPStatus.BAD_REQUEST, description=str(exc))
+    except TrustpilotAPIError as exc:
+        abort(HTTPStatus.BAD_GATEWAY, description=str(exc))
+
+    invitation_id = response.get("id") or response.get("invitationId")
+
+    review = TrustpilotReview(
+        cliente_id=cliente.cliente_id,
+        richiesta_da_professionista_id=current_user.id,
+        data_richiesta=datetime.utcnow(),
+        invitation_method="email_invitation",
+        invitation_status="sent",
+        trustpilot_reference_id=reference_id,
+        trustpilot_invitation_id=invitation_id,
+        trustpilot_payload_last=response,
+        note_interne="Invito email Trustpilot inviato via API.",
+    )
+    db.session.add(review)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Invito email Trustpilot inviato.",
+        "data": _serialize_trustpilot_review(review),
+    }), HTTPStatus.CREATED
 
 
 # --------------------------------------------------------------------------- #

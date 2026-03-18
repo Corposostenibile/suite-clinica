@@ -12,8 +12,10 @@ from corposostenibile.models import (
     Cliente,
     ServiceClienteAssignment,
     ServiceClienteNote,
+    TipologiaClienteEnum,
     User
 )
+from corposostenibile.package_support import parse_package_support
 
 
 class OpportunityProcessor:
@@ -168,6 +170,16 @@ class OpportunityProcessor:
                 # Salva il cambio pacchetto nelle note
                 old_package = cliente.programma_attuale
                 cliente.programma_attuale = parsed_data.get('pacchetto_comprato')
+                # Deriva tipologia supporto dal pacchetto
+                pkg_info = parse_package_support(parsed_data.get('pacchetto_comprato'))
+                support = pkg_info.get('support_types', {})
+                if support.get('nutrizione'):
+                    cliente.tipologia_supporto_nutrizione = support['nutrizione']
+                if support.get('coach'):
+                    cliente.tipologia_supporto_coach = support['coach']
+                parsed_tipologia = pkg_info.get('client_type')
+                if parsed_tipologia in {e.value for e in TipologiaClienteEnum if e.value in {'a', 'b', 'c'}}:
+                    cliente.tipologia_cliente = TipologiaClienteEnum(parsed_tipologia)
                 # Questo verrà salvato nelle note più sotto
 
             db.session.add(cliente)
@@ -384,6 +396,16 @@ class OpportunityProcessor:
         cliente.acquisition_channel = parsed_data.get('origine_contatto')
         cliente.programma_attuale = parsed_data.get('pacchetto_comprato')
         cliente.modalita_pagamento = parsed_data.get('modalita_pagamento')
+        # Deriva tipologia supporto dal pacchetto
+        pkg_info = parse_package_support(parsed_data.get('pacchetto_comprato'))
+        support = pkg_info.get('support_types', {})
+        if support.get('nutrizione'):
+            cliente.tipologia_supporto_nutrizione = support['nutrizione']
+        if support.get('coach'):
+            cliente.tipologia_supporto_coach = support['coach']
+        parsed_tipologia = pkg_info.get('client_type')
+        if parsed_tipologia in {e.value for e in TipologiaClienteEnum if e.value in {'a', 'b', 'c'}}:
+            cliente.tipologia_cliente = TipologiaClienteEnum(parsed_tipologia)
         if is_new_cliente:
             # Clienti creati da webhook restano nascosti in /clienti-lista
             # fino al completamento delle assegnazioni professionisti.

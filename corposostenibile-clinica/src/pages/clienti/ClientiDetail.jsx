@@ -96,6 +96,8 @@ const getLoomEmbedUrl = (loomLink) => {
   return value.replace('/share/', '/embed/');
 };
 
+const SUPPORT_TIPOLOGIA_OPTIONS = ['a', 'b', 'c', 'secondario'];
+
 // Figura di riferimento labels
 const FIGURA_RIF_LABELS = {
   coach: 'Coach',
@@ -141,6 +143,7 @@ function ClientiDetail() {
   const canGenerateCheckLinks = true;
   const canCreateCallBonus = true;
   const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
+  const canViewMarketingTab = Boolean(user?.is_admin || user?.role === 'admin' || isHealthManager || user?.specialty === 'cco');
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
@@ -162,8 +165,9 @@ function ClientiDetail() {
   const getAllowedMainTabsForUser = useCallback(() => {
     // Tutti i ruoli vedono tutte le tab della scheda paziente
     return new Set([
-      'anagrafica', 'programma', 'team', 'nutrizione', 'coaching', 'psicologia', 'medico',
-      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus'
+      'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
+      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
+      ...(canViewMarketingTab ? ['marketing'] : [])
     ]);
   }, []);
 
@@ -719,6 +723,27 @@ function ClientiDetail() {
   const [diaryHistory, setDiaryHistory] = useState([]);
   const [loadingDiaryHistory, setLoadingDiaryHistory] = useState(false);
 
+  // ==================== HEALTH MANAGER STATE ====================
+  const [healthManagerSubTab, setHealthManagerSubTab] = useState('onboarding');
+  const [onboardingDraft, setOnboardingDraft] = useState({
+    note_criticita_iniziali: '',
+    loom_link: '',
+  });
+  const [savingOnboarding, setSavingOnboarding] = useState(false);
+  const [customerCareInterventions, setCustomerCareInterventions] = useState([]);
+  const [loadingCustomerCare, setLoadingCustomerCare] = useState(false);
+  const [checkInInterventions, setCheckInInterventions] = useState([]);
+  const [loadingCheckIn, setLoadingCheckIn] = useState(false);
+  const [hmInterventionForm, setHmInterventionForm] = useState({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
+  const [showHmInterventionModal, setShowHmInterventionModal] = useState(false);
+  const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in'
+  const [editingInterventionId, setEditingInterventionId] = useState(null);
+
+  // ==================== MARKETING / TRUSTPILOT STATE ====================
+  const [trustpilotData, setTrustpilotData] = useState(null);
+  const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
+  const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
+
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
   // Training Plans
@@ -853,6 +878,8 @@ function ClientiDetail() {
     stato_cliente_data: '',
     programma_attuale: '',
     tipologia_cliente: '',
+    tipologia_supporto_nutrizione: '',
+    tipologia_supporto_coach: '',
     data_inizio_abbonamento: '',
     durata_programma_giorni: '',
     data_rinnovo: '',
@@ -1198,6 +1225,148 @@ function ClientiDetail() {
 
   useEffect(() => { setLoomPage(1); }, [patientLoomRecordings, loomSortOrder]);
   useEffect(() => { if (loomPage > loomTotalPages) setLoomPage(loomTotalPages); }, [loomPage, loomTotalPages]);
+
+  // ── Marketing / Trustpilot ──
+  const fetchTrustpilotStatus = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingTrustpilot(true);
+    try {
+      const data = await clientiService.getTrustpilotStatus(id);
+      setTrustpilotData(data);
+    } catch (err) { console.error('Error fetching Trustpilot status:', err); }
+    finally { setLoadingTrustpilot(false); }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') fetchTrustpilotStatus();
+  }, [activeTab, fetchTrustpilotStatus]);
+
+  const handleGenerateTrustpilotLink = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('link');
+    try {
+      const result = await clientiService.generateTrustpilotLink(id);
+      const link = result?.data?.trustpilot_link;
+      if (link) await navigator.clipboard.writeText(link);
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error generating Trustpilot link:', err);
+    } finally { setSendingTrustpilotAction(null); }
+  };
+
+  const handleSendTrustpilotInvite = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('invite');
+    try {
+      await clientiService.sendTrustpilotInvite(id);
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error sending Trustpilot invite:', err);
+    } finally { setSendingTrustpilotAction(null); }
+  };
+
+  // ── Health Manager: fetch interventions ──
+  const fetchCustomerCareInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingCustomerCare(true);
+    try {
+      const data = await clientiService.getCustomerCareInterventions(id);
+      setCustomerCareInterventions(Array.isArray(data) ? data : data.items || []);
+    } catch (err) { console.error('Error fetching customer care interventions', err); }
+    finally { setLoadingCustomerCare(false); }
+  }, [id]);
+
+  const fetchCheckInInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingCheckIn(true);
+    try {
+      const data = await clientiService.getCheckInInterventions(id);
+      setCheckInInterventions(Array.isArray(data) ? data : data.items || []);
+    } catch (err) { console.error('Error fetching check-in interventions', err); }
+    finally { setLoadingCheckIn(false); }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
+  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions]);
+
+  // Sync onboarding draft when cliente loads
+  useEffect(() => {
+    if (cliente) {
+      setOnboardingDraft({
+        note_criticita_iniziali: cliente.note_criticita_iniziali || '',
+        loom_link: cliente.loom_link || '',
+      });
+    }
+  }, [cliente]);
+
+  const handleSaveOnboarding = async () => {
+    if (!id) return;
+    setSavingOnboarding(true);
+    try {
+      await clientiService.updateCliente(id, onboardingDraft);
+      setCliente((prev) => prev ? { ...prev, ...onboardingDraft } : prev);
+    } catch (err) { console.error('Error saving onboarding', err); }
+    finally { setSavingOnboarding(false); }
+  };
+
+  const handleSaveHmIntervention = async () => {
+    if (!id) return;
+    try {
+      if (editingInterventionId) {
+        if (hmInterventionType === 'customer_care') {
+          await clientiService.updateCustomerCareIntervention(editingInterventionId, hmInterventionForm);
+          fetchCustomerCareInterventions();
+        } else {
+          await clientiService.updateCheckInIntervention(editingInterventionId, hmInterventionForm);
+          fetchCheckInInterventions();
+        }
+      } else {
+        if (hmInterventionType === 'customer_care') {
+          await clientiService.createCustomerCareIntervention(id, hmInterventionForm);
+          fetchCustomerCareInterventions();
+        } else {
+          await clientiService.createCheckInIntervention(id, hmInterventionForm);
+          fetchCheckInInterventions();
+        }
+      }
+      setShowHmInterventionModal(false);
+      setEditingInterventionId(null);
+      setHmInterventionForm({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
+    } catch (err) { console.error('Error saving intervention', err); }
+  };
+
+  const handleDeleteHmIntervention = async (interventionId, type) => {
+    if (!window.confirm('Eliminare questo intervento?')) return;
+    try {
+      if (type === 'customer_care') {
+        await clientiService.deleteCustomerCareIntervention(interventionId);
+        fetchCustomerCareInterventions();
+      } else {
+        await clientiService.deleteCheckInIntervention(interventionId);
+        fetchCheckInInterventions();
+      }
+    } catch (err) { console.error('Error deleting intervention', err); }
+  };
+
+  const openEditHmIntervention = (intervention, type) => {
+    setHmInterventionType(type);
+    setEditingInterventionId(intervention.id);
+    setHmInterventionForm({
+      notes: intervention.notes || '',
+      loom_link: intervention.loom_link || '',
+      intervention_date: intervention.intervention_date || new Date().toISOString().split('T')[0],
+    });
+    setShowHmInterventionModal(true);
+  };
+
+  const openNewHmIntervention = (type) => {
+    setHmInterventionType(type);
+    setEditingInterventionId(null);
+    setHmInterventionForm({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
+    setShowHmInterventionModal(true);
+  };
 
   // ── Fetch Tickets ──
   const fetchPatientTickets = useCallback(async () => {
@@ -2405,6 +2574,8 @@ function ClientiDetail() {
       stato_cliente_data: c.stato_cliente_data || c.statoClienteData || '',
       programma_attuale: c.programma_attuale || c.programmaAttuale || '',
       tipologia_cliente: c.tipologia_cliente || c.tipologiaCliente || '',
+      tipologia_supporto_nutrizione: c.tipologia_supporto_nutrizione || c.tipologiaSupportoNutrizione || '',
+      tipologia_supporto_coach: c.tipologia_supporto_coach || c.tipologiaSupportoCoach || '',
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
       durata_programma_giorni: c.durata_programma_giorni ?? c.durataProgrammaGiorni ?? '',
       data_rinnovo: c.data_rinnovo || c.dataRinnovo || '',
@@ -2629,6 +2800,7 @@ function ClientiDetail() {
     { id: 'anagrafica', label: 'Anagrafica', icon: 'ri-user-line' },
     { id: 'programma', label: 'Programma', icon: 'ri-file-list-3-line' },
     { id: 'team', label: 'Team', icon: 'ri-team-line' },
+    { id: 'health_manager', label: 'Health Manager', icon: 'ri-shield-cross-line' },
     { id: 'nutrizione', label: 'Nutrizione', icon: 'ri-heart-pulse-line' },
     { id: 'coaching', label: 'Coaching', icon: 'ri-run-line' },
     { id: 'psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
@@ -2639,6 +2811,7 @@ function ClientiDetail() {
     { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
+    ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
     if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
     return getAllowedMainTabsForUser().has(tab.id);
@@ -2683,6 +2856,8 @@ function ClientiDetail() {
     alert: cliente.alert,
     programma: cliente.programma_attuale || cliente.programmaAttuale,
     tipologia: cliente.tipologia_cliente || cliente.tipologiaCliente,
+    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione,
+    tipologiaSupportoCoach: cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach,
     dataInizio: cliente.data_inizio_abbonamento || cliente.dataInizioAbbonamento,
     dataRinnovo: cliente.data_rinnovo || cliente.dataRinnovo,
     giorniRimanenti: cliente.giorni_rimanenti_calcolati || cliente.giorniRimanentiCalcolati,
@@ -2818,9 +2993,14 @@ function ClientiDetail() {
 
               {/* Badges */}
               <div className="cd-profile-tags">
-                {c.tipologia && (
+                {c.tipologiaSupportoNutrizione && (
                   <span className="cd-tag cd-tag-info">
-                    {TIPOLOGIA_LABELS[c.tipologia] || c.tipologia}
+                    Nutrizione: {TIPOLOGIA_LABELS[c.tipologiaSupportoNutrizione] || c.tipologiaSupportoNutrizione}
+                  </span>
+                )}
+                {c.tipologiaSupportoCoach && (
+                  <span className="cd-tag cd-tag-info">
+                    Coach: {TIPOLOGIA_LABELS[c.tipologiaSupportoCoach] || c.tipologiaSupportoCoach}
                   </span>
                 )}
                 {c.programma && (
@@ -3237,16 +3417,33 @@ function ClientiDetail() {
                       </select>
                     </div>
                     <div className="cd-field">
-                      <label className="cd-field-label">Tipologia</label>
+                      <label className="cd-field-label">Tipologia supporto nutrizione</label>
                       <select
                         className="cd-select"
-                        value={formData.tipologia_cliente}
-                        onChange={(e) => handleInputChange('tipologia_cliente', e.target.value)}
+                        value={formData.tipologia_supporto_nutrizione}
+                        onChange={(e) => handleInputChange('tipologia_supporto_nutrizione', e.target.value)}
                       >
                         <option value="">Seleziona...</option>
-                        <option value="a">A</option>
-                        <option value="b">B</option>
-                        <option value="c">C</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {TIPOLOGIA_LABELS[value] || value}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="cd-field">
+                      <label className="cd-field-label">Tipologia supporto coach</label>
+                      <select
+                        className="cd-select"
+                        value={formData.tipologia_supporto_coach}
+                        onChange={(e) => handleInputChange('tipologia_supporto_coach', e.target.value)}
+                      >
+                        <option value="">Seleziona...</option>
+                        {SUPPORT_TIPOLOGIA_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {TIPOLOGIA_LABELS[value] || value}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -3927,6 +4124,223 @@ function ClientiDetail() {
                           ) : (
                             <span className="cd-empty-text">Nessun Health Manager assegnato</span>
                           )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ========== HEALTH MANAGER TAB ========== */}
+              {activeTab === 'health_manager' && (
+                <div>
+                  {/* Sub-tabs */}
+                  <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                    {[
+                      { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
+                      { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
+                      { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
+                    ].map((st) => (
+                      <button
+                        key={st.key}
+                        type="button"
+                        className={`cd-subtab-btn${healthManagerSubTab === st.key ? ' active' : ''}`}
+                        onClick={() => setHealthManagerSubTab(st.key)}
+                        style={{
+                          padding: '8px 18px', borderRadius: 10, border: '1px solid #e2e8f0',
+                          background: healthManagerSubTab === st.key ? '#25B36A' : '#f8fafc',
+                          color: healthManagerSubTab === st.key ? '#fff' : '#64748b',
+                          fontWeight: 600, fontSize: 13, cursor: 'pointer', transition: 'all .2s',
+                        }}
+                      >
+                        <i className={st.icon} style={{ marginRight: 6 }}></i>{st.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* ── Onboarding sub-tab ── */}
+                  {healthManagerSubTab === 'onboarding' && (
+                    <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+                      <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
+                        <i className="ri-user-add-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
+                        Onboarding Paziente
+                      </h6>
+                      <div className="mb-3">
+                        <label className="form-label fw-semibold">Note Criticita Iniziali</label>
+                        <textarea
+                          className="form-control"
+                          rows={4}
+                          placeholder="Note su criticità rilevate in fase di onboarding..."
+                          value={onboardingDraft.note_criticita_iniziali}
+                          onChange={(e) => setOnboardingDraft((prev) => ({ ...prev, note_criticita_iniziali: e.target.value }))}
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <label className="form-label fw-semibold">Link Loom Onboarding</label>
+                        <input
+                          type="url"
+                          className="form-control"
+                          placeholder="https://www.loom.com/share/..."
+                          value={onboardingDraft.loom_link}
+                          onChange={(e) => setOnboardingDraft((prev) => ({ ...prev, loom_link: e.target.value }))}
+                        />
+                        {onboardingDraft.loom_link && (
+                          <div style={{ marginTop: 12 }}>
+                            <a href={onboardingDraft.loom_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, color: '#6366f1' }}>
+                              <i className="ri-external-link-line" style={{ marginRight: 4 }}></i>Apri video Loom
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-success btn-sm"
+                          disabled={savingOnboarding}
+                          onClick={handleSaveOnboarding}
+                        >
+                          {savingOnboarding ? 'Salvataggio...' : 'Salva Onboarding'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Customer Care sub-tab ── */}
+                  {healthManagerSubTab === 'customer_care' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h6 style={{ fontWeight: 700, margin: 0 }}>
+                          <i className="ri-customer-service-2-line" style={{ marginRight: 8, color: '#f59e0b' }}></i>
+                          Interventi Customer Care
+                        </h6>
+                        <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('customer_care')}>
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                        </button>
+                      </div>
+                      {loadingCustomerCare ? (
+                        <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                      ) : customerCareInterventions.length === 0 ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-customer-service-2-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun intervento customer care registrato
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {customerCareInterventions.map((intervention) => (
+                            <div key={intervention.id} style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <div>
+                                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{intervention.intervention_date}</span>
+                                  {intervention.created_by_name && (
+                                    <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>— {intervention.created_by_name}</span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" className="btn btn-outline-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => openEditHmIntervention(intervention, 'customer_care')}>
+                                    <i className="ri-edit-line"></i>
+                                  </button>
+                                  <button type="button" className="btn btn-outline-danger btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleDeleteHmIntervention(intervention.id, 'customer_care')}>
+                                    <i className="ri-delete-bin-line"></i>
+                                  </button>
+                                </div>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{intervention.notes}</p>
+                              {intervention.loom_link && (
+                                <a href={intervention.loom_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6366f1', marginTop: 6, display: 'inline-block' }}>
+                                  <i className="ri-video-line" style={{ marginRight: 4 }}></i>Video Loom
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Check-in sub-tab ── */}
+                  {healthManagerSubTab === 'check_in' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h6 style={{ fontWeight: 700, margin: 0 }}>
+                          <i className="ri-phone-line" style={{ marginRight: 8, color: '#6366f1' }}></i>
+                          Interventi Check-in
+                        </h6>
+                        <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('check_in')}>
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                        </button>
+                      </div>
+                      {loadingCheckIn ? (
+                        <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                      ) : checkInInterventions.length === 0 ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-phone-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun intervento check-in registrato
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {checkInInterventions.map((intervention) => (
+                            <div key={intervention.id} style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <div>
+                                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{intervention.intervention_date}</span>
+                                  {intervention.created_by_name && (
+                                    <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>— {intervention.created_by_name}</span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" className="btn btn-outline-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => openEditHmIntervention(intervention, 'check_in')}>
+                                    <i className="ri-edit-line"></i>
+                                  </button>
+                                  <button type="button" className="btn btn-outline-danger btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleDeleteHmIntervention(intervention.id, 'check_in')}>
+                                    <i className="ri-delete-bin-line"></i>
+                                  </button>
+                                </div>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{intervention.notes}</p>
+                              {intervention.loom_link && (
+                                <a href={intervention.loom_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6366f1', marginTop: 6, display: 'inline-block' }}>
+                                  <i className="ri-video-line" style={{ marginRight: 4 }}></i>Video Loom
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Modal Nuovo/Modifica Intervento ── */}
+                  {showHmInterventionModal && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.4)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => setShowHmInterventionModal(false)}>
+                      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,.15)' }}
+                        onClick={(e) => e.stopPropagation()}>
+                        <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
+                          {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {hmInterventionType === 'customer_care' ? 'Customer Care' : 'Check-in'}
+                        </h6>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Data</label>
+                          <input type="date" className="form-control" value={hmInterventionForm.intervention_date}
+                            onChange={(e) => setHmInterventionForm((p) => ({ ...p, intervention_date: e.target.value }))} />
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Note</label>
+                          <textarea className="form-control" rows={4} placeholder="Descrivi l'intervento..."
+                            value={hmInterventionForm.notes}
+                            onChange={(e) => setHmInterventionForm((p) => ({ ...p, notes: e.target.value }))} />
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Link Loom (opzionale)</label>
+                          <input type="url" className="form-control" placeholder="https://www.loom.com/share/..."
+                            value={hmInterventionForm.loom_link}
+                            onChange={(e) => setHmInterventionForm((p) => ({ ...p, loom_link: e.target.value }))} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => setShowHmInterventionModal(false)}>Annulla</button>
+                          <button type="button" className="btn btn-success btn-sm" onClick={handleSaveHmIntervention}
+                            disabled={!hmInterventionForm.notes.trim() || !hmInterventionForm.intervention_date}>
+                            {editingInterventionId ? 'Salva Modifiche' : 'Crea Intervento'}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -7413,6 +7827,139 @@ function ClientiDetail() {
                         </tbody>
                       </table>
                     </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================== MARKETING TAB ==================== */}
+              {activeTab === 'marketing' && canViewMarketingTab && (
+                <div>
+                  <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
+                    <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
+                    Marketing — Trustpilot
+                  </h5>
+
+                  {loadingTrustpilot ? (
+                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                  ) : (
+                    <>
+                      {/* Status boxes */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Integrazione</div>
+                          <div style={{ fontWeight: 700, color: trustpilotData?.enabled ? '#22c55e' : '#94a3b8' }}>
+                            {trustpilotData?.enabled ? 'Abilitato' : 'Disabilitato'}
+                          </div>
+                        </div>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Ultimo invito</div>
+                          <div style={{ fontWeight: 700 }}>
+                            {trustpilotData?.latest?.invitation_status || '—'}
+                          </div>
+                        </div>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Stelle</div>
+                          <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>
+                            {trustpilotData?.latest?.stelle ? `${'★'.repeat(trustpilotData.latest.stelle)}` : '—'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      {trustpilotData?.can_manage && (
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-success btn-sm"
+                            disabled={!trustpilotData?.enabled || sendingTrustpilotAction === 'link'}
+                            onClick={handleGenerateTrustpilotLink}
+                          >
+                            <i className="ri-link" style={{ marginRight: 4 }}></i>
+                            {sendingTrustpilotAction === 'link' ? 'Generazione...' : 'Genera Link Review'}
+                          </button>
+                          <button
+                            className="btn btn-outline-primary btn-sm"
+                            disabled={!trustpilotData?.enabled || !trustpilotData?.email_configured || sendingTrustpilotAction === 'invite'}
+                            onClick={handleSendTrustpilotInvite}
+                          >
+                            <i className="ri-mail-send-line" style={{ marginRight: 4 }}></i>
+                            {sendingTrustpilotAction === 'invite' ? 'Invio...' : 'Invia Email Invito'}
+                          </button>
+                          {trustpilotData?.latest?.trustpilot_link && (
+                            <button
+                              className="btn btn-outline-secondary btn-sm"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(trustpilotData.latest.trustpilot_link);
+                              }}
+                            >
+                              <i className="ri-clipboard-line" style={{ marginRight: 4 }}></i>Copia Link
+                            </button>
+                          )}
+                          <button className="btn btn-outline-secondary btn-sm" onClick={fetchTrustpilotStatus}>
+                            <i className="ri-refresh-line" style={{ marginRight: 4 }}></i>Aggiorna
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Warnings */}
+                      {!trustpilotData?.enabled && (
+                        <div style={{ padding: 14, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 10, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
+                          <i className="ri-error-warning-line" style={{ marginRight: 6 }}></i>
+                          Integrazione Trustpilot non abilitata. Configura le variabili <code>TRUSTPILOT_*</code> nel backend.
+                        </div>
+                      )}
+                      {trustpilotData?.enabled && !trustpilotData?.email_configured && (
+                        <div style={{ padding: 14, background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 10, fontSize: 13, color: '#1e40af', marginBottom: 16 }}>
+                          <i className="ri-information-line" style={{ marginRight: 6 }}></i>
+                          Template email non configurato. L'invio email non sara disponibile fino alla configurazione di <code>TRUSTPILOT_EMAIL_TEMPLATE_ID</code>.
+                        </div>
+                      )}
+
+                      {/* History */}
+                      <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Storico Inviti / Recensioni</h6>
+                      {!trustpilotData?.history?.length ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-star-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun invito Trustpilot ancora inviato per questo paziente
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13 }}>
+                            <thead>
+                              <tr>
+                                <th>Data</th>
+                                <th>Metodo</th>
+                                <th>Status</th>
+                                <th>Stelle</th>
+                                <th>Richiesto da</th>
+                                <th>Link</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {trustpilotData.history.map((item) => (
+                                <tr key={item.id}>
+                                  <td>{item.data_richiesta?.split('T')[0] || '—'}</td>
+                                  <td>
+                                    <span className={`badge bg-${item.invitation_method === 'email_invitation' ? 'primary' : 'secondary'}`} style={{ fontSize: 11 }}>
+                                      {item.invitation_method === 'email_invitation' ? 'Email' : 'Link'}
+                                    </span>
+                                  </td>
+                                  <td>{item.invitation_status || '—'}</td>
+                                  <td style={{ color: '#f59e0b' }}>{item.stelle ? '★'.repeat(item.stelle) : '—'}</td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>
+                                    {item.trustpilot_link ? (
+                                      <a href={item.trustpilot_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                                        <i className="ri-external-link-line"></i>
+                                      </a>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}

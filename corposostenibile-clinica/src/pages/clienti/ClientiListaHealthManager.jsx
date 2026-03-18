@@ -17,6 +17,14 @@ const MAIN_TABS = [
   { key: 'insoddisfatti', label: 'Insoddisfatti', icon: 'ri-emotion-unhappy-line' },
   { key: 'ghost', label: 'Ghost', icon: 'ri-ghost-line' },
   { key: 'pausa', label: 'In Pausa', icon: 'ri-pause-circle-line' },
+  { key: 'recensioni', label: 'Recensioni', icon: 'ri-star-line' },
+];
+
+const REVIEW_TABS = [
+  { key: '', label: 'Tutti', icon: 'ri-list-check', color: '#6366f1' },
+  { key: 'none', label: 'Mai Invitati', icon: 'ri-mail-close-line', color: '#94a3b8' },
+  { key: 'pending', label: 'In Attesa', icon: 'ri-time-line', color: '#f59e0b' },
+  { key: 'reviewed', label: 'Con Recensione', icon: 'ri-star-fill', color: '#22c55e' },
 ];
 
 const EXPIRY_TABS = [
@@ -63,6 +71,14 @@ function ClientiListaHealthManager() {
   const [statusData, setStatusData] = useState([]);
   const [statusPagination, setStatusPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [statusLoading, setStatusLoading] = useState(false);
+
+  // Recensioni state
+  const [reviewStatus, setReviewStatus] = useState('');
+  const [reviewData, setReviewData] = useState([]);
+  const [reviewCounts, setReviewCounts] = useState({ totale_attivi: 0, con_recensione: 0, in_attesa: 0, mai_invitati: 0 });
+  const [reviewPagination, setReviewPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [sendingAction, setSendingAction] = useState(null);
 
   // Shared
   const [error, setError] = useState(null);
@@ -177,6 +193,53 @@ function ClientiListaHealthManager() {
     if (mainTab === 'ghost' || mainTab === 'pausa') fetchByStatus();
   }, [mainTab, fetchByStatus]);
 
+  // ── Fetch Recensioni ──
+  const fetchReviews = useCallback(async () => {
+    setReviewLoading(true);
+    setError(null);
+    try {
+      const data = await clientiService.getTrustpilotOverview({
+        page: reviewPagination.page,
+        per_page: reviewPagination.perPage,
+        q: debouncedSearch || undefined,
+        health_manager_id: selectedHmId || undefined,
+        status: reviewStatus || undefined,
+      });
+      setReviewData(data.data || []);
+      setReviewCounts(data.counts || { totale_attivi: 0, con_recensione: 0, in_attesa: 0, mai_invitati: 0 });
+      setReviewPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+      setError('Errore nel caricamento recensioni');
+    } finally {
+      setReviewLoading(false);
+    }
+  }, [reviewPagination.page, reviewPagination.perPage, debouncedSearch, selectedHmId, reviewStatus]);
+
+  useEffect(() => {
+    if (mainTab === 'recensioni') fetchReviews();
+  }, [mainTab, fetchReviews]);
+
+  const handleGenerateLink = async (clienteId) => {
+    setSendingAction(`link-${clienteId}`);
+    try {
+      const result = await clientiService.generateTrustpilotLink(clienteId);
+      const link = result?.data?.trustpilot_link;
+      if (link) await navigator.clipboard.writeText(link);
+      fetchReviews();
+    } catch (err) { console.error('Error generating link:', err); }
+    finally { setSendingAction(null); }
+  };
+
+  const handleSendInvite = async (clienteId) => {
+    setSendingAction(`invite-${clienteId}`);
+    try {
+      await clientiService.sendTrustpilotInvite(clienteId);
+      fetchReviews();
+    } catch (err) { console.error('Error sending invite:', err); }
+    finally { setSendingAction(null); }
+  };
+
   // ── Search ──
   const handleSearchInput = (value) => {
     setSearchInput(value);
@@ -281,8 +344,9 @@ function ClientiListaHealthManager() {
   };
 
   const isStatusTab = mainTab === 'ghost' || mainTab === 'pausa';
-  const loading = mainTab === 'scadenze' ? expiryLoading : mainTab === 'insoddisfatti' ? satLoading : statusLoading;
-  const clienti = mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
+  const isReviewTab = mainTab === 'recensioni';
+  const loading = isReviewTab ? reviewLoading : mainTab === 'scadenze' ? expiryLoading : mainTab === 'insoddisfatti' ? satLoading : statusLoading;
+  const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
 
   return (
     <div className="container-fluid p-0">
@@ -322,6 +386,38 @@ function ClientiListaHealthManager() {
           </button>
         ))}
       </div>
+
+      {/* Sub-tabs Recensioni */}
+      {isReviewTab && (
+      <div className="cl-stats-row">
+        {REVIEW_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => { setReviewStatus(tab.key); setReviewPagination(prev => ({ ...prev, page: 1 })); }}
+            className="cl-stat-card"
+            style={{
+              cursor: 'pointer',
+              border: reviewStatus === tab.key ? `2px solid ${tab.color}` : '2px solid transparent',
+              background: reviewStatus === tab.key ? `${tab.color}08` : undefined,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <div>
+              <div className="cl-stat-value">
+                {tab.key === '' ? reviewCounts.totale_attivi
+                  : tab.key === 'none' ? reviewCounts.mai_invitati
+                  : tab.key === 'pending' ? reviewCounts.in_attesa
+                  : reviewCounts.con_recensione}
+              </div>
+              <div className="cl-stat-label">{tab.label}</div>
+            </div>
+            <div className="cl-stat-icon" style={{ background: `${tab.color}15`, color: tab.color }}>
+              <i className={tab.icon}></i>
+            </div>
+          </button>
+        ))}
+      </div>
+      )}
 
       {/* Sub-tabs (filter cards) — only for scadenze/insoddisfatti */}
       {(mainTab === 'scadenze' || mainTab === 'insoddisfatti') && (
@@ -405,8 +501,162 @@ function ClientiListaHealthManager() {
         )}
       </div>
 
-      {/* Content */}
-      {loading ? (
+      {/* ── Recensioni Content ── */}
+      {isReviewTab && (
+        <>
+          {reviewLoading ? (
+            <div className="cl-loading">
+              <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+              <p className="cl-loading-text">Caricamento...</p>
+            </div>
+          ) : reviewData.length === 0 ? (
+            <div className="cl-empty-state">
+              <div className="cl-empty-icon"><i className="ri-star-line"></i></div>
+              <h5 className="cl-empty-title">Nessun cliente trovato</h5>
+              <p className="cl-empty-desc">
+                {reviewStatus === 'none' ? 'Nessun cliente senza inviti Trustpilot' :
+                 reviewStatus === 'pending' ? 'Nessun cliente con inviti in attesa' :
+                 reviewStatus === 'reviewed' ? 'Nessun cliente con recensione pubblicata' :
+                 'Nessun cliente attivo'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="cl-table-card">
+                <div className="table-responsive">
+                  <table className="cl-table">
+                    <thead>
+                      <tr>
+                        <th style={{ minWidth: 180 }}>Cliente</th>
+                        <th style={{ minWidth: 130 }}>Pacchetto</th>
+                        <th style={{ minWidth: 120 }}>Health Manager</th>
+                        <th style={{ minWidth: 80, textAlign: 'center' }}>Inviti</th>
+                        <th style={{ minWidth: 90, textAlign: 'center' }}>Stato</th>
+                        <th style={{ minWidth: 80, textAlign: 'center' }}>Stelle</th>
+                        <th style={{ minWidth: 100, textAlign: 'center' }}>Ultimo Invito</th>
+                        <th style={{ minWidth: 90, textAlign: 'center' }}>Metodo</th>
+                        <th style={{ textAlign: 'right', minWidth: 140 }}>Azioni</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviewData.map((row) => {
+                        const tp = row.trustpilot || {};
+                        const latest = tp.ultimo_invito;
+                        return (
+                          <tr key={row.cliente_id}>
+                            <td>
+                              <Link to={`/clienti-dettaglio/${row.cliente_id}`} className="cl-name-link">
+                                {row.nome_cognome}
+                              </Link>
+                              {row.mail && <div style={{ fontSize: 11, color: '#94a3b8' }}>{row.mail}</div>}
+                            </td>
+                            <td>
+                              {row.programma_attuale ? (
+                                <span className="cl-badge" style={{ background: '#f0fdf4', color: '#166534', fontSize: 12, fontWeight: 600 }}>
+                                  {row.programma_attuale}
+                                </span>
+                              ) : <span className="cl-empty">&mdash;</span>}
+                            </td>
+                            <td style={{ fontSize: 13 }}>
+                              {row.health_manager_user?.full_name || <span className="cl-empty">&mdash;</span>}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="cl-badge" style={{
+                                background: tp.total_inviti > 0 ? 'rgba(99,102,241,.1)' : '#f1f5f9',
+                                color: tp.total_inviti > 0 ? '#6366f1' : '#94a3b8',
+                                fontWeight: 700,
+                              }}>
+                                {tp.total_inviti || 0}
+                              </span>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {tp.ha_recensione ? (
+                                <span className="cl-badge" style={{ background: 'rgba(34,197,94,.1)', color: '#16a34a', fontWeight: 700 }}>
+                                  <i className="ri-check-line" style={{ marginRight: 3 }}></i>Pubblicata
+                                </span>
+                              ) : tp.total_inviti > 0 ? (
+                                <span className="cl-badge" style={{ background: 'rgba(245,158,11,.1)', color: '#d97706', fontWeight: 600 }}>
+                                  <i className="ri-time-line" style={{ marginRight: 3 }}></i>In attesa
+                                </span>
+                              ) : (
+                                <span className="cl-badge" style={{ background: '#f1f5f9', color: '#94a3b8' }}>
+                                  Mai invitato
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {tp.stelle_migliore ? (
+                                <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 14 }}>
+                                  {'★'.repeat(tp.stelle_migliore)}{'☆'.repeat(5 - tp.stelle_migliore)}
+                                </span>
+                              ) : <span className="cl-empty">&mdash;</span>}
+                            </td>
+                            <td style={{ textAlign: 'center', fontSize: 12 }}>
+                              {latest?.data_richiesta ? (
+                                new Date(latest.data_richiesta).toLocaleDateString('it-IT')
+                              ) : <span className="cl-empty">&mdash;</span>}
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              {latest?.invitation_method ? (
+                                <span className="cl-badge" style={{
+                                  background: latest.invitation_method === 'email_invitation' ? 'rgba(59,130,246,.1)' : 'rgba(100,116,139,.1)',
+                                  color: latest.invitation_method === 'email_invitation' ? '#2563eb' : '#475569',
+                                  fontSize: 11,
+                                }}>
+                                  {latest.invitation_method === 'email_invitation' ? 'Email' : 'Link'}
+                                </span>
+                              ) : <span className="cl-empty">&mdash;</span>}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                                <button
+                                  className="cl-action-btn"
+                                  title="Genera Link"
+                                  disabled={sendingAction === `link-${row.cliente_id}`}
+                                  onClick={() => handleGenerateLink(row.cliente_id)}
+                                  style={{ background: 'rgba(37,179,106,.08)', color: '#25B36A' }}
+                                >
+                                  {sendingAction === `link-${row.cliente_id}` ? <i className="ri-loader-4-line"></i> : <i className="ri-link"></i>}
+                                </button>
+                                <button
+                                  className="cl-action-btn"
+                                  title="Invia Email"
+                                  disabled={sendingAction === `invite-${row.cliente_id}`}
+                                  onClick={() => handleSendInvite(row.cliente_id)}
+                                  style={{ background: 'rgba(59,130,246,.08)', color: '#3b82f6' }}
+                                >
+                                  {sendingAction === `invite-${row.cliente_id}` ? <i className="ri-loader-4-line"></i> : <i className="ri-mail-send-line"></i>}
+                                </button>
+                                {latest?.trustpilot_link && (
+                                  <button
+                                    className="cl-action-btn"
+                                    title="Copia Link"
+                                    onClick={async () => { await navigator.clipboard.writeText(latest.trustpilot_link); }}
+                                    style={{ background: 'rgba(100,116,139,.08)', color: '#64748b' }}
+                                  >
+                                    <i className="ri-clipboard-line"></i>
+                                  </button>
+                                )}
+                                <Link to={`/clienti-dettaglio/${row.cliente_id}?tab=marketing`} className="cl-action-btn" title="Dettaglio Marketing">
+                                  <i className="ri-eye-line"></i>
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {renderPagination(reviewPagination, (p) => setReviewPagination(prev => ({ ...prev, page: p })))}
+            </>
+          )}
+        </>
+      )}
+
+      {/* Content (non-review tabs) */}
+      {!isReviewTab && (loading ? (
         <div className="cl-loading">
           <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
           <p className="cl-loading-text">Caricamento...</p>
@@ -600,7 +850,7 @@ function ClientiListaHealthManager() {
               : renderPagination(statusPagination, (p) => setStatusPagination(prev => ({ ...prev, page: p })))
           }
         </>
-      )}
+      ))}
     </div>
   );
 }
