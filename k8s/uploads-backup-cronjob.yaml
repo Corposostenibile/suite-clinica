@@ -33,11 +33,11 @@ spec:
               echo "[uploads-backup] Completed."
             resources:
               requests:
-                cpu: "250m"
-                memory: "512Mi"
-              limits:
-                cpu: "1"
+                cpu: "500m"
                 memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "4Gi"
             volumeMounts:
             - name: uploads-storage
               mountPath: /var/corposostenibile/uploads

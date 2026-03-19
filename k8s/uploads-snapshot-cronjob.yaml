@@ -27,25 +27,21 @@ spec:
               TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
               SNAPSHOT_DIR="backup_${TIMESTAMP}"
               ARCHIVE_NAME="uploads_backup_${TIMESTAMP}.tar.gz"
-              TMP_ARCHIVE="/tmp/${ARCHIVE_NAME}"
-
               echo "[uploads-snapshot] Activating service account..."
               gcloud auth activate-service-account --key-file=/secrets/cloudsql/credentials.json
 
               echo "[uploads-snapshot] Creating archive..."
-              tar -czf "${TMP_ARCHIVE}" -C /var/corposostenibile uploads
-
-              echo "[uploads-snapshot] Uploading archive to GCS..."
-              gsutil cp "${TMP_ARCHIVE}" "gs://suite-clinica-backups/${SNAPSHOT_DIR}/${ARCHIVE_NAME}"
+              echo "[uploads-snapshot] Uploading archive to GCS (streaming)..."
+              tar -czf - -C /var/corposostenibile uploads | gsutil cp - "gs://suite-clinica-backups/${SNAPSHOT_DIR}/${ARCHIVE_NAME}"
 
               echo "[uploads-snapshot] Completed."
             resources:
               requests:
-                cpu: "500m"
-                memory: "1Gi"
+                cpu: "1"
+                memory: "2Gi"
               limits:
                 cpu: "2"
-                memory: "4Gi"
+                memory: "6Gi"
             volumeMounts:
             - name: uploads-storage
               mountPath: /var/corposostenibile/uploads

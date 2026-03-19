@@ -538,8 +538,8 @@ const clientiService = {
     return response.data;
   },
 
-  async createVideoReviewBooked(id) {
-    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`);
+  async createVideoReviewBooked(id, data = {}) {
+    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`, data);
     return response.data;
   },
 
