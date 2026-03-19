@@ -746,6 +746,7 @@ function ClientiDetail() {
   const [loadingVideoReviewRequests, setLoadingVideoReviewRequests] = useState(false);
   const [showVideoReviewBookingModal, setShowVideoReviewBookingModal] = useState(false);
   const [videoReviewBookingDate, setVideoReviewBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [videoReviewBookingTime, setVideoReviewBookingTime] = useState('12:00');
   const [showVideoReviewConfirmModal, setShowVideoReviewConfirmModal] = useState(false);
   const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
@@ -1279,10 +1280,10 @@ function ClientiDetail() {
 
 
   const handleVideoReviewBooked = async () => {
-    if (!id || !videoReviewBookingDate) return;
+    if (!id || !videoReviewBookingDate || !videoReviewBookingTime) return;
     setSavingVideoReviewAction(true);
     try {
-      await clientiService.createVideoReviewBooked(id, { booking_date: videoReviewBookingDate });
+      await clientiService.createVideoReviewBooked(id, { booking_date: videoReviewBookingDate, booking_time: videoReviewBookingTime });
       setShowVideoReviewBookingModal(false);
       await fetchVideoReviewRequests();
     } catch (err) {
@@ -7923,6 +7924,7 @@ function ClientiDetail() {
                                 <th>Stato</th>
                                 <th>Prenotata da</th>
                                 <th>Data prenotazione</th>
+                                <th>Orario</th>
                                 <th>Loom</th>
                                 <th>Azione</th>
                               </tr>
@@ -7937,6 +7939,7 @@ function ClientiDetail() {
                                   </td>
                                   <td>{item.requested_by_name || '—'}</td>
                                   <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
+                                  <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                                   <td>
                                     {item.loom_link ? (
                                       <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
@@ -8465,6 +8468,15 @@ function ClientiDetail() {
                   className="cd-input"
                   value={videoReviewBookingDate}
                   onChange={(e) => setVideoReviewBookingDate(e.target.value)}
+                />
+              </div>
+              <div className="cd-field" style={{ marginBottom: 12, textAlign: 'left' }}>
+                <label className="cd-field-label">Orario prenotazione *</label>
+                <input
+                  type="time"
+                  className="cd-input"
+                  value={videoReviewBookingTime}
+                  onChange={(e) => setVideoReviewBookingTime(e.target.value)}
                 />
               </div>
               <p className="small text-muted" style={{ marginBottom: 0 }}>

@@ -6695,6 +6695,7 @@ def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
         "status": item.status,
         "booking_confirmed_at": item.booking_confirmed_at.isoformat() if item.booking_confirmed_at else None,
         "booking_date": item.booking_date.isoformat() if item.booking_date else None,
+        "booking_time": item.booking_time.isoformat() if item.booking_time else None,
         "hm_confirmed_at": item.hm_confirmed_at.isoformat() if item.hm_confirmed_at else None,
         "loom_link": item.loom_link,
         "hm_note": item.hm_note,
@@ -6758,6 +6759,7 @@ def api_video_review_booked(cliente_id: int):
 
     payload = request.get_json(silent=True) or {}
     booking_date_str = (payload.get("booking_date") or "").strip()
+    booking_time_str = (payload.get("booking_time") or "").strip()
 
     booking_date = None
     if booking_date_str:
@@ -6766,6 +6768,13 @@ def api_video_review_booked(cliente_id: int):
         except ValueError:
             abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
 
+    booking_time = None
+    if booking_time_str:
+        try:
+            booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
         requested_by_user_id=current_user.id,
@@ -6773,6 +6782,7 @@ def api_video_review_booked(cliente_id: int):
         status="booked",
         booking_confirmed_at=datetime.utcnow(),
         booking_date=booking_date,
+        booking_time=booking_time,
     )
     db.session.add(request_item)
     db.session.commit()
