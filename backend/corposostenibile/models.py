@@ -11873,7 +11873,6 @@ class VideoReviewRequest(TimestampMixin, db.Model):
     status = db.Column(db.String(32), nullable=False, default="booked", index=True)
     booking_confirmed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     booking_date = db.Column(db.Date, nullable=True, comment="Data selezionata per la prenotazione della video recensione")
-    booking_time = db.Column(db.Time, nullable=True, comment="Orario selezionato per la prenotazione della video recensione")
     hm_confirmed_at = db.Column(db.DateTime)
 
     loom_link = db.Column(db.String(500))
