@@ -15,7 +15,7 @@ Branch target: `version-2.0-updated`
 - [x] Flusso end-to-end: prenotazione -> conferma HM -> Loom link
 - [x] Stati processo espliciti (booked / hm_confirmed)
 - [x] Verifiche base su persistenza/validazioni/permessi/storico
-- [ ] Verificare compatibilita con booking/calendario HM esistente
+- [x] Verificare compatibilita con booking/calendario HM esistente
 - [ ] Rimozione placeholder/mock residui e coerenza UI finale
 
 ## 3) Call bonus
@@ -82,3 +82,7 @@ Branch target: `version-2.0-updated`
 - Alembic verificato: `coach_pathologies_01 (head)` sia su `db heads` sia su `db current`.
 - Build frontend verificata: `corposostenibile-clinica` OK, `teams-kanban` OK (dopo install dipendenze locali).
 - Hardening Trustpilot completato su codice: webhook endpoint + auth Basic + parsing robusto + fallback config mancanti + messaggi FE espliciti.
+- Smoke tecnico rieseguito: build FE principali OK + Alembic heads/current OK.
+- Smoke backend mirato completato: 22/22 test pass (Trustpilot, GHL security/dispatch/calendar safety, capienza/support types, scope guards, bridge HM assignment).
+- Allineamento bridge GHL completato: resolve `health_manager_id` by email e persistenza su `cliente`/`opp_data`.
+- Allineamento video recensione completato: obbligo HM assegnato per booking + link calendario HM in tab Marketing + error handling UX.
