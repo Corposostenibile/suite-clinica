@@ -16,7 +16,7 @@ from flask import current_app
 from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente, User, CheckForm, CheckFormTypeEnum,
-    ClientCheckAssignment, GHLOpportunityData,
+    ClientCheckAssignment, GHLOpportunityData, UserRoleEnum,
 )
 from corposostenibile.blueprints.client_checks.services import _public_checks_base_url
 
@@ -34,6 +34,26 @@ INITIAL_CHECKS = [
         "description": "Mockup temporaneo in attesa del secondo questionario definitivo.",
     },
 ]
+
+
+def _resolve_health_manager_id_by_email(email: str | None) -> int | None:
+    """Resolve HM user id from email (best effort)."""
+    hm_email = (email or "").strip().lower()
+    if not hm_email:
+        return None
+
+    hm_user = (
+        User.query.filter(
+            db.func.lower(User.email) == hm_email,
+            User.role == UserRoleEnum.health_manager,
+        )
+        .first()
+    )
+    if hm_user:
+        return hm_user.id
+
+    hm_user = User.query.filter(db.func.lower(User.email) == hm_email).first()
+    return hm_user.id if hm_user else None
 
 
 def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, Any]:
@@ -106,6 +126,12 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
 
         if lead_phone and not getattr(cliente, "cellulare", None):
             cliente.cellulare = lead_phone
+
+        resolved_hm_id = _resolve_health_manager_id_by_email(opp_data.health_manager_email)
+        if resolved_hm_id and not cliente.health_manager_id:
+            cliente.health_manager_id = resolved_hm_id
+        if resolved_hm_id and not opp_data.health_manager_id:
+            opp_data.health_manager_id = resolved_hm_id
 
         # 2. Ottieni admin per assigned_by_id
         admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()
