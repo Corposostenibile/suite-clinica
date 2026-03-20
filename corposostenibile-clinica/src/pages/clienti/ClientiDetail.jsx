@@ -751,6 +751,7 @@ function ClientiDetail() {
   const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
+  const [videoReviewError, setVideoReviewError] = useState('');
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -1269,12 +1270,14 @@ function ClientiDetail() {
   const fetchVideoReviewRequests = useCallback(async () => {
     if (!id || !canUseVideoReviewFlow) return;
     setLoadingVideoReviewRequests(true);
+    setVideoReviewError('');
     try {
       const data = await clientiService.getVideoReviewRequests(id);
       setVideoReviewRequests(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error('Error fetching video review requests:', err);
       setVideoReviewRequests([]);
+      setVideoReviewError(err?.response?.data?.description || 'Errore nel caricamento richieste video recensione.');
     } finally {
       setLoadingVideoReviewRequests(false);
     }
@@ -1290,13 +1293,14 @@ function ClientiDetail() {
   const handleVideoReviewBooked = async () => {
     if (!id || !videoReviewBookingDate || !videoReviewBookingTime) return;
     setSavingVideoReviewAction(true);
+    setVideoReviewError('');
     try {
       await clientiService.createVideoReviewBooked(id, { booking_date: videoReviewBookingDate, booking_time: videoReviewBookingTime });
       setShowVideoReviewBookingModal(false);
       await fetchVideoReviewRequests();
     } catch (err) {
       console.error('Error creating video review booking:', err);
-      alert('Errore nella registrazione della prenotazione.');
+      setVideoReviewError(err?.response?.data?.description || 'Errore nella registrazione della prenotazione.');
     } finally {
       setSavingVideoReviewAction(false);
     }
@@ -1311,6 +1315,7 @@ function ClientiDetail() {
   const handleVideoReviewHmConfirm = async () => {
     if (!selectedVideoReviewRequest?.id) return;
     setSavingVideoReviewAction(true);
+    setVideoReviewError('');
     try {
       await clientiService.confirmVideoReviewByHm(selectedVideoReviewRequest.id, videoReviewHmForm);
       setShowVideoReviewConfirmModal(false);
@@ -1319,7 +1324,7 @@ function ClientiDetail() {
       await fetchVideoReviewRequests();
     } catch (err) {
       console.error('Error confirming video review:', err);
-      alert('Errore nella conferma HM.');
+      setVideoReviewError(err?.response?.data?.description || 'Errore nella conferma HM.');
     } finally {
       setSavingVideoReviewAction(false);
     }
@@ -8008,11 +8013,23 @@ function ClientiDetail() {
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => setShowVideoReviewBookingModal(true)}
+                          disabled={!cliente?.health_manager_id}
                         >
                           <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
                           Prenota video recensione con HM
                         </button>
                       </div>
+
+                      {!cliente?.health_manager_id && (
+                        <div className="alert alert-warning py-2" style={{ marginBottom: 12 }}>
+                          Assegna prima un Health Manager al paziente per abilitare la prenotazione video recensione.
+                        </div>
+                      )}
+                      {videoReviewError && (
+                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
+                          {videoReviewError}
+                        </div>
+                      )}
 
                       {loadingVideoReviewRequests ? (
                         <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
@@ -8025,8 +8042,10 @@ function ClientiDetail() {
                               <tr>
                                 <th>Stato</th>
                                 <th>Prenotata da</th>
+                                <th>HM</th>
                                 <th>Data prenotazione</th>
                                 <th>Orario</th>
+                                <th>Calendario HM</th>
                                 <th>Loom</th>
                                 <th>Azione</th>
                               </tr>
@@ -8040,8 +8059,16 @@ function ClientiDetail() {
                                     </span>
                                   </td>
                                   <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.hm_name || '—'}</td>
                                   <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
                                   <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                  <td>
+                                    {item.hm_calendar_link ? (
+                                      <a href={item.hm_calendar_link} target="_blank" rel="noopener noreferrer">
+                                        <i className="ri-calendar-event-line"></i>
+                                      </a>
+                                    ) : '—'}
+                                  </td>
                                   <td>
                                     {item.loom_link ? (
                                       <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
@@ -8107,7 +8134,8 @@ function ClientiDetail() {
                               'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
                               'accettata': { bg: '#fef3c7', color: '#92400e', label: 'In Attesa Risposta' },
                               'interessato': { bg: '#dcfce7', color: '#166534', label: 'Interessato' },
-                              'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' }
+                              'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' },
+                              'rifiutata': { bg: '#f3f4f6', color: '#4b5563', label: 'Rifiutata da professionista' },
                             }[cb.status] || { bg: '#f3f4f6', color: '#374151', label: cb.status };
 
                             return (
@@ -8134,7 +8162,7 @@ function ClientiDetail() {
                                   </span>
                                 </td>
                                 <td>
-                                  {cb.status === 'interessato' ? (
+                                  {cb.status === 'interessato' || cb.hm_booking_confirmed ? (
                                     <span className="cd-badge" style={{ background: '#dcfce7', color: '#166534' }}>
                                       <i className="ri-check-line me-1"></i>Confermata
                                     </span>
@@ -8685,10 +8713,15 @@ function ClientiDetail() {
               <p className="small text-muted" style={{ marginBottom: 0 }}>
                 Dopo la prenotazione clicca su "Ho prenotato" per inviare la richiesta all&apos;HM.
               </p>
+              {!cliente?.health_manager_id && (
+                <div className="alert alert-warning py-2" style={{ marginTop: 12, marginBottom: 0 }}>
+                  Nessun Health Manager assegnato al paziente.
+                </div>
+              )}
             </div>
             <div className="cd-modal-footer">
               <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Chiudi</button>
-              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction}>
+              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction || !cliente?.health_manager_id}>
                 {savingVideoReviewAction ? (
                   <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
                 ) : (

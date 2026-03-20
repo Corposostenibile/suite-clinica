@@ -6747,6 +6747,20 @@ def api_call_bonus_decline(call_bonus_id: int):
 #  Video Review (Marketing Tab)                                               #
 # --------------------------------------------------------------------------- #
 def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    hm_calendar_link = ""
+    hm_user = item.hm_user or None
+    if hm_user is not None:
+        import json as _json
+
+        ai_notes = hm_user.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = _json.loads(ai_notes)
+            except (ValueError, TypeError):
+                ai_notes = {}
+        if isinstance(ai_notes, dict):
+            hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
+
     return {
         "id": item.id,
         "cliente_id": item.cliente_id,
@@ -6761,6 +6775,7 @@ def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
         "requested_by_name": getattr(item.requested_by_user, "full_name", None),
         "hm_user_id": item.hm_user_id,
         "hm_name": getattr(item.hm_user, "full_name", None),
+        "hm_calendar_link": hm_calendar_link,
     }
 
 
@@ -6798,6 +6813,11 @@ def api_video_review_booked(cliente_id: int):
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
     if not _is_assigned_to_cliente(current_user, cliente):
         abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+    if not getattr(cliente, "health_manager_id", None):
+        abort(
+            HTTPStatus.CONFLICT,
+            description="Nessun Health Manager assegnato al paziente: assegna HM prima della prenotazione video recensione.",
+        )
 
     existing_open = (
         db.session.query(VideoReviewRequest)
