@@ -4,6 +4,7 @@ import { kanbanService } from '../services/kanbanService'
 const STATUS_LABELS = {
   aperto: 'Aperto',
   in_lavorazione: 'In Lavorazione',
+  standby: 'Standby',
   risolto: 'Risolto',
   chiuso: 'Chiuso',
 }
@@ -11,12 +12,25 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   aperto: '#3b82f6',
   in_lavorazione: '#f59e0b',
+  standby: '#8b5cf6',
   risolto: '#10b981',
   chiuso: '#6b7280',
 }
 
-const PRIORITY_LABELS = { alta: 'Alta', media: 'Media', bassa: 'Bassa' }
-const PRIORITY_COLORS = { alta: '#ef4444', media: '#f59e0b', bassa: '#10b981' }
+const PRIORITY_LABELS = {
+  alta: 'Alta',
+  media: 'Media',
+  bassa: 'Bassa',
+  bloccante: 'Bloccante',
+  non_bloccante: 'Non bloccante',
+}
+const PRIORITY_COLORS = {
+  alta: '#ef4444',
+  media: '#f59e0b',
+  bassa: '#10b981',
+  bloccante: '#ef4444',
+  non_bloccante: '#10b981',
+}
 
 function timeAgo(dateStr) {
   if (!dateStr) return ''
@@ -31,7 +45,7 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('it-IT')
 }
 
-export default function TicketDetailPanel({ ticket, token, currentUserId, onClose, onUpdated }) {
+export default function TicketDetailPanel({ ticket, token, currentUserId, onClose, onUpdated, board = 'general' }) {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [replyText, setReplyText] = useState('')
@@ -109,17 +123,34 @@ export default function TicketDetailPanel({ ticket, token, currentUserId, onClos
   const statusActions = () => {
     const s = ticket.status
     const actions = []
-    if (s === 'aperto') {
-      actions.push({ status: 'in_lavorazione', label: 'Prendi in Carico', icon: 'ri-play-line' })
-    }
-    if (s === 'in_lavorazione') {
-      actions.push({ status: 'risolto', label: 'Segna Risolto', icon: 'ri-checkbox-circle-line' })
-    }
-    if (s === 'risolto') {
-      actions.push({ status: 'chiuso', label: 'Chiudi', icon: 'ri-lock-line' })
-    }
-    if (s === 'risolto' || s === 'chiuso') {
-      actions.push({ status: 'aperto', label: 'Riapri', icon: 'ri-refresh-line' })
+    if (board === 'it') {
+      if (s === 'aperto') {
+        actions.push({ status: 'in_lavorazione', label: 'In lavorazione', icon: 'ri-play-line' })
+      }
+      if (s === 'in_lavorazione') {
+        actions.push({ status: 'standby', label: 'Standby', icon: 'ri-pause-circle-line' })
+        actions.push({ status: 'risolto', label: 'Risolto', icon: 'ri-checkbox-circle-line' })
+      }
+      if (s === 'standby') {
+        actions.push({ status: 'in_lavorazione', label: 'Riprendi', icon: 'ri-play-line' })
+        actions.push({ status: 'risolto', label: 'Risolto', icon: 'ri-checkbox-circle-line' })
+      }
+      if (s === 'risolto') {
+        actions.push({ status: 'aperto', label: 'Riapri', icon: 'ri-refresh-line' })
+      }
+    } else {
+      if (s === 'aperto') {
+        actions.push({ status: 'in_lavorazione', label: 'Prendi in Carico', icon: 'ri-play-line' })
+      }
+      if (s === 'in_lavorazione') {
+        actions.push({ status: 'risolto', label: 'Segna Risolto', icon: 'ri-checkbox-circle-line' })
+      }
+      if (s === 'risolto') {
+        actions.push({ status: 'chiuso', label: 'Chiudi', icon: 'ri-lock-line' })
+      }
+      if (s === 'risolto' || s === 'chiuso') {
+        actions.push({ status: 'aperto', label: 'Riapri', icon: 'ri-refresh-line' })
+      }
     }
     return actions
   }
@@ -181,7 +212,7 @@ export default function TicketDetailPanel({ ticket, token, currentUserId, onClos
             </div>
 
             {/* Patient */}
-            {detail.cliente_nome && (
+            {board !== 'it' && detail.cliente_nome && (
               <div className="kb-detail-meta">
                 <i className="ri-heart-pulse-line" />
                 <span>Paziente: <strong>{detail.cliente_nome}</strong></span>

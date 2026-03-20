@@ -73,6 +73,7 @@ backend/backups
 
 # AGENTS.md
 AGENTS.md
+CLAUDE.md
 
 # .agent folder
 .agent/*

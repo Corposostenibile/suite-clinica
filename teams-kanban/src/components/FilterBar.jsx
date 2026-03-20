@@ -6,14 +6,7 @@ const SCOPE_OPTIONS = [
   { value: 'assigned', label: 'Assegnati a me' },
 ]
 
-const PRIORITY_OPTIONS = [
-  { value: '', label: 'Tutte' },
-  { value: 'alta', label: 'Alta' },
-  { value: 'media', label: 'Media' },
-  { value: 'bassa', label: 'Bassa' },
-]
-
-export default function FilterBar({ filters, onChange, onCreateClick }) {
+export default function FilterBar({ filters, onChange, onCreateClick, priorityOptions }) {
   const setField = (field, value) => {
     onChange({ ...filters, [field]: value })
   }
@@ -59,7 +52,7 @@ export default function FilterBar({ filters, onChange, onCreateClick }) {
           value={filters.priority}
           onChange={e => setField('priority', e.target.value)}
         >
-          {PRIORITY_OPTIONS.map(opt => (
+          {(priorityOptions || []).map(opt => (
             <option key={opt.value} value={opt.value}>
               {opt.value ? `${opt.label} priorita'` : opt.label}
             </option>

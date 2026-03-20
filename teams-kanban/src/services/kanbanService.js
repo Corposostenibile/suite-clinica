@@ -14,10 +14,10 @@ export const kanbanService = {
   },
 
   /** List tickets (scope=mine) */
-  async listTickets(token) {
+  async listTickets(token, { board } = {}) {
     setAuthToken(token)
     const { data } = await api.get('/tab/tickets', {
-      params: { per_page: 200 },
+      params: { per_page: 200, ...(board ? { board } : {}) },
     })
     return data.tickets
   },
