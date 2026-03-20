@@ -470,6 +470,7 @@ class TicketCategoryEnum(str, Enum):
 class TeamTicketStatusEnum(str, Enum):
     aperto = "aperto"
     in_lavorazione = "in_lavorazione"
+    standby = "standby"
     risolto = "risolto"
     chiuso = "chiuso"
 
@@ -478,6 +479,8 @@ class TeamTicketPriorityEnum(str, Enum):
     alta = "alta"
     media = "media"
     bassa = "bassa"
+    bloccante = "bloccante"
+    non_bloccante = "non_bloccante"
 
 
 class TeamTicketSourceEnum(str, Enum):
@@ -1823,6 +1826,15 @@ class Cliente(TimestampMixin, db.Model):
     # Campi testuali per "Altro"
     patologia_altro                     = db.Column(db.Text)  # Campo testuale per "Altro" nutrizione
     patologia_psico_altro               = db.Column(db.Text)  # Campo testuale per "Altro" psicologia
+
+    # Patologie/limitazioni Coaching
+    nessuna_patologia_coach             = db.Column(db.Boolean, default=False)
+    patologia_coach_infortuni           = db.Column(db.Boolean, default=False)
+    patologia_coach_dolori_cronici      = db.Column(db.Boolean, default=False)
+    patologia_coach_limitazioni_articolari = db.Column(db.Boolean, default=False)
+    patologia_coach_posturali           = db.Column(db.Boolean, default=False)
+    patologia_coach_cardiovascolari     = db.Column(db.Boolean, default=False)
+    patologia_coach_altro               = db.Column(db.Text)
 
     # Bonus & Alert
     bonus                   = db.Column(db.Boolean)
@@ -11856,6 +11868,37 @@ class CallBonus(TimestampMixin, db.Model):
         return f"<CallBonus cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
 
 
+class VideoReviewRequest(TimestampMixin, db.Model):
+    """
+    Flusso video recensione in tab Marketing:
+    - professionista/HM prenota (booked)
+    - HM conferma call svolta e inserisce link Loom (hm_confirmed)
+    """
+    __tablename__ = "video_review_requests"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
+    requested_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    hm_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+
+    # Stati supportati: booked, hm_confirmed
+    status = db.Column(db.String(32), nullable=False, default="booked", index=True)
+    booking_confirmed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    booking_date = db.Column(db.Date, nullable=True, comment="Data selezionata per la prenotazione della video recensione")
+    booking_time = db.Column(db.Time, nullable=True, comment="Orario selezionato per la prenotazione della video recensione")
+    hm_confirmed_at = db.Column(db.DateTime)
+
+    loom_link = db.Column(db.String(500))
+    hm_note = db.Column(db.Text)
+
+    cliente = db.relationship("Cliente", backref="video_review_requests")
+    requested_by_user = db.relationship("User", foreign_keys=[requested_by_user_id], backref="video_review_requests_created")
+    hm_user = db.relationship("User", foreign_keys=[hm_user_id], backref="video_review_requests_confirmed")
+
+    def __repr__(self):
+        return f"<VideoReviewRequest cliente={self.cliente_id} status={self.status}>"
+
+
 # Indice per ricerca risposte per data
 Index(
     'ix_client_check_responses_created_at',
@@ -14403,6 +14446,8 @@ class TeamTicket(TimestampMixin, db.Model):
 
     title = db.Column(db.String(200), nullable=True)
     description = db.Column(db.Text, nullable=False)
+    board = db.Column(db.String(50), nullable=False, default="general", index=True)
+    system = db.Column(db.String(50), nullable=True, index=True)
     status = db.Column(
         _def(TeamTicketStatusEnum),
         default=TeamTicketStatusEnum.aperto,
@@ -14474,6 +14519,8 @@ class TeamTicket(TimestampMixin, db.Model):
             "ticket_number": self.ticket_number,
             "title": self.title,
             "description": self.description,
+            "board": self.board,
+            "system": self.system,
             "status": self.status.value if self.status else None,
             "priority": self.priority.value if self.priority else None,
             "source": self.source.value if self.source else None,

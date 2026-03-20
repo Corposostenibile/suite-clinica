@@ -1343,7 +1343,14 @@ def apply_role_filtering(query):
                 exists(select(CallBonus.cliente_id).where(
                     CallBonus.cliente_id == Cliente.cliente_id,
                     CallBonus.professionista_id == user_id,
-                    CallBonus.status == CallBonusStatusEnum.accettata,
+                    CallBonus.status.in_([
+                        CallBonusStatusEnum.accettata,
+                        CallBonusStatusEnum.interessato,
+                        CallBonusStatusEnum.non_interessato,
+                        CallBonusStatusEnum.confermata,
+                        CallBonusStatusEnum.rifiutata,
+                        CallBonusStatusEnum.non_andata_buon_fine,
+                    ]),
                 )),
             )
         )

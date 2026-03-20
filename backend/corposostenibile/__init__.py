@@ -96,6 +96,7 @@ from .cli import register_cli_commands
 from .config import Config
 from .extensions import (
     celery,
+    db,
     google_bp,
     init_app as init_exts,
     login_manager,
@@ -627,10 +628,31 @@ def create_app(config_name: str | None = None) -> Flask:
             except Exception:
                 pass
         return response
+
+    @app.teardown_request
+    def cleanup_db_session(exc):  # noqa: ANN001
+        """
+        Garantisce che la sessione SQLAlchemy non rimanga in stato aborted
+        tra richieste consecutive.
+        """
+        try:
+            if exc is not None:
+                db.session.rollback()
+        except Exception:
+            pass
+        finally:
+            try:
+                db.session.remove()
+            except Exception:
+                pass
     
     # Error-handling JSON-first
     @app.errorhandler(Exception)
     def handle_exception(exc):
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         if isinstance(exc, HTTPException):
             resp = exc.get_response()
             resp.data = jsonify({"error": exc.name, "description": exc.description}).data

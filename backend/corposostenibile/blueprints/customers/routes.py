@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta
 from http import HTTPStatus
 import logging
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 from dateutil.relativedelta import relativedelta
 
@@ -53,6 +54,7 @@ from corposostenibile.models import (
     PlanTypeEnum,
     CallBonusStatusEnum,
     TrustpilotReview,
+    VideoReviewRequest,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
@@ -6195,7 +6197,7 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 
 def _is_assigned_to_cliente(user, cliente) -> bool:
     """Verifica se l'utente è assegnato al paziente come professionista (o admin).
-    Include anche professionisti con call bonus attive (status=accettata).
+    Include anche professionisti coinvolti in call bonus sul paziente.
     """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
@@ -6223,12 +6225,19 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
         or user in cliente.consulenti_multipli
     ):
         return True
-    # Professionista assegnato tramite call bonus attiva
+    # Professionista assegnato tramite call bonus (anche dopo la risposta interesse)
     from corposostenibile.models import CallBonus
     has_active_cb = db.session.query(CallBonus.id).filter(
         CallBonus.cliente_id == cliente.cliente_id,
         CallBonus.professionista_id == user.id,
-        CallBonus.status == CallBonusStatusEnum.accettata,
+        CallBonus.status.in_([
+            CallBonusStatusEnum.accettata,
+            CallBonusStatusEnum.interessato,
+            CallBonusStatusEnum.non_interessato,
+            CallBonusStatusEnum.confermata,
+            CallBonusStatusEnum.rifiutata,
+            CallBonusStatusEnum.non_andata_buon_fine,
+        ]),
     ).first()
     return has_active_cb is not None
 
@@ -6606,6 +6615,57 @@ def api_call_bonus_select_professional(call_bonus_id: int):
 
     db.session.commit()
 
+    # Create a Task for the assigned professional (so they get notified)
+    try:
+        from corposostenibile.models import Task, TaskStatusEnum, TaskPriorityEnum, TaskCategoryEnum
+
+        task_title = f"Call Bonus — Rispondi interesse paziente (CB#{call_bonus.id})"
+        base_url = (current_app.config.get("BASE_URL") or "").rstrip("/")
+        path = f"/clienti-dettaglio/{cliente.cliente_id}?tab=call_bonus"
+        detail_url = f"{base_url}{path}" if base_url else path
+
+        existing = (
+            Task.query
+            .filter(
+                Task.assignee_id == prof.id,
+                Task.title == task_title,
+                Task.status.in_([TaskStatusEnum.todo, TaskStatusEnum.in_progress]),
+            )
+            .first()
+        )
+        if not existing:
+            t = Task(
+                title=task_title,
+                description=(
+                    f"Paziente: {getattr(cliente, 'nome_cognome', '')}\n"
+                    f"Richiesta da: {current_user.full_name}\n"
+                    f"Note: {call_bonus.note_richiesta or '-'}\n"
+                    f"Apri: {detail_url}\n"
+                ),
+                category=TaskCategoryEnum.generico,
+                priority=TaskPriorityEnum.high,
+                status=TaskStatusEnum.todo,
+                assignee_id=prof.id,
+                client_id=cliente.cliente_id,
+                payload={"call_bonus_id": call_bonus.id, "cliente_id": cliente.cliente_id},
+            )
+            db.session.add(t)
+            db.session.commit()
+
+            try:
+                from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+                send_task_notification_task.delay(t.id, assigner_name=current_user.full_name)
+            except Exception:
+                current_app.logger.warning(
+                    "[call_bonus] Impossibile accodare notifica Teams per task %s", t.id
+                )
+    except Exception:
+        current_app.logger.exception("[call_bonus] Errore creazione task per professionista assegnato")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
     # Get link_call_bonus from professional's ai_notes
     ai_notes = prof.assignment_ai_notes or {}
     if isinstance(ai_notes, str):
@@ -6681,6 +6741,154 @@ def api_call_bonus_decline(call_bonus_id: int):
         "call_bonus_id": call_bonus.id,
         "message": "Call bonus rifiutata.",
     })
+
+
+# --------------------------------------------------------------------------- #
+#  Video Review (Marketing Tab)                                               #
+# --------------------------------------------------------------------------- #
+def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "cliente_id": item.cliente_id,
+        "status": item.status,
+        "booking_confirmed_at": item.booking_confirmed_at.isoformat() if item.booking_confirmed_at else None,
+        "booking_date": item.booking_date.isoformat() if item.booking_date else None,
+        "booking_time": item.booking_time.isoformat() if item.booking_time else None,
+        "hm_confirmed_at": item.hm_confirmed_at.isoformat() if item.hm_confirmed_at else None,
+        "loom_link": item.loom_link,
+        "hm_note": item.hm_note,
+        "requested_by_user_id": item.requested_by_user_id,
+        "requested_by_name": getattr(item.requested_by_user, "full_name", None),
+        "hm_user_id": item.hm_user_id,
+        "hm_name": getattr(item.hm_user, "full_name", None),
+    }
+
+
+def _is_valid_absolute_url(url_value: str) -> bool:
+    try:
+        parsed = urlparse(url_value)
+    except Exception:
+        return False
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_review_requests(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    rows = (
+        db.session.query(VideoReviewRequest)
+        .filter(VideoReviewRequest.cliente_id == cliente_id)
+        .order_by(VideoReviewRequest.created_at.desc(), VideoReviewRequest.id.desc())
+        .all()
+    )
+    return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
+
+
+@api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_booked(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    existing_open = (
+        db.session.query(VideoReviewRequest)
+        .filter(
+            VideoReviewRequest.cliente_id == cliente_id,
+            VideoReviewRequest.status == "booked",
+        )
+        .order_by(VideoReviewRequest.id.desc())
+        .first()
+    )
+    if existing_open:
+        return jsonify({
+            "success": True,
+            "data": _serialize_video_review_request(existing_open),
+            "message": "Esiste già una richiesta video recensione in stato prenotata.",
+        }), HTTPStatus.OK
+
+    payload = request.get_json(silent=True) or {}
+    booking_date_str = (payload.get("booking_date") or "").strip()
+    booking_time_str = (payload.get("booking_time") or "").strip()
+
+    booking_date = None
+    if booking_date_str:
+        try:
+            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
+
+    booking_time = None
+    if booking_time_str:
+        try:
+            booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+
+    request_item = VideoReviewRequest(
+        cliente_id=cliente_id,
+        requested_by_user_id=current_user.id,
+        hm_user_id=cliente.health_manager_id,
+        status="booked",
+        booking_confirmed_at=datetime.utcnow(),
+        booking_date=booking_date,
+        booking_time=booking_time,
+    )
+    db.session.add(request_item)
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(request_item),
+        "message": "Prenotazione video recensione registrata.",
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/video-review-requests/<int:request_id>/hm-confirm", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_review_hm_confirm(request_id: int):
+    item = db.session.get(VideoReviewRequest, request_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND, description="Richiesta video recensione non trovata.")
+
+    cliente = db.session.get(Cliente, item.cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    is_admin = bool(getattr(current_user, "is_admin", False))
+    role = getattr(current_user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    is_hm = role_value == "health_manager"
+    if not (is_admin or (is_hm and getattr(cliente, "health_manager_id", None) == current_user.id)):
+        abort(HTTPStatus.FORBIDDEN, description="Solo HM assegnato o admin possono confermare.")
+
+    payload = request.get_json(silent=True) or {}
+    loom_link = (payload.get("loom_link") or "").strip()
+    hm_note = (payload.get("hm_note") or "").strip()
+    if not loom_link:
+        abort(HTTPStatus.BAD_REQUEST, description="Campo 'loom_link' obbligatorio.")
+    if not _is_valid_absolute_url(loom_link):
+        abort(HTTPStatus.BAD_REQUEST, description="Loom link non valido.")
+
+    item.status = "hm_confirmed"
+    item.hm_confirmed_at = datetime.utcnow()
+    item.loom_link = loom_link
+    item.hm_note = hm_note or None
+    item.hm_user_id = getattr(cliente, "health_manager_id", None) or current_user.id
+
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_review_request(item),
+        "message": "Video recensione confermata da HM.",
+    }), HTTPStatus.OK
 
 
 # --------------------------------------------------------------------------- #

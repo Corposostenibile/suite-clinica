@@ -18,6 +18,7 @@ Key points
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 from typing import Type
 
@@ -95,6 +96,22 @@ class BaseConfig:
     TEAMS_BOT_APP_ID: str = os.getenv("TEAMS_BOT_APP_ID", "")
     TEAMS_BOT_APP_PASSWORD: str = os.getenv("TEAMS_BOT_APP_PASSWORD", "")
     TEAMS_BOT_TENANT_ID: str = os.getenv("TEAMS_BOT_TENANT_ID", "")
+
+    # ---------------------- Team Tickets (IT Board) ----------------
+    TEAM_TICKETS_IT_TAB_URL: str = os.getenv(
+        "TEAM_TICKETS_IT_TAB_URL",
+        "https://clinica.corposostenibile.com/teams-kanban/?board=it",
+    )
+    # JSON: {"suite_clinica":["ema@..."],"ghl":["matteo@..."],"respondio":["samu@..."],"teams":["samu@..."],"manychat":["samu@..."]}
+    TEAM_TICKETS_IT_SYSTEM_ASSIGNEES: dict = json.loads(
+        os.getenv("TEAM_TICKETS_IT_SYSTEM_ASSIGNEES", "{}") or "{}"
+    )
+    # JSON conversation reference to send messages to a Teams channel (requires bot installed in that channel)
+    TEAMS_IT_CHANNEL_CONVERSATION_REF: dict | None = (
+        json.loads(os.getenv("TEAMS_IT_CHANNEL_CONVERSATION_REF", "null") or "null")
+        if os.getenv("TEAMS_IT_CHANNEL_CONVERSATION_REF") is not None
+        else None
+    )
 
     # --------------------------- CSRF ------------------------------
     WTF_CSRF_ENABLED: bool = True                   # disattivare solo nei test
@@ -271,6 +288,34 @@ class BaseConfig:
     GHL_GLOBAL_STATUS_WEBHOOK_URL: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL")
     GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_GHOST")
     GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA: str | None = os.getenv("GHL_GLOBAL_STATUS_WEBHOOK_URL_PAUSA")
+    GHL_CALENDAR_ALLOW_WRITES: bool = os.getenv("GHL_CALENDAR_ALLOW_WRITES", "").strip() == "1"
+
+    # --------------------------- Marketing Automation (Frame.io) -----------------
+    FRAMEIO_WEBHOOK_SECRET: str | None = os.getenv("FRAMEIO_WEBHOOK_SECRET")
+    FRAMEIO_CLIENT_ID: str | None = os.getenv("FRAMEIO_CLIENT_ID")
+    FRAMEIO_CLIENT_SECRET: str | None = os.getenv("FRAMEIO_CLIENT_SECRET")
+    # Redirect URI OAuth (deve coincidere con quello configurato in Adobe Console)
+    FRAMEIO_OAUTH_REDIRECT_URI: str | None = os.getenv("FRAMEIO_OAUTH_REDIRECT_URI")
+    # Token per chiamate API Frame.io (GET file, ecc.).
+    # Opzione A: Developer Token (API v2) da https://developer.frame.io/ → Create a Token. Consigliato se disponibile.
+    FRAMEIO_DEVELOPER_TOKEN: str | None = os.getenv("FRAMEIO_DEVELOPER_TOKEN")
+    # Opzione B: Access token OAuth (API v4) da /marketing-automation/oauth/start (scade ~1h). Richiede Adobe ID collegato da supporto Frame.io.
+    FRAMEIO_ACCESS_TOKEN: str | None = os.getenv("FRAMEIO_ACCESS_TOKEN")
+
+    # --------------------------- Marketing Automation (Claude) -----------------
+    # Caption generate da Claude API (sostituisce Poppy / Airtable AI)
+    ANTHROPIC_API_KEY: str | None = os.getenv("ANTHROPIC_API_KEY")
+    CLAUDE_CAPTION_MODEL: str = os.getenv("CLAUDE_CAPTION_MODEL", "claude-sonnet-4-20250514")
+    # Testo placeholder per le linee guida; sostituire con versione distillata dai PDF quando disponibili
+    CLAUDE_CAPTION_GUIDELINES: str | None = os.getenv("CLAUDE_CAPTION_GUIDELINES")
+    # Se 1, abilita GET /marketing-automation/test-caption per test senza webhook (solo dev)
+    MARKETING_AUTOMATION_TEST_CAPTION: bool = os.getenv("MARKETING_AUTOMATION_TEST_CAPTION", "").strip() == "1"
+
+    # --------------------------- Marketing Automation (Airtable) -----------------
+    # Video approvati → record in Airtable; Caption compilata da Claude nel backend
+    AIRTABLE_ACCESS_TOKEN: str | None = os.getenv("AIRTABLE_ACCESS_TOKEN")
+    AIRTABLE_BASE_ID: str | None = os.getenv("AIRTABLE_BASE_ID")
+    AIRTABLE_TABLE_ID: str | None = os.getenv("AIRTABLE_TABLE_ID")  # nome o id tabella (es. "Video approvati")
     GHL_CALL_BONUS_WEBHOOK_MODE: str = os.getenv("GHL_CALL_BONUS_WEBHOOK_MODE", "mock")
     GHL_CALL_BONUS_WEBHOOK_URL: str | None = os.getenv("GHL_CALL_BONUS_WEBHOOK_URL")
 

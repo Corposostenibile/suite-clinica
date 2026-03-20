@@ -4,6 +4,7 @@ Security module for GHL webhook verification
 
 import hmac
 import hashlib
+import os
 from functools import wraps
 from flask import request, abort, current_app
 import json
@@ -44,9 +45,9 @@ def require_webhook_signature(f):
         # Ottieni il secret dalla configurazione
         secret = current_app.config.get('GHL_WEBHOOK_SECRET')
 
-        # Se non c'è secret configurato in development, logga warning ma procedi
+        # Se non c'e secret configurato in development, logga warning ma procedi
         if not secret:
-            if current_app.config.get('FLASK_ENV') == 'development' or current_app.debug:
+            if _is_signature_verification_optional():
                 current_app.logger.warning(
                     '[GHL Security] No webhook secret configured - skipping verification (DEV MODE)'
                 )
@@ -71,6 +72,23 @@ def require_webhook_signature(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def _is_signature_verification_optional() -> bool:
+    env_name = str(
+        current_app.config.get("FLASK_ENV")
+        or current_app.config.get("ENV")
+        or os.getenv("FLASK_ENV")
+        or ""
+    ).strip().lower()
+
+    return bool(
+        current_app.testing
+        or current_app.debug
+        or current_app.config.get("TESTING")
+        or current_app.config.get("DEBUG")
+        or env_name in {"development", "testing"}
+    )
 
 
 def require_permission(permission):

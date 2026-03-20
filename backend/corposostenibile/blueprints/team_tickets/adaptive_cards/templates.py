@@ -430,3 +430,265 @@ def ticket_notification_card(
             "url": "https://clinica.corposostenibile.com/teams-kanban/",
         },
     ])
+
+
+# ═══════════════════════════════════════════════════════════════ #
+#                     TASK NOTIFICATION CARDS                       #
+# ═══════════════════════════════════════════════════════════════ #
+
+_SUITE_URL = "https://clinica.corposostenibile.com"
+
+_TASK_PRIORITY = {
+    "high": {"icon": "\U0001f534", "label": "Alta"},
+    "medium": {"icon": "\U0001f7e1", "label": "Media"},
+    "low": {"icon": "\U0001f7e2", "label": "Bassa"},
+}
+
+_TASK_CATEGORY_LABELS = {
+    "generico": "Task generico",
+    "check": "Revisione check",
+    "sollecito": "Sollecito check mancato",
+    "reminder": "Reminder scadenza",
+    "call": "Chiamata",
+    "note": "Nota",
+}
+
+
+def task_assigned_card(task: dict, assigner_name: str | None = None) -> dict:
+    """Card di notifica per un task manuale assegnato da un collega.
+
+    Args:
+        task: dizionario serializzato del Task.
+        assigner_name: nome di chi ha assegnato il task (es. current_user).
+    """
+    title = task.get("title", "Nuovo task")
+    category_key = task.get("category", "generico")
+    category_label = _TASK_CATEGORY_LABELS.get(category_key, category_key)
+    priority_key = task.get("priority", "medium")
+    p = _TASK_PRIORITY.get(priority_key, {"icon": "", "label": priority_key})
+    client_name = task.get("client_name") or "N/A"
+    description = task.get("description", "")
+    due_date = task.get("due_date")
+
+    subtitle = f"Assegnato da {assigner_name}" if assigner_name else "Ti è stato assegnato un nuovo task"
+
+    body: list[dict] = [
+        {
+            "type": "Container",
+            "style": "accent",
+            "bleed": True,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": "\U0001f4cc  Nuovo task assegnato",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                    "color": "Light",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": subtitle,
+                    "spacing": "None",
+                    "size": "Small",
+                    "color": "Light",
+                    "isSubtle": True,
+                },
+            ],
+        },
+        {
+            "type": "TextBlock",
+            "text": title,
+            "weight": "Bolder",
+            "size": "Medium",
+            "wrap": True,
+            "spacing": "Medium",
+        },
+        {
+            "type": "FactSet",
+            "spacing": "Small",
+            "facts": [
+                {"title": "Categoria", "value": category_label},
+                {"title": "Priorità", "value": f"{p['icon']}  {p['label']}"},
+                {"title": "Paziente", "value": client_name},
+                {"title": "Scadenza", "value": due_date or "Non definita"},
+            ],
+        },
+    ]
+
+    if description:
+        body.append({
+            "type": "TextBlock",
+            "text": description[:250],
+            "wrap": True,
+            "isSubtle": True,
+            "spacing": "Small",
+            "size": "Small",
+        })
+
+    return _card(body, actions=[
+        {
+            "type": "Action.OpenUrl",
+            "title": "\U0001f4c2  Apri Suite",
+            "url": _SUITE_URL,
+        },
+    ])
+
+
+def sollecito_card(task: dict) -> dict:
+    """Card di notifica urgente per un sollecito check mancato.
+
+    Tono più urgente rispetto al task generico, colore 'attention'.
+    """
+    title = task.get("title", "Sollecito check mancato")
+    client_name = task.get("client_name") or "Paziente non specificato"
+    description = task.get("description", "")
+
+    body: list[dict] = [
+        {
+            "type": "Container",
+            "style": "attention",
+            "bleed": True,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": "\u26a0\ufe0f  Sollecito — Check mancato",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                    "color": "Light",
+                },
+            ],
+        },
+        {
+            "type": "TextBlock",
+            "text": title,
+            "weight": "Bolder",
+            "size": "Medium",
+            "wrap": True,
+            "spacing": "Medium",
+        },
+        {
+            "type": "FactSet",
+            "spacing": "Small",
+            "facts": [
+                {"title": "Paziente", "value": client_name},
+                {"title": "Priorità", "value": "\U0001f534  Alta"},
+            ],
+        },
+    ]
+
+    if description:
+        body.append({
+            "type": "TextBlock",
+            "text": description[:300],
+            "wrap": True,
+            "isSubtle": True,
+            "spacing": "Small",
+            "size": "Small",
+        })
+
+    body.append({
+        "type": "TextBlock",
+        "text": "\U0001f449  Contatta il paziente per sollecitarlo.",
+        "wrap": True,
+        "spacing": "Medium",
+        "weight": "Bolder",
+        "color": "Attention",
+    })
+
+    return _card(body, actions=[
+        {
+            "type": "Action.OpenUrl",
+            "title": "\U0001f4c2  Vai al paziente",
+            "url": _SUITE_URL,
+        },
+    ])
+
+
+def reminder_card(task: dict) -> dict:
+    """Card di notifica per reminder scadenze (abbonamento, piano nutrizionale, piano allenamento).
+
+    Tono informativo/warning, non urgente come il sollecito.
+    """
+    title = task.get("title", "Reminder scadenza")
+    client_name = task.get("client_name") or "Paziente non specificato"
+    description = task.get("description", "")
+    payload = task.get("payload") or {}
+
+    reminder_type = payload.get("type", "")
+    days_left = payload.get("days_left")
+    subtype = payload.get("subtype", "")
+
+    # Icona e testo contestuale in base al tipo di reminder
+    if reminder_type == "client_expiration":
+        icon = "\U0001f4c5"
+        header_text = "Scadenza abbonamento cliente"
+    elif reminder_type == "plan_expiration" and subtype == "nutrition":
+        icon = "\U0001f966"
+        header_text = "Scadenza piano nutrizionale"
+    elif reminder_type == "plan_expiration" and subtype == "training":
+        icon = "\U0001f3cb\ufe0f"
+        header_text = "Scadenza scheda allenamento"
+    else:
+        icon = "\U0001f514"
+        header_text = "Reminder scadenza"
+
+    days_text = f"tra {days_left} giorn{'o' if days_left == 1 else 'i'}" if days_left is not None else ""
+
+    body: list[dict] = [
+        {
+            "type": "Container",
+            "style": "warning",
+            "bleed": True,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": f"{icon}  {header_text}",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                    "color": "Dark",
+                },
+                *([{
+                    "type": "TextBlock",
+                    "text": days_text,
+                    "spacing": "None",
+                    "size": "Small",
+                    "isSubtle": True,
+                    "color": "Dark",
+                }] if days_text else []),
+            ],
+        },
+        {
+            "type": "TextBlock",
+            "text": title,
+            "weight": "Bolder",
+            "size": "Medium",
+            "wrap": True,
+            "spacing": "Medium",
+        },
+        {
+            "type": "FactSet",
+            "spacing": "Small",
+            "facts": [
+                {"title": "Paziente", "value": client_name},
+                {"title": "Priorità", "value": "\U0001f7e1  Media"},
+            ],
+        },
+    ]
+
+    if description:
+        body.append({
+            "type": "TextBlock",
+            "text": description[:300],
+            "wrap": True,
+            "isSubtle": True,
+            "spacing": "Small",
+            "size": "Small",
+        })
+
+    return _card(body, actions=[
+        {
+            "type": "Action.OpenUrl",
+            "title": "\U0001f4c2  Vai al paziente",
+            "url": _SUITE_URL,
+        },
+    ])

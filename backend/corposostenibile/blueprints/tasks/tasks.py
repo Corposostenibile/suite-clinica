@@ -1,3 +1,5 @@
+import logging
+
 from datetime import datetime, timedelta
 from sqlalchemy import or_, and_, func
 
@@ -14,6 +16,8 @@ from corposostenibile.models import (
     TypeFormResponse,
     User,
 )
+
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------- #
 #  SOLLECITI (Solleciti checks mancati)
@@ -117,6 +121,18 @@ def generate_solicitations_task():
                 count_created += 1
 
     session.commit()
+
+    # Notifiche Teams (fire-and-forget via Celery)
+    for task in session.query(Task).filter(
+        Task.category == TaskCategoryEnum.sollecito,
+        Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+    ).all():
+        try:
+            from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+            send_task_notification_task.delay(task.id)
+        except Exception:
+            logger.warning("[solleciti] Impossibile accodare notifica Teams per task %s", task.id)
+
     return f"Generated {count_created} solicitation tasks."
 
 
@@ -247,6 +263,18 @@ def generate_reminders_task():
                          count_reminders += 1
 
     session.commit()
+
+    # Notifiche Teams (fire-and-forget via Celery)
+    for task in session.query(Task).filter(
+        Task.category == TaskCategoryEnum.reminder,
+        Task.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
+    ).all():
+        try:
+            from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+            send_task_notification_task.delay(task.id)
+        except Exception:
+            logger.warning("[reminders] Impossibile accodare notifica Teams per task %s", task.id)
+
     return f"Generated {count_reminders} reminder tasks."
 
 def _create_reminder_task(session, client, assignee_id, title, description, category, payload=None):

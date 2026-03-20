@@ -212,6 +212,7 @@ def tab_list_tickets():
     user = g.current_user
     per_page = request.args.get("per_page", 200, type=int)
     per_page = min(per_page, 500)
+    board = (request.args.get("board") or "general").strip() or "general"
 
     # Get all tickets where user is creator, assignee, or has messages
     assigned_subq = (
@@ -226,6 +227,7 @@ def tab_list_tickets():
 
     tickets = (
         TeamTicket.query
+        .filter(TeamTicket.board == board)
         .filter(
             or_(
                 TeamTicket.created_by_id == user.id,
@@ -268,7 +270,13 @@ def tab_update_status(ticket_id):
     """Change ticket status (drag-and-drop)."""
     data = request.get_json(silent=True) or {}
     new_status = data.get("status")
-    if new_status not in ("aperto", "in_lavorazione", "risolto", "chiuso"):
+    ticket = ticket_service.get_ticket(ticket_id)
+    if not ticket:
+        abort(404)
+    allowed_statuses = ("aperto", "in_lavorazione", "risolto", "chiuso")
+    if ticket.board == "it":
+        allowed_statuses = ("aperto", "in_lavorazione", "standby", "risolto")
+    if new_status not in allowed_statuses:
         return jsonify({"error": "Stato non valido"}), 400
 
     ticket = ticket_service.update_ticket(
@@ -303,15 +311,31 @@ def tab_create_ticket():
     description = data.get("description", "").strip()
     if not description:
         return jsonify({"error": "Descrizione obbligatoria"}), 400
+    board = (data.get("board") or "general").strip() or "general"
+    system = (data.get("system") or None)
+
+    assignee_ids = data.get("assignee_ids")
+    cliente_id = data.get("cliente_id")
+    priority = data.get("priority", "media")
+
+    if board == "it":
+        # IT tickets: assignment is derived from system; no patient linking
+        cliente_id = None
+        if system:
+            system = system.strip()
+        assignee_ids = _resolve_it_assignees(system)
+        priority = data.get("priority", "non_bloccante")
 
     ticket = ticket_service.create_ticket(
         description=description,
         created_by_id=g.current_user.id,
-        priority=data.get("priority", "media"),
+        priority=priority,
         source="teams",
-        assignee_ids=data.get("assignee_ids"),
-        cliente_id=data.get("cliente_id"),
+        assignee_ids=assignee_ids,
+        cliente_id=cliente_id,
         title=title or None,
+        board=board,
+        system=system,
     )
 
     _emit_ticket_event("ticket_created", ticket)
@@ -320,6 +344,9 @@ def tab_create_ticket():
         event_type="assigned",
         exclude_user_id=g.current_user.id,
     )
+    if ticket.board == "it":
+        _create_it_reminder_task(ticket)
+        _notify_it_channel_thread_async(ticket)
 
     return jsonify({
         "ticket": _ticket_with_relationship(ticket, g.current_user.id),
@@ -343,6 +370,13 @@ def tab_update_ticket(ticket_id):
         kwargs["description"] = data["description"]
     if "status" in data:
         kwargs["status"] = data["status"]
+    if "system" in data:
+        kwargs["system"] = data["system"]
+
+    # Prevent manual reassignment for IT board tickets
+    t = ticket_service.get_ticket(ticket_id)
+    if t and t.board == "it" and "assignee_ids" in kwargs:
+        kwargs.pop("assignee_ids", None)
 
     ticket = ticket_service.update_ticket(
         ticket_id,
@@ -535,3 +569,82 @@ def _notify_assignees_async(
         loop.close()
     except Exception as e:
         logger.warning("[notify] Failed to notify: %s", e)
+
+
+def _resolve_it_assignees(system: str | None) -> list[int] | None:
+    """Resolve IT assignees from system key using app config mapping (emails)."""
+    if not system:
+        return None
+    mapping = current_app.config.get("TEAM_TICKETS_IT_SYSTEM_ASSIGNEES", {}) or {}
+    emails = mapping.get(system)
+    if not emails:
+        return None
+    if isinstance(emails, str):
+        emails = [emails]
+    users = User.query.filter(User.email.in_(list(emails)), User.is_active.is_(True)).all()
+    return [u.id for u in users] or None
+
+
+def _create_it_reminder_task(ticket: TeamTicket) -> None:
+    """Create a reminder Task for the IT assignee(s) of the ticket."""
+    try:
+        from corposostenibile.models import Task, TaskCategoryEnum, TaskStatusEnum, TaskPriorityEnum
+        from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
+
+        if not ticket.assigned_users:
+            return
+        assignee = ticket.assigned_users[0]
+
+        task = Task(
+            title=f"[IT] {ticket.ticket_number} — {ticket.title or 'Ticket'}",
+            description=ticket.description or "",
+            category=TaskCategoryEnum.reminder,
+            status=TaskStatusEnum.todo,
+            priority=TaskPriorityEnum.high,
+            assignee_id=assignee.id,
+            created_at=datetime.utcnow(),
+        )
+        db.session.add(task)
+        db.session.commit()
+
+        try:
+            send_task_notification_task.delay(task.id, assigner_name="SUMI Teams")
+        except Exception:
+            current_app.logger.warning(
+                "[Ticket IT] Impossibile accodare notifica Teams per task %s", task.id
+            )
+    except Exception:
+        logger.exception("[Ticket IT] Errore creazione reminder task")
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def _notify_it_channel_thread_async(ticket: TeamTicket) -> None:
+    """Post a new root message in the IT channel (creates a dedicated thread)."""
+    try:
+        import asyncio
+        from corposostenibile.blueprints.team_tickets.services.notification_service import (
+            notify_teams_channel,
+        )
+
+        tab_url = current_app.config.get(
+            "TEAM_TICKETS_IT_TAB_URL",
+            "https://clinica.corposostenibile.com/teams-kanban/?board=it",
+        )
+        text = (
+            f"Nuovo Ticket IT: {ticket.ticket_number}\n"
+            f"Sistema: {ticket.system or '-'}\n"
+            f"Titolo: {ticket.title or '-'}\n"
+            f"Apri board: {tab_url}\n"
+        )
+
+        async def _send():
+            await notify_teams_channel(text)
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_send())
+        loop.close()
+    except Exception as e:
+        logger.warning("[Ticket IT] Failed to notify IT channel: %s", e)

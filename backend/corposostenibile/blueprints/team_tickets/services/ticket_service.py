@@ -51,12 +51,16 @@ def create_ticket(
     cliente_id: int | None = None,
     files: list | None = None,
     title: str | None = None,
+    board: str = "general",
+    system: str | None = None,
 ) -> TeamTicket:
     """Crea un nuovo team ticket."""
     ticket = TeamTicket(
         ticket_number=TeamTicket.generate_ticket_number(),
         title=title,
         description=description,
+        board=board,
+        system=system,
         status=TeamTicketStatusEnum.aperto,
         priority=TeamTicketPriorityEnum(priority),
         source=TeamTicketSourceEnum(source),
@@ -146,6 +150,7 @@ def update_ticket(
     priority: str | None = None,
     assignee_ids: list[int] | None = None,
     description: str | None = None,
+    system: str | None = None,
     source: str = "admin",
 ) -> TeamTicket:
     """Aggiorna un team ticket."""
@@ -157,6 +162,9 @@ def update_ticket(
     if priority is not None:
         ticket.priority = TeamTicketPriorityEnum(priority)
 
+    if system is not None:
+        ticket.system = system
+
     if status is not None:
         new_status = TeamTicketStatusEnum(status)
         if new_status != ticket.status:
@@ -167,7 +175,7 @@ def update_ticket(
                 ticket.resolved_at = datetime.utcnow()
             elif new_status == TeamTicketStatusEnum.chiuso:
                 ticket.closed_at = datetime.utcnow()
-            elif new_status in (TeamTicketStatusEnum.aperto, TeamTicketStatusEnum.in_lavorazione):
+            elif new_status in (TeamTicketStatusEnum.aperto, TeamTicketStatusEnum.in_lavorazione, TeamTicketStatusEnum.standby):
                 # Riapri: resetta le date di chiusura/risoluzione
                 if old_status == TeamTicketStatusEnum.chiuso:
                     ticket.closed_at = None

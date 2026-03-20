@@ -90,3 +90,62 @@ async def notify_ticket_assignees_teams(ticket: TeamTicket, card: dict):
     """Invia notifica Teams a tutti gli assegnatari del ticket."""
     for user in ticket.assigned_users:
         await notify_teams_user(user, card)
+
+
+async def notify_teams_channel(text: str) -> bool:
+    """Invia un messaggio proattivo a un canale Teams configurato via conversation ref."""
+    try:
+        from botbuilder.core import (
+            BotFrameworkAdapter,
+            BotFrameworkAdapterSettings,
+            TurnContext,
+            MessageFactory,
+        )
+        from botbuilder.schema import (
+            ConversationReference,
+            ConversationAccount,
+            ChannelAccount,
+        )
+    except ImportError:
+        logger.warning("botbuilder-core non installato")
+        return False
+
+    cfg = {
+        "app_id": current_app.config.get("TEAMS_BOT_APP_ID", ""),
+        "app_password": current_app.config.get("TEAMS_BOT_APP_PASSWORD", ""),
+        "tenant_id": current_app.config.get("TEAMS_BOT_TENANT_ID", ""),
+        "channel_ref": current_app.config.get("TEAMS_IT_CHANNEL_CONVERSATION_REF"),
+    }
+    if not cfg["app_id"] or not cfg["channel_ref"]:
+        return False
+
+    ref_data = cfg["channel_ref"]
+    settings = BotFrameworkAdapterSettings(
+        app_id=cfg["app_id"],
+        app_password=cfg["app_password"],
+        channel_auth_tenant=cfg["tenant_id"] or None,
+    )
+    adapter = BotFrameworkAdapter(settings)
+
+    conv_ref = ConversationReference(
+        conversation=ConversationAccount(
+            id=ref_data["conversation"]["id"],
+            tenant_id=ref_data["conversation"].get("tenant_id"),
+        ),
+        service_url=ref_data["service_url"],
+        channel_id=ref_data.get("channel_id", "msteams"),
+        bot=ChannelAccount(
+            id=ref_data["bot"]["id"],
+            name=ref_data["bot"].get("name"),
+        ),
+    )
+
+    async def send_msg(turn_context: TurnContext):
+        await turn_context.send_activity(MessageFactory.text(text))
+
+    try:
+        await adapter.continue_conversation(conv_ref, send_msg, cfg["app_id"])
+        return True
+    except Exception:
+        logger.exception("Errore invio messaggio proattivo Teams al canale")
+        return False

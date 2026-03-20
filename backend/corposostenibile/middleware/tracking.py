@@ -21,25 +21,30 @@ def setup_tracking_middleware(app):
     @app.after_request
     def track_request(response):
         """Traccia automaticamente ogni richiesta ai blueprint."""
-        # Solo se abbiamo un blueprint
-        if not request.blueprint:
-            return response
-
-        # Skip per blueprint che non vogliamo tracciare
-        skip_blueprints = ['static', 'pwa', 'health']
-        if request.blueprint in skip_blueprints:
-            return response
-
-        # Calcola response time
-        response_time_ms = None
-        if hasattr(g, 'start_time'):
-            response_time_ms = int((time.time() - g.start_time) * 1000)
-
-        # Ottieni user_id
-        user_id = current_user.id if current_user.is_authenticated else None
-
-        # Salva log (in modo asincrono per non rallentare la response)
         try:
+            # Solo se abbiamo un blueprint
+            if not request.blueprint:
+                return response
+
+            # Skip per blueprint che non vogliamo tracciare
+            skip_blueprints = ['static', 'pwa', 'health']
+            if request.blueprint in skip_blueprints:
+                return response
+
+            # Calcola response time
+            response_time_ms = None
+            if hasattr(g, 'start_time'):
+                response_time_ms = int((time.time() - g.start_time) * 1000)
+
+            # Ottieni user_id (safe anche con sessione in pending rollback)
+            user_id = None
+            try:
+                if getattr(current_user, "is_authenticated", False):
+                    user_id = getattr(current_user, "id", None)
+            except Exception:
+                user_id = None
+
+            # Salva log (in modo asincrono per non rallentare la response)
             # Usa una transazione separata dalla sessione della request:
             # se la request è in stato aborted, il tracking resta funzionante.
             payload = {
@@ -57,6 +62,11 @@ def setup_tracking_middleware(app):
             with db.engine.begin() as conn:
                 conn.execute(insert(GlobalActivityLog.__table__).values(**payload))
         except Exception as e:
+            # Ripulisci comunque la sessione principale se è finita in stato aborted.
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             # Non interrompere la request se il logging fallisce
             app.logger.warning(f"Failed to log activity: {e}")
 
