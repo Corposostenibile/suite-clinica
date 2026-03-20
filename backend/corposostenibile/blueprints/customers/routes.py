@@ -6912,6 +6912,142 @@ def _require_trustpilot_manager_or_403():
         abort(HTTPStatus.FORBIDDEN, description="Operazione Trustpilot non consentita.")
 
 
+def _is_trustpilot_webhook_configured() -> bool:
+    username = (current_app.config.get("TRUSTPILOT_WEBHOOK_USERNAME") or "").strip()
+    password = (current_app.config.get("TRUSTPILOT_WEBHOOK_PASSWORD") or "").strip()
+    return bool(username and password)
+
+
+def _get_trustpilot_missing_config() -> list[str]:
+    required = [
+        "TRUSTPILOT_API_KEY",
+        "TRUSTPILOT_API_SECRET",
+        "TRUSTPILOT_BUSINESS_UNIT_ID",
+    ]
+    missing = []
+    for key in required:
+        if not (current_app.config.get(key) or "").strip():
+            missing.append(key)
+    return missing
+
+
+def _parse_iso_datetime(value: Any) -> datetime | None:
+    if not value or not isinstance(value, str):
+        return None
+    raw = value.strip()
+    if not raw:
+        return None
+    try:
+        if raw.endswith("Z"):
+            raw = raw[:-1] + "+00:00"
+        return datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
+def _extract_trustpilot_webhook_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    event_type = (
+        payload.get("eventType")
+        or payload.get("event_type")
+        or payload.get("type")
+        or payload.get("action")
+        or ""
+    )
+    review = payload.get("review") if isinstance(payload.get("review"), dict) else {}
+    invitation = payload.get("invitation") if isinstance(payload.get("invitation"), dict) else {}
+
+    reference_id = (
+        payload.get("referenceId")
+        or payload.get("reference_id")
+        or invitation.get("referenceId")
+        or invitation.get("reference_id")
+        or review.get("referenceId")
+        or review.get("reference_id")
+    )
+    invitation_id = (
+        payload.get("invitationId")
+        or payload.get("invitation_id")
+        or invitation.get("id")
+        or invitation.get("invitationId")
+    )
+    review_id = (
+        payload.get("reviewId")
+        or payload.get("review_id")
+        or review.get("id")
+        or review.get("reviewId")
+    )
+
+    stars_raw = payload.get("stars")
+    if stars_raw is None:
+        stars_raw = review.get("stars")
+    try:
+        stars = int(stars_raw) if stars_raw is not None else None
+    except (TypeError, ValueError):
+        stars = None
+
+    title = payload.get("title") or review.get("title")
+    text = payload.get("text") or payload.get("content") or review.get("text") or review.get("content")
+    published_at = (
+        _parse_iso_datetime(payload.get("publishedAt"))
+        or _parse_iso_datetime(payload.get("published_at"))
+        or _parse_iso_datetime(review.get("publishedAt"))
+        or _parse_iso_datetime(review.get("published_at"))
+    )
+    deleted_at = (
+        _parse_iso_datetime(payload.get("deletedAt"))
+        or _parse_iso_datetime(payload.get("deleted_at"))
+        or _parse_iso_datetime(review.get("deletedAt"))
+        or _parse_iso_datetime(review.get("deleted_at"))
+    )
+
+    event_lower = str(event_type or "").strip().lower()
+    is_deleted_event = any(k in event_lower for k in ("delete", "removed", "unpublish"))
+    is_published_event = any(k in event_lower for k in ("publish", "created", "review"))
+
+    return {
+        "event_type": str(event_type or ""),
+        "reference_id": reference_id,
+        "invitation_id": invitation_id,
+        "review_id": review_id,
+        "stars": stars,
+        "title": title,
+        "text": text,
+        "published_at": published_at,
+        "deleted_at": deleted_at,
+        "is_deleted_event": is_deleted_event,
+        "is_published_event": is_published_event,
+    }
+
+
+def _locate_trustpilot_review(payload_fields: dict[str, Any]) -> TrustpilotReview | None:
+    review_id = payload_fields.get("review_id")
+    reference_id = payload_fields.get("reference_id")
+    invitation_id = payload_fields.get("invitation_id")
+
+    if review_id:
+        found = db.session.query(TrustpilotReview).filter(
+            TrustpilotReview.trustpilot_review_id == str(review_id)
+        ).first()
+        if found:
+            return found
+
+    if reference_id:
+        found = db.session.query(TrustpilotReview).filter(
+            TrustpilotReview.trustpilot_reference_id == str(reference_id)
+        ).order_by(TrustpilotReview.id.desc()).first()
+        if found:
+            return found
+
+    if invitation_id:
+        found = db.session.query(TrustpilotReview).filter(
+            TrustpilotReview.trustpilot_invitation_id == str(invitation_id)
+        ).order_by(TrustpilotReview.id.desc()).first()
+        if found:
+            return found
+
+    return None
+
+
 def _serialize_trustpilot_review(review: TrustpilotReview) -> dict:
     return {
         "id": review.id,
@@ -7054,6 +7190,9 @@ def api_trustpilot_overview():
 
     return jsonify({
         'success': True,
+        'enabled': TrustpilotService.is_enabled(),
+        'missing_config': _get_trustpilot_missing_config(),
+        'webhook_configured': _is_trustpilot_webhook_configured(),
         'data': data,
         'pagination': {
             'page': page,
@@ -7076,10 +7215,14 @@ def api_trustpilot_status(cliente_id: int):
     cliente = customers_repo.get_one(cliente_id)
     latest_review = _get_latest_trustpilot_review(cliente_id)
     history = _get_trustpilot_history(cliente_id, limit=10)
+    missing_config = _get_trustpilot_missing_config()
 
     return jsonify({
         "success": True,
         "enabled": TrustpilotService.is_enabled(),
+        "missing_config": missing_config,
+        "is_fully_configured": len(missing_config) == 0,
+        "webhook_configured": _is_trustpilot_webhook_configured(),
         "can_manage": _can_manage_trustpilot(current_user),
         "email_configured": bool(
             current_app.config.get("TRUSTPILOT_EMAIL_TEMPLATE_ID")
@@ -7196,6 +7339,87 @@ def api_trustpilot_send_invite(cliente_id: int):
         "message": "Invito email Trustpilot inviato.",
         "data": _serialize_trustpilot_review(review),
     }), HTTPStatus.CREATED
+
+
+@api_bp.route("/trustpilot/webhook", methods=["POST"])
+@csrf.exempt
+def api_trustpilot_webhook():
+    """Webhook Trustpilot per aggiornare stato recensione e metadata."""
+    if not _is_trustpilot_webhook_configured():
+        return jsonify({
+            "success": False,
+            "error": "Webhook Trustpilot non configurato: mancano username/password.",
+        }), HTTPStatus.SERVICE_UNAVAILABLE
+
+    username = (current_app.config.get("TRUSTPILOT_WEBHOOK_USERNAME") or "").strip()
+    password = (current_app.config.get("TRUSTPILOT_WEBHOOK_PASSWORD") or "").strip()
+    auth = request.authorization
+
+    if not auth or auth.username != username or auth.password != password:
+        return jsonify({"success": False, "error": "Unauthorized webhook credentials."}), HTTPStatus.UNAUTHORIZED
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"success": False, "error": "Payload JSON non valido."}), HTTPStatus.BAD_REQUEST
+
+    fields = _extract_trustpilot_webhook_fields(payload)
+    review = _locate_trustpilot_review(fields)
+    if not review:
+        current_app.logger.warning(
+            "[trustpilot] webhook ignored: no review match (event=%s, reference=%s, invitation=%s, review=%s)",
+            fields.get("event_type"),
+            fields.get("reference_id"),
+            fields.get("invitation_id"),
+            fields.get("review_id"),
+        )
+        return jsonify({"success": True, "message": "Webhook ricevuto ma nessuna review associata."}), HTTPStatus.ACCEPTED
+
+    now = datetime.utcnow()
+    review.webhook_received_at = now
+    review.trustpilot_payload_last = payload
+
+    if fields.get("review_id"):
+        review.trustpilot_review_id = str(fields["review_id"])
+    if fields.get("invitation_id"):
+        review.trustpilot_invitation_id = str(fields["invitation_id"])
+    if fields.get("reference_id"):
+        review.trustpilot_reference_id = str(fields["reference_id"])
+
+    stars = fields.get("stars")
+    if stars is not None:
+        review.stelle = stars
+    if fields.get("title"):
+        review.titolo_recensione = str(fields["title"])
+    if fields.get("text"):
+        review.testo_recensione = str(fields["text"])
+
+    published_at = fields.get("published_at")
+    if published_at:
+        review.data_pubblicazione = published_at
+
+    deleted_at = fields.get("deleted_at")
+    if deleted_at:
+        review.deleted_at_trustpilot = deleted_at
+
+    if fields.get("is_deleted_event"):
+        review.pubblicata = False
+        review.invitation_status = "deleted"
+        review.deleted_at_trustpilot = review.deleted_at_trustpilot or now
+    elif fields.get("is_published_event") or review.stelle or review.data_pubblicazione:
+        review.pubblicata = True
+        review.invitation_status = "published"
+        review.data_pubblicazione = review.data_pubblicazione or now
+        if review.cliente:
+            review.cliente.ultima_recensione_trustpilot_data = review.data_pubblicazione
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Webhook Trustpilot processato.",
+        "event_type": fields.get("event_type"),
+        "review_id": review.id,
+    }), HTTPStatus.OK
 
 
 # --------------------------------------------------------------------------- #

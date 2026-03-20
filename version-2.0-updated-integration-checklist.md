@@ -4,10 +4,10 @@ Branch target: `version-2.0-updated`
 
 ## 1) Trustpilot / Tab Marketing
 
-- [ ] Integrare base da `feature/optimizations` (link, invio mail, webhook, tab marketing)
-- [ ] Verificare config/env Trustpilot (API key/secret, business unit/user IDs, template, sender, webhook creds)
-- [ ] Garantire fallback robusti con credenziali mancanti (no crash, messaggi chiari)
-- [ ] Completare coerenza FE/BE del flusso marketing
+- [x] Integrare base da `feature/optimizations` (link, invio mail, webhook, tab marketing)
+- [ ] Verificare config/env Trustpilot (API key/secret, business unit/user IDs, template, sender, webhook creds) in ambiente target
+- [x] Garantire fallback robusti con credenziali mancanti (no crash, messaggi chiari)
+- [x] Completare coerenza FE/BE del flusso marketing
 
 ## 2) Video recensione nella tab Marketing
 
@@ -81,3 +81,4 @@ Branch target: `version-2.0-updated`
 - Test scope guard `ClientiDetail` rieseguito: 1/1 pass.
 - Alembic verificato: `coach_pathologies_01 (head)` sia su `db heads` sia su `db current`.
 - Build frontend verificata: `corposostenibile-clinica` OK, `teams-kanban` OK (dopo install dipendenze locali).
+- Hardening Trustpilot completato su codice: webhook endpoint + auth Basic + parsing robusto + fallback config mancanti + messaggi FE espliciti.

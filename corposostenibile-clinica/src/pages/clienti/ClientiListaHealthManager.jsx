@@ -79,12 +79,24 @@ function ClientiListaHealthManager() {
   const [reviewPagination, setReviewPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [reviewLoading, setReviewLoading] = useState(false);
   const [sendingAction, setSendingAction] = useState(null);
+  const [trustpilotMeta, setTrustpilotMeta] = useState({
+    enabled: false,
+    missing_config: [],
+    webhook_configured: false,
+  });
 
   // Shared
   const [error, setError] = useState(null);
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchTimerRef = useRef(null);
+
+  const getApiErrorMessage = (err, fallback) => {
+    const description = err?.response?.data?.description;
+    const message = err?.response?.data?.message;
+    const errorText = err?.response?.data?.error;
+    return description || message || errorText || fallback;
+  };
 
   // Health Manager filter (admin/TL only)
   const isAdmin = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
@@ -206,11 +218,16 @@ function ClientiListaHealthManager() {
         status: reviewStatus || undefined,
       });
       setReviewData(data.data || []);
+      setTrustpilotMeta({
+        enabled: Boolean(data.enabled),
+        missing_config: Array.isArray(data.missing_config) ? data.missing_config : [],
+        webhook_configured: Boolean(data.webhook_configured),
+      });
       setReviewCounts(data.counts || { totale_attivi: 0, con_recensione: 0, in_attesa: 0, mai_invitati: 0 });
       setReviewPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
     } catch (err) {
       console.error('Error fetching reviews:', err);
-      setError('Errore nel caricamento recensioni');
+      setError(getApiErrorMessage(err, 'Errore nel caricamento recensioni'));
     } finally {
       setReviewLoading(false);
     }
@@ -227,7 +244,10 @@ function ClientiListaHealthManager() {
       const link = result?.data?.trustpilot_link;
       if (link) await navigator.clipboard.writeText(link);
       fetchReviews();
-    } catch (err) { console.error('Error generating link:', err); }
+    } catch (err) {
+      console.error('Error generating link:', err);
+      setError(getApiErrorMessage(err, 'Errore nella generazione del link Trustpilot'));
+    }
     finally { setSendingAction(null); }
   };
 
@@ -236,7 +256,10 @@ function ClientiListaHealthManager() {
     try {
       await clientiService.sendTrustpilotInvite(clienteId);
       fetchReviews();
-    } catch (err) { console.error('Error sending invite:', err); }
+    } catch (err) {
+      console.error('Error sending invite:', err);
+      setError(getApiErrorMessage(err, 'Errore nell\'invio invito Trustpilot'));
+    }
     finally { setSendingAction(null); }
   };
 
@@ -504,6 +527,22 @@ function ClientiListaHealthManager() {
       {/* ── Recensioni Content ── */}
       {isReviewTab && (
         <>
+          {!trustpilotMeta.enabled && (
+            <div className="cl-error" style={{ marginBottom: 12 }}>
+              Integrazione Trustpilot non abilitata in configurazione ambiente.
+            </div>
+          )}
+          {trustpilotMeta.enabled && trustpilotMeta.missing_config.length > 0 && (
+            <div className="cl-error" style={{ marginBottom: 12 }}>
+              Configurazione Trustpilot incompleta: {trustpilotMeta.missing_config.join(', ')}
+            </div>
+          )}
+          {trustpilotMeta.enabled && !trustpilotMeta.webhook_configured && (
+            <div className="cl-error" style={{ marginBottom: 12 }}>
+              Webhook Trustpilot non configurato: imposta username/password webhook per tracciare recensioni pubblicate.
+            </div>
+          )}
+          {error && <div className="cl-error" style={{ marginBottom: 12 }}>{error}</div>}
           {reviewLoading ? (
             <div className="cl-loading">
               <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
