@@ -5,7 +5,8 @@ Route per il sistema di Review
 from flask import render_template, redirect, url_for, flash, request, abort, current_app, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
-from sqlalchemy import or_, and_, desc
+from sqlalchemy import or_, and_, desc, text
+from sqlalchemy.exc import DataError
 
 from corposostenibile.blueprints.review import bp
 from corposostenibile.blueprints.review.forms import (
@@ -45,10 +46,29 @@ def _get_led_team_member_ids(user):
         return visible_ids
 
     visible_ids.add(user.id)
-    for team in (getattr(user, 'teams_led', None) or []):
-        for member in (getattr(team, 'members', None) or []):
-            if getattr(member, 'id', None):
-                visible_ids.add(member.id)
+    try:
+        for team in (getattr(user, 'teams_led', None) or []):
+            for member in (getattr(team, 'members', None) or []):
+                if getattr(member, 'id', None):
+                    visible_ids.add(member.id)
+    except DataError:
+        # Fallback robusto per ambienti con enum team legacy/disallineati:
+        # evita il crash ORM e ricava i membri via SQL raw sulle tabelle ponte.
+        rows = db.session.execute(
+            text(
+                """
+                SELECT DISTINCT tm.user_id
+                FROM team_members tm
+                JOIN teams t ON t.id = tm.team_id
+                WHERE t.head_id = :head_id
+                """
+            ),
+            {'head_id': user.id},
+        ).fetchall()
+        for row in rows:
+            member_id = row[0]
+            if member_id:
+                visible_ids.add(int(member_id))
     return visible_ids
 
 
@@ -73,12 +93,15 @@ def can_view_member_reviews(user, member):
     if user.id == member.id:
         return True
 
-    # Se è il capo del dipartimento del membro
-    if member.department and member.department.head_id == user.id:
-        return True
+    # Se è il capo del dipartimento del membro (compatibile con modello senza member.department)
+    member_department_id = getattr(member, 'department_id', None)
+    if member_department_id:
+        member_department = Department.query.filter_by(id=member_department_id).first()
+        if member_department and member_department.head_id == user.id:
+            return True
 
     # Head CCO (dept 23) può vedere membri dei dipartimenti 2, 3, 4, 13
-    if member.department_id in [2, 3, 4, 13]:
+    if member_department_id in [2, 3, 4, 13]:
         dept_cco = Department.query.filter_by(id=23).first()
         if dept_cco and dept_cco.head_id == user.id:
             return True
@@ -89,7 +112,7 @@ def can_view_member_reviews(user, member):
         return True
 
     # Fallback legacy (team_id diretto)
-    if member.department_id == 2 and getattr(member, 'team_id', None):
+    if member_department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -121,12 +144,15 @@ def can_write_review(user, member):
     if user.is_admin or (hasattr(user, 'department_id') and user.department_id == 17):
         return True
 
-    # Se è il capo del dipartimento del membro
-    if member.department and member.department.head_id == user.id:
-        return True
+    # Se è il capo del dipartimento del membro (compatibile con modello senza member.department)
+    member_department_id = getattr(member, 'department_id', None)
+    if member_department_id:
+        member_department = Department.query.filter_by(id=member_department_id).first()
+        if member_department and member_department.head_id == user.id:
+            return True
 
     # Head CCO (dept 23) può scrivere a membri dei dipartimenti 2, 3, 4, 13
-    if member.department_id in [2, 3, 4, 13]:
+    if member_department_id in [2, 3, 4, 13]:
         dept_cco = Department.query.filter_by(id=23).first()
         if dept_cco and dept_cco.head_id == user.id:
             return True
@@ -137,7 +163,7 @@ def can_write_review(user, member):
         return True
 
     # Fallback legacy (team_id diretto)
-    if member.department_id == 2 and getattr(member, 'team_id', None):
+    if member_department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -1872,77 +1898,106 @@ def api_admin_user_trainings(user_id):
     """
     API JSON: Ottiene i training di un utente specifico (solo per admin/HR).
     """
-    # Verifica che l'utente esista
-    target_user = User.query.get_or_404(user_id)
+    try:
+        # Verifica che l'utente esista
+        target_user = User.query.get_or_404(user_id)
 
-    # Verifica permessi (admin/HR/CCO oppure Team Leader nel proprio scope)
-    if not (_is_admin_hr_or_cco(current_user) or can_view_member_reviews(current_user, target_user)):
-        return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
+        # Verifica permessi (admin/HR/CCO oppure Team Leader nel proprio scope)
+        if not (_is_admin_hr_or_cco(current_user) or can_view_member_reviews(current_user, target_user)):
+            return jsonify({'success': False, 'error': 'Non autorizzato'}), 403
 
-    # Query per i training dell'utente target
-    reviews = Review.query.filter_by(
-        reviewee_id=user_id,
-        deleted_at=None
-    ).order_by(desc(Review.created_at)).all()
-
-    trainings_data = []
-    for review in reviews:
-        # Ottieni i messaggi
-        messages = ReviewMessage.query.filter_by(
-            review_id=review.id,
+        # Query per i training dell'utente target
+        reviews = Review.query.filter_by(
+            reviewee_id=user_id,
             deleted_at=None
-        ).order_by(ReviewMessage.created_at).all()
+        ).order_by(desc(Review.created_at)).all()
+        review_ids = [r.id for r in reviews]
+        acknowledgments_map = {}
+        if review_ids:
+            # Defensive read: legacy/inconsistent data may contain more than one
+            # acknowledgment row for the same review; keep the most recent one.
+            acknowledgments = ReviewAcknowledgment.query.filter(
+                ReviewAcknowledgment.review_id.in_(review_ids)
+            ).order_by(
+                ReviewAcknowledgment.review_id.asc(),
+                ReviewAcknowledgment.acknowledged_at.desc()
+            ).all()
+            for ack in acknowledgments:
+                if ack.review_id not in acknowledgments_map:
+                    acknowledgments_map[ack.review_id] = ack
 
-        messages_data = [{
-            'id': msg.id,
-            'senderId': msg.sender_id,
-            'senderName': f"{msg.sender.first_name} {msg.sender.last_name}" if msg.sender else 'Utente',
-            'content': msg.content,
-            'createdAt': msg.created_at.isoformat() if msg.created_at else None,
-            'isRead': msg.is_read,
-            'isOwn': msg.sender_id == current_user.id,
-        } for msg in messages]
+        trainings_data = []
+        for review in reviews:
+            ack = acknowledgments_map.get(review.id)
+            # Ottieni i messaggi
+            messages = ReviewMessage.query.filter_by(
+                review_id=review.id,
+                deleted_at=None
+            ).order_by(ReviewMessage.created_at).all()
 
-        trainings_data.append({
-            'id': review.id,
-            'title': review.title,
-            'content': review.content,
-            'reviewer': {
-                'id': review.reviewer_id,
-                'firstName': review.reviewer.first_name if review.reviewer else '',
-                'lastName': review.reviewer.last_name if review.reviewer else '',
-                'jobTitle': getattr(review.reviewer, 'job_title', '') if review.reviewer else '',
-            },
-            'reviewee': {
-                'id': target_user.id,
-                'firstName': target_user.first_name,
-                'lastName': target_user.last_name,
-            },
-            'reviewType': review.review_type,
-            'createdAt': review.created_at.isoformat() if review.created_at else None,
-            'periodStart': review.period_start.isoformat() if review.period_start else None,
-            'periodEnd': review.period_end.isoformat() if review.period_end else None,
-            'strengths': review.strengths,
-            'improvements': review.improvements,
-            'goals': review.goals,
-            'isAcknowledged': review.is_acknowledged,
-            'acknowledgedAt': review.acknowledgment.acknowledged_at.isoformat() if review.acknowledgment else None,
-            'acknowledgmentNotes': review.acknowledgment.notes if review.acknowledgment else None,
-            'isDraft': review.is_draft,
-            'isPrivate': review.is_private,
-            'messages': messages_data,
-            'unreadCount': 0,  # Admin non ha messaggi non letti
-        })
+            messages_data = [{
+                'id': msg.id,
+                'senderId': msg.sender_id,
+                'senderName': f"{msg.sender.first_name} {msg.sender.last_name}" if msg.sender else 'Utente',
+                'content': msg.content,
+                'createdAt': msg.created_at.isoformat() if msg.created_at else None,
+                'isRead': msg.is_read,
+                'isOwn': msg.sender_id == current_user.id,
+            } for msg in messages]
 
-    # Query per i training EROGATI dall'utente (dove è il reviewer)
-    given_reviews = Review.query.filter_by(
-        reviewer_id=user_id,
-        deleted_at=None
-    ).order_by(desc(Review.created_at)).all()
+            trainings_data.append({
+                'id': review.id,
+                'title': review.title,
+                'content': review.content,
+                'reviewer': {
+                    'id': review.reviewer_id,
+                    'firstName': review.reviewer.first_name if review.reviewer else '',
+                    'lastName': review.reviewer.last_name if review.reviewer else '',
+                    'jobTitle': getattr(review.reviewer, 'job_title', '') if review.reviewer else '',
+                },
+                'reviewee': {
+                    'id': target_user.id,
+                    'firstName': target_user.first_name,
+                    'lastName': target_user.last_name,
+                },
+                'reviewType': review.review_type,
+                'createdAt': review.created_at.isoformat() if review.created_at else None,
+                'periodStart': review.period_start.isoformat() if review.period_start else None,
+                'periodEnd': review.period_end.isoformat() if review.period_end else None,
+                'strengths': review.strengths,
+                'improvements': review.improvements,
+                'goals': review.goals,
+                'isAcknowledged': ack is not None,
+                'acknowledgedAt': ack.acknowledged_at.isoformat() if ack and ack.acknowledged_at else None,
+                'acknowledgmentNotes': ack.notes if ack else None,
+                'isDraft': review.is_draft,
+                'isPrivate': review.is_private,
+                'messages': messages_data,
+                'unreadCount': 0,  # Admin non ha messaggi non letti
+            })
 
-    given_trainings_data = []
-    for review in given_reviews:
-        given_trainings_data.append({
+        # Query per i training EROGATI dall'utente (dove è il reviewer)
+        given_reviews = Review.query.filter_by(
+            reviewer_id=user_id,
+            deleted_at=None
+        ).order_by(desc(Review.created_at)).all()
+        given_review_ids = [r.id for r in given_reviews]
+        missing_ack_ids = [rid for rid in given_review_ids if rid not in acknowledgments_map]
+        if missing_ack_ids:
+            extra_acknowledgments = ReviewAcknowledgment.query.filter(
+                ReviewAcknowledgment.review_id.in_(missing_ack_ids)
+            ).order_by(
+                ReviewAcknowledgment.review_id.asc(),
+                ReviewAcknowledgment.acknowledged_at.desc()
+            ).all()
+            for ack in extra_acknowledgments:
+                if ack.review_id not in acknowledgments_map:
+                    acknowledgments_map[ack.review_id] = ack
+
+        given_trainings_data = []
+        for review in given_reviews:
+            ack = acknowledgments_map.get(review.id)
+            given_trainings_data.append({
             'id': review.id,
             'title': review.title,
             'content': review.content,
@@ -1955,32 +2010,39 @@ def api_admin_user_trainings(user_id):
             'createdAt': review.created_at.isoformat() if review.created_at else None,
             'periodStart': review.period_start.isoformat() if review.period_start else None,
             'periodEnd': review.period_end.isoformat() if review.period_end else None,
-            'isAcknowledged': review.is_acknowledged,
+            'isAcknowledged': ack is not None,
             'isDraft': review.is_draft,
+            })
+
+        # Statistiche
+        stats = {
+            'totalTrainings': len(trainings_data),
+            'totalGiven': len(given_trainings_data),
+            'unacknowledged': len([t for t in trainings_data if not t['isAcknowledged'] and not t['isDraft']]),
+            'drafts': len([t for t in trainings_data if t['isDraft']]),
+        }
+
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': target_user.id,
+                'firstName': target_user.first_name,
+                'lastName': target_user.last_name,
+                'email': target_user.email,
+                'jobTitle': getattr(target_user, 'job_title', None),
+                'department': None,
+            },
+            'trainings': trainings_data,
+            'givenTrainings': given_trainings_data,
+            'stats': stats,
         })
-
-    # Statistiche
-    stats = {
-        'totalTrainings': len(trainings_data),
-        'totalGiven': len(given_trainings_data),
-        'unacknowledged': len([t for t in trainings_data if not t['isAcknowledged'] and not t['isDraft']]),
-        'drafts': len([t for t in trainings_data if t['isDraft']]),
-    }
-
-    return jsonify({
-        'success': True,
-        'user': {
-            'id': target_user.id,
-            'firstName': target_user.first_name,
-            'lastName': target_user.last_name,
-            'email': target_user.email,
-            'jobTitle': getattr(target_user, 'job_title', None),
-            'department': None,
-        },
-        'trainings': trainings_data,
-        'givenTrainings': given_trainings_data,
-        'stats': stats,
-    })
+    except Exception:
+        current_app.logger.exception(
+            "[review] api_admin_user_trainings failed: requester_id=%s target_id=%s",
+            getattr(current_user, 'id', None),
+            user_id,
+        )
+        return jsonify({'success': False, 'error': 'Errore interno nel caricamento formazione'}), 500
 
 
 @bp.route('/api/admin/trainings/<int:user_id>', methods=['POST'])

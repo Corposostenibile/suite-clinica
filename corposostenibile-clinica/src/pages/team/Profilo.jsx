@@ -17,7 +17,7 @@ import qualityService, {
   getBandBadgeStyle,
   getSuperMalusBadgeStyle,
 } from '../../services/qualityService';
-import { isProfessionistaStandard } from '../../utils/rbacScope';
+import { isProfessionistaStandard, isTeamLeader } from '../../utils/rbacScope';
 import './Profilo.css';
 import './TeamList.css';
 
@@ -207,6 +207,7 @@ function Profilo() {
   const isOwnProfile = !id || (currentUser && user && currentUser.id === user.id);
   const isCurrentUserCco = currentUser?.specialty === 'cco';
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin || currentUser?.role === 'admin');
+  const isCurrentUserTeamLeader = isTeamLeader(currentUser);
   const isCurrentUserProfessionista = isProfessionistaStandard(currentUser);
   const canViewCapacityTab = Boolean(isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco);
   const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
@@ -292,7 +293,7 @@ function Profilo() {
     setTrainingsLoading(true); setTrainingsError('');
     try {
       const isOwn = currentUser?.id === user.id;
-      const canReadOther = Boolean(isCurrentUserAdmin || isCurrentUserCco);
+      const canReadOther = Boolean(isCurrentUserAdmin || isCurrentUserCco || isCurrentUserTeamLeader);
       let payload = null;
       if (isOwn) { payload = await trainingService.getMyTrainings({ page: 1, per_page: 500 }); setTrainings(payload.trainings || []); }
       else if (canReadOther) { payload = await trainingService.getAdminUserTrainings(user.id); setTrainings(payload.trainings || []); }
@@ -301,7 +302,7 @@ function Profilo() {
       console.error('Errore caricamento formazione associata:', err);
       setTrainings([]); setTrainingsError(err?.response?.data?.error || 'Errore nel caricamento della formazione');
     } finally { setTrainingsLoading(false); }
-  }, [user?.id, currentUser?.id, isCurrentUserAdmin, isCurrentUserCco]);
+  }, [user?.id, currentUser?.id, isCurrentUserAdmin, isCurrentUserCco, isCurrentUserTeamLeader]);
 
   const fetchTasks = useCallback(async () => {
     if (!user?.id) return;
