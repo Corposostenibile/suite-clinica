@@ -132,6 +132,8 @@ function ClientiDetail() {
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
   const isHealthManager = isHealthManagerUser(user);
+  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
+  const isCco = user?.specialty === 'cco';
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
@@ -142,8 +144,8 @@ function ClientiDetail() {
   // il backend applica il vero controllo RBAC sul paziente.
   const canGenerateCheckLinks = true;
   const canCreateCallBonus = true;
-  const canDeleteClientRecord = Boolean(user?.is_admin || user?.role === 'admin');
-  const canViewMarketingTab = Boolean(user?.is_admin || user?.role === 'admin' || isHealthManager || user?.specialty === 'cco');
+  const canDeleteClientRecord = isAdmin;
+  const canViewMarketingTab = Boolean(isAdmin || isHealthManager || isCco || isProfessionista);
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
@@ -739,10 +741,16 @@ function ClientiDetail() {
   const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in'
   const [editingInterventionId, setEditingInterventionId] = useState(null);
 
-  // ==================== MARKETING / TRUSTPILOT STATE ====================
-  const [trustpilotData, setTrustpilotData] = useState(null);
-  const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
-  const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
+  // ==================== MARKETING STATE ====================
+  const [videoReviewRequests, setVideoReviewRequests] = useState([]);
+  const [loadingVideoReviewRequests, setLoadingVideoReviewRequests] = useState(false);
+  const [showVideoReviewBookingModal, setShowVideoReviewBookingModal] = useState(false);
+  const [videoReviewBookingDate, setVideoReviewBookingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [videoReviewBookingTime, setVideoReviewBookingTime] = useState('12:00');
+  const [showVideoReviewConfirmModal, setShowVideoReviewConfirmModal] = useState(false);
+  const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
+  const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
+  const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -961,6 +969,14 @@ function ClientiDetail() {
     patologia_psico_relazionali_altro: false,
     patologia_psico_altro_check: false,
     patologia_psico_altro: '',
+    nessuna_patologia_coach: false,
+    patologia_coach_infortuni: false,
+    patologia_coach_dolori_cronici: false,
+    patologia_coach_limitazioni_articolari: false,
+    patologia_coach_posturali: false,
+    patologia_coach_cardiovascolari: false,
+    patologia_coach_altro_check: false,
+    patologia_coach_altro: '',
     sedute_psicologia_comprate: 0,
     sedute_psicologia_svolte: 0,
   });
@@ -1041,7 +1057,7 @@ function ClientiDetail() {
     if (activeTab === 'coaching' && id) {
       if (coachingSubTab === 'panoramica') {
         fetchStoricoCoaching();
-      } else if (coachingSubTab === 'anamnesi') {
+      } else if (coachingSubTab === 'patologie') {
         fetchAnamnesiCoaching();
       } else if (coachingSubTab === 'diario') {
         fetchDiarioCoaching();
@@ -1207,6 +1223,30 @@ function ClientiDetail() {
     }
   }, [activeTab, fetchPatientLoomRecordings]);
 
+  const isAssignedProfessionalForCliente = useMemo(() => {
+    if (!isProfessionista || !user?.id || !cliente) return false;
+    const uid = Number(user.id);
+    const singleAssignments = [
+      cliente?.nutrizionista_id,
+      cliente?.coach_id,
+      cliente?.psicologa_id,
+      cliente?.consulente_alimentare_id,
+    ]
+      .map((v) => Number(v))
+      .filter((v) => Number.isFinite(v) && v > 0);
+    if (singleAssignments.includes(uid)) return true;
+
+    const multiAssignments = [
+      ...(Array.isArray(cliente?.nutrizionisti_multipli) ? cliente.nutrizionisti_multipli : []),
+      ...(Array.isArray(cliente?.coaches_multipli) ? cliente.coaches_multipli : []),
+      ...(Array.isArray(cliente?.psicologi_multipli) ? cliente.psicologi_multipli : []),
+    ];
+    return multiAssignments.some((entry) => Number(entry?.id ?? entry?.user_id ?? entry) === uid);
+  }, [isProfessionista, user?.id, cliente]);
+
+  const canUseVideoReviewFlow = Boolean(isAdmin || isHealthManager || isAssignedProfessionalForCliente);
+  const canConfirmVideoReviewHm = Boolean(isAdmin || (isHealthManager && Number(cliente?.health_manager_id) === Number(user?.id)));
+
   const sortedPatientLoomRecordings = useMemo(() => {
     const rows = [...patientLoomRecordings];
     rows.sort((a, b) => {
@@ -1226,43 +1266,63 @@ function ClientiDetail() {
   useEffect(() => { setLoomPage(1); }, [patientLoomRecordings, loomSortOrder]);
   useEffect(() => { if (loomPage > loomTotalPages) setLoomPage(loomTotalPages); }, [loomPage, loomTotalPages]);
 
-  // ── Marketing / Trustpilot ──
-  const fetchTrustpilotStatus = useCallback(async () => {
-    if (!id || !canViewMarketingTab) return;
-    setLoadingTrustpilot(true);
+  const fetchVideoReviewRequests = useCallback(async () => {
+    if (!id || !canUseVideoReviewFlow) return;
+    setLoadingVideoReviewRequests(true);
     try {
-      const data = await clientiService.getTrustpilotStatus(id);
-      setTrustpilotData(data);
-    } catch (err) { console.error('Error fetching Trustpilot status:', err); }
-    finally { setLoadingTrustpilot(false); }
-  }, [id, canViewMarketingTab]);
+      const data = await clientiService.getVideoReviewRequests(id);
+      setVideoReviewRequests(Array.isArray(data?.data) ? data.data : []);
+    } catch (err) {
+      console.error('Error fetching video review requests:', err);
+      setVideoReviewRequests([]);
+    } finally {
+      setLoadingVideoReviewRequests(false);
+    }
+  }, [id, canUseVideoReviewFlow]);
 
   useEffect(() => {
-    if (activeTab === 'marketing') fetchTrustpilotStatus();
-  }, [activeTab, fetchTrustpilotStatus]);
+    if (activeTab === 'marketing') {
+      fetchVideoReviewRequests();
+    }
+  }, [activeTab, fetchVideoReviewRequests]);
 
-  const handleGenerateTrustpilotLink = async () => {
-    if (!id) return;
-    setSendingTrustpilotAction('link');
+
+  const handleVideoReviewBooked = async () => {
+    if (!id || !videoReviewBookingDate || !videoReviewBookingTime) return;
+    setSavingVideoReviewAction(true);
     try {
-      const result = await clientiService.generateTrustpilotLink(id);
-      const link = result?.data?.trustpilot_link;
-      if (link) await navigator.clipboard.writeText(link);
-      await fetchTrustpilotStatus();
+      await clientiService.createVideoReviewBooked(id, { booking_date: videoReviewBookingDate, booking_time: videoReviewBookingTime });
+      setShowVideoReviewBookingModal(false);
+      await fetchVideoReviewRequests();
     } catch (err) {
-      console.error('Error generating Trustpilot link:', err);
-    } finally { setSendingTrustpilotAction(null); }
+      console.error('Error creating video review booking:', err);
+      alert('Errore nella registrazione della prenotazione.');
+    } finally {
+      setSavingVideoReviewAction(false);
+    }
   };
 
-  const handleSendTrustpilotInvite = async () => {
-    if (!id) return;
-    setSendingTrustpilotAction('invite');
+  const openVideoReviewConfirmModal = (requestItem) => {
+    setSelectedVideoReviewRequest(requestItem);
+    setVideoReviewHmForm({ loom_link: requestItem?.loom_link || '', hm_note: requestItem?.hm_note || '' });
+    setShowVideoReviewConfirmModal(true);
+  };
+
+  const handleVideoReviewHmConfirm = async () => {
+    if (!selectedVideoReviewRequest?.id) return;
+    setSavingVideoReviewAction(true);
     try {
-      await clientiService.sendTrustpilotInvite(id);
-      await fetchTrustpilotStatus();
+      await clientiService.confirmVideoReviewByHm(selectedVideoReviewRequest.id, videoReviewHmForm);
+      setShowVideoReviewConfirmModal(false);
+      setSelectedVideoReviewRequest(null);
+      setVideoReviewHmForm({ loom_link: '', hm_note: '' });
+      await fetchVideoReviewRequests();
     } catch (err) {
-      console.error('Error sending Trustpilot invite:', err);
-    } finally { setSendingTrustpilotAction(null); }
+      console.error('Error confirming video review:', err);
+      alert('Errore nella conferma HM.');
+    } finally {
+      setSavingVideoReviewAction(false);
+    }
   };
 
   // ── Health Manager: fetch interventions ──
@@ -2654,6 +2714,14 @@ function ClientiDetail() {
       patologia_psico_relazionali_altro: c.patologia_psico_relazionali_altro || false,
       patologia_psico_altro_check: c.patologia_psico_altro_check || c.patologiaPsicoAltroCheck || (!!c.patologia_psico_altro) || false,
       patologia_psico_altro: c.patologia_psico_altro || c.patologiaPsicoAltro || '',
+      nessuna_patologia_coach: c.nessuna_patologia_coach || c.nessunaPatologiaCoach || false,
+      patologia_coach_infortuni: c.patologia_coach_infortuni || c.patologiaCoachInfortuni || false,
+      patologia_coach_dolori_cronici: c.patologia_coach_dolori_cronici || c.patologiaCoachDoloriCronici || false,
+      patologia_coach_limitazioni_articolari: c.patologia_coach_limitazioni_articolari || c.patologiaCoachLimitazioniArticolari || false,
+      patologia_coach_posturali: c.patologia_coach_posturali || c.patologiaCoachPosturali || false,
+      patologia_coach_cardiovascolari: c.patologia_coach_cardiovascolari || c.patologiaCoachCardiovascolari || false,
+      patologia_coach_altro_check: c.patologia_coach_altro_check || c.patologiaCoachAltroCheck || (!!c.patologia_coach_altro) || false,
+      patologia_coach_altro: c.patologia_coach_altro || c.patologiaCoachAltro || '',
       sedute_psicologia_comprate: c.sedute_psicologia_comprate ?? 0,
       sedute_psicologia_svolte: c.sedute_psicologia_svolte ?? 0,
     });
@@ -2685,6 +2753,30 @@ function ClientiDetail() {
   const handleInputChange = (field, value) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
+
+      if (field === 'nessuna_patologia_coach' && value) {
+        updated.patologia_coach_infortuni = false;
+        updated.patologia_coach_dolori_cronici = false;
+        updated.patologia_coach_limitazioni_articolari = false;
+        updated.patologia_coach_posturali = false;
+        updated.patologia_coach_cardiovascolari = false;
+        updated.patologia_coach_altro_check = false;
+        updated.patologia_coach_altro = '';
+      }
+
+      if (
+        [
+          'patologia_coach_infortuni',
+          'patologia_coach_dolori_cronici',
+          'patologia_coach_limitazioni_articolari',
+          'patologia_coach_posturali',
+          'patologia_coach_cardiovascolari',
+          'patologia_coach_altro_check',
+        ].includes(field) && value
+      ) {
+        updated.nessuna_patologia_coach = false;
+      }
+
       // Auto-calculate data_rinnovo
       if (field === 'data_inizio_abbonamento' || field === 'durata_programma_giorni') {
         const dataInizio = field === 'data_inizio_abbonamento' ? value : prev.data_inizio_abbonamento;
@@ -5402,7 +5494,7 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
-                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: 'red' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-heart-pulse-line', color: 'red' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                           { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
@@ -6116,22 +6208,22 @@ function ClientiDetail() {
                     </div>
                   )}
 
-                  {/* ===== ANAMNESI SUB-TAB (Coaching) ===== */}
-                  {coachingSubTab === 'anamnesi' && (
-                    <div>
+                  {/* ===== PATOLOGIE SUB-TAB (Coaching) ===== */}
+                  {coachingSubTab === 'patologie' && (
+                    <div data-tour="coaching-patologie">
                       <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
-                          Anamnesi Coaching
+                          Patologie Coaching
                         </div>
                         <div className="cd-inner-card">
                           <div className="cd-inner-card-body">
                             <div className="cd-inner-card-header-row">
                               <div className="cd-inner-card-header-left">
                                 <div className="cd-icon-circle orange">
-                                  <i className="ri-file-list-3-line"></i>
+                                  <i className="ri-heart-pulse-line"></i>
                                 </div>
-                                <span className="cd-inner-card-title">Anamnesi Coach</span>
+                                <span className="cd-inner-card-title">Patologie e Anamnesi Coach</span>
                               </div>
                               <button
                                 className="cd-btn-save"
@@ -6153,6 +6245,68 @@ function ClientiDetail() {
                               </div>
                             ) : (
                               <>
+                                <div className="cd-field" style={{ marginBottom: 16 }}>
+                                  <div className="row g-2">
+                                    <div className="col-12">
+                                      <div className="form-check">
+                                        <input
+                                          type="checkbox"
+                                          className="form-check-input"
+                                          id="nessuna_patologia_coach"
+                                          checked={formData.nessuna_patologia_coach || false}
+                                          onChange={(e) => handleInputChange('nessuna_patologia_coach', e.target.checked)}
+                                        />
+                                        <label className="form-check-label" htmlFor="nessuna_patologia_coach">Nessuna patologia</label>
+                                      </div>
+                                    </div>
+
+                                    {[
+                                      ['patologia_coach_infortuni', 'Infortuni pregressi'],
+                                      ['patologia_coach_dolori_cronici', 'Dolori cronici'],
+                                      ['patologia_coach_limitazioni_articolari', 'Limitazioni articolari'],
+                                      ['patologia_coach_posturali', 'Problematiche posturali'],
+                                      ['patologia_coach_cardiovascolari', 'Problematiche cardiovascolari'],
+                                    ].map(([field, label]) => (
+                                      <div className="col-md-6" key={field}>
+                                        <div className="form-check">
+                                          <input
+                                            type="checkbox"
+                                            className="form-check-input"
+                                            id={field}
+                                            checked={formData[field] || false}
+                                            onChange={(e) => handleInputChange(field, e.target.checked)}
+                                          />
+                                          <label className="form-check-label" htmlFor={field}>{label}</label>
+                                        </div>
+                                      </div>
+                                    ))}
+
+                                    <div className="col-12">
+                                      <div className="form-check">
+                                        <input
+                                          type="checkbox"
+                                          className="form-check-input"
+                                          id="patologia_coach_altro_check"
+                                          checked={formData.patologia_coach_altro_check || false}
+                                          onChange={(e) => handleInputChange('patologia_coach_altro_check', e.target.checked)}
+                                        />
+                                        <label className="form-check-label" htmlFor="patologia_coach_altro_check">Altro</label>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {formData.patologia_coach_altro_check && (
+                                    <div className="mt-2">
+                                      <textarea
+                                        className="cd-input"
+                                        rows={2}
+                                        placeholder="Specifica patologie/limitazioni aggiuntive"
+                                        value={formData.patologia_coach_altro || ''}
+                                        onChange={(e) => handleInputChange('patologia_coach_altro', e.target.value)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+
                                 <div className="cd-field">
                                   <textarea
                                     className="cd-textarea"
@@ -7839,118 +7993,67 @@ function ClientiDetail() {
                     Marketing — Trustpilot
                   </h5>
 
-                  {loadingTrustpilot ? (
-                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
-                  ) : (
-                    <>
-                      {/* Status boxes */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Integrazione</div>
-                          <div style={{ fontWeight: 700, color: trustpilotData?.enabled ? '#22c55e' : '#94a3b8' }}>
-                            {trustpilotData?.enabled ? 'Abilitato' : 'Disabilitato'}
+                  {canUseVideoReviewFlow && (
+                    <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
+                            Video Recensione con HM
+                          </div>
+                          <div style={{ fontSize: 13, color: '#64748b' }}>
+                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
                           </div>
                         </div>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Ultimo invito</div>
-                          <div style={{ fontWeight: 700 }}>
-                            {trustpilotData?.latest?.invitation_status || '—'}
-                          </div>
-                        </div>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Stelle</div>
-                          <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>
-                            {trustpilotData?.latest?.stelle ? `${'★'.repeat(trustpilotData.latest.stelle)}` : '—'}
-                          </div>
-                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setShowVideoReviewBookingModal(true)}
+                        >
+                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
+                          Prenota video recensione con HM
+                        </button>
                       </div>
 
-                      {/* Actions */}
-                      {trustpilotData?.can_manage && (
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-success btn-sm"
-                            disabled={!trustpilotData?.enabled || sendingTrustpilotAction === 'link'}
-                            onClick={handleGenerateTrustpilotLink}
-                          >
-                            <i className="ri-link" style={{ marginRight: 4 }}></i>
-                            {sendingTrustpilotAction === 'link' ? 'Generazione...' : 'Genera Link Review'}
-                          </button>
-                          <button
-                            className="btn btn-outline-primary btn-sm"
-                            disabled={!trustpilotData?.enabled || !trustpilotData?.email_configured || sendingTrustpilotAction === 'invite'}
-                            onClick={handleSendTrustpilotInvite}
-                          >
-                            <i className="ri-mail-send-line" style={{ marginRight: 4 }}></i>
-                            {sendingTrustpilotAction === 'invite' ? 'Invio...' : 'Invia Email Invito'}
-                          </button>
-                          {trustpilotData?.latest?.trustpilot_link && (
-                            <button
-                              className="btn btn-outline-secondary btn-sm"
-                              onClick={async () => {
-                                await navigator.clipboard.writeText(trustpilotData.latest.trustpilot_link);
-                              }}
-                            >
-                              <i className="ri-clipboard-line" style={{ marginRight: 4 }}></i>Copia Link
-                            </button>
-                          )}
-                          <button className="btn btn-outline-secondary btn-sm" onClick={fetchTrustpilotStatus}>
-                            <i className="ri-refresh-line" style={{ marginRight: 4 }}></i>Aggiorna
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Warnings */}
-                      {!trustpilotData?.enabled && (
-                        <div style={{ padding: 14, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 10, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
-                          <i className="ri-error-warning-line" style={{ marginRight: 6 }}></i>
-                          Integrazione Trustpilot non abilitata. Configura le variabili <code>TRUSTPILOT_*</code> nel backend.
-                        </div>
-                      )}
-                      {trustpilotData?.enabled && !trustpilotData?.email_configured && (
-                        <div style={{ padding: 14, background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 10, fontSize: 13, color: '#1e40af', marginBottom: 16 }}>
-                          <i className="ri-information-line" style={{ marginRight: 6 }}></i>
-                          Template email non configurato. L'invio email non sara disponibile fino alla configurazione di <code>TRUSTPILOT_EMAIL_TEMPLATE_ID</code>.
-                        </div>
-                      )}
-
-                      {/* History */}
-                      <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Storico Inviti / Recensioni</h6>
-                      {!trustpilotData?.history?.length ? (
-                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
-                          <i className="ri-star-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
-                          Nessun invito Trustpilot ancora inviato per questo paziente
-                        </div>
+                      {loadingVideoReviewRequests ? (
+                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : videoReviewRequests.length === 0 ? (
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
                       ) : (
                         <div style={{ overflowX: 'auto' }}>
-                          <table className="table table-sm" style={{ fontSize: 13 }}>
+                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
                             <thead>
                               <tr>
-                                <th>Data</th>
-                                <th>Metodo</th>
-                                <th>Status</th>
-                                <th>Stelle</th>
-                                <th>Richiesto da</th>
-                                <th>Link</th>
+                                <th>Stato</th>
+                                <th>Prenotata da</th>
+                                <th>Data prenotazione</th>
+                                <th>Orario</th>
+                                <th>Loom</th>
+                                <th>Azione</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {trustpilotData.history.map((item) => (
+                              {videoReviewRequests.map((item) => (
                                 <tr key={item.id}>
-                                  <td>{item.data_richiesta?.split('T')[0] || '—'}</td>
                                   <td>
-                                    <span className={`badge bg-${item.invitation_method === 'email_invitation' ? 'primary' : 'secondary'}`} style={{ fontSize: 11 }}>
-                                      {item.invitation_method === 'email_invitation' ? 'Email' : 'Link'}
+                                    <span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>
+                                      {item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}
                                     </span>
                                   </td>
-                                  <td>{item.invitation_status || '—'}</td>
-                                  <td style={{ color: '#f59e0b' }}>{item.stelle ? '★'.repeat(item.stelle) : '—'}</td>
                                   <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
+                                  <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                                   <td>
-                                    {item.trustpilot_link ? (
-                                      <a href={item.trustpilot_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                                    {item.loom_link ? (
+                                      <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
                                         <i className="ri-external-link-line"></i>
                                       </a>
+                                    ) : '—'}
+                                  </td>
+                                  <td>
+                                    {canConfirmVideoReviewHm && item.status === 'booked' ? (
+                                      <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>
+                                        Conferma + Loom
+                                      </button>
                                     ) : '—'}
                                   </td>
                                 </tr>
@@ -7959,10 +8062,11 @@ function ClientiDetail() {
                           </table>
                         </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               )}
+
 
               {/* ==================== CALL BONUS TAB ==================== */}
               {/* ==================== CALL BONUS TAB ==================== */}
@@ -8471,9 +8575,14 @@ function ClientiDetail() {
                     <button
                       className="cd-btn-save"
                       style={{ background: '#22c55e', padding: '12px 20px' }}
-                      onClick={() => setCallBonusInterestStep('book_hm')}
+                      onClick={handleConfirmCallBonusInterest}
+                      disabled={confirmingBooking}
                     >
-                      <i className="ri-thumb-up-line"></i>Sì, interessato
+                      {confirmingBooking ? (
+                        <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
+                      ) : (
+                        <><i className="ri-thumb-up-line"></i>Sì, interessato</>
+                      )}
                     </button>
                     <button
                       className="cd-btn-save"
@@ -8540,6 +8649,98 @@ function ClientiDetail() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVideoReviewBookingModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewBookingModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-video-line text-primary"></i>
+                Prenota video recensione con HM
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoReviewBookingModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body" style={{ textAlign: 'center' }}>
+              <div className="cd-field" style={{ marginBottom: 12, textAlign: 'left' }}>
+                <label className="cd-field-label">Data prenotazione *</label>
+                <DatePicker
+                  className="cd-input"
+                  value={videoReviewBookingDate}
+                  onChange={(e) => setVideoReviewBookingDate(e.target.value)}
+                />
+              </div>
+              <div className="cd-field" style={{ marginBottom: 12, textAlign: 'left' }}>
+                <label className="cd-field-label">Orario prenotazione *</label>
+                <input
+                  type="time"
+                  className="cd-input"
+                  value={videoReviewBookingTime}
+                  onChange={(e) => setVideoReviewBookingTime(e.target.value)}
+                />
+              </div>
+              <p className="small text-muted" style={{ marginBottom: 0 }}>
+                Dopo la prenotazione clicca su "Ho prenotato" per inviare la richiesta all&apos;HM.
+              </p>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Chiudi</button>
+              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction}>
+                {savingVideoReviewAction ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                ) : (
+                  <><i className="ri-check-line"></i>Ho prenotato</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showVideoReviewConfirmModal && selectedVideoReviewRequest && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewConfirmModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-shield-check-line text-success"></i>
+                Conferma video recensione (HM)
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoReviewConfirmModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field">
+                <label className="cd-field-label">Link Loom *</label>
+                <input
+                  type="url"
+                  className="form-control"
+                  placeholder="https://www.loom.com/share/..."
+                  value={videoReviewHmForm.loom_link}
+                  onChange={(e) => setVideoReviewHmForm((prev) => ({ ...prev, loom_link: e.target.value }))}
+                />
+              </div>
+              <div className="cd-field">
+                <label className="cd-field-label">Nota HM (opzionale)</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Aggiungi una nota..."
+                  value={videoReviewHmForm.hm_note}
+                  onChange={(e) => setVideoReviewHmForm((prev) => ({ ...prev, hm_note: e.target.value }))}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoReviewConfirmModal(false)}>Annulla</button>
+              <button className="cd-btn-save" onClick={handleVideoReviewHmConfirm} disabled={savingVideoReviewAction || !videoReviewHmForm.loom_link.trim()}>
+                {savingVideoReviewAction ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                ) : (
+                  <><i className="ri-check-double-line"></i>Conferma e salva Loom</>
+                )}
+              </button>
             </div>
           </div>
         </div>

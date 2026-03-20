@@ -478,7 +478,7 @@ function SuiteMindOldSuite() {
 
               <div className="sm-notes-section">
                 <div className="mb-3">
-                  <label className="sm-select-label">Note Criticita Onboarding</label>
+                  <label className="sm-select-label">Note Criticità Onboarding</label>
                   <Form.Control
                     as="textarea"
                     rows={2}

@@ -138,6 +138,11 @@ export default defineConfig(({ mode }) => {
               target: backendUrl,
               changeOrigin: true,
             },
+            // Proxy Marketing Automation (webhook Frame.io, test-caption, OAuth)
+            '/marketing-automation': {
+              target: backendUrl,
+              changeOrigin: true,
+            },
           },
         }
       : undefined,

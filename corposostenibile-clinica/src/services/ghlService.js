@@ -152,6 +152,30 @@ const ghlService = {
   },
 
   /**
+   * Create a calendar event in GHL.
+   * @param {Object} data
+   */
+  async createCalendarEvent(data) {
+    const response = await ghlApi.post('/calendar/events', data);
+    return response.data;
+  },
+
+  /**
+   * Search Suite customers for calendar assignment.
+   * Uses Calendar blueprint endpoint.
+   */
+  async searchCustomers(query, limit = 10) {
+    if (!query || query.trim().length < 2) {
+      return { customers: [] };
+    }
+    const response = await axios.get('/calendar/api/customers/search', {
+      params: { q: query.trim(), limit },
+      withCredentials: true,
+    });
+    return response.data;
+  },
+
+  /**
    * Get team members visible for calendar filtering
    */
   async getCalendarTeamMembers() {
