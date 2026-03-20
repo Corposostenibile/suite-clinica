@@ -10172,13 +10172,14 @@ function ClientiDetail() {
       />}
 
       {/* Lightbox fullscreen photo */}
-      {lightboxUrl && (
+      {lightboxUrl && createPortal(
         <div className="cd-lightbox-backdrop" onClick={() => setLightboxUrl(null)}>
           <button className="cd-lightbox-close" onClick={() => setLightboxUrl(null)}>
             <i className="ri-close-line"></i>
           </button>
           <img src={lightboxUrl} alt="Foto" className="cd-lightbox-img" onClick={(e) => e.stopPropagation()} />
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Loom Preview Modal */}
