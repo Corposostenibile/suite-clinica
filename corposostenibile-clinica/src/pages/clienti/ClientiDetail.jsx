@@ -1312,6 +1312,7 @@ function ClientiDetail() {
   useEffect(() => {
     if (activeTab === 'marketing') {
       fetchVideoReviewRequests();
+      fetchVideoFeedbackHistory();
     }
   }, [activeTab, fetchVideoReviewRequests]);
 
@@ -8234,27 +8235,44 @@ function ClientiDetail() {
                         </div>
                       )}
 
-                      {loadingVideoReviewRequests ? (
+                      {loadingVideoReviewRequests || loadingVideoFeedback ? (
                         <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
                       ) : (
                         <>
                           {(() => {
-                            const completedVideoReviews = videoReviewRequests.filter(item => item.status === 'hm_confirmed' && item.loom_link);
-                            return completedVideoReviews.length === 0 ? (
-                              <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna video recensione completata.</div>
+                            const completedVideoReviews = videoReviewRequests
+                              .filter(item => item.status === 'hm_confirmed' && item.loom_link)
+                              .map(item => ({ ...item, source: 'video_review' }));
+                            const completedVideoFeedbacks = videoFeedbackHistory
+                              .filter(item => item.status === 'completata' && item.loom_link)
+                              .map(item => ({ ...item, source: 'video_feedback', hm_name: item.professionista_name, confirmed_at: item.data_conferma_hm }));
+                            const allCompleted = [...completedVideoReviews, ...completedVideoFeedbacks]
+                              .sort((a, b) => {
+                                const dateA = new Date(a.confirmed_at || 0);
+                                const dateB = new Date(b.confirmed_at || 0);
+                                return dateB - dateA;
+                              });
+                            return allCompleted.length === 0 ? (
+                              <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessun video completato.</div>
                             ) : (
                               <div style={{ overflowX: 'auto' }}>
                                 <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
                                   <thead>
                                     <tr>
-                                      <th>HM</th>
+                                      <th>Tipo</th>
+                                      <th>Professionista</th>
                                       <th>Data conferma</th>
                                       <th>Link Loom</th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {completedVideoReviews.map((item) => (
-                                      <tr key={item.id}>
+                                    {allCompleted.map((item, idx) => (
+                                      <tr key={`${item.source}-${item.id}`}>
+                                        <td>
+                                          <span className={`badge ${item.source === 'video_review' ? 'bg-primary' : 'bg-purple'}`}>
+                                            {item.source === 'video_review' ? 'Video Recensione' : 'Video Feedback'}
+                                          </span>
+                                        </td>
                                         <td>{item.hm_name || '—'}</td>
                                         <td>{item.confirmed_at ? new Date(item.confirmed_at).toLocaleDateString('it-IT') : '—'}</td>
                                         <td>
