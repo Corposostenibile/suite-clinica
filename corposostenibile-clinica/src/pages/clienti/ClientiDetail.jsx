@@ -8180,7 +8180,7 @@ function ClientiDetail() {
                                     {completedVideoReviews.map((item) => (
                                       <tr key={item.id}>
                                         <td>{item.hm_name || '—'}</td>
-                                        <td>{item.confirmed_at ? new Date(item.confirmed_at).toLocaleDateString('it-IT') : '—'}</td>
+                                        <td>{item.hm_confirmed_at ? new Date(item.hm_confirmed_at).toLocaleDateString('it-IT') : '—'}</td>
                                         <td>
                                           {item.loom_link ? (
                                             <a href={item.loom_link} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
