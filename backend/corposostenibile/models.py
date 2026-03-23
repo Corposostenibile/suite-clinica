@@ -1829,6 +1829,11 @@ class Cliente(TimestampMixin, db.Model):
     alert                   = db.Column(db.Boolean)
     alert_storia            = db.Column(db.Text)
 
+    # Referral (Health Manager)
+    referral_bonus_scelto   = db.Column(db.String(255))
+    referral_bonus_utilizzato = db.Column(db.String(255))
+    referral_bonus_da_utilizzare = db.Column(db.String(255))
+
     # Rinnovi
     data_rinnovo            = db.Column(db.Date)
     # giorni_rimanenti rimosso - ora usiamo giorni_rimanenti_calcolati (property)

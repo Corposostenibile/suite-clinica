@@ -290,6 +290,11 @@ class ClienteForm(FlaskForm):
     patologia_stitichezza = BooleanField(_l("Stitichezza"))
     patologia_tiroidee = BooleanField(_l("Malattie tiroidee"))
 
+    # ─────────────────── REFERRAL ─────────────────────────────────── #
+    referral_bonus_scelto = StringField(_l("Referral Bonus Scelto"), validators=[Optional(), Length(max=255)])
+    referral_bonus_utilizzato = StringField(_l("Referral Bonus Utilizzato"), validators=[Optional(), Length(max=255)])
+    referral_bonus_da_utilizzare = StringField(_l("Referral Bonus da Utilizzare"), validators=[Optional(), Length(max=255)])
+
     # ──────────────── SUBMIT ──────────────────────────────────────── #
     submit = SubmitField(_l("Salva"))
 

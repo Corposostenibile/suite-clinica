@@ -4231,6 +4231,7 @@ function ClientiDetail() {
                       { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
                       { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
                       { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
+                      { key: 'referral', label: 'Referral', icon: 'ri-gift-line' },
                     ].map((st) => (
                       <button
                         key={st.key}
@@ -4397,6 +4398,72 @@ function ClientiDetail() {
                           ))}
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* ── Referral sub-tab ── */}
+                  {healthManagerSubTab === 'referral' && (
+                    <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+                      <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
+                        <i className="ri-gift-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
+                        Referral Bonus
+                      </h6>
+                      <div className="row">
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus Scelto</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. Sconto 10%"
+                            value={cliente.referral_bonus_scelto || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_scelto: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_scelto', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus Scelto'));
+                            }}
+                          />
+                        </div>
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus Utilizzato</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. 1 mese"
+                            value={cliente.referral_bonus_utilizzato || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_utilizzato: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_utilizzato', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus Utilizzato'));
+                            }}
+                          />
+                        </div>
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus ancora da utilizzare</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. 2 mesi"
+                            value={cliente.referral_bonus_da_utilizzare || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_da_utilizzare: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_da_utilizzare', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus da utilizzare'));
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
 
