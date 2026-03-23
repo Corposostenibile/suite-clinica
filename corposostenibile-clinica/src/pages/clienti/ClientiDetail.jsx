@@ -736,9 +736,11 @@ function ClientiDetail() {
   const [loadingCustomerCare, setLoadingCustomerCare] = useState(false);
   const [checkInInterventions, setCheckInInterventions] = useState([]);
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
+  const [rinnovoInterventions, setRinnovoInterventions] = useState([]);
+  const [loadingRinnovo, setLoadingRinnovo] = useState(false);
   const [hmInterventionForm, setHmInterventionForm] = useState({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
   const [showHmInterventionModal, setShowHmInterventionModal] = useState(false);
-  const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in'
+  const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in' | 'rinnovo'
   const [editingInterventionId, setEditingInterventionId] = useState(null);
 
   // ==================== MARKETING / TRUSTPILOT STATE ====================
@@ -1489,7 +1491,7 @@ function ClientiDetail() {
     setLoadingCustomerCare(true);
     try {
       const data = await clientiService.getCustomerCareInterventions(id);
-      setCustomerCareInterventions(Array.isArray(data) ? data : data.items || []);
+      setCustomerCareInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching customer care interventions', err); }
     finally { setLoadingCustomerCare(false); }
   }, [id]);
@@ -1499,15 +1501,26 @@ function ClientiDetail() {
     setLoadingCheckIn(true);
     try {
       const data = await clientiService.getCheckInInterventions(id);
-      setCheckInInterventions(Array.isArray(data) ? data : data.items || []);
+      setCheckInInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching check-in interventions', err); }
     finally { setLoadingCheckIn(false); }
+  }, [id]);
+
+  const fetchRinnovoInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingRinnovo(true);
+    try {
+      const data = await clientiService.getRinnovoInterventions(id);
+      setRinnovoInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
+    } catch (err) { console.error('Error fetching rinnovo interventions', err); }
+    finally { setLoadingRinnovo(false); }
   }, [id]);
 
   useEffect(() => {
     if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
     if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
-  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions]);
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'rinnovo') fetchRinnovoInterventions();
+  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions, fetchRinnovoInterventions]);
 
   // Sync onboarding draft when cliente loads
   useEffect(() => {
@@ -1536,17 +1549,23 @@ function ClientiDetail() {
         if (hmInterventionType === 'customer_care') {
           await clientiService.updateCustomerCareIntervention(editingInterventionId, hmInterventionForm);
           fetchCustomerCareInterventions();
-        } else {
+        } else if (hmInterventionType === 'check_in') {
           await clientiService.updateCheckInIntervention(editingInterventionId, hmInterventionForm);
           fetchCheckInInterventions();
+        } else {
+          await clientiService.updateRinnovoIntervention(editingInterventionId, hmInterventionForm);
+          fetchRinnovoInterventions();
         }
       } else {
         if (hmInterventionType === 'customer_care') {
           await clientiService.createCustomerCareIntervention(id, hmInterventionForm);
           fetchCustomerCareInterventions();
-        } else {
+        } else if (hmInterventionType === 'check_in') {
           await clientiService.createCheckInIntervention(id, hmInterventionForm);
           fetchCheckInInterventions();
+        } else {
+          await clientiService.createRinnovoIntervention(id, hmInterventionForm);
+          fetchRinnovoInterventions();
         }
       }
       setShowHmInterventionModal(false);
@@ -1561,9 +1580,12 @@ function ClientiDetail() {
       if (type === 'customer_care') {
         await clientiService.deleteCustomerCareIntervention(interventionId);
         fetchCustomerCareInterventions();
-      } else {
+      } else if (type === 'check_in') {
         await clientiService.deleteCheckInIntervention(interventionId);
         fetchCheckInInterventions();
+      } else {
+        await clientiService.deleteRinnovoIntervention(interventionId);
+        fetchRinnovoInterventions();
       }
     } catch (err) { console.error('Error deleting intervention', err); }
   };
@@ -4355,10 +4377,11 @@ function ClientiDetail() {
                   {/* Sub-tabs */}
                   <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                     {[
-                      { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
-                      { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
-                      { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
-                      { key: 'referral', label: 'Referral', icon: 'ri-gift-line' },
+                      { key: 'onboarding', label: 'Call Onboarding', icon: 'ri-user-add-line' },
+                      { key: 'customer_care', label: 'Call Customer Care', icon: 'ri-customer-service-2-line' },
+                      { key: 'check_in', label: 'Call Check-in', icon: 'ri-phone-line' },
+                      { key: 'rinnovo', label: 'Call Rinnovo', icon: 'ri-phone-lock-line' },
+                      { key: 'referral', label: 'Call Referral', icon: 'ri-gift-line' },
                     ].map((st) => (
                       <button
                         key={st.key}
@@ -4382,7 +4405,7 @@ function ClientiDetail() {
                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
                       <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
                         <i className="ri-user-add-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                        Onboarding Paziente
+                        Call Onboarding Paziente
                       </h6>
                       <div className="mb-3">
                         <label className="form-label fw-semibold">Note Criticita Iniziali</label>
@@ -4430,7 +4453,7 @@ function ClientiDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h6 style={{ fontWeight: 700, margin: 0 }}>
                           <i className="ri-customer-service-2-line" style={{ marginRight: 8, color: '#f59e0b' }}></i>
-                          Interventi Customer Care
+                          Interventi Call Customer Care
                         </h6>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('customer_care')}>
                           <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
@@ -4482,7 +4505,7 @@ function ClientiDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h6 style={{ fontWeight: 700, margin: 0 }}>
                           <i className="ri-phone-line" style={{ marginRight: 8, color: '#6366f1' }}></i>
-                          Interventi Check-in
+                          Interventi Call Check-in
                         </h6>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('check_in')}>
                           <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
@@ -4493,7 +4516,7 @@ function ClientiDetail() {
                       ) : checkInInterventions.length === 0 ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
                           <i className="ri-phone-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
-                          Nessun intervento check-in registrato
+                          Nessun intervento call check-in registrato
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -4528,12 +4551,64 @@ function ClientiDetail() {
                     </div>
                   )}
 
+                  {/* ── Rinnovo sub-tab ── */}
+                  {healthManagerSubTab === 'rinnovo' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h6 style={{ fontWeight: 700, margin: 0 }}>
+                          <i className="ri-phone-lock-line" style={{ marginRight: 8, color: '#8b5cf6' }}></i>
+                          Interventi Call Rinnovo
+                        </h6>
+                        <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('rinnovo')}>
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                        </button>
+                      </div>
+                      {loadingRinnovo ? (
+                        <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                      ) : rinnovoInterventions.length === 0 ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-phone-lock-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun intervento call rinnovo registrato
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {rinnovoInterventions.map((intervention) => (
+                            <div key={intervention.id} style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <div>
+                                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{intervention.intervention_date}</span>
+                                  {intervention.created_by_name && (
+                                    <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>— {intervention.created_by_name}</span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" className="btn btn-outline-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => openEditHmIntervention(intervention, 'rinnovo')}>
+                                    <i className="ri-edit-line"></i>
+                                  </button>
+                                  <button type="button" className="btn btn-outline-danger btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleDeleteHmIntervention(intervention.id, 'rinnovo')}>
+                                    <i className="ri-delete-bin-line"></i>
+                                  </button>
+                                </div>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{intervention.notes}</p>
+                              {intervention.loom_link && (
+                                <a href={intervention.loom_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6366f1', marginTop: 6, display: 'inline-block' }}>
+                                  <i className="ri-video-line" style={{ marginRight: 4 }}></i>Video Loom
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* ── Referral sub-tab ── */}
                   {healthManagerSubTab === 'referral' && (
                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
                       <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
                         <i className="ri-gift-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                        Referral Bonus
+                        Call Referral Bonus
                       </h6>
                       <div className="row">
                         <div className="col-md-4 mb-3">
@@ -4601,7 +4676,13 @@ function ClientiDetail() {
                       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,.15)' }}
                         onClick={(e) => e.stopPropagation()}>
                         <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
-                          {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {hmInterventionType === 'customer_care' ? 'Customer Care' : 'Check-in'}
+                          {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {
+                            hmInterventionType === 'customer_care'
+                              ? 'Call Customer Care'
+                              : hmInterventionType === 'check_in'
+                                ? 'Call Check-in'
+                                : 'Call Rinnovo'
+                          }
                         </h6>
                         <div className="mb-3">
                           <label className="form-label fw-semibold">Data</label>

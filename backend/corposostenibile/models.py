@@ -2736,6 +2736,70 @@ class CheckInIntervention(TimestampMixin, db.Model):
         }
 
 
+# ───────────────── RINNOVO INTERVENTIONS ──────────────────────── #
+class RinnovoIntervention(TimestampMixin, db.Model):
+    """
+    Interventi di Call Rinnovo per un cliente.
+
+    Registra le call di rinnovo con il cliente con:
+    - Data dell'intervento
+    - Note testuali descrittive
+    - Link opzionale a video Loom
+    """
+    __tablename__ = "rinnovo_interventions"
+    id = db.Column(db.Integer, primary_key=True)
+
+    # ── Relazione con Cliente ────────────────────────────────────────
+    cliente_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # ── Dati intervento ──────────────────────────────────────────────
+    intervention_date = db.Column(
+        db.Date,
+        nullable=False,
+        index=True
+    )
+
+    notes = db.Column(db.Text, nullable=False)
+    loom_link = db.Column(db.String(500))
+
+    # ── Audit trail ──────────────────────────────────────────────────
+    created_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # ── Relationships ────────────────────────────────────────────────
+    cliente = db.relationship("Cliente", backref="rinnovo_interventions")
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+
+    def __repr__(self) -> str:
+        return (
+            f"<RinnovoIntervention #{self.id} "
+            f"cliente={self.cliente_id} date={self.intervention_date}>"
+        )
+
+    def to_dict(self) -> dict:
+        """Serializza per API JSON."""
+        return {
+            "id": self.id,
+            "cliente_id": self.cliente_id,
+            "intervention_date": self.intervention_date.isoformat() if self.intervention_date else None,
+            "notes": self.notes,
+            "loom_link": self.loom_link,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_by": {
+                "id": self.created_by.id,
+                "full_name": self.created_by.full_name or self.created_by.email,
+                "avatar_url": self.created_by.avatar_url
+            } if self.created_by else None
+        }
+
+
 # ───────────────── CONTINUITY CALL INTERVENTIONS ────────────────── #
 class ContinuityCallIntervention(TimestampMixin, db.Model):
     """

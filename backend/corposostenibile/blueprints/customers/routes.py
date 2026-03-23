@@ -2795,6 +2795,134 @@ def delete_check_in_intervention(intervention_id: int):
 
 
 # --------------------------------------------------------------------------- #
+#  RINNOVO INTERVENTIONS API                                                  #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_rinnovo_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di rinnovo per un cliente."""
+    from corposostenibile.models import RinnovoIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(RinnovoIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(RinnovoIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_rinnovo_intervention(cliente_id: int):
+    """Crea un nuovo intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        intervention = RinnovoIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo registrata con successo"
+        }), 201
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_rinnovo_intervention(intervention_id: int):
+    """Aggiorna un intervento di rinnovo esistente."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo aggiornata con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_rinnovo_intervention(intervention_id: int):
+    """Elimina un intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Call rinnovo eliminata con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
 #  CONTINUITY CALL INTERVENTIONS API                                          #
 # --------------------------------------------------------------------------- #
 @api_bp.route("/<int:cliente_id>/continuity-call-interventions", methods=["GET"])
