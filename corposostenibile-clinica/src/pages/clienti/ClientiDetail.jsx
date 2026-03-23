@@ -873,16 +873,6 @@ function ClientiDetail() {
   const [showCallRinnovoConfirmModal, setShowCallRinnovoConfirmModal] = useState(false);
   const [callRinnovoConfirmForm, setCallRinnovoConfirmForm] = useState({ note_hm: '' });
 
-  // Video Feedback state
-  const [videoFeedbackHistory, setVideoFeedbackHistory] = useState([]);
-  const [loadingVideoFeedback, setLoadingVideoFeedback] = useState(false);
-  const [showVideoFeedbackModal, setShowVideoFeedbackModal] = useState(false);
-  const [videoFeedbackForm, setVideoFeedbackForm] = useState({ tipo_professionista: '', note_richiesta: '' });
-  const [savingVideoFeedback, setSavingVideoFeedback] = useState(false);
-  const [selectedVideoFeedback, setSelectedVideoFeedback] = useState(null);
-  const [showVideoFeedbackCompleteModal, setShowVideoFeedbackCompleteModal] = useState(false);
-  const [videoFeedbackCompleteForm, setVideoFeedbackCompleteForm] = useState({ loom_link: '', note_hm: '' });
-
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
   const [assigningType, setAssigningType] = useState(null);
@@ -1542,7 +1532,6 @@ function ClientiDetail() {
     if (activeTab === 'richieste_call') {
       fetchCallBonusHistory();
       fetchCallRinnovoHistory();
-      fetchVideoFeedbackHistory();
     }
   }, [activeTab, fetchCallBonusHistory]);
 
@@ -1557,20 +1546,6 @@ function ClientiDetail() {
       console.error('Error fetching call rinnovo history:', err);
     } finally {
       setLoadingCallRinnovo(false);
-    }
-  }, [id]);
-
-  // Fetch Video Feedback History
-  const fetchVideoFeedbackHistory = useCallback(async () => {
-    if (!id) return;
-    setLoadingVideoFeedback(true);
-    try {
-      const result = await clientiService.getVideoFeedbackHistory(id);
-      setVideoFeedbackHistory(result.data || []);
-    } catch (err) {
-      console.error('Error fetching video feedback history:', err);
-    } finally {
-      setLoadingVideoFeedback(false);
     }
   }, [id]);
 
@@ -1727,59 +1702,6 @@ function ClientiDetail() {
       alert('Errore nella conferma. Riprova.');
     } finally {
       setSavingCallRinnovo(false);
-    }
-  };
-
-  // ── Video Feedback Handlers ──
-  const handleOpenVideoFeedbackModal = () => {
-    setVideoFeedbackForm({ tipo_professionista: '', note_richiesta: '' });
-    setShowVideoFeedbackModal(true);
-  };
-
-  const handleCreateVideoFeedback = async () => {
-    if (!videoFeedbackForm.tipo_professionista) return;
-    setSavingVideoFeedback(true);
-    try {
-      await clientiService.createVideoFeedbackRequest(id, videoFeedbackForm);
-      setShowVideoFeedbackModal(false);
-      fetchVideoFeedbackHistory();
-    } catch (err) {
-      console.error('Error creating video feedback:', err);
-      alert('Errore nella creazione della richiesta. Riprova.');
-    } finally {
-      setSavingVideoFeedback(false);
-    }
-  };
-
-  const handleAcceptVideoFeedback = async (videoFeedbackId) => {
-    try {
-      await clientiService.acceptVideoFeedback(videoFeedbackId);
-      fetchVideoFeedbackHistory();
-    } catch (err) {
-      console.error('Error accepting video feedback:', err);
-      alert('Errore nell\'accettazione. Riprova.');
-    }
-  };
-
-  const handleOpenVideoFeedbackComplete = (item) => {
-    setSelectedVideoFeedback(item);
-    setVideoFeedbackCompleteForm({ loom_link: '', note_hm: '' });
-    setShowVideoFeedbackCompleteModal(true);
-  };
-
-  const handleCompleteVideoFeedback = async () => {
-    if (!selectedVideoFeedback) return;
-    setSavingVideoFeedback(true);
-    try {
-      await clientiService.completeVideoFeedback(selectedVideoFeedback.id, videoFeedbackCompleteForm);
-      setShowVideoFeedbackCompleteModal(false);
-      setSelectedVideoFeedback(null);
-      fetchVideoFeedbackHistory();
-    } catch (err) {
-      console.error('Error completing video feedback:', err);
-      alert('Errore nella completamento. Riprova.');
-    } finally {
-      setSavingVideoFeedback(false);
     }
   };
 
@@ -8346,13 +8268,6 @@ function ClientiDetail() {
                       <i className="ri-refresh-line"></i>
                       Call Rinnovo
                     </button>
-                    <button
-                      className={`cd-subtab ${richiesteCallSubTab === 'video_feedback' ? 'active green' : ''}`}
-                      onClick={() => setRichiesteCallSubTab('video_feedback')}
-                    >
-                      <i className="ri-video-line"></i>
-                      Video Feedback
-                    </button>
                   </ScrollableSubtabs>
 
                   {/* ===== CALL BONUS SUB-TAB ===== */}
@@ -8585,119 +8500,6 @@ function ClientiDetail() {
                           <button
                             className="btn btn-outline-success mt-3"
                             onClick={handleOpenCallRinnovoModal}
-                          >
-                            Fai la Prima Richiesta
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ===== VIDEO FEEDBACK SUB-TAB ===== */}
-                  {richiesteCallSubTab === 'video_feedback' && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div>
-                          <span className="cd-badge" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
-                            <i className="ri-video-line me-1"></i>Video Feedback
-                          </span>
-                        </div>
-                        <button
-                          className="btn btn-purple btn-sm"
-                          onClick={handleOpenVideoFeedbackModal}
-                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, background: '#a855f7', color: 'white', border: 'none' }}
-                        >
-                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
-                        </button>
-                      </div>
-
-                      {loadingVideoFeedback ? (
-                        <div className="text-center py-4"><div className="spinner-border" style={{ color: '#a855f7' }}></div></div>
-                      ) : videoFeedbackHistory && videoFeedbackHistory.length > 0 ? (
-                        <div className="cd-table-wrap">
-                          <table className="cd-table">
-                            <thead>
-                              <tr>
-                                <th>Data Richiesta</th>
-                                <th>Professionista</th>
-                                <th>Note</th>
-                                <th>Stato</th>
-                                <th>Link Loom</th>
-                                <th style={{ textAlign: 'right' }}>Azioni</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {videoFeedbackHistory.map((item) => {
-                                const statusColor = {
-                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
-                                  'accettata': { bg: '#dcfce7', color: '#166534', label: 'Accettata' },
-                                  'completata': { bg: '#d1fae5', color: '#065f46', label: 'Completata' },
-                                }[item.status] || { bg: '#f3f4f6', color: '#374151', label: item.status };
-
-                                return (
-                                  <tr key={item.id}>
-                                    <td>
-                                      {item.data_richiesta
-                                        ? new Date(item.data_richiesta).toLocaleDateString('it-IT')
-                                        : '—'}
-                                    </td>
-                                    <td>
-                                      <span className="fw-semibold">
-                                        {item.tipo_professionista.charAt(0).toUpperCase() + item.tipo_professionista.slice(1)}
-                                      </span>
-                                      {item.professionista_name && (
-                                        <div className="small text-muted" style={{ marginTop: 2 }}>
-                                          {item.professionista_name}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td><span className="small text-muted">{item.note_richiesta || '—'}</span></td>
-                                    <td>
-                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
-                                        {statusColor.label}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      {item.loom_link ? (
-                                        <a href={item.loom_link} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-link">
-                                          <i className="ri-external-link-line"></i>
-                                        </a>
-                                      ) : '—'}
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                      {item.status === 'proposta' && (
-                                        <button
-                                          className="btn btn-sm btn-success"
-                                          style={{ padding: '2px 8px', fontSize: 11 }}
-                                          onClick={() => handleAcceptVideoFeedback(item.id)}
-                                        >
-                                          Accetta
-                                        </button>
-                                      )}
-                                      {item.status === 'accettata' && (
-                                        <button
-                                          className="btn btn-sm btn-primary"
-                                          style={{ padding: '2px 8px', fontSize: 11 }}
-                                          onClick={() => handleOpenVideoFeedbackComplete(item)}
-                                        >
-                                          Completa
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="cd-empty">
-                          <i className="ri-video-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
-                          <p className="cd-empty-text">Nessuna richiesta Video Feedback effettuata finora.</p>
-                          <button
-                            className="btn btn-outline-primary mt-3"
-                            onClick={handleOpenVideoFeedbackModal}
-                            style={{ borderColor: '#a855f7', color: '#a855f7' }}
                           >
                             Fai la Prima Richiesta
                           </button>
@@ -9282,130 +9084,6 @@ function ClientiDetail() {
                   <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
                 ) : (
                   <><i className="ri-check-line"></i>Conferma Completamento</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========== VIDEO FEEDBACK MODAL ========== */}
-      {showVideoFeedbackModal && (
-        <div className="cd-modal-backdrop" onClick={() => setShowVideoFeedbackModal(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' }}>
-              <h5>
-                <i className="ri-video-line text-white"></i>
-                <span style={{ color: 'white' }}>Nuova Richiesta Video Feedback</span>
-              </h5>
-              <button className="cd-modal-close" onClick={() => setShowVideoFeedbackModal(false)}><i className="ri-close-line"></i></button>
-            </div>
-            <div className="cd-modal-body">
-              <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il tipo di professionista per il video feedback.</p>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Tipo Professionista *</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[
-                    { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#f59e0b' },
-                    { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
-                    { value: 'psicologa', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
-                  ].map((t) => (
-                    <button
-                      key={t.value}
-                      className={`cd-cb-type-btn${videoFeedbackForm.tipo_professionista === t.value ? ' selected' : ''}`}
-                      style={{
-                        background: videoFeedbackForm.tipo_professionista === t.value ? `${t.color}20` : '#f9fafb',
-                        borderColor: videoFeedbackForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
-                        color: t.color,
-                      }}
-                      onClick={() => setVideoFeedbackForm({ ...videoFeedbackForm, tipo_professionista: t.value })}
-                    >
-                      <i className={t.icon}></i>
-                      <span className="small fw-semibold">{t.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Note</label>
-                <textarea
-                  className="cd-textarea"
-                  rows="3"
-                  placeholder="Descrivi il motivo della richiesta..."
-                  value={videoFeedbackForm.note_richiesta}
-                  onChange={(e) => setVideoFeedbackForm({ ...videoFeedbackForm, note_richiesta: e.target.value })}
-                ></textarea>
-              </div>
-            </div>
-            <div className="cd-modal-footer">
-              <button className="cd-btn-back" onClick={() => setShowVideoFeedbackModal(false)}>Annulla</button>
-              <button
-                className="cd-btn-save"
-                style={{ background: '#a855f7' }}
-                onClick={handleCreateVideoFeedback}
-                disabled={!videoFeedbackForm.tipo_professionista || savingVideoFeedback}
-              >
-                {savingVideoFeedback ? (
-                  <><span className="spinner-border spinner-border-sm me-2"></span>Creazione...</>
-                ) : (
-                  <><i className="ri-add-line"></i>Crea Richiesta</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========== VIDEO FEEDBACK COMPLETE MODAL ========== */}
-      {showVideoFeedbackCompleteModal && selectedVideoFeedback && (
-        <div className="cd-modal-backdrop" onClick={() => setShowVideoFeedbackCompleteModal(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' }}>
-              <h5>
-                <i className="ri-check-line text-white"></i>
-                <span style={{ color: 'white' }}>Completa Video Feedback</span>
-              </h5>
-              <button className="cd-modal-close" onClick={() => setShowVideoFeedbackCompleteModal(false)}><i className="ri-close-line"></i></button>
-            </div>
-            <div className="cd-modal-body">
-              <p className="text-muted small" style={{ marginBottom: 12 }}>Inserisci il link Loom del video feedback completato.</p>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Link Loom *</label>
-                <input
-                  type="url"
-                  className="cd-input"
-                  placeholder="https://www.loom.com/share/..."
-                  value={videoFeedbackCompleteForm.loom_link}
-                  onChange={(e) => setVideoFeedbackCompleteForm({ ...videoFeedbackCompleteForm, loom_link: e.target.value })}
-                />
-              </div>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Note HM</label>
-                <textarea
-                  className="cd-textarea"
-                  rows="3"
-                  placeholder="Aggiungi note sul video feedback..."
-                  value={videoFeedbackCompleteForm.note_hm}
-                  onChange={(e) => setVideoFeedbackCompleteForm({ ...videoFeedbackCompleteForm, note_hm: e.target.value })}
-                ></textarea>
-              </div>
-            </div>
-            <div className="cd-modal-footer">
-              <button className="cd-btn-back" onClick={() => setShowVideoFeedbackCompleteModal(false)}>Annulla</button>
-              <button
-                className="cd-btn-save"
-                style={{ background: '#a855f7' }}
-                onClick={handleCompleteVideoFeedback}
-                disabled={!videoFeedbackCompleteForm.loom_link || savingVideoFeedback}
-              >
-                {savingVideoFeedback ? (
-                  <><span className="spinner-border spinner-border-sm me-2"></span>Completamento...</>
-                ) : (
-                  <><i className="ri-check-line"></i>Completa Video Feedback</>
                 )}
               </button>
             </div>

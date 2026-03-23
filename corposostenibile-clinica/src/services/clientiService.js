@@ -1092,50 +1092,6 @@ const clientiService = {
     const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/confirm`, data);
     return response.data;
   },
-
-  // ==================== VIDEO FEEDBACK ====================
-
-  /**
-   * Get video feedback history for a client
-   * @param {number} clienteId - Client ID
-   * @returns {Promise} - { data: [...] }
-   */
-  async getVideoFeedbackHistory(clienteId) {
-    const response = await api.get(`${API_BASE}/${clienteId}/video-feedback-history`);
-    return response.data;
-  },
-
-  /**
-   * Create a video feedback request
-   * @param {number} clienteId - Client ID
-   * @param {Object} data - { tipo_professionista, note_richiesta }
-   * @returns {Promise} - { success, data }
-   */
-  async createVideoFeedbackRequest(clienteId, data) {
-    const response = await api.post(`${API_BASE}/${clienteId}/video-feedback-request`, data);
-    return response.data;
-  },
-
-  /**
-   * Accept a video feedback
-   * @param {number} videoFeedbackId - Video Feedback ID
-   * @returns {Promise} - { success, data }
-   */
-  async acceptVideoFeedback(videoFeedbackId) {
-    const response = await api.post(`${API_BASE}/video-feedback/${videoFeedbackId}/accept`);
-    return response.data;
-  },
-
-  /**
-   * Complete a video feedback with loom link
-   * @param {number} videoFeedbackId - Video Feedback ID
-   * @param {Object} data - { loom_link, note_hm }
-   * @returns {Promise} - { success, data }
-   */
-  async completeVideoFeedback(videoFeedbackId, data) {
-    const response = await api.post(`${API_BASE}/video-feedback/${videoFeedbackId}/complete`, data);
-    return response.data;
-  },
 };
 
 export default clientiService;
