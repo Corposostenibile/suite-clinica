@@ -1532,6 +1532,7 @@ function ClientiDetail() {
     if (activeTab === 'richieste_call') {
       fetchCallBonusHistory();
       fetchCallRinnovoHistory();
+      fetchVideoReviewRequests();
     }
   }, [activeTab, fetchCallBonusHistory]);
 
@@ -8268,6 +8269,13 @@ function ClientiDetail() {
                       <i className="ri-refresh-line"></i>
                       Call Rinnovo
                     </button>
+                    <button
+                      className={`cd-subtab ${richiesteCallSubTab === 'video_recensione' ? 'active green' : ''}`}
+                      onClick={() => setRichiesteCallSubTab('video_recensione')}
+                    >
+                      <i className="ri-video-line"></i>
+                      Video Recensione
+                    </button>
                   </ScrollableSubtabs>
 
                   {/* ===== CALL BONUS SUB-TAB ===== */}
@@ -8503,6 +8511,93 @@ function ClientiDetail() {
                           >
                             Fai la Prima Richiesta
                           </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ===== VIDEO RECENSIONE SUB-TAB ===== */}
+                  {richiesteCallSubTab === 'video_recensione' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <span className="cd-badge" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>
+                            <i className="ri-video-line me-1"></i>Video Recensione
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => setShowVideoReviewBookingModal(true)}
+                          disabled={!cliente?.health_manager_id}
+                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
+                        >
+                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
+                          Prenota Video Recensione
+                        </button>
+                      </div>
+
+                      {!cliente?.health_manager_id && (
+                        <div className="alert alert-warning py-2" style={{ marginBottom: 12 }}>
+                          Assegna prima un Health Manager al paziente per abilitare la prenotazione video recensione.
+                        </div>
+                      )}
+                      {videoReviewError && (
+                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
+                          {videoReviewError}
+                        </div>
+                      )}
+
+                      {loadingVideoReviewRequests ? (
+                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : videoReviewRequests.length === 0 ? (
+                        <div className="cd-empty">
+                          <i className="ri-video-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
+                          <p className="cd-empty-text">Nessuna richiesta video recensione registrata.</p>
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
+                            <thead>
+                              <tr>
+                                <th>Stato</th>
+                                <th>Prenotata da</th>
+                                <th>HM</th>
+                                <th>Data prenotazione</th>
+                                <th>Orario</th>
+                                <th>Calendario HM</th>
+                                <th>Azione</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {videoReviewRequests.map((item) => (
+                                <tr key={item.id}>
+                                  <td>
+                                    <span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>
+                                      {item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}
+                                    </span>
+                                  </td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.hm_name || '—'}</td>
+                                  <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
+                                  <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                  <td>
+                                    {item.hm_calendar_link ? (
+                                      <a href={item.hm_calendar_link} target="_blank" rel="noopener noreferrer">
+                                        <i className="ri-calendar-event-line"></i>
+                                      </a>
+                                    ) : '—'}
+                                  </td>
+                                  <td>
+                                    {canConfirmVideoReviewHm && item.status === 'booked' ? (
+                                      <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>
+                                        Conferma + Loom
+                                      </button>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
