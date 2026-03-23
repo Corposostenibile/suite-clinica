@@ -752,6 +752,9 @@ function ClientiDetail() {
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
   const [videoReviewError, setVideoReviewError] = useState('');
+  const [marketingSubTab, setMarketingSubTab] = useState('video_review');
+  const [exportingClinicalPdf, setExportingClinicalPdf] = useState(false);
+  const [marketingPdfError, setMarketingPdfError] = useState('');
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -1327,6 +1330,33 @@ function ClientiDetail() {
       setVideoReviewError(err?.response?.data?.description || 'Errore nella conferma HM.');
     } finally {
       setSavingVideoReviewAction(false);
+    }
+  };
+
+  const handleExportClinicalFolderPdf = async () => {
+    if (!id) return;
+    setExportingClinicalPdf(true);
+    setMarketingPdfError('');
+    try {
+      const response = await clientiService.exportClinicalFolderPdf(id);
+      const contentDisposition = response?.headers?.['content-disposition'] || '';
+      const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+      const rawFilename = filenameMatch?.[1] || `cartella_clinica_${id}.pdf`;
+      const filename = decodeURIComponent(rawFilename.replace(/"/g, '').trim());
+
+      const blobUrl = URL.createObjectURL(response.data);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Error exporting clinical folder PDF:', err);
+      setMarketingPdfError(err?.response?.data?.description || 'Errore durante l\'export PDF della cartella clinica.');
+    } finally {
+      setExportingClinicalPdf(false);
     }
   };
 
@@ -7995,10 +8025,27 @@ function ClientiDetail() {
                 <div>
                   <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
                     <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                    Marketing — Trustpilot
+                    Marketing
                   </h5>
 
-                  {canUseVideoReviewFlow && (
+                  <ScrollableSubtabs style={{ marginBottom: 20 }}>
+                    <button
+                      className={`cd-subtab ${marketingSubTab === 'video_review' ? 'active green' : ''}`}
+                      onClick={() => setMarketingSubTab('video_review')}
+                    >
+                      <i className="ri-video-line"></i>
+                      Video Recensione
+                    </button>
+                    <button
+                      className={`cd-subtab ${marketingSubTab === 'export_pdf' ? 'active green' : ''}`}
+                      onClick={() => setMarketingSubTab('export_pdf')}
+                    >
+                      <i className="ri-file-pdf-line"></i>
+                      Export Cartella PDF
+                    </button>
+                  </ScrollableSubtabs>
+
+                  {marketingSubTab === 'video_review' && canUseVideoReviewFlow && (
                     <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
                         <div>
@@ -8089,6 +8136,46 @@ function ClientiDetail() {
                           </table>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {marketingSubTab === 'video_review' && !canUseVideoReviewFlow && (
+                    <div className="alert alert-warning">
+                      Non hai i permessi per gestire le video recensioni per questo paziente.
+                    </div>
+                  )}
+
+                  {marketingSubTab === 'export_pdf' && (
+                    <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                        <i className="ri-file-pdf-line" style={{ marginRight: 6, color: '#ef4444' }}></i>
+                        Export cartella clinica in PDF
+                      </div>
+                      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+                        Il PDF include tutte le sezioni principali della cartella clinica del paziente.
+                      </div>
+                      {marketingPdfError && (
+                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
+                          {marketingPdfError}
+                        </div>
+                      )}
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={handleExportClinicalFolderPdf}
+                        disabled={exportingClinicalPdf}
+                      >
+                        {exportingClinicalPdf ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" style={{ marginRight: 8 }}></span>
+                            Generazione PDF...
+                          </>
+                        ) : (
+                          <>
+                            <i className="ri-download-2-line" style={{ marginRight: 4 }}></i>
+                            Genera e scarica PDF
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>

@@ -548,6 +548,10 @@ const clientiService = {
     return response.data;
   },
 
+  async exportClinicalFolderPdf(id) {
+    return api.get(`${API_BASE}/${id}/clinical-folder-export`, { responseType: 'blob' });
+  },
+
   // ==================== PROFESSIONAL ASSIGNMENT ====================
 
   /**

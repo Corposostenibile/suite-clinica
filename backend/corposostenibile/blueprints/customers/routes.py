@@ -1864,6 +1864,335 @@ def _require_cliente_scope_or_403(cliente_id: int) -> None:
     if scoped_query.filter(Cliente.cliente_id == cliente_id).first() is None:
         abort(HTTPStatus.FORBIDDEN, description="Cliente fuori dal perimetro autorizzato.")
 
+
+def _export_pdf_format_value(value: Any) -> str:
+    if value is None:
+        return "-"
+    if hasattr(value, "value"):
+        value = value.value
+    if isinstance(value, bool):
+        return "Si" if value else "No"
+    if isinstance(value, (date, datetime)):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, (list, tuple, set)):
+        if not value:
+            return "-"
+        return ", ".join(_export_pdf_format_value(item) for item in value)
+    text = str(value).strip()
+    return text or "-"
+
+
+def _export_pdf_user_label(user: Any) -> str:
+    if not user:
+        return "-"
+    full_name = getattr(user, "full_name", None)
+    if full_name:
+        return str(full_name)
+    email = getattr(user, "email", None)
+    if email:
+        return str(email)
+    user_id = getattr(user, "id", None)
+    if user_id:
+        return f"Utente #{user_id}"
+    return "-"
+
+
+def _append_export_section(story: list[Any], styles: Any, title: str, rows: list[tuple[str, Any]], col_widths: list[float]) -> None:
+    from reportlab.lib import colors
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+
+    story.append(Paragraph(title, styles["Heading2"]))
+    data: list[list[Any]] = []
+    for label, value in rows:
+        rendered = _export_pdf_format_value(value)
+        data.append([
+            Paragraph(f"<b>{label}</b>", styles["Normal"]),
+            Paragraph(rendered.replace("\n", "<br/>"), styles["Normal"]),
+        ])
+
+    if not data:
+        data = [[Paragraph("<b>Info</b>", styles["Normal"]), Paragraph("Nessun dato disponibile", styles["Normal"])]]
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f8fafc")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d1d5db")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(table)
+    story.append(Spacer(1, 10))
+
+
+@api_bp.route("/<int:cliente_id>/clinical-folder-export", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_clinical_folder_export_pdf(cliente_id: int):
+    from io import BytesIO
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import cm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+    _require_cliente_scope_or_403(cliente_id)
+    cliente = customers_repo.get_one(cliente_id, eager=True)
+
+    weekly_checks_count = (
+        db.session.query(func.count(WeeklyCheck.id))
+        .filter(WeeklyCheck.cliente_id == cliente_id)
+        .scalar()
+        or 0
+    )
+    weekly_responses_count = (
+        db.session.query(func.count(WeeklyCheckResponse.id))
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(WeeklyCheck.cliente_id == cliente_id)
+        .scalar()
+        or 0
+    )
+    latest_check_response_date = (
+        db.session.query(func.max(WeeklyCheckResponse.submit_date))
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(WeeklyCheck.cliente_id == cliente_id)
+        .scalar()
+    )
+
+    initial_checks_count = (
+        db.session.query(func.count(ClientCheckAssignment.id))
+        .filter(ClientCheckAssignment.cliente_id == cliente_id)
+        .scalar()
+        or 0
+    )
+    initial_checks_completed_count = (
+        db.session.query(func.count(ClientCheckAssignment.id))
+        .filter(
+            ClientCheckAssignment.cliente_id == cliente_id,
+            ClientCheckAssignment.response_count > 0,
+        )
+        .scalar()
+        or 0
+    )
+
+    meal_plans = (
+        db.session.query(MealPlan)
+        .filter(MealPlan.cliente_id == cliente_id)
+        .order_by(MealPlan.created_at.desc())
+        .all()
+    )
+    training_plans = (
+        db.session.query(TrainingPlan)
+        .filter(TrainingPlan.cliente_id == cliente_id)
+        .order_by(TrainingPlan.created_at.desc())
+        .all()
+    )
+    training_locations = (
+        db.session.query(TrainingLocation)
+        .filter(TrainingLocation.cliente_id == cliente_id)
+        .order_by(TrainingLocation.created_at.desc())
+        .all()
+    )
+
+    trustpilot_reviews = (
+        db.session.query(TrustpilotReview)
+        .filter(TrustpilotReview.cliente_id == cliente_id)
+        .order_by(TrustpilotReview.data_richiesta.desc())
+        .all()
+    )
+    video_review_requests = (
+        db.session.query(VideoReviewRequest)
+        .filter(VideoReviewRequest.cliente_id == cliente_id)
+        .order_by(VideoReviewRequest.created_at.desc())
+        .all()
+    )
+
+    call_bonus_items = []
+    tickets_count: int | None = None
+    try:
+        from corposostenibile.models import CallBonus, Ticket
+
+        call_bonus_items = (
+            db.session.query(CallBonus)
+            .filter(CallBonus.cliente_id == cliente_id)
+            .order_by(CallBonus.created_at.desc())
+            .all()
+        )
+        tickets_count = (
+            db.session.query(func.count(Ticket.id))
+            .filter(Ticket.cliente_id == cliente_id)
+            .scalar()
+            or 0
+        )
+    except Exception:
+        tickets_count = None
+
+    cartelle = (
+        db.session.query(CartellaClinica)
+        .filter(CartellaClinica.cliente_id == cliente_id)
+        .all()
+    )
+    attachments_count = sum(len(item.allegati or []) for item in cartelle)
+
+    latest_meal_plan = meal_plans[0] if meal_plans else None
+    latest_training_plan = training_plans[0] if training_plans else None
+    latest_training_location = training_locations[0] if training_locations else None
+    latest_trustpilot = trustpilot_reviews[0] if trustpilot_reviews else None
+    latest_video_review = video_review_requests[0] if video_review_requests else None
+    latest_call_bonus = call_bonus_items[0] if call_bonus_items else None
+
+    pdf_buffer = BytesIO()
+    document = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=A4,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
+        topMargin=1.3 * cm,
+        bottomMargin=1.3 * cm,
+        title=f"Cartella Clinica - {cliente.nome_cognome}",
+    )
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="ExportTitle",
+        parent=styles["Heading1"],
+        fontSize=16,
+        leading=20,
+        textColor=colors.HexColor("#0f172a"),
+        spaceAfter=4,
+    ))
+    styles.add(ParagraphStyle(
+        name="ExportMeta",
+        parent=styles["Normal"],
+        fontSize=9,
+        textColor=colors.HexColor("#475569"),
+        spaceAfter=10,
+    ))
+
+    story: list[Any] = []
+    generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
+    story.append(Paragraph("Cartella Clinica Paziente", styles["ExportTitle"]))
+    story.append(Paragraph(f"Paziente: {_export_pdf_format_value(cliente.nome_cognome)} | Generato il: {generated_at}", styles["ExportMeta"]))
+    story.append(Spacer(1, 8))
+
+    col_widths = [5.2 * cm, 11.6 * cm]
+
+    _append_export_section(story, styles, "Anagrafica", [
+        ("ID paziente", cliente.cliente_id),
+        ("Nome e cognome", cliente.nome_cognome),
+        ("Data di nascita", cliente.data_di_nascita),
+        ("Genere", cliente.genere),
+        ("Email", cliente.mail),
+        ("Telefono", cliente.numero_telefono),
+        ("Professione", cliente.professione),
+        ("Paese", cliente.paese),
+        ("Indirizzo", cliente.indirizzo),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Programma", [
+        ("Programma attuale", cliente.programma_attuale),
+        ("Dettaglio programma", cliente.programma_attuale_dettaglio),
+        ("Macrocategoria", cliente.macrocategoria),
+        ("Obiettivo", cliente.obiettivo_cliente or cliente.obiettivo_semplicato),
+        ("Tipologia cliente", cliente.tipologia_cliente),
+        ("Stato cliente", cliente.stato_cliente),
+        ("Data inizio abbonamento", cliente.data_inizio_abbonamento),
+        ("Data rinnovo", cliente.data_rinnovo),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Team", [
+        ("Nutrizionista", cliente.nutrizionista or _export_pdf_user_label(getattr(cliente, "nutrizionista_user", None))),
+        ("Coach", cliente.coach or _export_pdf_user_label(getattr(cliente, "coach_user", None))),
+        ("Psicologia", cliente.psicologa or _export_pdf_user_label(getattr(cliente, "psicologa_user", None))),
+        ("Health Manager", _export_pdf_user_label(getattr(cliente, "health_manager_user", None))),
+        ("Consulente", _export_pdf_user_label(getattr(cliente, "consulente_alimentare_user", None))),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Nutrizione", [
+        ("Stato nutrizione", cliente.stato_nutrizione),
+        ("Stato chat nutrizione", cliente.stato_cliente_chat_nutrizione),
+        ("Reach out nutrizione", cliente.reach_out_nutrizione),
+        ("Piani alimentari totali", len(meal_plans)),
+        ("Ultimo piano alimentare", getattr(latest_meal_plan, "name", None)),
+        ("Ultimo piano - inizio", getattr(latest_meal_plan, "start_date", None)),
+        ("Ultimo piano - fine", getattr(latest_meal_plan, "end_date", None)),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Coaching", [
+        ("Stato coaching", cliente.stato_coach),
+        ("Stato chat coaching", cliente.stato_cliente_chat_coaching),
+        ("Reach out coaching", cliente.reach_out_coaching),
+        ("Piani allenamento totali", len(training_plans)),
+        ("Ultimo piano allenamento", getattr(latest_training_plan, "name", None)),
+        ("Ultimo piano - inizio", getattr(latest_training_plan, "start_date", None)),
+        ("Ultimo piano - fine", getattr(latest_training_plan, "end_date", None)),
+        ("Ultima location allenamento", getattr(latest_training_location, "location", None)),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Psicologia e Medico", [
+        ("Stato psicologia", cliente.stato_psicologia),
+        ("Stato chat psicologia", cliente.stato_cliente_chat_psicologia),
+        ("Reach out psicologia", cliente.reach_out_psicologia),
+        ("Storia psicologica", cliente.storia_psicologica),
+        ("Note extra psicologia", cliente.note_extra_psicologa),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Check Periodici e Iniziali", [
+        ("Weekly check configurati", weekly_checks_count),
+        ("Risposte weekly check", weekly_responses_count),
+        ("Ultima risposta weekly", latest_check_response_date),
+        ("Check iniziali assegnati", initial_checks_count),
+        ("Check iniziali completati", initial_checks_completed_count),
+        ("Giorno check", cliente.check_day),
+        ("Check saltati", cliente.check_saltati),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Loom e Ticket", [
+        ("Loom link", cliente.loom_link),
+        ("Ticket associati", tickets_count),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Call Bonus", [
+        ("Richieste call bonus", len(call_bonus_items)),
+        ("Ultimo stato call bonus", getattr(latest_call_bonus, "status", None)),
+        ("Ultima richiesta call bonus", getattr(latest_call_bonus, "data_richiesta", None)),
+        ("Tipo professionista ultimo call bonus", getattr(latest_call_bonus, "tipo_professionista", None)),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Marketing", [
+        ("Richieste Trustpilot", len(trustpilot_reviews)),
+        ("Ultima richiesta Trustpilot", getattr(latest_trustpilot, "data_richiesta", None)),
+        ("Ultima recensione pubblicata", getattr(latest_trustpilot, "data_pubblicazione", None)),
+        ("Ultime stelle", getattr(latest_trustpilot, "stelle", None)),
+        ("Video review richieste", len(video_review_requests)),
+        ("Ultimo stato video review", getattr(latest_video_review, "status", None)),
+        ("Ultima data video review", getattr(latest_video_review, "booking_date", None)),
+    ], col_widths)
+
+    _append_export_section(story, styles, "Documentazione cartella", [
+        ("Cartelle cliniche", len(cartelle)),
+        ("Allegati totali", attachments_count),
+        ("Alert", cliente.alert),
+        ("Alert storia", cliente.alert_storia),
+    ], col_widths)
+
+    document.build(story)
+    pdf_buffer.seek(0)
+
+    safe_name = (cliente.nome_cognome or f"cliente_{cliente_id}").strip().replace(" ", "_")
+    safe_name = "".join(ch for ch in safe_name if ch.isalnum() or ch in {"_", "-"}) or f"cliente_{cliente_id}"
+
+    from flask import send_file
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"cartella_clinica_{safe_name}.pdf",
+    )
+
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_detail(cliente_id: int) -> Any:
