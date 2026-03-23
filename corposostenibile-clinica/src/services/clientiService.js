@@ -548,6 +548,38 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== MARKETING CONSENTS ====================
+
+  async getMarketingConsents(id) {
+    const response = await api.get(`${API_BASE}/${id}/marketing-consents`);
+    return response.data;
+  },
+
+  async saveMarketingConsents(id, data) {
+    const response = await api.put(`${API_BASE}/${id}/marketing-consents`, data);
+    return response.data;
+  },
+
+  async createMarketingContent(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/marketing-consents/content`, data);
+    return response.data;
+  },
+
+  async updateMarketingContent(contentId, data) {
+    const response = await api.put(`${API_BASE}/marketing-consents/content/${contentId}`, data);
+    return response.data;
+  },
+
+  async deleteMarketingContent(contentId) {
+    const response = await api.delete(`${API_BASE}/marketing-consents/content/${contentId}`);
+    return response.data;
+  },
+
+  async listMarketingInfluencers() {
+    const response = await api.get(`${API_BASE}/marketing-consents/influencers`);
+    return response.data;
+  },
+
   // ==================== PROFESSIONAL ASSIGNMENT ====================
 
   /**

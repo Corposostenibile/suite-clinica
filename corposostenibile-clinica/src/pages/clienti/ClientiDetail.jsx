@@ -752,6 +752,22 @@ function ClientiDetail() {
   const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
+  const [marketingConsents, setMarketingConsents] = useState({
+    note_marketing: '',
+    usabile_marketing: { checked: false, checked_date: '' },
+    contents: { stories: [], carosello: [], videofeedback: [] },
+  });
+  const [marketingInfluencers, setMarketingInfluencers] = useState([]);
+  const [loadingMarketingConsents, setLoadingMarketingConsents] = useState(false);
+  const [savingMarketingConsents, setSavingMarketingConsents] = useState(false);
+  const [showMarketingContentModal, setShowMarketingContentModal] = useState(false);
+  const [editingMarketingContent, setEditingMarketingContent] = useState(null);
+  const [marketingContentForm, setMarketingContentForm] = useState({
+    content_type: 'stories',
+    checked: true,
+    checked_date: new Date().toISOString().split('T')[0],
+    influencer_ids: [],
+  });
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -1293,6 +1309,117 @@ function ClientiDetail() {
       fetchVideoReviewRequests();
     }
   }, [activeTab, fetchVideoReviewRequests]);
+
+  const fetchMarketingConsents = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingMarketingConsents(true);
+    try {
+      const [consentsRes, influencersRes] = await Promise.all([
+        clientiService.getMarketingConsents(id),
+        clientiService.listMarketingInfluencers(),
+      ]);
+      const data = consentsRes?.data || {};
+      setMarketingConsents({
+        note_marketing: data.note_marketing || '',
+        usabile_marketing: {
+          checked: Boolean(data?.usabile_marketing?.checked),
+          checked_date: data?.usabile_marketing?.checked_date || '',
+        },
+        contents: {
+          stories: Array.isArray(data?.contents?.stories) ? data.contents.stories : [],
+          carosello: Array.isArray(data?.contents?.carosello) ? data.contents.carosello : [],
+          videofeedback: Array.isArray(data?.contents?.videofeedback) ? data.contents.videofeedback : [],
+        },
+      });
+      setMarketingInfluencers(Array.isArray(influencersRes?.data) ? influencersRes.data : []);
+    } catch (err) {
+      console.error('Error fetching marketing consents:', err);
+    } finally {
+      setLoadingMarketingConsents(false);
+    }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') {
+      fetchMarketingConsents();
+    }
+  }, [activeTab, fetchMarketingConsents]);
+
+  const handleSaveMarketingConsents = async () => {
+    if (!id) return;
+    setSavingMarketingConsents(true);
+    try {
+      await clientiService.saveMarketingConsents(id, {
+        note_marketing: marketingConsents.note_marketing,
+        usabile_marketing: marketingConsents.usabile_marketing,
+      });
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error saving marketing consents:', err);
+      alert('Errore nel salvataggio dei consensi marketing.');
+    } finally {
+      setSavingMarketingConsents(false);
+    }
+  };
+
+  const openNewMarketingContentModal = (contentType) => {
+    setEditingMarketingContent(null);
+    setMarketingContentForm({
+      content_type: contentType,
+      checked: true,
+      checked_date: new Date().toISOString().split('T')[0],
+      influencer_ids: [],
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const openEditMarketingContentModal = (item) => {
+    setEditingMarketingContent(item);
+    setMarketingContentForm({
+      content_type: item.content_type,
+      checked: Boolean(item.checked),
+      checked_date: item.checked_date || '',
+      influencer_ids: Array.isArray(item.influencers) ? item.influencers.map((i) => i.influencer_id) : [],
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const handleSaveMarketingContent = async () => {
+    if (!id) return;
+    setSavingMarketingConsents(true);
+    try {
+      const payload = {
+        content_type: marketingContentForm.content_type,
+        checked: marketingContentForm.checked,
+        checked_date: marketingContentForm.checked ? (marketingContentForm.checked_date || null) : null,
+        influencer_ids: marketingContentForm.influencer_ids,
+      };
+      if (editingMarketingContent?.id) {
+        await clientiService.updateMarketingContent(editingMarketingContent.id, payload);
+      } else {
+        await clientiService.createMarketingContent(id, payload);
+      }
+      setShowMarketingContentModal(false);
+      setEditingMarketingContent(null);
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error saving marketing content:', err);
+      alert('Errore nel salvataggio del contenuto marketing.');
+    } finally {
+      setSavingMarketingConsents(false);
+    }
+  };
+
+  const handleDeleteMarketingContent = async (contentId) => {
+    if (!window.confirm('Eliminare questo contenuto marketing?')) return;
+    try {
+      await clientiService.deleteMarketingContent(contentId);
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error deleting marketing content:', err);
+      alert('Errore durante eliminazione contenuto.');
+    }
+  };
 
   const handleGenerateTrustpilotLink = async () => {
     if (!id) return;
@@ -7997,6 +8124,100 @@ function ClientiDetail() {
                     Marketing — Trustpilot
                   </h5>
 
+                  <div style={{ marginBottom: 24, padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700 }}>
+                        <i className="ri-shield-check-line" style={{ marginRight: 6, color: '#25B36A' }}></i>
+                        Consensi Marketing
+                      </div>
+                      <button className="btn btn-success btn-sm" onClick={handleSaveMarketingConsents} disabled={savingMarketingConsents}>
+                        {savingMarketingConsents ? 'Salvataggio...' : 'Salva Consensi'}
+                      </button>
+                    </div>
+
+                    {loadingMarketingConsents ? (
+                      <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                    ) : (
+                      <>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Note Marketing</label>
+                          <textarea
+                            className="form-control"
+                            rows={3}
+                            value={marketingConsents.note_marketing || ''}
+                            onChange={(e) => setMarketingConsents((prev) => ({ ...prev, note_marketing: e.target.value }))}
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <div className="form-check form-switch">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id="marketing-usabile-check"
+                              checked={Boolean(marketingConsents?.usabile_marketing?.checked)}
+                              onChange={(e) =>
+                                setMarketingConsents((prev) => ({
+                                  ...prev,
+                                  usabile_marketing: {
+                                    checked: e.target.checked,
+                                    checked_date: e.target.checked
+                                      ? (prev?.usabile_marketing?.checked_date || new Date().toISOString().split('T')[0])
+                                      : '',
+                                  },
+                                }))
+                              }
+                            />
+                            <label className="form-check-label" htmlFor="marketing-usabile-check">Usabile per marketing</label>
+                          </div>
+                        </div>
+
+                        {[
+                          { key: 'stories', label: 'Stories Editate', icon: 'ri-instagram-line' },
+                          { key: 'carosello', label: 'Carosello Editato', icon: 'ri-layout-grid-line' },
+                          { key: 'videofeedback', label: 'Videofeedback Editato', icon: 'ri-video-line' },
+                        ].map((section) => (
+                          <div key={section.key} style={{ marginTop: 18 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                              <h6 style={{ margin: 0, fontWeight: 700 }}>
+                                <i className={section.icon} style={{ marginRight: 6 }}></i>{section.label}
+                              </h6>
+                              <button className="btn btn-outline-success btn-sm" onClick={() => openNewMarketingContentModal(section.key)}>
+                                <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                              </button>
+                            </div>
+                            {!marketingConsents?.contents?.[section.key]?.length ? (
+                              <div style={{ fontSize: 13, color: '#94a3b8', padding: '8px 0' }}>Nessuna registrazione.</div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {marketingConsents.contents[section.key].map((item) => (
+                                  <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                      <div style={{ fontSize: 13 }}>
+                                        <strong>{item.checked ? 'Editato' : 'Non editato'}</strong>
+                                        <span style={{ marginLeft: 10, color: '#64748b' }}>{item.checked_date || 'Data non indicata'}</span>
+                                        <div style={{ color: '#64748b', marginTop: 4 }}>
+                                          {(item.influencers || []).map((x) => x.name).join(', ') || 'Nessun profilo influencer'}
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: 6 }}>
+                                        <button className="btn btn-outline-secondary btn-sm" onClick={() => openEditMarketingContentModal(item)}>
+                                          <i className="ri-edit-line"></i>
+                                        </button>
+                                        <button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteMarketingContent(item.id)}>
+                                          <i className="ri-delete-bin-line"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+
                   {canUseVideoReviewFlow && (
                     <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -8188,6 +8409,86 @@ function ClientiDetail() {
                         </div>
                       )}
                     </>
+                  )}
+
+                  {showMarketingContentModal && (
+                    <div
+                      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.35)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => setShowMarketingContentModal(false)}
+                    >
+                      <div
+                        style={{ background: '#fff', borderRadius: 14, padding: 20, width: '100%', maxWidth: 560 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <h6 style={{ fontWeight: 700, marginBottom: 12 }}>
+                          {editingMarketingContent ? 'Modifica registrazione' : 'Nuova registrazione'}
+                        </h6>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Tipo contenuto</label>
+                          <select
+                            className="form-select"
+                            value={marketingContentForm.content_type}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, content_type: e.target.value }))}
+                            disabled={Boolean(editingMarketingContent)}
+                          >
+                            <option value="stories">Stories</option>
+                            <option value="carosello">Carosello</option>
+                            <option value="videofeedback">Videofeedback</option>
+                          </select>
+                        </div>
+                        <div className="mb-3 form-check form-switch">
+                          <input
+                            className="form-check-input"
+                            id="mk-content-checked"
+                            type="checkbox"
+                            checked={marketingContentForm.checked}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked: e.target.checked }))}
+                          />
+                          <label className="form-check-label" htmlFor="mk-content-checked">Editato</label>
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Data</label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={marketingContentForm.checked_date || ''}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked_date: e.target.value }))}
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Profili di condivisione</label>
+                          <div style={{ maxHeight: 180, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+                            {marketingInfluencers.map((inf) => (
+                              <div className="form-check" key={inf.influencer_id}>
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`mk-inf-${inf.influencer_id}`}
+                                  checked={marketingContentForm.influencer_ids.includes(inf.influencer_id)}
+                                  onChange={(e) => {
+                                    setMarketingContentForm((prev) => ({
+                                      ...prev,
+                                      influencer_ids: e.target.checked
+                                        ? [...prev.influencer_ids, inf.influencer_id]
+                                        : prev.influencer_ids.filter((x) => x !== inf.influencer_id),
+                                    }));
+                                  }}
+                                />
+                                <label className="form-check-label" htmlFor={`mk-inf-${inf.influencer_id}`}>
+                                  {inf.name}{inf.handle ? ` (${inf.handle})` : ''}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                          <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowMarketingContentModal(false)}>Annulla</button>
+                          <button className="btn btn-success btn-sm" onClick={handleSaveMarketingContent} disabled={savingMarketingConsents}>
+                            {savingMarketingConsents ? 'Salvataggio...' : 'Salva'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}

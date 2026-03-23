@@ -25,6 +25,10 @@ from sqlalchemy.orm.dynamic import AppenderQuery  # patch __len__
 from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente,
+    ClienteMarketingFlag,
+    ClienteMarketingContent,
+    MarketingFlagTypeEnum,
+    MarketingContentTypeEnum,
     TipologiaClienteEnum,
     StatoClienteEnum,
     GiornoEnum,
@@ -201,6 +205,12 @@ class CustomerFilterParams:
     missing_consulente_alimentare: bool = False
 
     # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+    # Marketing
+    marketing_usabile: Optional[bool] = None  # 3-state
+    marketing_stories: Optional[bool] = None  # 3-state
+    marketing_carosello: Optional[bool] = None  # 3-state
+    marketing_videofeedback: Optional[bool] = None  # 3-state
+
     # Consenso Social
     consenso_social_richiesto: Optional[bool] = None  # 3-state
     consenso_social_accettato: Optional[bool] = None  # 3-state
@@ -489,6 +499,10 @@ class CustomerFilterParams:
             missing_health_manager=args.get("missing_health_manager") == "1",
             missing_consulente_alimentare=args.get("missing_consulente_alimentare") == "1",
             # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+            marketing_usabile=_parse_3state_bool(args.get("marketing_usabile")),
+            marketing_stories=_parse_3state_bool(args.get("marketing_stories")),
+            marketing_carosello=_parse_3state_bool(args.get("marketing_carosello")),
+            marketing_videofeedback=_parse_3state_bool(args.get("marketing_videofeedback")),
             consenso_social_richiesto=_parse_3state_bool(args.get("consenso_social_richiesto")),
             consenso_social_accettato=_parse_3state_bool(args.get("consenso_social_accettato")),
             consenso_social_con_documento=args.get("consenso_social_con_documento") == "1",
@@ -993,6 +1007,44 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         )
 
     # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+    if p.marketing_usabile is not None:
+        if p.marketing_usabile:
+            qry = qry.filter(
+                Cliente.cliente_id.in_(
+                    db.session.query(ClienteMarketingFlag.cliente_id).filter(
+                        ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+                        ClienteMarketingFlag.checked.is_(True),
+                    )
+                )
+            )
+        else:
+            qry = qry.filter(
+                ~Cliente.cliente_id.in_(
+                    db.session.query(ClienteMarketingFlag.cliente_id).filter(
+                        ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+                        ClienteMarketingFlag.checked.is_(True),
+                    )
+                )
+            )
+
+    def _apply_marketing_content_filter(base_query: Query, content_type: MarketingContentTypeEnum, expected: bool) -> Query:
+        content_subq = db.session.query(ClienteMarketingContent.cliente_id).filter(
+            ClienteMarketingContent.content_type == content_type,
+            ClienteMarketingContent.checked.is_(True),
+        )
+        return (
+            base_query.filter(Cliente.cliente_id.in_(content_subq))
+            if expected
+            else base_query.filter(~Cliente.cliente_id.in_(content_subq))
+        )
+
+    if p.marketing_stories is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.stories, p.marketing_stories)
+    if p.marketing_carosello is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.carosello, p.marketing_carosello)
+    if p.marketing_videofeedback is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.videofeedback, p.marketing_videofeedback)
+
     # Consenso Social
     if p.consenso_social_richiesto is not None:
         qry = qry.filter(Cliente.consenso_social_richiesto == p.consenso_social_richiesto)
