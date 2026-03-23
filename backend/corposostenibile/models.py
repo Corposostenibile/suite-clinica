@@ -193,6 +193,25 @@ class CallBonusStatusEnum(str, Enum):
     non_interessato = "non_interessato"
 
 
+class CallRinnovoStatusEnum(str, Enum):
+    """Stati della richiesta di call rinnovo"""
+    proposta = "proposta"
+    accettata = "accettata"
+    rifiutata = "rifiutata"
+    confermata = "confermata"
+    non_andata_buon_fine = "non_andata_buon_fine"
+
+
+class VideoFeedbackStatusEnum(str, Enum):
+    """Stati della richiesta di video feedback"""
+    proposta = "proposta"
+    accettata = "accettata"
+    rifiutata = "rifiutata"
+    confermata = "confermata"
+    non_andata_buon_fine = "non_andata_buon_fine"
+    completata = "completata"
+
+
 class TrasformazioneEnum(str, Enum):
     no = "no"
     si = "si"
@@ -11866,6 +11885,121 @@ class CallBonus(TimestampMixin, db.Model):
 
     def __repr__(self):
         return f"<CallBonus cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
+
+
+class CallRinnovo(TimestampMixin, db.Model):
+    """
+    Gestione delle richieste di call rinnovo per i clienti.
+    Flusso uguale a CallBonus ma dedicato alle chiamate di rinnovo.
+    """
+    __tablename__ = "call_rinnovo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
+
+    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    tipo_professionista = db.Column(
+        _def(TipoProfessionistaEnum),
+        nullable=False,
+        index=True
+    )
+
+    status = db.Column(
+        _def(CallRinnovoStatusEnum),
+        nullable=False,
+        default=CallRinnovoStatusEnum.proposta,
+        index=True
+    )
+
+    data_richiesta = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    data_risposta = db.Column(db.Date)
+    data_conferma_hm = db.Column(db.Date)
+
+    note_richiesta = db.Column(db.Text)
+    booking_confirmed = db.Column(db.Boolean, default=False)
+    data_booking_confirmed = db.Column(db.DateTime)
+
+    data_interesse = db.Column(db.DateTime)
+    hm_booking_confirmed = db.Column(db.Boolean, default=False)
+    data_hm_booking_confirmed = db.Column(db.DateTime)
+    webhook_sent = db.Column(db.Boolean, default=False)
+    webhook_sent_at = db.Column(db.DateTime)
+
+    motivazione_rifiuto = db.Column(db.Text)
+    confermata_hm = db.Column(db.Boolean)
+    note_hm = db.Column(db.Text)
+    gestita_da_hm_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    convertito = db.Column(db.Boolean, default=False)
+    data_conversione = db.Column(db.Date, nullable=True)
+    pagamento_id = db.Column(db.Integer, db.ForeignKey("pagamenti_interni.id"), nullable=True, index=True)
+
+    cliente = db.relationship('Cliente', backref='call_rinnovo_history')
+    professionista = db.relationship('User', foreign_keys=[professionista_id], backref='call_rinnovo_professionista')
+    created_by = db.relationship('User', foreign_keys=[created_by_id], backref='call_rinnovo_create')
+    gestita_da_hm = db.relationship('User', foreign_keys=[gestita_da_hm_id], backref='call_rinnovo_gestite')
+    pagamento = db.relationship('PagamentoInterno', foreign_keys=[pagamento_id], backref='call_rinnovo_origine')
+
+    def __repr__(self):
+        return f"<CallRinnovo cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
+
+
+class VideoFeedback(TimestampMixin, db.Model):
+    """
+    Gestione delle richieste di video feedback per i clienti.
+    Simile a CallBonus/Rinnovo ma per video feedback.
+    """
+    __tablename__ = "video_feedback"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=False, index=True)
+
+    professionista_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    tipo_professionista = db.Column(
+        _def(TipoProfessionistaEnum),
+        nullable=False,
+        index=True
+    )
+
+    status = db.Column(
+        _def(VideoFeedbackStatusEnum),
+        nullable=False,
+        default=VideoFeedbackStatusEnum.proposta,
+        index=True
+    )
+
+    data_richiesta = db.Column(db.Date, nullable=False, default=date.today, index=True)
+    data_risposta = db.Column(db.Date)
+    data_conferma_hm = db.Column(db.Date)
+
+    note_richiesta = db.Column(db.Text)
+    booking_confirmed = db.Column(db.Boolean, default=False)
+    data_booking_confirmed = db.Column(db.DateTime)
+
+    data_interesse = db.Column(db.DateTime)
+    hm_booking_confirmed = db.Column(db.Boolean, default=False)
+    data_hm_booking_confirmed = db.Column(db.DateTime)
+
+    motivazione_rifiuto = db.Column(db.Text)
+    confermata_hm = db.Column(db.Boolean)
+    note_hm = db.Column(db.Text)
+    gestita_da_hm_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    created_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    loom_link = db.Column(db.String(500))
+
+    convertito = db.Column(db.Boolean, default=False)
+    data_conversione = db.Column(db.Date, nullable=True)
+    pagamento_id = db.Column(db.Integer, db.ForeignKey("pagamenti_interni.id"), nullable=True, index=True)
+
+    cliente = db.relationship('Cliente', backref='video_feedback_history')
+    professionista = db.relationship('User', foreign_keys=[professionista_id], backref='video_feedback_professionista')
+    created_by = db.relationship('User', foreign_keys=[created_by_id], backref='video_feedback_create')
+    gestita_da_hm = db.relationship('User', foreign_keys=[gestita_da_hm_id], backref='video_feedback_gestite')
+    pagamento = db.relationship('PagamentoInterno', foreign_keys=[pagamento_id], backref='video_feedback_origine')
+
+    def __repr__(self):
+        return f"<VideoFeedback cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
 
 
 class VideoReviewRequest(TimestampMixin, db.Model):
