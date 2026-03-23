@@ -168,7 +168,7 @@ function ClientiDetail() {
     // Tutti i ruoli vedono tutte le tab della scheda paziente
     return new Set([
       'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
-      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
+      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'richieste_call',
       ...(canViewMarketingTab ? ['marketing'] : [])
     ]);
   }, []);
@@ -860,6 +860,29 @@ function ClientiDetail() {
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [decliningCallBonus, setDecliningCallBonus] = useState(false);
 
+  // Richieste Call sub-tab state
+  const [richiesteCallSubTab, setRichiesteCallSubTab] = useState('call_bonus');
+
+  // Call Rinnovo state
+  const [callRinnovoHistory, setCallRinnovoHistory] = useState([]);
+  const [loadingCallRinnovo, setLoadingCallRinnovo] = useState(false);
+  const [showCallRinnovoModal, setShowCallRinnovoModal] = useState(false);
+  const [callRinnovoForm, setCallRinnovoForm] = useState({ tipo_professionista: '', note_richiesta: '' });
+  const [savingCallRinnovo, setSavingCallRinnovo] = useState(false);
+  const [selectedCallRinnovo, setSelectedCallRinnovo] = useState(null);
+  const [showCallRinnovoConfirmModal, setShowCallRinnovoConfirmModal] = useState(false);
+  const [callRinnovoConfirmForm, setCallRinnovoConfirmForm] = useState({ note_hm: '' });
+
+  // Video Feedback state
+  const [videoFeedbackHistory, setVideoFeedbackHistory] = useState([]);
+  const [loadingVideoFeedback, setLoadingVideoFeedback] = useState(false);
+  const [showVideoFeedbackModal, setShowVideoFeedbackModal] = useState(false);
+  const [videoFeedbackForm, setVideoFeedbackForm] = useState({ tipo_professionista: '', note_richiesta: '' });
+  const [savingVideoFeedback, setSavingVideoFeedback] = useState(false);
+  const [selectedVideoFeedback, setSelectedVideoFeedback] = useState(null);
+  const [showVideoFeedbackCompleteModal, setShowVideoFeedbackCompleteModal] = useState(false);
+  const [videoFeedbackCompleteForm, setVideoFeedbackCompleteForm] = useState({ loom_link: '', note_hm: '' });
+
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
   const [assigningType, setAssigningType] = useState(null);
@@ -1516,10 +1539,40 @@ function ClientiDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'call_bonus') {
+    if (activeTab === 'richieste_call') {
       fetchCallBonusHistory();
+      fetchCallRinnovoHistory();
+      fetchVideoFeedbackHistory();
     }
   }, [activeTab, fetchCallBonusHistory]);
+
+  // Fetch Call Rinnovo History
+  const fetchCallRinnovoHistory = useCallback(async () => {
+    if (!id) return;
+    setLoadingCallRinnovo(true);
+    try {
+      const result = await clientiService.getCallRinnovoHistory(id);
+      setCallRinnovoHistory(result.data || []);
+    } catch (err) {
+      console.error('Error fetching call rinnovo history:', err);
+    } finally {
+      setLoadingCallRinnovo(false);
+    }
+  }, [id]);
+
+  // Fetch Video Feedback History
+  const fetchVideoFeedbackHistory = useCallback(async () => {
+    if (!id) return;
+    setLoadingVideoFeedback(true);
+    try {
+      const result = await clientiService.getVideoFeedbackHistory(id);
+      setVideoFeedbackHistory(result.data || []);
+    } catch (err) {
+      console.error('Error fetching video feedback history:', err);
+    } finally {
+      setLoadingVideoFeedback(false);
+    }
+  }, [id]);
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
@@ -1611,6 +1664,122 @@ function ClientiDetail() {
       alert('Errore nella conferma interesse. Riprova.');
     } finally {
       setConfirmingBooking(false);
+    }
+  };
+
+  // ── Call Rinnovo Handlers ──
+  const handleOpenCallRinnovoModal = () => {
+    setCallRinnovoForm({ tipo_professionista: '', note_richiesta: '' });
+    setShowCallRinnovoModal(true);
+  };
+
+  const handleCreateCallRinnovo = async () => {
+    if (!callRinnovoForm.tipo_professionista) return;
+    setSavingCallRinnovo(true);
+    try {
+      await clientiService.createCallRinnovoRequest(id, callRinnovoForm);
+      setShowCallRinnovoModal(false);
+      fetchCallRinnovoHistory();
+    } catch (err) {
+      console.error('Error creating call rinnovo:', err);
+      alert('Errore nella creazione della richiesta. Riprova.');
+    } finally {
+      setSavingCallRinnovo(false);
+    }
+  };
+
+  const handleAcceptCallRinnovo = async (callRinnovoId) => {
+    try {
+      await clientiService.acceptCallRinnovo(callRinnovoId);
+      fetchCallRinnovoHistory();
+    } catch (err) {
+      console.error('Error accepting call rinnovo:', err);
+      alert('Errore nell\'accettazione. Riprova.');
+    }
+  };
+
+  const handleDeclineCallRinnovo = async (callRinnovoId) => {
+    try {
+      await clientiService.declineCallRinnovo(callRinnovoId);
+      fetchCallRinnovoHistory();
+    } catch (err) {
+      console.error('Error declining call rinnovo:', err);
+      alert('Errore nel rifiuto. Riprova.');
+    }
+  };
+
+  const handleOpenCallRinnovoConfirm = (item) => {
+    setSelectedCallRinnovo(item);
+    setCallRinnovoConfirmForm({ note_hm: '' });
+    setShowCallRinnovoConfirmModal(true);
+  };
+
+  const handleConfirmCallRinnovo = async () => {
+    if (!selectedCallRinnovo) return;
+    setSavingCallRinnovo(true);
+    try {
+      await clientiService.confirmCallRinnovo(selectedCallRinnovo.id, callRinnovoConfirmForm);
+      setShowCallRinnovoConfirmModal(false);
+      setSelectedCallRinnovo(null);
+      fetchCallRinnovoHistory();
+    } catch (err) {
+      console.error('Error confirming call rinnovo:', err);
+      alert('Errore nella conferma. Riprova.');
+    } finally {
+      setSavingCallRinnovo(false);
+    }
+  };
+
+  // ── Video Feedback Handlers ──
+  const handleOpenVideoFeedbackModal = () => {
+    setVideoFeedbackForm({ tipo_professionista: '', note_richiesta: '' });
+    setShowVideoFeedbackModal(true);
+  };
+
+  const handleCreateVideoFeedback = async () => {
+    if (!videoFeedbackForm.tipo_professionista) return;
+    setSavingVideoFeedback(true);
+    try {
+      await clientiService.createVideoFeedbackRequest(id, videoFeedbackForm);
+      setShowVideoFeedbackModal(false);
+      fetchVideoFeedbackHistory();
+    } catch (err) {
+      console.error('Error creating video feedback:', err);
+      alert('Errore nella creazione della richiesta. Riprova.');
+    } finally {
+      setSavingVideoFeedback(false);
+    }
+  };
+
+  const handleAcceptVideoFeedback = async (videoFeedbackId) => {
+    try {
+      await clientiService.acceptVideoFeedback(videoFeedbackId);
+      fetchVideoFeedbackHistory();
+    } catch (err) {
+      console.error('Error accepting video feedback:', err);
+      alert('Errore nell\'accettazione. Riprova.');
+    }
+  };
+
+  const handleOpenVideoFeedbackComplete = (item) => {
+    setSelectedVideoFeedback(item);
+    setVideoFeedbackCompleteForm({ loom_link: '', note_hm: '' });
+    setShowVideoFeedbackCompleteModal(true);
+  };
+
+  const handleCompleteVideoFeedback = async () => {
+    if (!selectedVideoFeedback) return;
+    setSavingVideoFeedback(true);
+    try {
+      await clientiService.completeVideoFeedback(selectedVideoFeedback.id, videoFeedbackCompleteForm);
+      setShowVideoFeedbackCompleteModal(false);
+      setSelectedVideoFeedback(null);
+      fetchVideoFeedbackHistory();
+    } catch (err) {
+      console.error('Error completing video feedback:', err);
+      alert('Errore nella completamento. Riprova.');
+    } finally {
+      setSavingVideoFeedback(false);
     }
   };
 
@@ -2937,10 +3106,10 @@ function ClientiDetail() {
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
-    { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
+    { id: 'richieste_call', label: 'Richieste Call', icon: 'ri-phone-line' },
     ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
-    if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
+    if (isInfluencer && (tab.id === 'tickets' || tab.id === 'richieste_call')) return false;
     return getAllowedMainTabsForUser().has(tab.id);
   });
 
@@ -8051,27 +8220,14 @@ function ClientiDetail() {
                         <div>
                           <div style={{ fontWeight: 700, marginBottom: 4 }}>
                             <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
-                            Video Recensione con HM
+                            Video Recensioni Completate
                           </div>
                           <div style={{ fontSize: 13, color: '#64748b' }}>
-                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
+                            Solo le video recensioni completate con link Loom sono visualizzate qui.
                           </div>
                         </div>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => setShowVideoReviewBookingModal(true)}
-                          disabled={!cliente?.health_manager_id}
-                        >
-                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
-                          Prenota video recensione con HM
-                        </button>
                       </div>
 
-                      {!cliente?.health_manager_id && (
-                        <div className="alert alert-warning py-2" style={{ marginBottom: 12 }}>
-                          Assegna prima un Health Manager al paziente per abilitare la prenotazione video recensione.
-                        </div>
-                      )}
                       {videoReviewError && (
                         <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
                           {videoReviewError}
@@ -8080,61 +8236,42 @@ function ClientiDetail() {
 
                       {loadingVideoReviewRequests ? (
                         <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
-                      ) : videoReviewRequests.length === 0 ? (
-                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
                       ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
-                            <thead>
-                              <tr>
-                                <th>Stato</th>
-                                <th>Prenotata da</th>
-                                <th>HM</th>
-                                <th>Data prenotazione</th>
-                                <th>Orario</th>
-                                <th>Calendario HM</th>
-                                <th>Loom</th>
-                                <th>Azione</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {videoReviewRequests.map((item) => (
-                                <tr key={item.id}>
-                                  <td>
-                                    <span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>
-                                      {item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}
-                                    </span>
-                                  </td>
-                                  <td>{item.requested_by_name || '—'}</td>
-                                  <td>{item.hm_name || '—'}</td>
-                                  <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
-                                  <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                                  <td>
-                                    {item.hm_calendar_link ? (
-                                      <a href={item.hm_calendar_link} target="_blank" rel="noopener noreferrer">
-                                        <i className="ri-calendar-event-line"></i>
-                                      </a>
-                                    ) : '—'}
-                                  </td>
-                                  <td>
-                                    {item.loom_link ? (
-                                      <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
-                                        <i className="ri-external-link-line"></i>
-                                      </a>
-                                    ) : '—'}
-                                  </td>
-                                  <td>
-                                    {canConfirmVideoReviewHm && item.status === 'booked' ? (
-                                      <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>
-                                        Conferma + Loom
-                                      </button>
-                                    ) : '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                        <>
+                          {(() => {
+                            const completedVideoReviews = videoReviewRequests.filter(item => item.status === 'hm_confirmed' && item.loom_link);
+                            return completedVideoReviews.length === 0 ? (
+                              <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna video recensione completata.</div>
+                            ) : (
+                              <div style={{ overflowX: 'auto' }}>
+                                <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
+                                  <thead>
+                                    <tr>
+                                      <th>HM</th>
+                                      <th>Data conferma</th>
+                                      <th>Link Loom</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {completedVideoReviews.map((item) => (
+                                      <tr key={item.id}>
+                                        <td>{item.hm_name || '—'}</td>
+                                        <td>{item.confirmed_at ? new Date(item.confirmed_at).toLocaleDateString('it-IT') : '—'}</td>
+                                        <td>
+                                          {item.loom_link ? (
+                                            <a href={item.loom_link} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
+                                              <i className="ri-external-link-line me-1"></i>Apri Loom
+                                            </a>
+                                          ) : '—'}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            );
+                          })()}
+                        </>
                       )}
                     </div>
                   )}
@@ -8182,120 +8319,389 @@ function ClientiDetail() {
               )}
 
 
-              {/* ==================== CALL BONUS TAB ==================== */}
-              {/* ==================== CALL BONUS TAB ==================== */}
-              {activeTab === 'call_bonus' && (
+              {/* ==================== RICHIESTE CALL TAB ==================== */}
+              {/* ==================== RICHIESTE CALL TAB ==================== */}
+              {activeTab === 'richieste_call' && (
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <h5 style={{ fontWeight: 700, margin: 0 }}>
                       <i className="ri-phone-line" style={{ marginRight: 8, color: '#3b82f6' }}></i>
-                      Gestione Call Bonus
+                      Gestione Richieste Call
                     </h5>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={handleOpenCallBonusModal}
-                      style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
-                    >
-                      <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
-                    </button>
                   </div>
 
-                  {loadingCallBonus ? (
-                    <div className="text-center py-4"><div className="spinner-border text-primary"></div></div>
-                  ) : callBonusHistory && callBonusHistory.length > 0 ? (
-                    <div className="cd-table-wrap">
-                      <table className="cd-table">
-                        <thead>
-                          <tr>
-                            <th>Data</th>
-                            <th>Professionista Richiesto</th>
-                            <th>Note / Obiettivo</th>
-                            <th>Stato</th>
-                            <th>Calendly</th>
-                            <th style={{ textAlign: 'right' }}>Azioni</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {callBonusHistory.map((cb) => {
-                            const statusColor = {
-                              'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
-                              'accettata': { bg: '#fef3c7', color: '#92400e', label: 'In Attesa Risposta' },
-                              'interessato': { bg: '#dcfce7', color: '#166534', label: 'Interessato' },
-                              'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' },
-                              'rifiutata': { bg: '#f3f4f6', color: '#4b5563', label: 'Rifiutata da professionista' },
-                            }[cb.status] || { bg: '#f3f4f6', color: '#374151', label: cb.status };
+                  <ScrollableSubtabs style={{ marginBottom: 20 }}>
+                    <button
+                      className={`cd-subtab ${richiesteCallSubTab === 'call_bonus' ? 'active green' : ''}`}
+                      onClick={() => setRichiesteCallSubTab('call_bonus')}
+                    >
+                      <i className="ri-gift-line"></i>
+                      Call Bonus
+                    </button>
+                    <button
+                      className={`cd-subtab ${richiesteCallSubTab === 'call_rinnovo' ? 'active green' : ''}`}
+                      onClick={() => setRichiesteCallSubTab('call_rinnovo')}
+                    >
+                      <i className="ri-refresh-line"></i>
+                      Call Rinnovo
+                    </button>
+                    <button
+                      className={`cd-subtab ${richiesteCallSubTab === 'video_feedback' ? 'active green' : ''}`}
+                      onClick={() => setRichiesteCallSubTab('video_feedback')}
+                    >
+                      <i className="ri-video-line"></i>
+                      Video Feedback
+                    </button>
+                  </ScrollableSubtabs>
 
-                            return (
-                              <tr key={cb.id}>
-                                <td>
-                                  {cb.data_richiesta
-                                    ? new Date(cb.data_richiesta).toLocaleDateString('it-IT')
-                                    : '—'}
-                                </td>
-                                <td>
-                                  <span className="fw-semibold">
-                                    {cb.tipo_professionista.charAt(0).toUpperCase() + cb.tipo_professionista.slice(1)}
-                                  </span>
-                                  {cb.professionista_nome && (
-                                    <div className="small text-muted" style={{ marginTop: 2 }}>
-                                      {cb.professionista_nome}
-                                    </div>
-                                  )}
-                                </td>
-                                <td><span className="small text-muted">{cb.note_richiesta || '—'}</span></td>
-                                <td>
-                                  <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
-                                    {statusColor.label}
-                                  </span>
-                                </td>
-                                <td>
-                                  {cb.status === 'interessato' || cb.hm_booking_confirmed ? (
-                                    <span className="cd-badge" style={{ background: '#dcfce7', color: '#166534' }}>
-                                      <i className="ri-check-line me-1"></i>Confermata
-                                    </span>
-                                  ) : '-'}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  {/* Solo il professionista assegnato può rispondere quando in attesa */}
-                                  {cb.status === 'accettata' && cb.is_assigned_professional ? (
-                                    <button
-                                      type="button"
-                                      className="btn btn-sm btn-primary"
-                                      style={{ padding: '2px 10px', fontSize: 12, fontWeight: 700 }}
-                                      onClick={() => { setCallBonusResponseModal(cb); setCallBonusInterestStep('ask'); }}
-                                    >
-                                      Rispondi
-                                    </button>
-                                  ) : cb.status === 'accettata' && cb.is_requester ? (
-                                    <span className="small text-muted">In attesa del professionista</span>
-                                  ) : cb.status === 'interessato' && cb.hm_calendar_link ? (
-                                    <a
-                                      href={cb.hm_calendar_link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="btn btn-sm btn-outline-primary"
-                                      style={{ padding: '2px 8px', fontSize: 12 }}
-                                    >
-                                      <i className="ri-calendar-event-line me-1"></i>Calendly HM
-                                    </a>
-                                  ) : '—'}
-                                </td>
+                  {/* ===== CALL BONUS SUB-TAB ===== */}
+                  {richiesteCallSubTab === 'call_bonus' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div>
+                          <span className="cd-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
+                            <i className="ri-gift-line me-1"></i>Call Bonus
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={handleOpenCallBonusModal}
+                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
+                        >
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
+                        </button>
+                      </div>
+
+                      {loadingCallBonus ? (
+                        <div className="text-center py-4"><div className="spinner-border text-primary"></div></div>
+                      ) : callBonusHistory && callBonusHistory.length > 0 ? (
+                        <div className="cd-table-wrap">
+                          <table className="cd-table">
+                            <thead>
+                              <tr>
+                                <th>Data</th>
+                                <th>Professionista Richiesto</th>
+                                <th>Note / Obiettivo</th>
+                                <th>Stato</th>
+                                <th>Calendly</th>
+                                <th style={{ textAlign: 'right' }}>Azioni</th>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            </thead>
+                            <tbody>
+                              {callBonusHistory.map((cb) => {
+                                const statusColor = {
+                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
+                                  'accettata': { bg: '#fef3c7', color: '#92400e', label: 'In Attesa Risposta' },
+                                  'interessato': { bg: '#dcfce7', color: '#166534', label: 'Interessato' },
+                                  'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' },
+                                  'rifiutata': { bg: '#f3f4f6', color: '#4b5563', label: 'Rifiutata da professionista' },
+                                }[cb.status] || { bg: '#f3f4f6', color: '#374151', label: cb.status };
+
+                                return (
+                                  <tr key={cb.id}>
+                                    <td>
+                                      {cb.data_richiesta
+                                        ? new Date(cb.data_richiesta).toLocaleDateString('it-IT')
+                                        : '—'}
+                                    </td>
+                                    <td>
+                                      <span className="fw-semibold">
+                                        {cb.tipo_professionista.charAt(0).toUpperCase() + cb.tipo_professionista.slice(1)}
+                                      </span>
+                                      {cb.professionista_nome && (
+                                        <div className="small text-muted" style={{ marginTop: 2 }}>
+                                          {cb.professionista_nome}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td><span className="small text-muted">{cb.note_richiesta || '—'}</span></td>
+                                    <td>
+                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
+                                        {statusColor.label}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {cb.status === 'interessato' || cb.hm_booking_confirmed ? (
+                                        <span className="cd-badge" style={{ background: '#dcfce7', color: '#166534' }}>
+                                          <i className="ri-check-line me-1"></i>Confermata
+                                        </span>
+                                      ) : '-'}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                      {cb.status === 'accettata' && cb.is_assigned_professional ? (
+                                        <button
+                                          type="button"
+                                          className="btn btn-sm btn-primary"
+                                          style={{ padding: '2px 10px', fontSize: 12, fontWeight: 700 }}
+                                          onClick={() => { setCallBonusResponseModal(cb); setCallBonusInterestStep('ask'); }}
+                                        >
+                                          Rispondi
+                                        </button>
+                                      ) : cb.status === 'accettata' && cb.is_requester ? (
+                                        <span className="small text-muted">In attesa del professionista</span>
+                                      ) : cb.status === 'interessato' && cb.hm_calendar_link ? (
+                                        <a
+                                          href={cb.hm_calendar_link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-sm btn-outline-primary"
+                                          style={{ padding: '2px 8px', fontSize: 12 }}
+                                        >
+                                          <i className="ri-calendar-event-line me-1"></i>Calendly HM
+                                        </a>
+                                      ) : '—'}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="cd-empty">
+                          <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
+                          <p className="cd-empty-text">Nessuna richiesta Call Bonus effettuata finora.</p>
+                          <button
+                            className="btn btn-outline-primary mt-3"
+                            onClick={handleOpenCallBonusModal}
+                          >
+                            Fai la Prima Richiesta
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="cd-empty">
-                      <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
-                      <p className="cd-empty-text">Nessuna request Call Bonus effettuata finora.</p>
-                      <button
-                        className="btn btn-outline-primary mt-3"
-                        onClick={handleOpenCallBonusModal}
-                      >
-                        Fai la Prima Richiesta
-                      </button>
+                  )}
+
+                  {/* ===== CALL RINNOVO SUB-TAB ===== */}
+                  {richiesteCallSubTab === 'call_rinnovo' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div>
+                          <span className="cd-badge" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
+                            <i className="ri-refresh-line me-1"></i>Call Rinnovo
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={handleOpenCallRinnovoModal}
+                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
+                        >
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
+                        </button>
+                      </div>
+
+                      {loadingCallRinnovo ? (
+                        <div className="text-center py-4"><div className="spinner-border text-success"></div></div>
+                      ) : callRinnovoHistory && callRinnovoHistory.length > 0 ? (
+                        <div className="cd-table-wrap">
+                          <table className="cd-table">
+                            <thead>
+                              <tr>
+                                <th>Data Richiesta</th>
+                                <th>Professionista</th>
+                                <th>Note</th>
+                                <th>Stato</th>
+                                <th>Data Risposta</th>
+                                <th style={{ textAlign: 'right' }}>Azioni</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {callRinnovoHistory.map((item) => {
+                                const statusColor = {
+                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
+                                  'accettata': { bg: '#dcfce7', color: '#166534', label: 'Accettata' },
+                                  'rifiutata': { bg: '#fee2e2', color: '#991b1b', label: 'Rifiutata' },
+                                  'confermata': { bg: '#d1fae5', color: '#065f46', label: 'Confermata' },
+                                }[item.status] || { bg: '#f3f4f6', color: '#374151', label: item.status };
+
+                                return (
+                                  <tr key={item.id}>
+                                    <td>
+                                      {item.data_richiesta
+                                        ? new Date(item.data_richiesta).toLocaleDateString('it-IT')
+                                        : '—'}
+                                    </td>
+                                    <td>
+                                      <span className="fw-semibold">
+                                        {item.tipo_professionista.charAt(0).toUpperCase() + item.tipo_professionista.slice(1)}
+                                      </span>
+                                      {item.professionista_name && (
+                                        <div className="small text-muted" style={{ marginTop: 2 }}>
+                                          {item.professionista_name}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td><span className="small text-muted">{item.note_richiesta || '—'}</span></td>
+                                    <td>
+                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
+                                        {statusColor.label}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {item.data_risposta
+                                        ? new Date(item.data_risposta).toLocaleDateString('it-IT')
+                                        : '—'}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                      {item.status === 'proposta' && (
+                                        <>
+                                          <button
+                                            className="btn btn-sm btn-success me-1"
+                                            style={{ padding: '2px 8px', fontSize: 11 }}
+                                            onClick={() => handleAcceptCallRinnovo(item.id)}
+                                          >
+                                            <i className="ri-check-line"></i>
+                                          </button>
+                                          <button
+                                            className="btn btn-sm btn-danger"
+                                            style={{ padding: '2px 8px', fontSize: 11 }}
+                                            onClick={() => handleDeclineCallRinnovo(item.id)}
+                                          >
+                                            <i className="ri-close-line"></i>
+                                          </button>
+                                        </>
+                                      )}
+                                      {item.status === 'accettata' && (
+                                        <button
+                                          className="btn btn-sm btn-primary"
+                                          style={{ padding: '2px 8px', fontSize: 11 }}
+                                          onClick={() => handleOpenCallRinnovoConfirm(item)}
+                                        >
+                                          Conferma
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="cd-empty">
+                          <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
+                          <p className="cd-empty-text">Nessuna richiesta Call Rinnovo effettuata finora.</p>
+                          <button
+                            className="btn btn-outline-success mt-3"
+                            onClick={handleOpenCallRinnovoModal}
+                          >
+                            Fai la Prima Richiesta
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ===== VIDEO FEEDBACK SUB-TAB ===== */}
+                  {richiesteCallSubTab === 'video_feedback' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <div>
+                          <span className="cd-badge" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
+                            <i className="ri-video-line me-1"></i>Video Feedback
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-purple btn-sm"
+                          onClick={handleOpenVideoFeedbackModal}
+                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600, background: '#a855f7', color: 'white', border: 'none' }}
+                        >
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
+                        </button>
+                      </div>
+
+                      {loadingVideoFeedback ? (
+                        <div className="text-center py-4"><div className="spinner-border" style={{ color: '#a855f7' }}></div></div>
+                      ) : videoFeedbackHistory && videoFeedbackHistory.length > 0 ? (
+                        <div className="cd-table-wrap">
+                          <table className="cd-table">
+                            <thead>
+                              <tr>
+                                <th>Data Richiesta</th>
+                                <th>Professionista</th>
+                                <th>Note</th>
+                                <th>Stato</th>
+                                <th>Link Loom</th>
+                                <th style={{ textAlign: 'right' }}>Azioni</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {videoFeedbackHistory.map((item) => {
+                                const statusColor = {
+                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
+                                  'accettata': { bg: '#dcfce7', color: '#166534', label: 'Accettata' },
+                                  'completata': { bg: '#d1fae5', color: '#065f46', label: 'Completata' },
+                                }[item.status] || { bg: '#f3f4f6', color: '#374151', label: item.status };
+
+                                return (
+                                  <tr key={item.id}>
+                                    <td>
+                                      {item.data_richiesta
+                                        ? new Date(item.data_richiesta).toLocaleDateString('it-IT')
+                                        : '—'}
+                                    </td>
+                                    <td>
+                                      <span className="fw-semibold">
+                                        {item.tipo_professionista.charAt(0).toUpperCase() + item.tipo_professionista.slice(1)}
+                                      </span>
+                                      {item.professionista_name && (
+                                        <div className="small text-muted" style={{ marginTop: 2 }}>
+                                          {item.professionista_name}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td><span className="small text-muted">{item.note_richiesta || '—'}</span></td>
+                                    <td>
+                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
+                                        {statusColor.label}
+                                      </span>
+                                    </td>
+                                    <td>
+                                      {item.loom_link ? (
+                                        <a href={item.loom_link} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-link">
+                                          <i className="ri-external-link-line"></i>
+                                        </a>
+                                      ) : '—'}
+                                    </td>
+                                    <td style={{ textAlign: 'right' }}>
+                                      {item.status === 'proposta' && (
+                                        <button
+                                          className="btn btn-sm btn-success"
+                                          style={{ padding: '2px 8px', fontSize: 11 }}
+                                          onClick={() => handleAcceptVideoFeedback(item.id)}
+                                        >
+                                          Accetta
+                                        </button>
+                                      )}
+                                      {item.status === 'accettata' && (
+                                        <button
+                                          className="btn btn-sm btn-primary"
+                                          style={{ padding: '2px 8px', fontSize: 11 }}
+                                          onClick={() => handleOpenVideoFeedbackComplete(item)}
+                                        >
+                                          Completa
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="cd-empty">
+                          <i className="ri-video-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
+                          <p className="cd-empty-text">Nessuna richiesta Video Feedback effettuata finora.</p>
+                          <button
+                            className="btn btn-outline-primary mt-3"
+                            onClick={handleOpenVideoFeedbackModal}
+                            style={{ borderColor: '#a855f7', color: '#a855f7' }}
+                          >
+                            Fai la Prima Richiesta
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -8764,6 +9170,243 @@ function ClientiDetail() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== CALL RINNOVO MODAL ========== */}
+      {showCallRinnovoModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowCallRinnovoModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' }}>
+              <h5>
+                <i className="ri-refresh-line text-white"></i>
+                <span style={{ color: 'white' }}>Nuova Richiesta Call Rinnovo</span>
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowCallRinnovoModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il tipo di professionista per la call di rinnovo.</p>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Tipo Professionista *</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#f59e0b' },
+                    { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
+                    { value: 'psicologa', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
+                  ].map((t) => (
+                    <button
+                      key={t.value}
+                      className={`cd-cb-type-btn${callRinnovoForm.tipo_professionista === t.value ? ' selected' : ''}`}
+                      style={{
+                        background: callRinnovoForm.tipo_professionista === t.value ? `${t.color}20` : '#f9fafb',
+                        borderColor: callRinnovoForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
+                        color: t.color,
+                      }}
+                      onClick={() => setCallRinnovoForm({ ...callRinnovoForm, tipo_professionista: t.value })}
+                    >
+                      <i className={t.icon}></i>
+                      <span className="small fw-semibold">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Note</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Descrivi il motivo della richiesta..."
+                  value={callRinnovoForm.note_richiesta}
+                  onChange={(e) => setCallRinnovoForm({ ...callRinnovoForm, note_richiesta: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowCallRinnovoModal(false)}>Annulla</button>
+              <button
+                className="cd-btn-save"
+                style={{ background: '#11998e' }}
+                onClick={handleCreateCallRinnovo}
+                disabled={!callRinnovoForm.tipo_professionista || savingCallRinnovo}
+              >
+                {savingCallRinnovo ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Creazione...</>
+                ) : (
+                  <><i className="ri-add-line"></i>Crea Richiesta</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== CALL RINNOVO CONFIRM MODAL ========== */}
+      {showCallRinnovoConfirmModal && selectedCallRinnovo && (
+        <div className="cd-modal-backdrop" onClick={() => setShowCallRinnovoConfirmModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' }}>
+              <h5>
+                <i className="ri-check-line text-white"></i>
+                <span style={{ color: 'white' }}>Conferma Call Rinnovo</span>
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowCallRinnovoConfirmModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <p className="text-muted small" style={{ marginBottom: 12 }}>Conferma il completamento della call rinnovo.</p>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Note HM</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Aggiungi note sulla call..."
+                  value={callRinnovoConfirmForm.note_hm}
+                  onChange={(e) => setCallRinnovoConfirmForm({ ...callRinnovoConfirmForm, note_hm: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowCallRinnovoConfirmModal(false)}>Annulla</button>
+              <button
+                className="cd-btn-save"
+                style={{ background: '#11998e' }}
+                onClick={handleConfirmCallRinnovo}
+                disabled={savingCallRinnovo}
+              >
+                {savingCallRinnovo ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
+                ) : (
+                  <><i className="ri-check-line"></i>Conferma Completamento</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== VIDEO FEEDBACK MODAL ========== */}
+      {showVideoFeedbackModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoFeedbackModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' }}>
+              <h5>
+                <i className="ri-video-line text-white"></i>
+                <span style={{ color: 'white' }}>Nuova Richiesta Video Feedback</span>
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoFeedbackModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il tipo di professionista per il video feedback.</p>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Tipo Professionista *</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[
+                    { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#f59e0b' },
+                    { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
+                    { value: 'psicologa', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
+                  ].map((t) => (
+                    <button
+                      key={t.value}
+                      className={`cd-cb-type-btn${videoFeedbackForm.tipo_professionista === t.value ? ' selected' : ''}`}
+                      style={{
+                        background: videoFeedbackForm.tipo_professionista === t.value ? `${t.color}20` : '#f9fafb',
+                        borderColor: videoFeedbackForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
+                        color: t.color,
+                      }}
+                      onClick={() => setVideoFeedbackForm({ ...videoFeedbackForm, tipo_professionista: t.value })}
+                    >
+                      <i className={t.icon}></i>
+                      <span className="small fw-semibold">{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Note</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Descrivi il motivo della richiesta..."
+                  value={videoFeedbackForm.note_richiesta}
+                  onChange={(e) => setVideoFeedbackForm({ ...videoFeedbackForm, note_richiesta: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoFeedbackModal(false)}>Annulla</button>
+              <button
+                className="cd-btn-save"
+                style={{ background: '#a855f7' }}
+                onClick={handleCreateVideoFeedback}
+                disabled={!videoFeedbackForm.tipo_professionista || savingVideoFeedback}
+              >
+                {savingVideoFeedback ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Creazione...</>
+                ) : (
+                  <><i className="ri-add-line"></i>Crea Richiesta</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== VIDEO FEEDBACK COMPLETE MODAL ========== */}
+      {showVideoFeedbackCompleteModal && selectedVideoFeedback && (
+        <div className="cd-modal-backdrop" onClick={() => setShowVideoFeedbackCompleteModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' }}>
+              <h5>
+                <i className="ri-check-line text-white"></i>
+                <span style={{ color: 'white' }}>Completa Video Feedback</span>
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowVideoFeedbackCompleteModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <p className="text-muted small" style={{ marginBottom: 12 }}>Inserisci il link Loom del video feedback completato.</p>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Link Loom *</label>
+                <input
+                  type="url"
+                  className="cd-input"
+                  placeholder="https://www.loom.com/share/..."
+                  value={videoFeedbackCompleteForm.loom_link}
+                  onChange={(e) => setVideoFeedbackCompleteForm({ ...videoFeedbackCompleteForm, loom_link: e.target.value })}
+                />
+              </div>
+
+              <div className="cd-field">
+                <label className="cd-field-label">Note HM</label>
+                <textarea
+                  className="cd-textarea"
+                  rows="3"
+                  placeholder="Aggiungi note sul video feedback..."
+                  value={videoFeedbackCompleteForm.note_hm}
+                  onChange={(e) => setVideoFeedbackCompleteForm({ ...videoFeedbackCompleteForm, note_hm: e.target.value })}
+                ></textarea>
+              </div>
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowVideoFeedbackCompleteModal(false)}>Annulla</button>
+              <button
+                className="cd-btn-save"
+                style={{ background: '#a855f7' }}
+                onClick={handleCompleteVideoFeedback}
+                disabled={!videoFeedbackCompleteForm.loom_link || savingVideoFeedback}
+              >
+                {savingVideoFeedback ? (
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Completamento...</>
+                ) : (
+                  <><i className="ri-check-line"></i>Completa Video Feedback</>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -1038,6 +1038,104 @@ const clientiService = {
     });
     return response.data;
   },
+
+  // ==================== CALL RINNOVO ====================
+
+  /**
+   * Get call rinnovo history for a client
+   * @param {number} clienteId - Client ID
+   * @returns {Promise} - { data: [...] }
+   */
+  async getCallRinnovoHistory(clienteId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/call-rinnovo-history`);
+    return response.data;
+  },
+
+  /**
+   * Create a call rinnovo request
+   * @param {number} clienteId - Client ID
+   * @param {Object} data - { tipo_professionista, note_richiesta }
+   * @returns {Promise} - { success, data }
+   */
+  async createCallRinnovoRequest(clienteId, data) {
+    const response = await api.post(`${API_BASE}/${clienteId}/call-rinnovo-request`, data);
+    return response.data;
+  },
+
+  /**
+   * Accept a call rinnovo
+   * @param {number} callRinnovoId - Call Rinnovo ID
+   * @returns {Promise} - { success, data }
+   */
+  async acceptCallRinnovo(callRinnovoId) {
+    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/accept`);
+    return response.data;
+  },
+
+  /**
+   * Decline a call rinnovo
+   * @param {number} callRinnovoId - Call Rinnovo ID
+   * @returns {Promise} - { success, data }
+   */
+  async declineCallRinnovo(callRinnovoId) {
+    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/decline`);
+    return response.data;
+  },
+
+  /**
+   * Confirm a call rinnovo as completed
+   * @param {number} callRinnovoId - Call Rinnovo ID
+   * @param {Object} data - { note_hm }
+   * @returns {Promise} - { success, data }
+   */
+  async confirmCallRinnovo(callRinnovoId, data = {}) {
+    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/confirm`, data);
+    return response.data;
+  },
+
+  // ==================== VIDEO FEEDBACK ====================
+
+  /**
+   * Get video feedback history for a client
+   * @param {number} clienteId - Client ID
+   * @returns {Promise} - { data: [...] }
+   */
+  async getVideoFeedbackHistory(clienteId) {
+    const response = await api.get(`${API_BASE}/${clienteId}/video-feedback-history`);
+    return response.data;
+  },
+
+  /**
+   * Create a video feedback request
+   * @param {number} clienteId - Client ID
+   * @param {Object} data - { tipo_professionista, note_richiesta }
+   * @returns {Promise} - { success, data }
+   */
+  async createVideoFeedbackRequest(clienteId, data) {
+    const response = await api.post(`${API_BASE}/${clienteId}/video-feedback-request`, data);
+    return response.data;
+  },
+
+  /**
+   * Accept a video feedback
+   * @param {number} videoFeedbackId - Video Feedback ID
+   * @returns {Promise} - { success, data }
+   */
+  async acceptVideoFeedback(videoFeedbackId) {
+    const response = await api.post(`${API_BASE}/video-feedback/${videoFeedbackId}/accept`);
+    return response.data;
+  },
+
+  /**
+   * Complete a video feedback with loom link
+   * @param {number} videoFeedbackId - Video Feedback ID
+   * @param {Object} data - { loom_link, note_hm }
+   * @returns {Promise} - { success, data }
+   */
+  async completeVideoFeedback(videoFeedbackId, data) {
+    const response = await api.post(`${API_BASE}/video-feedback/${videoFeedbackId}/complete`, data);
+    return response.data;
+  },
 };
 
 export default clientiService;
