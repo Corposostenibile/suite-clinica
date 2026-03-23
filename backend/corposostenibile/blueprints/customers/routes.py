@@ -1935,8 +1935,12 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import cm
-    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib.units import cm, mm
+    from reportlab.platypus import (
+        BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph,
+        Spacer, Table, TableStyle, Image
+    )
+    from reportlab.pdfgen import canvas
 
     _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id, eager=True)
@@ -2097,50 +2101,213 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     latest_video_review = video_review_requests[0] if video_review_requests else None
     latest_call_bonus = call_bonus_items[0] if call_bonus_items else None
 
+    # === PDF PROFESSIONAL DESIGN ===
     pdf_buffer = BytesIO()
-    document = SimpleDocTemplate(
+    
+    # Professional color palette
+    PRIMARY_BLUE = colors.HexColor("#1e40af")
+    SECONDARY_BLUE = colors.HexColor("#3b82f6")
+    ACCENT_GREEN = colors.HexColor("#10b981")
+    DARK_GRAY = colors.HexColor("#1f2937")
+    MEDIUM_GRAY = colors.HexColor("#6b7280")
+    LIGHT_GRAY = colors.HexColor("#f3f4f6")
+    WHITE = colors.white
+    LIGHT_BLUE_BG = colors.HexColor("#eff6ff")
+    SECTION_BG = colors.HexColor("#f8fafc")
+
+    # Create custom document with header/footer
+    page_width, page_height = A4
+    doc = BaseDocTemplate(
         pdf_buffer,
         pagesize=A4,
         leftMargin=1.5 * cm,
         rightMargin=1.5 * cm,
-        topMargin=1.3 * cm,
-        bottomMargin=1.3 * cm,
+        topMargin=2.5 * cm,
+        bottomMargin=2.0 * cm,
         title=f"Cartella Clinica - {cliente.nome_cognome}",
     )
 
+    # Header/Footer template
+    def header_footer(canvas_obj, doc):
+        canvas_obj.saveState()
+        
+        # Header background
+        canvas_obj.setFillColor(PRIMARY_BLUE)
+        canvas_obj.rect(0, page_height - 1.5 * cm, page_width, 1.5 * cm, fill=1, stroke=0)
+        
+        # Header text
+        canvas_obj.setFillColor(WHITE)
+        canvas_obj.setFont("Helvetica-Bold", 12)
+        canvas_obj.drawString(1.5 * cm, page_height - 1.0 * cm, "Cartella Clinica")
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.drawRightString(page_width - 1.5 * cm, page_height - 1.0 * cm, f"Paziente: {cliente.nome_cognome or 'N/A'}")
+        
+        # Footer line
+        canvas_obj.setStrokeColor(SECONDARY_BLUE)
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(1.5 * cm, 1.5 * cm, page_width - 1.5 * cm, 1.5 * cm)
+        
+        # Footer text
+        canvas_obj.setFillColor(MEDIUM_GRAY)
+        canvas_obj.setFont("Helvetica", 8)
+        canvas_obj.drawString(1.5 * cm, 1.1 * cm, f"Generato: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+        canvas_obj.drawRightString(page_width - 1.5 * cm, 1.1 * cm, f"Pagina {doc.page}")
+        
+        canvas_obj.restoreState()
+
+    # Create page template
+    page_template = PageTemplate(
+        id='standard',
+        frames=[
+            Frame(
+                1.5 * cm, 2.0 * cm,
+                page_width - 3 * cm, page_height - 3.5 * cm,
+                id='main_frame'
+            )
+        ],
+        onPage=header_footer
+    )
+    doc.addPageTemplates([page_template])
+
+    # Create professional styles
     styles = getSampleStyleSheet()
+    
+    # Title style - Cover page
     styles.add(ParagraphStyle(
-        name="ExportTitle",
-        parent=styles["Heading1"],
-        fontSize=16,
-        leading=20,
-        textColor=colors.HexColor("#0f172a"),
-        spaceAfter=4,
+        name="CoverTitle",
+        parent=styles["Title"],
+        fontSize=28,
+        leading=34,
+        textColor=PRIMARY_BLUE,
+        spaceAfter=20,
+        alignment=1,  # Center
+        fontName="Helvetica-Bold",
     ))
+    
     styles.add(ParagraphStyle(
-        name="ExportMeta",
+        name="CoverSubtitle",
+        parent=styles["Normal"],
+        fontSize=14,
+        leading=18,
+        textColor=MEDIUM_GRAY,
+        spaceAfter=30,
+        alignment=1,
+    ))
+    
+    # Section headers
+    styles.add(ParagraphStyle(
+        name="SectionHeader",
+        parent=styles["Heading1"],
+        fontSize=14,
+        leading=18,
+        textColor=PRIMARY_BLUE,
+        spaceBefore=15,
+        spaceAfter=10,
+        fontName="Helvetica-Bold",
+        borderPadding=(0, 0, 5, 0),
+    ))
+    
+    # Sub-section headers
+    styles.add(ParagraphStyle(
+        name="SubSectionHeader",
+        parent=styles["Heading2"],
+        fontSize=12,
+        leading=16,
+        textColor=SECONDARY_BLUE,
+        spaceBefore=12,
+        spaceAfter=8,
+        fontName="Helvetica-Bold",
+    ))
+    
+    # Normal text - improved
+    styles.add(ParagraphStyle(
+        name="PDFBody",
+        parent=styles["Normal"],
+        fontSize=10,
+        leading=14,
+        textColor=DARK_GRAY,
+        spaceAfter=6,
+    ))
+    
+    # Small meta text
+    styles.add(ParagraphStyle(
+        name="MetaText",
         parent=styles["Normal"],
         fontSize=9,
-        textColor=colors.HexColor("#475569"),
-        spaceAfter=10,
+        leading=12,
+        textColor=MEDIUM_GRAY,
+        spaceAfter=4,
     ))
+    
+    # Highlight label
     styles.add(ParagraphStyle(
-        name="SectionBreak",
+        name="HighlightLabel",
         parent=styles["Normal"],
-        fontSize=8,
-        textColor=colors.HexColor("#94a3b8"),
-        spaceAfter=8,
+        fontSize=10,
+        leading=14,
+        textColor=PRIMARY_BLUE,
+        fontName="Helvetica-Bold",
+        spaceAfter=2,
     ))
 
+    # Build story
     story: list[Any] = []
     generated_at = datetime.now().strftime("%d/%m/%Y %H:%M")
-    story.append(Paragraph("Cartella Clinica Paziente", styles["ExportTitle"]))
-    story.append(Paragraph(f"Paziente: {_export_pdf_format_value(cliente.nome_cognome)} | Generato il: {generated_at}", styles["ExportMeta"]))
-    story.append(Spacer(1, 8))
+    
+    # === COVER PAGE ===
+    story.append(Spacer(1, 3 * cm))
+    story.append(Paragraph("Cartella Clinica", styles["CoverTitle"]))
+    story.append(Paragraph(f"Paziente: {cliente.nome_cognome or 'N/A'}", styles["CoverSubtitle"]))
+    story.append(Spacer(1, 0.5 * cm))
+    
+    # Patient summary card
+    cover_data = [
+        [Paragraph("<b>ID Paziente</b>", styles["PDFBody"]), Paragraph(str(cliente.cliente_id), styles["PDFBody"])],
+        [Paragraph("<b>Data di nascita</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.data_di_nascita), styles["PDFBody"])],
+        [Paragraph("<b>Stato</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.stato_cliente), styles["PDFBody"])],
+        [Paragraph("<b>Programma</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.programma_attuale), styles["PDFBody"])],
+        [Paragraph("<b>Generato il</b>", styles["PDFBody"]), Paragraph(generated_at, styles["PDFBody"])],
+    ]
+    cover_table = Table(cover_data, colWidths=[5 * cm, 10 * cm])
+    cover_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_BLUE_BG),
+        ("BOX", (0, 0), (-1, -1), 1, PRIMARY_BLUE),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dbeafe")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(cover_table)
+    story.append(Spacer(1, 1 * cm))
+    
+    # Stats overview
+    story.append(Paragraph(" Riepilogo Dati", styles["SectionHeader"]))
+    stats_data = [
+        [Paragraph(f"<b>{weekly_responses_count}</b><br/>Weekly Check", styles["MetaText"]),
+         Paragraph(f"<b>{len(diary_entries)}</b><br/>Diario Entries", styles["MetaText"]),
+         Paragraph(f"<b>{len(anamnesi_entries)}</b><br/>Anamnesi", styles["MetaText"]),
+         Paragraph(f"<b>{len(minor_checks) + len(dca_checks)}</b><br/>Check Clinici", styles["MetaText"])],
+    ]
+    stats_table = Table(stats_data, colWidths=[4 * cm, 4 * cm, 4 * cm, 4 * cm])
+    stats_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), SECTION_BG),
+        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#e5e7eb")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    story.append(stats_table)
+    
+    story.append(PageBreak())
 
+    # Column widths for tables
     col_widths = [5.2 * cm, 11.6 * cm]
 
     # === PART 1: BASIC INFORMATION ===
+    story.append(Paragraph("Anagrafica e Programma", styles["SectionHeader"]))
     _append_export_section(story, styles, "Anagrafica", [
         ("ID paziente", cliente.cliente_id),
         ("Nome e cognome", cliente.nome_cognome),
@@ -2164,7 +2331,8 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Data rinnovo", cliente.data_rinnovo),
     ], col_widths)
 
-    _append_export_section(story, styles, "Team Attuale", [
+    story.append(Paragraph("Team Attuale", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Team", [
         ("Nutrizionista", cliente.nutrizionista or _export_pdf_user_label(getattr(cliente, "nutrizionista_user", None))),
         ("Coach", cliente.coach or _export_pdf_user_label(getattr(cliente, "coach_user", None))),
         ("Psicologia", cliente.psicologa or _export_pdf_user_label(getattr(cliente, "psicologa_user", None))),
@@ -2175,20 +2343,22 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # === PART 2: TEAM HISTORY ===
     if team_history:
         story.append(PageBreak())
-        story.append(Paragraph("Storico Team", styles["Heading2"]))
+        story.append(Paragraph("Storico Team", styles["SectionHeader"]))
         for entry in team_history:
             type_label = _export_pdf_format_value(entry.tipo_professionista)
             user_label = _export_pdf_user_label(entry.professionista)
             start_date = entry.data_dal.strftime("%d/%m/%Y") if entry.data_dal else "-"
             end_date = entry.data_al.strftime("%d/%m/%Y") if entry.data_al else ("Attivo" if entry.is_active else "-")
             status = "Attivo" if entry.is_active else "Terminato"
-            story.append(Paragraph(f"<b>{type_label}</b>: {user_label} ({start_date} → {end_date}) [{status}]", styles["Normal"]))
+            story.append(Paragraph(f"<b>{type_label}</b>: {user_label} ({start_date} → {end_date}) [{status}]", styles["PDFBody"]))
         story.append(Spacer(1, 10))
 
-    # === PART 3: SERVICE DATA (NUTRIZIONE, COACHING, PSICOLOGIA) ===
+    # === PART 3: SERVICE DATA ===
     
     # Nutrizione section
-    _append_export_section(story, styles, "Nutrizione - Stato Generale", [
+    story.append(PageBreak())
+    story.append(Paragraph("Nutrizione", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Nutrizione", [
         ("Stato nutrizione", cliente.stato_nutrizione),
         ("Stato chat nutrizione", cliente.stato_cliente_chat_nutrizione),
         ("Reach out nutrizione", cliente.reach_out_nutrizione),
@@ -2201,23 +2371,25 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # Anamnesi nutrizione
     anamnesi_nutrizione = next((a for a in anamnesi_entries if a.service_type == "nutrizione"), None)
     if anamnesi_nutrizione:
-        story.append(Paragraph("Anamnesi Nutrizione", styles["Heading2"]))
-        story.append(Paragraph(f"<font size=8 color='#64748b'>{anamnesi_nutrizione.created_at.strftime('%d/%m/%Y')}</font>", styles["Normal"]))
-        story.append(Paragraph(anamnesi_nutrizione.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Anamnesi Nutrizione", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<i>Creato il: {anamnesi_nutrizione.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
+        story.append(Paragraph(anamnesi_nutrizione.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
 
     # Diario nutrizione
     diario_nutrizione = [d for d in diary_entries if d.service_type == "nutrizione"]
     if diario_nutrizione:
-        story.append(Paragraph("Diario Nutrizione", styles["Heading2"]))
-        for entry in diario_nutrizione[:10]:  # Limit to last 10 entries
-            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["Normal"]))
-            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Diario Nutrizione", styles["SubSectionHeader"]))
+        for entry in diario_nutrizione[:10]:
+            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
+            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
     # Coaching section
-    _append_export_section(story, styles, "Coaching - Stato Generale", [
+    story.append(PageBreak())
+    story.append(Paragraph("Coaching", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Coaching", [
         ("Stato coaching", cliente.stato_coach),
         ("Stato chat coaching", cliente.stato_cliente_chat_coaching),
         ("Reach out coaching", cliente.reach_out_coaching),
@@ -2231,23 +2403,25 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # Anamnesi coaching
     anamnesi_coaching = next((a for a in anamnesi_entries if a.service_type == "coaching"), None)
     if anamnesi_coaching:
-        story.append(Paragraph("Anamnesi Coaching", styles["Heading2"]))
-        story.append(Paragraph(f"<font size=8 color='#64748b'>{anamnesi_coaching.created_at.strftime('%d/%m/%Y')}</font>", styles["Normal"]))
-        story.append(Paragraph(anamnesi_coaching.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Anamnesi Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<i>Creato il: {anamnesi_coaching.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
+        story.append(Paragraph(anamnesi_coaching.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
 
     # Diario coaching
     diario_coaching = [d for d in diary_entries if d.service_type == "coaching"]
     if diario_coaching:
-        story.append(Paragraph("Diario Coaching", styles["Heading2"]))
-        for entry in diario_coaching[:10]:  # Limit to last 10 entries
-            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["Normal"]))
-            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Diario Coaching", styles["SubSectionHeader"]))
+        for entry in diario_coaching[:10]:
+            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
+            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
     # Psicologia section
-    _append_export_section(story, styles, "Psicologia - Stato Generale", [
+    story.append(PageBreak())
+    story.append(Paragraph("Psicologia", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Psicologia", [
         ("Stato psicologia", cliente.stato_psicologia),
         ("Stato chat psicologia", cliente.stato_cliente_chat_psicologia),
         ("Reach out psicologia", cliente.reach_out_psicologia),
@@ -2258,23 +2432,25 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # Anamnesi psicologia
     anamnesi_psicologia = next((a for a in anamnesi_entries if a.service_type == "psicologia"), None)
     if anamnesi_psicologia:
-        story.append(Paragraph("Anamnesi Psicologia", styles["Heading2"]))
-        story.append(Paragraph(f"<font size=8 color='#64748b'>{anamnesi_psicologia.created_at.strftime('%d/%m/%Y')}</font>", styles["Normal"]))
-        story.append(Paragraph(anamnesi_psicologia.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Anamnesi Psicologia", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<i>Creato il: {anamnesi_psicologia.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
+        story.append(Paragraph(anamnesi_psicologia.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
 
     # Diario psicologia
     diario_psicologia = [d for d in diary_entries if d.service_type == "psicologia"]
     if diario_psicologia:
-        story.append(Paragraph("Diario Psicologia", styles["Heading2"]))
-        for entry in diario_psicologia[:10]:  # Limit to last 10 entries
-            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["Normal"]))
-            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["Normal"]))
+        story.append(Paragraph("Diario Psicologia", styles["SubSectionHeader"]))
+        for entry in diario_psicologia[:10]:
+            story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
+            story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
-    # === PART 4: CHECKS SUMMARY ===
-    _append_export_section(story, styles, "Check Periodici e Iniziali", [
+    # === PART 4: CHECKS ===
+    story.append(PageBreak())
+    story.append(Paragraph("Check e Valutazioni", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Riepilogo Check", [
         ("Weekly check configurati", weekly_checks_count),
         ("Risposte weekly check", weekly_responses_count),
         ("Ultima risposta weekly", latest_check_response_date),
@@ -2292,76 +2468,62 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Ticket associati", tickets_count),
     ], col_widths)
 
-    _append_export_section(story, styles, "Call Bonus", [
-        ("Richieste call bonus", len(call_bonus_items)),
-        ("Ultimo stato call bonus", getattr(latest_call_bonus, "status", None)),
-        ("Ultima richiesta call bonus", getattr(latest_call_bonus, "data_richiesta", None)),
-        ("Tipo professionista ultimo call bonus", getattr(latest_call_bonus, "tipo_professionista", None)),
-    ], col_widths)
-
     _append_export_section(story, styles, "Marketing", [
         ("Richieste Trustpilot", len(trustpilot_reviews)),
-        ("Ultima richiesta Trustpilot", getattr(latest_trustpilot, "data_richiesta", None)),
-        ("Ultima recensione pubblicata", getattr(latest_trustpilot, "data_pubblicazione", None)),
-        ("Ultime stelle", getattr(latest_trustpilot, "stelle", None)),
         ("Video review richieste", len(video_review_requests)),
-        ("Ultimo stato video review", getattr(latest_video_review, "status", None)),
-        ("Ultima data video review", getattr(latest_video_review, "booking_date", None)),
+        ("Richieste call bonus", len(call_bonus_items)),
     ], col_widths)
 
-    _append_export_section(story, styles, "Documentazione cartella", [
+    _append_export_section(story, styles, "Documentazione", [
         ("Cartelle cliniche", len(cartelle)),
         ("Allegati totali", attachments_count),
         ("Alert", cliente.alert),
-        ("Alert storia", cliente.alert_storia),
     ], col_widths)
 
-    # === PART 6: CHECK RESPONSES (END OF PDF) ===
+    # === PART 6: CHECK RESPONSES DETAILS ===
     if weekly_responses or minor_checks or dca_checks:
         story.append(PageBreak())
-        story.append(Paragraph("Check - Risposte Dettagliate", styles["ExportTitle"]))
-        story.append(Spacer(1, 8))
+        story.append(Paragraph("Dettaglio Risposte Check", styles["SectionHeader"]))
+        story.append(Spacer(1, 0.3 * cm))
 
         # Weekly check responses
         if weekly_responses:
-            story.append(Paragraph(f"Weekly Check - {len(weekly_responses)} risposte", styles["Heading2"]))
-            for resp in weekly_responses[:20]:  # Limit to last 20
+            story.append(Paragraph(f"Weekly Check ({len(weekly_responses)} risposte)", styles["SubSectionHeader"]))
+            for resp in weekly_responses[:20]:
                 submit_str = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
-                story.append(Paragraph(f"<b>Data compilazione:</b> {submit_str}", styles["Normal"]))
+                metrics_parts = []
+                if resp.mood_rating: metrics_parts.append(f"Mood: {resp.mood_rating}")
+                if resp.energy_rating: metrics_parts.append(f"Energy: {resp.energy_rating}")
+                if resp.weight: metrics_parts.append(f"Weight: {resp.weight}")
+                
+                check_card = f"<b>{submit_str}</b>"
+                if metrics_parts:
+                    check_card += f" | {' | '.join(metrics_parts)}"
+                
+                story.append(Paragraph(check_card, styles["HighlightLabel"]))
+                
                 if resp.what_worked:
-                    story.append(Paragraph(f"<b>Cosa ha funzionato:</b> {resp.what_worked[:200]}", styles["Normal"]))
+                    story.append(Paragraph(f"<b>Cosa ha funzionato:</b> {resp.what_worked[:150]}...", styles["PDFBody"]))
                 if resp.what_didnt_work:
-                    story.append(Paragraph(f"<b>Cosa non ha funzionato:</b> {resp.what_didnt_work[:200]}", styles["Normal"]))
-                if resp.mood_rating or resp.energy_rating or resp.weight:
-                    story.append(Paragraph(f"<b>Metriche:</b> Mood: {resp.mood_rating or '-'}, Energy: {resp.energy_rating or '-'}, Weight: {resp.weight or '-'}", styles["Normal"]))
+                    story.append(Paragraph(f"<b>Cosa non ha funzionato:</b> {resp.what_didnt_work[:150]}...", styles["PDFBody"]))
                 story.append(Spacer(1, 6))
 
         # Minor check responses
         if minor_checks:
-            story.append(PageBreak() if len(story) > 100 else Spacer(1, 0))
-            story.append(Paragraph(f"Minor Check (EDE-Q6) - {len(minor_checks)} risposte", styles["Heading2"]))
-            for resp in minor_checks[:10]:  # Limit to last 10
+            story.append(Paragraph(f"Minor Check - EDE-Q6 ({len(minor_checks)} risposte)", styles["SubSectionHeader"]))
+            for resp in minor_checks[:10]:
                 submit_str = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
-                story.append(Paragraph(f"<b>Data:</b> {submit_str}", styles["Normal"]))
-                story.append(Paragraph(f"<b>Score Globale:</b> {resp.score_global or '-'} | Weight: {resp.peso_attuale or '-'}, Height: {resp.altezza or '-'}", styles["Normal"]))
-                story.append(Spacer(1, 6))
+                story.append(Paragraph(f"<b>{submit_str}</b> | Score: {resp.score_global or '-'} | Weight: {resp.peso_attuale or '-'} kg | Height: {resp.altezza or '-'} cm", styles["PDFBody"]))
+            story.append(Spacer(1, 6))
 
         # DCA check responses
         if dca_checks:
-            story.append(PageBreak() if len(story) > 100 else Spacer(1, 0))
-            story.append(Paragraph(f"DCA Check - {len(dca_checks)} risposte", styles["Heading2"]))
-            for resp in dca_checks[:10]:  # Limit to last 10
+            story.append(Paragraph(f"DCA Check ({len(dca_checks)} risposte)", styles["SubSectionHeader"]))
+            for resp in dca_checks[:10]:
                 submit_str = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
-                story.append(Paragraph(f"<b>Data:</b> {submit_str}", styles["Normal"]))
-                if resp.mood_balance_rating:
-                    story.append(Paragraph(f"<b>Mood Balance Rating:</b> {resp.mood_balance_rating}", styles["Normal"]))
-                if resp.self_compassion:
-                    story.append(Paragraph(f"<b>Self Compassion:</b> {resp.self_compassion}", styles["Normal"]))
-                if resp.motivation_level:
-                    story.append(Paragraph(f"<b>Motivation Level:</b> {resp.motivation_level}", styles["Normal"]))
-                story.append(Spacer(1, 6))
+                story.append(Paragraph(f"<b>{submit_str}</b> | Mood: {resp.mood_balance_rating or '-'} | Motivation: {resp.motivation_level or '-'}", styles["PDFBody"]))
 
-    document.build(story)
+    doc.build(story)
     pdf_buffer.seek(0)
 
     safe_name = (cliente.nome_cognome or f"cliente_{cliente_id}").strip().replace(" ", "_")
