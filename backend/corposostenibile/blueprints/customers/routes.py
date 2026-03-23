@@ -2104,16 +2104,16 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # === PDF PROFESSIONAL DESIGN ===
     pdf_buffer = BytesIO()
     
-    # Professional color palette
-    PRIMARY_BLUE = colors.HexColor("#1e40af")
-    SECONDARY_BLUE = colors.HexColor("#3b82f6")
+    # Professional color palette - Corposostenibile brand (green)
+    PRIMARY_GREEN = colors.HexColor("#11998e")
+    SECONDARY_GREEN = colors.HexColor("#38ef7d")
     ACCENT_GREEN = colors.HexColor("#10b981")
     DARK_GRAY = colors.HexColor("#1f2937")
     MEDIUM_GRAY = colors.HexColor("#6b7280")
     LIGHT_GRAY = colors.HexColor("#f3f4f6")
     WHITE = colors.white
-    LIGHT_BLUE_BG = colors.HexColor("#eff6ff")
-    SECTION_BG = colors.HexColor("#f8fafc")
+    LIGHT_GREEN_BG = colors.HexColor("#ecfdf5")
+    SECTION_BG = colors.HexColor("#f0fdf4")
 
     # Create custom document with header/footer
     page_width, page_height = A4
@@ -2132,7 +2132,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         canvas_obj.saveState()
         
         # Header background
-        canvas_obj.setFillColor(PRIMARY_BLUE)
+        canvas_obj.setFillColor(PRIMARY_GREEN)
         canvas_obj.rect(0, page_height - 1.5 * cm, page_width, 1.5 * cm, fill=1, stroke=0)
         
         # Header text
@@ -2143,7 +2143,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         canvas_obj.drawRightString(page_width - 1.5 * cm, page_height - 1.0 * cm, f"Paziente: {cliente.nome_cognome or 'N/A'}")
         
         # Footer line
-        canvas_obj.setStrokeColor(SECONDARY_BLUE)
+        canvas_obj.setStrokeColor(SECONDARY_GREEN)
         canvas_obj.setLineWidth(0.5)
         canvas_obj.line(1.5 * cm, 1.5 * cm, page_width - 1.5 * cm, 1.5 * cm)
         
@@ -2178,7 +2178,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         parent=styles["Title"],
         fontSize=28,
         leading=34,
-        textColor=PRIMARY_BLUE,
+        textColor=PRIMARY_GREEN,
         spaceAfter=20,
         alignment=1,  # Center
         fontName="Helvetica-Bold",
@@ -2200,7 +2200,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         parent=styles["Heading1"],
         fontSize=14,
         leading=18,
-        textColor=PRIMARY_BLUE,
+        textColor=PRIMARY_GREEN,
         spaceBefore=15,
         spaceAfter=10,
         fontName="Helvetica-Bold",
@@ -2213,7 +2213,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         parent=styles["Heading2"],
         fontSize=12,
         leading=16,
-        textColor=SECONDARY_BLUE,
+        textColor=SECONDARY_GREEN,
         spaceBefore=12,
         spaceAfter=8,
         fontName="Helvetica-Bold",
@@ -2245,7 +2245,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         parent=styles["Normal"],
         fontSize=10,
         leading=14,
-        textColor=PRIMARY_BLUE,
+        textColor=PRIMARY_GREEN,
         fontName="Helvetica-Bold",
         spaceAfter=2,
     ))
@@ -2270,9 +2270,9 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     ]
     cover_table = Table(cover_data, colWidths=[5 * cm, 10 * cm])
     cover_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_BLUE_BG),
-        ("BOX", (0, 0), (-1, -1), 1, PRIMARY_BLUE),
-        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dbeafe")),
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREEN_BG),
+        ("BOX", (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#a7f3d0")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
@@ -2282,27 +2282,27 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     story.append(cover_table)
     story.append(Spacer(1, 1 * cm))
     
-    # Stats overview
-    story.append(Paragraph(" Riepilogo Dati", styles["SectionHeader"]))
-    stats_data = [
-        [Paragraph(f"<b>{weekly_responses_count}</b><br/>Weekly Check", styles["MetaText"]),
-         Paragraph(f"<b>{len(diary_entries)}</b><br/>Diario Entries", styles["MetaText"]),
-         Paragraph(f"<b>{len(anamnesi_entries)}</b><br/>Anamnesi", styles["MetaText"]),
-         Paragraph(f"<b>{len(minor_checks) + len(dca_checks)}</b><br/>Check Clinici", styles["MetaText"])],
-    ]
-    stats_table = Table(stats_data, colWidths=[4 * cm, 4 * cm, 4 * cm, 4 * cm])
-    stats_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), SECTION_BG),
-        ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#e5e7eb")),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-    ]))
-    story.append(stats_table)
+    # Stats overview - solo sezioni con dati
+    if weekly_responses_count > 0 or len(meal_plans) > 0 or len(training_plans) > 0 or initial_checks_completed_count > 0:
+        story.append(Paragraph("Riepilogo Dati", styles["SectionHeader"]))
+        stats_data = [
+            [Paragraph(f"<b>{weekly_responses_count}</b><br/>Weekly Check<br/>risposte", styles["MetaText"]),
+             Paragraph(f"<b>{len(meal_plans)}</b><br/>Piani<br/>alimentari", styles["MetaText"]),
+             Paragraph(f"<b>{len(training_plans)}</b><br/>Piani<br/>allenamento", styles["MetaText"]),
+             Paragraph(f"<b>{initial_checks_completed_count}</b><br/>Check<br/>iniziali", styles["MetaText"])],
+        ]
+        stats_table = Table(stats_data, colWidths=[4 * cm, 4 * cm, 4 * cm, 4 * cm])
+        stats_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), SECTION_BG),
+            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#a7f3d0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        story.append(stats_table)
+        story.append(Spacer(1, 0.5 * cm))
     
-    story.append(PageBreak())
-
     # Column widths for tables
     col_widths = [5.2 * cm, 11.6 * cm]
 
@@ -2342,7 +2342,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # === PART 2: TEAM HISTORY ===
     if team_history:
-        story.append(PageBreak())
         story.append(Paragraph("Storico Team", styles["SectionHeader"]))
         for entry in team_history:
             type_label = _export_pdf_format_value(entry.tipo_professionista)
@@ -2356,7 +2355,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # === PART 3: SERVICE DATA ===
     
     # Nutrizione section
-    story.append(PageBreak())
     story.append(Paragraph("Nutrizione", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Nutrizione", [
         ("Stato nutrizione", cliente.stato_nutrizione),
@@ -2387,7 +2385,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         story.append(Spacer(1, 6))
 
     # Coaching section
-    story.append(PageBreak())
     story.append(Paragraph("Coaching", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Coaching", [
         ("Stato coaching", cliente.stato_coach),
@@ -2419,7 +2416,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         story.append(Spacer(1, 6))
 
     # Psicologia section
-    story.append(PageBreak())
     story.append(Paragraph("Psicologia", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Psicologia", [
         ("Stato psicologia", cliente.stato_psicologia),
@@ -2448,7 +2444,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         story.append(Spacer(1, 6))
 
     # === PART 4: CHECKS ===
-    story.append(PageBreak())
     story.append(Paragraph("Check e Valutazioni", styles["SectionHeader"]))
     _append_export_section(story, styles, "Riepilogo Check", [
         ("Weekly check configurati", weekly_checks_count),
