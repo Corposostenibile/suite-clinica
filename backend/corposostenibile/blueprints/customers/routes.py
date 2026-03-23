@@ -53,6 +53,10 @@ from corposostenibile.models import (
     PlanExtraFile,
     PlanTypeEnum,
     CallBonusStatusEnum,
+    CallRinnovo,
+    CallRinnovoStatusEnum,
+    VideoFeedback,
+    VideoFeedbackStatusEnum,
     TrustpilotReview,
     VideoReviewRequest,
 )
@@ -7409,6 +7413,248 @@ def api_call_bonus_decline(call_bonus_id: int):
         "success": True,
         "call_bonus_id": call_bonus.id,
         "message": "Call bonus rifiutata.",
+    })
+
+
+# --------------------------------------------------------------------------- #
+#  Call Rinnovo                                                              #
+# --------------------------------------------------------------------------- #
+def _serialize_call_rinnovo(item) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "cliente_id": item.cliente_id,
+        "professionista_id": item.professionista_id,
+        "professionista_name": getattr(item.professionista, "full_name", None),
+        "tipo_professionista": item.tipo_professionista.value if hasattr(item.tipo_professionista, 'value') else item.tipo_professionista,
+        "status": item.status.value if hasattr(item.status, 'value') else item.status,
+        "data_richiesta": item.data_richiesta.isoformat() if item.data_richiesta else None,
+        "data_risposta": item.data_risposta.isoformat() if item.data_risposta else None,
+        "data_conferma_hm": item.data_conferma_hm.isoformat() if item.data_conferma_hm else None,
+        "note_richiesta": item.note_richiesta,
+        "booking_confirmed": item.booking_confirmed,
+        "note_hm": item.note_hm,
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+    }
+
+
+@api_bp.route("/<int:cliente_id>/call-rinnovo-history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_call_rinnovo_history(cliente_id: int):
+    """Storico call rinnovo del paziente."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    
+    rows = db.session.query(CallRinnovo).filter(
+        CallRinnovo.cliente_id == cliente_id
+    ).order_by(CallRinnovo.data_richiesta.desc()).all()
+    
+    return jsonify({
+        "data": [_serialize_call_rinnovo(r) for r in rows]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/call-rinnovo-request", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_rinnovo_request(cliente_id: int):
+    """Crea richiesta call rinnovo."""
+    from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
+    
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    
+    data = request.get_json() or {}
+    
+    call_rinnovo = CallRinnovo(
+        cliente_id=cliente_id,
+        tipo_professionista=data.get("tipo_professionista"),
+        note_richiesta=data.get("note_richiesta"),
+        created_by_id=current_user.id,
+        status=CallRinnovoStatusEnum.proposta,
+        data_richiesta=date.today(),
+    )
+    
+    db.session.add(call_rinnovo)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_call_rinnovo(call_rinnovo)
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/accept", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_rinnovo_accept(call_rinnovo_id: int):
+    """Accetta call rinnovo."""
+    from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
+    
+    call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
+    if not call_rinnovo:
+        abort(HTTPStatus.NOT_FOUND, description="Call rinnovo non trovata.")
+    
+    call_rinnovo.status = CallRinnovoStatusEnum.accettata
+    call_rinnovo.data_risposta = date.today()
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_call_rinnovo(call_rinnovo)
+    })
+
+
+@api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/decline", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_rinnovo_decline(call_rinnovo_id: int):
+    """Rifiuta call rinnovo."""
+    from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
+    
+    call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
+    if not call_rinnovo:
+        abort(HTTPStatus.NOT_FOUND, description="Call rinnovo non trovata.")
+    
+    call_rinnovo.status = CallRinnovoStatusEnum.rifiutata
+    call_rinnovo.data_risposta = date.today()
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_call_rinnovo(call_rinnovo)
+    })
+
+
+@api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/confirm", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_call_rinnovo_confirm(call_rinnovo_id: int):
+    """Conferma call rinnovo completata."""
+    from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
+    
+    call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
+    if not call_rinnovo:
+        abort(HTTPStatus.NOT_FOUND, description="Call rinnovo non trovata.")
+    
+    data = request.get_json() or {}
+    call_rinnovo.status = CallRinnovoStatusEnum.confermata
+    call_rinnovo.data_conferma_hm = date.today()
+    call_rinnovo.note_hm = data.get("note_hm")
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_call_rinnovo(call_rinnovo)
+    })
+
+
+# --------------------------------------------------------------------------- #
+#  Video Feedback                                                            #
+# --------------------------------------------------------------------------- #
+def _serialize_video_feedback(item) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "cliente_id": item.cliente_id,
+        "professionista_id": item.professionista_id,
+        "professionista_name": getattr(item.professionista, "full_name", None),
+        "tipo_professionista": item.tipo_professionista.value if hasattr(item.tipo_professionista, 'value') else item.tipo_professionista,
+        "status": item.status.value if hasattr(item.status, 'value') else item.status,
+        "data_richiesta": item.data_richiesta.isoformat() if item.data_richiesta else None,
+        "data_risposta": item.data_risposta.isoformat() if item.data_risposta else None,
+        "data_conferma_hm": item.data_conferma_hm.isoformat() if item.data_conferma_hm else None,
+        "note_richiesta": item.note_richiesta,
+        "booking_confirmed": item.booking_confirmed,
+        "loom_link": item.loom_link,
+        "note_hm": item.note_hm,
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+    }
+
+
+@api_bp.route("/<int:cliente_id>/video-feedback-history", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_feedback_history(cliente_id: int):
+    """Storico video feedback del paziente."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    
+    rows = db.session.query(VideoFeedback).filter(
+        VideoFeedback.cliente_id == cliente_id
+    ).order_by(VideoFeedback.data_richiesta.desc()).all()
+    
+    return jsonify({
+        "data": [_serialize_video_feedback(r) for r in rows]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/video-feedback-request", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_feedback_request(cliente_id: int):
+    """Crea richiesta video feedback."""
+    from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
+    
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    
+    data = request.get_json() or {}
+    
+    video_feedback = VideoFeedback(
+        cliente_id=cliente_id,
+        tipo_professionista=data.get("tipo_professionista"),
+        note_richiesta=data.get("note_richiesta"),
+        created_by_id=current_user.id,
+        status=VideoFeedbackStatusEnum.proposta,
+        data_richiesta=date.today(),
+    )
+    
+    db.session.add(video_feedback)
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_feedback(video_feedback)
+    }), HTTPStatus.CREATED
+
+
+@api_bp.route("/video-feedback/<int:video_feedback_id>/accept", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_feedback_accept(video_feedback_id: int):
+    """Accetta video feedback."""
+    from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
+    
+    video_feedback = db.session.get(VideoFeedback, video_feedback_id)
+    if not video_feedback:
+        abort(HTTPStatus.NOT_FOUND, description="Video feedback non trovato.")
+    
+    video_feedback.status = VideoFeedbackStatusEnum.accettata
+    video_feedback.data_risposta = date.today()
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_feedback(video_feedback)
+    })
+
+
+@api_bp.route("/video-feedback/<int:video_feedback_id>/complete", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_video_feedback_complete(video_feedback_id: int):
+    """Completa video feedback con link loom."""
+    from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
+    
+    video_feedback = db.session.get(VideoFeedback, video_feedback_id)
+    if not video_feedback:
+        abort(HTTPStatus.NOT_FOUND, description="Video feedback non trovato.")
+    
+    data = request.get_json() or {}
+    video_feedback.status = VideoFeedbackStatusEnum.completata
+    video_feedback.data_conferma_hm = date.today()
+    video_feedback.loom_link = data.get("loom_link")
+    video_feedback.note_hm = data.get("note_hm")
+    db.session.commit()
+    
+    return jsonify({
+        "success": True,
+        "data": _serialize_video_feedback(video_feedback)
     })
 
 
