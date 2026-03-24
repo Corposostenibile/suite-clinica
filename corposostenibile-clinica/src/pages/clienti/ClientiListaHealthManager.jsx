@@ -94,6 +94,7 @@ function ClientiListaHealthManager() {
 
   // Pannello coordinatrici HM
   const [coordData, setCoordData] = useState([]);
+  const [coordHealthManagers, setCoordHealthManagers] = useState([]);
   const [coordPagination, setCoordPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [coordLoading, setCoordLoading] = useState(false);
   const [coordSortBy, setCoordSortBy] = useState('health_manager');
@@ -269,6 +270,7 @@ function ClientiListaHealthManager() {
         sort_dir: coordSortDir,
       });
       setCoordData(data.data || []);
+      setCoordHealthManagers(data.health_managers || []);
       setCoordPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
     } catch (err) {
       console.error('Error fetching coordinatrici HM dashboard:', err);
@@ -432,6 +434,7 @@ function ClientiListaHealthManager() {
 
   const canAccessCoordinatriciPanel = Boolean(isAdmin || isHmTeamLeader || isImpersonatingSession);
   const visibleMainTabs = MAIN_TABS.filter((tab) => tab.key !== 'coordinatrici_hm' || canAccessCoordinatriciPanel);
+  const hmFilterOptions = isCoordinatriciTab && coordHealthManagers.length > 0 ? coordHealthManagers : healthManagers;
 
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString('it-IT') : '\u2014');
 
@@ -600,7 +603,7 @@ function ClientiListaHealthManager() {
             onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
-        {canFilterByHm && healthManagers.length > 0 && (
+        {canFilterByHm && hmFilterOptions.length > 0 && (
           <select
             className="cl-search-input"
             style={{ maxWidth: '240px', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
@@ -613,8 +616,8 @@ function ClientiListaHealthManager() {
             }}
           >
             <option value="">Tutti gli Health Manager</option>
-            {healthManagers.map((hm) => (
-              <option key={hm.id} value={hm.id}>{hm.full_name}</option>
+            {hmFilterOptions.map((hm) => (
+              <option key={hm.id} value={hm.id}>{hm.full_name || hm.name || `HM #${hm.id}`}</option>
             ))}
           </select>
         )}

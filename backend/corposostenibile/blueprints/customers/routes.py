@@ -1961,6 +1961,23 @@ def api_hm_coordinatrici_dashboard() -> Any:
         )
     )
 
+    hm_options_rows = (
+        apply_role_filtering(
+            db.session.query(
+                Cliente.health_manager_id.label("id"),
+                hm_name_expr,
+            )
+            .outerjoin(User, User.id == Cliente.health_manager_id)
+            .filter(
+                Cliente.show_in_clienti_lista.is_(True),
+                Cliente.health_manager_id.isnot(None),
+            )
+        )
+        .distinct()
+        .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc())
+        .all()
+    )
+
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
 
@@ -2016,6 +2033,14 @@ def api_hm_coordinatrici_dashboard() -> Any:
     return jsonify({
         "success": True,
         "data": rows,
+        "health_managers": [
+            {
+                "id": hm_id,
+                "full_name": hm_name,
+            }
+            for hm_id, hm_name in hm_options_rows
+            if hm_id is not None
+        ],
         "pagination": {
             "page": pagination.page,
             "pages": pagination.pages,
