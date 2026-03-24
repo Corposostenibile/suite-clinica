@@ -2430,7 +2430,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         story.append(Spacer(1, 0.3 * cm))
 
     # === PART 3: SERVICE DATA ===
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.5 * cm))
     
     # Nutrizione section
     story.append(Paragraph("Nutrizione", styles["SectionHeader"]))
@@ -2507,7 +2507,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.5 * cm))
     # Coaching section
     story.append(Paragraph("Coaching", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Coaching", [
@@ -2571,11 +2571,12 @@ def api_clinical_folder_export_pdf(cliente_id: int):
             story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
             story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
-        story.append(Spacer(1, 6))
+         story.append(Spacer(1, 6))
 
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.5 * cm))
     # Psicologia section
     story.append(Paragraph("Psicologia", styles["SectionHeader"]))
+
     _append_export_section(story, styles, "Stato Psicologia", [
         ("Stato psicologia", cliente.stato_psicologia),
         ("Stato chat psicologia", cliente.stato_cliente_chat_psicologia),
@@ -2637,7 +2638,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # === PART 4: PROGRESSO ===
     if weight_values or avg_ratings:
-        story.append(PageBreak())
+        story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("Progresso", styles["SectionHeader"]))
         
         # Weight trend
@@ -2681,7 +2682,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
             story.append(Spacer(1, 0.3 * cm))
 
     # === PART 5: CHECKS ===
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.5 * cm))
     story.append(Paragraph("Check e Valutazioni", styles["SectionHeader"]))
     _append_export_section(story, styles, "Riepilogo Check", [
         ("Check settimanali configurati", weekly_checks_count),
@@ -2737,7 +2738,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # === PART 6: CHECK RESPONSES DETAILS ===
     if weekly_responses or minor_checks or dca_checks:
-        story.append(PageBreak())
+        story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("Dettaglio Risposte Check", styles["SectionHeader"]))
         story.append(Spacer(1, 0.3 * cm))
 
