@@ -24,7 +24,7 @@ from flask import (
     abort,
 )
 from flask_login import current_user                    # type: ignore
-from sqlalchemy import func
+from sqlalchemy import func, case
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 from werkzeug.exceptions import BadRequest, Forbidden, NotFound
@@ -58,6 +58,7 @@ from corposostenibile.models import (
     CallRinnovoStatusEnum,
     VideoFeedback,
     VideoFeedbackStatusEnum,
+    CheckInIntervention,
     TrustpilotReview,
     VideoReviewRequest,
 )
@@ -1856,6 +1857,145 @@ def api_unsatisfied() -> Any:
             "8": count_8,
             "7": count_7,
             "6": count_6,
+        },
+    })
+
+
+@api_bp.route("/hm-coordinatrici-dashboard", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_hm_coordinatrici_dashboard() -> Any:
+    """
+    Dashboard coordinatrici HM:
+    - elenco pazienti associati a Health Manager
+    - ordinamento per HM e date principali
+    - flag operativi (parte mock finche' non disponibili dati persistenti)
+    """
+    specialty = getattr(current_user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+
+    is_admin_or_cco = bool(
+        getattr(current_user, "is_admin", False)
+        or current_user.role == UserRoleEnum.admin
+        or specialty_value.strip().lower() == "cco"
+    )
+    can_access = is_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
+    if not can_access:
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale coordinatrici HM.")
+
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
+    q = (request.args.get("q") or "").strip()
+    hm_filter = request.args.get("health_manager_id", type=int)
+    sort_by = (request.args.get("sort_by") or "health_manager").strip().lower()
+    sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
+    if sort_dir not in ("asc", "desc"):
+        sort_dir = "asc"
+
+    checkin_subq = (
+        db.session.query(
+            CheckInIntervention.cliente_id.label("cliente_id"),
+            func.max(CheckInIntervention.intervention_date).label("last_check_in_call_date"),
+        )
+        .group_by(CheckInIntervention.cliente_id)
+        .subquery()
+    )
+
+    rinnovo_subq = (
+        db.session.query(
+            CallRinnovo.cliente_id.label("cliente_id"),
+            func.max(CallRinnovo.data_richiesta).label("last_renewal_call_date"),
+        )
+        .group_by(CallRinnovo.cliente_id)
+        .subquery()
+    )
+
+    review_subq = (
+        db.session.query(
+            TrustpilotReview.cliente_id.label("cliente_id"),
+            func.max(case((TrustpilotReview.pubblicata.is_(True), 1), else_=0)).label("review_done_flag"),
+        )
+        .group_by(TrustpilotReview.cliente_id)
+        .subquery()
+    )
+
+    query = apply_role_filtering(
+        db.session.query(
+            Cliente,
+            checkin_subq.c.last_check_in_call_date,
+            rinnovo_subq.c.last_renewal_call_date,
+            review_subq.c.review_done_flag,
+            User.full_name.label("health_manager_name"),
+        )
+        .outerjoin(checkin_subq, checkin_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(rinnovo_subq, rinnovo_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(review_subq, review_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(User, User.id == Cliente.health_manager_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.health_manager_id.isnot(None),
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    sort_map = {
+        "health_manager": func.lower(func.coalesce(User.full_name, "")),
+        "onboarding_date": Cliente.onboarding_date,
+        "path_start_date": Cliente.data_inizio_abbonamento,
+        "path_end_date": Cliente.data_rinnovo,
+        "check_in_call_date": checkin_subq.c.last_check_in_call_date,
+        "renewal_call_date": rinnovo_subq.c.last_renewal_call_date,
+    }
+    sort_col = sort_map.get(sort_by, sort_map["health_manager"])
+    sort_expr = sort_col.desc() if sort_dir == "desc" else sort_col.asc()
+    query = query.order_by(sort_expr.nullslast(), Cliente.nome_cognome.asc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    def _mock_flag(cliente_id: int, salt: int) -> bool:
+        return ((int(cliente_id) + salt) % 3) != 0
+
+    rows = []
+    for cliente, last_check_in, last_renewal_call, review_done_flag, hm_name in pagination.items:
+        review_done = bool(review_done_flag) if review_done_flag is not None else _mock_flag(cliente.cliente_id, 13)
+        rows.append({
+            "cliente_id": cliente.cliente_id,
+            "nome_cognome": cliente.nome_cognome,
+            "health_manager_id": cliente.health_manager_id,
+            "health_manager_name": hm_name or (cliente.health_manager_user.full_name if cliente.health_manager_user else None),
+            "onboarding_date": cliente.onboarding_date.isoformat() if cliente.onboarding_date else None,
+            "path_start_date": cliente.data_inizio_abbonamento.isoformat() if cliente.data_inizio_abbonamento else None,
+            "path_end_date": cliente.data_rinnovo.isoformat() if cliente.data_rinnovo else None,
+            "check_in_call_date": last_check_in.isoformat() if last_check_in else None,
+            "renewal_call_date": last_renewal_call.isoformat() if last_renewal_call else None,
+            "flags": {
+                "check_in_completed": bool(last_check_in),
+                "contacted_for_renewal": _mock_flag(cliente.cliente_id, 3),
+                "renewal_completed": _mock_flag(cliente.cliente_id, 7),
+                "contacted_for_review": _mock_flag(cliente.cliente_id, 11),
+                "review_completed": review_done,
+            },
+            "flags_mocked": {
+                "check_in_completed": False,
+                "contacted_for_renewal": True,
+                "renewal_completed": True,
+                "contacted_for_review": True,
+                "review_completed": review_done_flag is None,
+            },
+        })
+
+    return jsonify({
+        "success": True,
+        "data": rows,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+            "per_page": per_page,
         },
     })
 

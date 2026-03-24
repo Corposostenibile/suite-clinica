@@ -398,6 +398,11 @@ const clientiService = {
     return response.data;
   },
 
+  async getHmCoordinatriciDashboard(params = {}) {
+    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, { params });
+    return response.data;
+  },
+
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'

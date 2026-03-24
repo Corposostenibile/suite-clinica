@@ -420,6 +420,29 @@
   border-bottom: 2px solid #e2e8f0;
 }
 
+.cl-th-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.cl-th-sort i {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.cl-th-sort:hover i {
+  color: #64748b;
+}
+
 .cl-table td {
   padding: 14px 20px;
   font-size: 14px;
