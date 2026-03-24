@@ -821,12 +821,12 @@ function ClientiListaHealthManager() {
                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data inizio percorso', 'path_start_date')}</th>
                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data fine percorso', 'path_end_date')}</th>
                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data check-in call', 'check_in_call_date')}</th>
-                        <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
                         <th style={{ minWidth: 115, textAlign: 'center' }}>Check-in</th>
-                        <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato rinnovo</th>
-                        <th style={{ minWidth: 95, textAlign: 'center' }}>Rinnovo</th>
-                        <th style={{ minWidth: 145, textAlign: 'center' }}>Contattato review</th>
-                        <th style={{ minWidth: 120, textAlign: 'center' }}>Review fatta</th>
+                        <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
+                        <th style={{ minWidth: 170, textAlign: 'center' }}>Contattato per il rinnovo</th>
+                        <th style={{ minWidth: 110, textAlign: 'center' }}>Rinnovo</th>
+                        <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato per review</th>
+                        <th style={{ minWidth: 120, textAlign: 'center' }}>Review</th>
                         <th style={{ textAlign: 'right', minWidth: 80 }}>Azioni</th>
                       </tr>
                     </thead>
@@ -853,8 +853,8 @@ function ClientiListaHealthManager() {
                             <td>{formatDate(row.path_start_date)}</td>
                             <td>{formatDate(row.path_end_date)}</td>
                             <td>{formatDate(row.check_in_call_date)}</td>
-                            <td>{formatDate(row.renewal_call_date)}</td>
                             <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.check_in_completed), Boolean(row.flags_mocked?.check_in_completed))}</td>
+                            <td>{formatDate(row.renewal_call_date)}</td>
                             <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_renewal), Boolean(row.flags_mocked?.contacted_for_renewal))}</td>
                             <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.renewal_completed), Boolean(row.flags_mocked?.renewal_completed))}</td>
                             <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_review), Boolean(row.flags_mocked?.contacted_for_review))}</td>
