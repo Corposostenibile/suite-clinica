@@ -2207,7 +2207,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         frames=[
             Frame(
                 1.5 * cm, 2.0 * cm,
-                page_width - 3 * cm, page_height - 3.5 * cm,
+                page_width - 3 * cm, page_height - 4.0 * cm,
                 id='main_frame'
             )
         ],
@@ -2334,7 +2334,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     # === PART 1: BASIC INFORMATION ===
     story.append(Paragraph("Anagrafica e Programma", styles["SectionHeader"]))
     _append_export_section(story, styles, "Anagrafica", [
-        ("ID paziente", cliente.cliente_id),
         ("Nome e cognome", cliente.nome_cognome),
         ("Data di nascita", cliente.data_di_nascita),
         ("Sesso / Genere", cliente.genere),
