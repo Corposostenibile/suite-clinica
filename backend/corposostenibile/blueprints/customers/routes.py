@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 from datetime import date, datetime, timedelta
 from http import HTTPStatus
 import logging
@@ -1958,6 +1959,10 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         DCACheckResponse,
         DCACheck,
         ClienteProfessionistaHistory,
+        CustomerCareIntervention,
+        CheckInIntervention,
+        ClientCheckResponse,
+        ClientCheckAssignment,
     )
 
     # Fetch all data needed for comprehensive PDF
@@ -2105,19 +2110,56 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     latest_video_review = video_review_requests[0] if video_review_requests else None
     latest_call_bonus = call_bonus_items[0] if call_bonus_items else None
 
+    # Fetch Health Manager interventions
+    customer_care_interventions = (
+        db.session.query(CustomerCareIntervention)
+        .filter(CustomerCareIntervention.cliente_id == cliente_id)
+        .order_by(CustomerCareIntervention.intervention_date.desc())
+        .all()
+    )
+    check_in_interventions = (
+        db.session.query(CheckInIntervention)
+        .filter(CheckInIntervention.cliente_id == cliente_id)
+        .order_by(CheckInIntervention.intervention_date.desc())
+        .all()
+    )
+
+    # Fetch initial check responses (check_1, check_2, check_3)
+    initial_check_responses = (
+        db.session.query(ClientCheckResponse)
+        .join(ClientCheckAssignment, ClientCheckResponse.assignment_id == ClientCheckAssignment.id)
+        .filter(ClientCheckAssignment.cliente_id == cliente_id)
+        .order_by(ClientCheckResponse.created_at.desc())
+        .all()
+    )
+
+    # Calculate progress metrics from weekly responses
+    weight_values = [r.weight for r in weekly_responses if r.weight]
+    first_weight = weight_values[-1] if weight_values else None
+    last_weight = weight_values[0] if weight_values else None
+    weight_delta = last_weight - first_weight if (first_weight and last_weight) else None
+
+    avg_ratings = {}
+    rating_fields = ['energy_rating', 'sleep_rating', 'mood_rating', 'motivation_rating', 
+                     'digestion_rating', 'strength_rating', 'hunger_rating']
+    for field in rating_fields:
+        values = [getattr(r, field) for r in weekly_responses if getattr(r, field)]
+        if values:
+            avg_ratings[field.replace('_rating', '')] = sum(values) / len(values)
+
     # === PDF PROFESSIONAL DESIGN ===
     pdf_buffer = BytesIO()
     
-    # Professional color palette - Corposostenibile brand (green)
-    PRIMARY_GREEN = colors.HexColor("#11998e")
-    SECONDARY_GREEN = colors.HexColor("#38ef7d")
-    ACCENT_GREEN = colors.HexColor("#10b981")
+    # Professional color palette - Corposostenibile brand (green #25B36A from frontend)
+    PRIMARY_GREEN = colors.HexColor("#25B36A")
+    SECONDARY_GREEN = colors.HexColor("#1a8a50")
+    ACCENT_GREEN = colors.HexColor("#20a757")
     DARK_GRAY = colors.HexColor("#1f2937")
     MEDIUM_GRAY = colors.HexColor("#6b7280")
     LIGHT_GRAY = colors.HexColor("#f3f4f6")
     WHITE = colors.white
-    LIGHT_GREEN_BG = colors.HexColor("#ecfdf5")
-    SECTION_BG = colors.HexColor("#f0fdf4")
+    LIGHT_GREEN_BG = colors.HexColor("#e8f5e9")
+    SECTION_BG = colors.HexColor("#f1f8f4")
 
     # Create custom document with header/footer
     page_width, page_height = A4
@@ -2286,27 +2328,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     story.append(cover_table)
     story.append(Spacer(1, 1 * cm))
     
-    # Stats overview - solo sezioni con dati
-    if weekly_responses_count > 0 or len(meal_plans) > 0 or len(training_plans) > 0 or initial_checks_completed_count > 0:
-        story.append(Paragraph("Riepilogo Dati", styles["SectionHeader"]))
-        stats_data = [
-            [Paragraph(f"<b>{weekly_responses_count}</b><br/>Weekly Check<br/>risposte", styles["MetaText"]),
-             Paragraph(f"<b>{len(meal_plans)}</b><br/>Piani<br/>alimentari", styles["MetaText"]),
-             Paragraph(f"<b>{len(training_plans)}</b><br/>Piani<br/>allenamento", styles["MetaText"]),
-             Paragraph(f"<b>{initial_checks_completed_count}</b><br/>Check<br/>iniziali", styles["MetaText"])],
-        ]
-        stats_table = Table(stats_data, colWidths=[4 * cm, 4 * cm, 4 * cm, 4 * cm])
-        stats_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), SECTION_BG),
-            ("BOX", (0, 0), (-1, -1), 1, colors.HexColor("#a7f3d0")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("TOPPADDING", (0, 0), (-1, -1), 10),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
-        ]))
-        story.append(stats_table)
-        story.append(Spacer(1, 0.5 * cm))
-    
     # Column widths for tables
     col_widths = [5.2 * cm, 11.6 * cm]
 
@@ -2316,13 +2337,26 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("ID paziente", cliente.cliente_id),
         ("Nome e cognome", cliente.nome_cognome),
         ("Data di nascita", cliente.data_di_nascita),
-        ("Genere", cliente.genere),
+        ("Sesso / Genere", cliente.genere),
         ("Email", cliente.mail),
         ("Telefono", cliente.numero_telefono),
         ("Professione", cliente.professione),
         ("Paese", cliente.paese),
         ("Indirizzo", cliente.indirizzo),
     ], col_widths)
+
+    # Storia e problematiche
+    if cliente.storia_cliente or cliente.problema or cliente.paure or cliente.conseguenze:
+        story.append(Paragraph("Storia e Problematiche", styles["SubSectionHeader"]))
+        if cliente.storia_cliente:
+            story.append(Paragraph(f"<b>Storia cliente:</b> {cliente.storia_cliente}", styles["PDFBody"]))
+        if cliente.problema:
+            story.append(Paragraph(f"<b>Problema:</b> {cliente.problema}", styles["PDFBody"]))
+        if cliente.paure:
+            story.append(Paragraph(f"<b>Paure:</b> {cliente.paure}", styles["PDFBody"]))
+        if cliente.conseguenze:
+            story.append(Paragraph(f"<b>Conseguenze:</b> {cliente.conseguenze}", styles["PDFBody"]))
+        story.append(Spacer(1, 0.3 * cm))
 
     _append_export_section(story, styles, "Programma", [
         ("Programma attuale", cliente.programma_attuale),
@@ -2333,7 +2367,22 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Stato cliente", cliente.stato_cliente),
         ("Data inizio abbonamento", cliente.data_inizio_abbonamento),
         ("Data rinnovo", cliente.data_rinnovo),
+        ("Note rinnovo", cliente.note_rinnovo),
     ], col_widths)
+
+    # Date Piani (Nutrizione, Coach, Psicologia)
+    date_piani = []
+    if cliente.data_inizio_nutrizione:
+        date_piani.append(f"Nutrizione: dal {cliente.data_inizio_nutrizione} ({cliente.durata_nutrizione_giorni or '-'} gg) → {cliente.data_scadenza_nutrizione or '-'}")
+    if cliente.data_inizio_coach:
+        date_piani.append(f"Coach: dal {cliente.data_inizio_coach} ({cliente.durata_coach_giorni or '-'} gg) → {cliente.data_scadenza_coach or '-'}")
+    if cliente.data_inizio_psicologia:
+        date_piani.append(f"Psicologia: dal {cliente.data_inizio_psicologia} ({cliente.durata_psicologia_giorni or '-'} gg) → {cliente.data_scadenza_psicologia or '-'}")
+    if date_piani:
+        story.append(Paragraph("Date Piani Servizio", styles["SubSectionHeader"]))
+        for dp in date_piani:
+            story.append(Paragraph(dp, styles["PDFBody"]))
+        story.append(Spacer(1, 0.3 * cm))
 
     story.append(Paragraph("Team Attuale", styles["SectionHeader"]))
     _append_export_section(story, styles, "Team", [
@@ -2356,7 +2405,33 @@ def api_clinical_folder_export_pdf(cliente_id: int):
             story.append(Paragraph(f"<b>{type_label}</b>: {user_label} ({start_date} → {end_date}) [{status}]", styles["PDFBody"]))
         story.append(Spacer(1, 10))
 
+    # === PART 2.5: HEALTH MANAGER ===
+    if customer_care_interventions or check_in_interventions:
+        story.append(Paragraph("Health Manager", styles["SectionHeader"]))
+        
+        if customer_care_interventions:
+            story.append(Paragraph("Interventi Customer Care", styles["SubSectionHeader"]))
+            for intv in customer_care_interventions[:20]:
+                date_str = intv.intervention_date.strftime("%d/%m/%Y") if intv.intervention_date else "-"
+                author_str = _export_pdf_user_label(intv.created_by) if intv.created_by else "-"
+                story.append(Paragraph(f"<b>{date_str}</b> - {author_str}: {intv.notes or '-'}", styles["PDFBody"]))
+                if intv.loom_link:
+                    story.append(Paragraph(f"<i>Loom: {intv.loom_link}</i>", styles["MetaText"]))
+            story.append(Spacer(1, 0.3 * cm))
+        
+        if check_in_interventions:
+            story.append(Paragraph("Interventi Check-in", styles["SubSectionHeader"]))
+            for intv in check_in_interventions[:20]:
+                date_str = intv.intervention_date.strftime("%d/%m/%Y") if intv.intervention_date else "-"
+                author_str = _export_pdf_user_label(intv.created_by) if intv.created_by else "-"
+                story.append(Paragraph(f"<b>{date_str}</b> - {author_str}: {intv.notes or '-'}", styles["PDFBody"]))
+                if intv.loom_link:
+                    story.append(Paragraph(f"<i>Loom: {intv.loom_link}</i>", styles["MetaText"]))
+            story.append(Spacer(1, 0.3 * cm))
+        story.append(Spacer(1, 0.3 * cm))
+
     # === PART 3: SERVICE DATA ===
+    story.append(PageBreak())
     
     # Nutrizione section
     story.append(Paragraph("Nutrizione", styles["SectionHeader"]))
@@ -2364,11 +2439,54 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Stato nutrizione", cliente.stato_nutrizione),
         ("Stato chat nutrizione", cliente.stato_cliente_chat_nutrizione),
         ("Reach out nutrizione", cliente.reach_out_nutrizione),
+        ("Call iniziale", "Si" if cliente.call_iniziale_nutrizionista else "No"),
         ("Piani alimentari totali", len(meal_plans)),
         ("Ultimo piano alimentare", getattr(latest_meal_plan, "name", None)),
         ("Ultimo piano - inizio", getattr(latest_meal_plan, "start_date", None)),
         ("Ultimo piano - fine", getattr(latest_meal_plan, "end_date", None)),
     ], col_widths)
+
+    # Patologie nutrizionali
+    patologie_nutrizione = []
+    if cliente.nessuna_patologia: patologie_nutrizione.append("Nessuna patologia")
+    if cliente.patologia_ibs: patologie_nutrizione.append("IBS")
+    if cliente.patologia_reflusso: patologie_nutrizione.append("Reflusso")
+    if cliente.patologia_gastrite: patologie_nutrizione.append("Gastrite")
+    if cliente.patologia_dca: patologie_nutrizione.append("DCA")
+    if cliente.patologia_insulino_resistenza: patologie_nutrizione.append("Insulino Resistenza")
+    if cliente.patologia_diabete: patologie_nutrizione.append("Diabete")
+    if cliente.patologia_dislipidemie: patologie_nutrizione.append("Dislipidemie")
+    if cliente.patologia_steatosi_epatica: patologie_nutrizione.append("Steatosi Epatica")
+    if cliente.patologia_ipertensione: patologie_nutrizione.append("Ipertensione")
+    if cliente.patologia_pcos: patologie_nutrizione.append("PCOS")
+    if cliente.patologia_endometriosi: patologie_nutrizione.append("Endometriosi")
+    if cliente.patologia_obesita_sindrome: patologie_nutrizione.append("Obesità")
+    if cliente.patologia_osteoporosi: patologie_nutrizione.append("Osteoporosi")
+    if cliente.patologia_diverticolite: patologie_nutrizione.append("Diverticolite")
+    if cliente.patologia_crohn: patologie_nutrizione.append("Crohn")
+    if cliente.patologia_stitichezza: patologie_nutrizione.append("Stitichezza")
+    if cliente.patologia_tiroidee: patologie_nutrizione.append("Tiroidee")
+    if cliente.patologia_altro: patologie_nutrizione.append(f"Altro: {cliente.patologia_altro}")
+    if patologie_nutrizione:
+        story.append(Paragraph("Patologie Nutrizionali", styles["SubSectionHeader"]))
+        story.append(Paragraph(", ".join(patologie_nutrizione), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Alert nutrizione
+    if cliente.alert_nutrizione:
+        story.append(Paragraph("Alert Nutrizione", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<b>{cliente.alert_nutrizione}</b>", styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Storia e note nutrizione
+    if cliente.storia_nutrizione:
+        story.append(Paragraph("Storia Nutrizione", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.storia_nutrizione.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+    if cliente.note_extra_nutrizione:
+        story.append(Paragraph("Note Extra Nutrizione", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.note_extra_nutrizione.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Anamnesi nutrizione
     anamnesi_nutrizione = next((a for a in anamnesi_entries if a.service_type == "nutrizione"), None)
@@ -2382,24 +2500,57 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     diario_nutrizione = [d for d in diary_entries if d.service_type == "nutrizione"]
     if diario_nutrizione:
         story.append(Paragraph("Diario Nutrizione", styles["SubSectionHeader"]))
-        for entry in diario_nutrizione[:10]:
+        for entry in diario_nutrizione[:15]:
             story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
             story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
+    story.append(PageBreak())
     # Coaching section
     story.append(Paragraph("Coaching", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Coaching", [
         ("Stato coaching", cliente.stato_coach),
         ("Stato chat coaching", cliente.stato_cliente_chat_coaching),
         ("Reach out coaching", cliente.reach_out_coaching),
+        ("Call iniziale", "Si" if cliente.call_iniziale_coach else "No"),
+        ("Luogo allenamento", cliente.luogo_di_allenamento),
         ("Piani allenamento totali", len(training_plans)),
         ("Ultimo piano allenamento", getattr(latest_training_plan, "name", None)),
         ("Ultimo piano - inizio", getattr(latest_training_plan, "start_date", None)),
         ("Ultimo piano - fine", getattr(latest_training_plan, "end_date", None)),
         ("Ultima location allenamento", getattr(latest_training_location, "location", None)),
     ], col_widths)
+
+    # Patologie coaching
+    patologie_coaching = []
+    if cliente.nessuna_patologia_coach: patologie_coaching.append("Nessuna patologia")
+    if cliente.patologia_coach_infortuni: patologie_coaching.append("Infortuni pregressi")
+    if cliente.patologia_coach_dolori_cronici: patologie_coaching.append("Dolori cronici")
+    if cliente.patologia_coach_limitazioni_articolari: patologie_coaching.append("Limitazioni articolari")
+    if cliente.patologia_coach_posturali: patologie_coaching.append("Problematiche posturali")
+    if cliente.patologia_coach_cardiovascolari: patologie_coaching.append("Problematiche cardiovascolari")
+    if cliente.patologia_coach_altro: patologie_coaching.append(f"Altro: {cliente.patologia_coach_altro}")
+    if patologie_coaching:
+        story.append(Paragraph("Patologie e Limitazioni Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph(", ".join(patologie_coaching), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Alert coaching
+    if cliente.alert_coaching:
+        story.append(Paragraph("Alert Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<b>{cliente.alert_coaching}</b>", styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Storia e note coaching
+    if cliente.storia_coach:
+        story.append(Paragraph("Storia Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.storia_coach.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+    if cliente.note_extra_coach:
+        story.append(Paragraph("Note Extra Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.note_extra_coach.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Anamnesi coaching
     anamnesi_coaching = next((a for a in anamnesi_entries if a.service_type == "coaching"), None)
@@ -2413,21 +2564,53 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     diario_coaching = [d for d in diary_entries if d.service_type == "coaching"]
     if diario_coaching:
         story.append(Paragraph("Diario Coaching", styles["SubSectionHeader"]))
-        for entry in diario_coaching[:10]:
+        for entry in diario_coaching[:15]:
             story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
             story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
+    story.append(PageBreak())
     # Psicologia section
     story.append(Paragraph("Psicologia", styles["SectionHeader"]))
     _append_export_section(story, styles, "Stato Psicologia", [
         ("Stato psicologia", cliente.stato_psicologia),
         ("Stato chat psicologia", cliente.stato_cliente_chat_psicologia),
         ("Reach out psicologia", cliente.reach_out_psicologia),
-        ("Storia psicologica", cliente.storia_psicologica),
-        ("Note extra psicologia", cliente.note_extra_psicologa),
+        ("Call iniziale", "Si" if cliente.call_iniziale_psicologa else "No"),
     ], col_widths)
+
+    # Patologie psicologiche
+    patologie_psico = []
+    if cliente.nessuna_patologia_psico: patologie_psico.append("Nessuna patologia")
+    if cliente.patologia_psico_dca: patologie_psico.append("DCA")
+    if cliente.patologia_psico_obesita_psicoemotiva: patologie_psico.append("Obesità psicoemotiva")
+    if cliente.patologia_psico_ansia_umore_cibo: patologie_psico.append("Ansia/umore/cibo")
+    if cliente.patologia_psico_comportamenti_disfunzionali: patologie_psico.append("Comportamenti disfunzionali")
+    if cliente.patologia_psico_immagine_corporea: patologie_psico.append("Immagine corporea")
+    if cliente.patologia_psico_psicosomatiche: patologie_psico.append("Psicosomatiche")
+    if cliente.patologia_psico_relazionali_altro: patologie_psico.append("Relazionali/Altro")
+    if cliente.patologia_psico_altro: patologie_psico.append(f"Altro: {cliente.patologia_psico_altro}")
+    if patologie_psico:
+        story.append(Paragraph("Patologie Psicologiche", styles["SubSectionHeader"]))
+        story.append(Paragraph(", ".join(patologie_psico), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Alert psicologia
+    if cliente.alert_psicologia:
+        story.append(Paragraph("Alert Psicologia", styles["SubSectionHeader"]))
+        story.append(Paragraph(f"<b>{cliente.alert_psicologia}</b>", styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+
+    # Storia e note psicologia
+    if cliente.storia_psicologica:
+        story.append(Paragraph("Storia Psicologica", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.storia_psicologica.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
+    if cliente.note_extra_psicologa:
+        story.append(Paragraph("Note Extra Psicologia", styles["SubSectionHeader"]))
+        story.append(Paragraph(cliente.note_extra_psicologa.replace("\n", "<br/>"), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Anamnesi psicologia
     anamnesi_psicologia = next((a for a in anamnesi_entries if a.service_type == "psicologia"), None)
@@ -2441,18 +2624,64 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     diario_psicologia = [d for d in diary_entries if d.service_type == "psicologia"]
     if diario_psicologia:
         story.append(Paragraph("Diario Psicologia", styles["SubSectionHeader"]))
-        for entry in diario_psicologia[:10]:
+        for entry in diario_psicologia[:15]:
             story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
             story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
         story.append(Spacer(1, 6))
 
-    # === PART 4: CHECKS ===
+    # === PART 4: PROGRESSO ===
+    if weight_values or avg_ratings:
+        story.append(PageBreak())
+        story.append(Paragraph("Progresso", styles["SectionHeader"]))
+        
+        # Weight trend
+        if weight_values:
+            story.append(Paragraph("Andamento Peso", styles["SubSectionHeader"]))
+            weight_data = [
+                [Paragraph("<b>Prima</b>", styles["PDFBody"]), Paragraph("<b>Attuale</b>", styles["PDFBody"]), Paragraph("<b>Delta</b>", styles["PDFBody"])],
+                [Paragraph(f"{first_weight} kg" if first_weight else "-", styles["PDFBody"]),
+                 Paragraph(f"{last_weight} kg" if last_weight else "-", styles["PDFBody"]),
+                 Paragraph(f"{weight_delta:+.1f} kg" if weight_delta else "-", styles["PDFBody"])],
+            ]
+            weight_table = Table(weight_data, colWidths=[4 * cm, 4 * cm, 4 * cm])
+            weight_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), LIGHT_GREEN_BG),
+                ("BACKGROUND", (0, 1), (-1, 1), WHITE),
+                ("BOX", (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#a7f3d0")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(weight_table)
+            story.append(Spacer(1, 0.3 * cm))
+
+        # Average ratings
+        if avg_ratings:
+            story.append(Paragraph("Valutazioni Medie (Check Settimanali)", styles["SubSectionHeader"]))
+            ratings_data = [[Paragraph(f"<b>{k.title()}</b>", styles["PDFBody"]), Paragraph(f"<b>{v:.1f}/10</b>", styles["PDFBody"])] for k, v in avg_ratings.items()]
+            ratings_table = Table(ratings_data, colWidths=[8 * cm, 4 * cm])
+            ratings_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, -1), LIGHT_GREEN_BG),
+                ("BACKGROUND", (1, 0), (1, -1), WHITE),
+                ("BOX", (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#a7f3d0")),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(ratings_table)
+            story.append(Spacer(1, 0.3 * cm))
+
+    # === PART 5: CHECKS ===
+    story.append(PageBreak())
     story.append(Paragraph("Check e Valutazioni", styles["SectionHeader"]))
     _append_export_section(story, styles, "Riepilogo Check", [
-        ("Weekly check configurati", weekly_checks_count),
-        ("Risposte weekly check", weekly_responses_count),
-        ("Ultima risposta weekly", latest_check_response_date),
+        ("Check settimanali configurati", weekly_checks_count),
+        ("Risposte check settimanali", weekly_responses_count),
+        ("Ultima risposta check", latest_check_response_date),
         ("Check iniziali assegnati", initial_checks_count),
         ("Check iniziali completati", initial_checks_completed_count),
         ("Check minori completati", len(minor_checks)),
@@ -2461,7 +2690,55 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Check saltati", cliente.check_saltati),
     ], col_widths)
 
-    # === PART 5: OTHER SECTIONS ===
+    # Check iniziali dettaglio (check_1, check_2, check_3)
+    if initial_check_responses:
+        story.append(Paragraph("Check Iniziali", styles["SubSectionHeader"]))
+        for idx, resp in enumerate(initial_check_responses[:10], 1):
+            assignment = resp.assignment
+            form_name = assignment.form.name if assignment and assignment.form else f"Check {idx}"
+            submit_date = resp.created_at.strftime("%d/%m/%Y") if resp.created_at else "-"
+            story.append(Paragraph(f"<b>{form_name}</b> - Compilato il: {submit_date}", styles["HighlightLabel"]))
+
+            formatted_responses = resp.get_formatted_responses()
+            if not formatted_responses and isinstance(resp.responses, dict):
+                formatted_responses = resp.responses
+
+            if formatted_responses:
+                for key, value in formatted_responses.items():
+                    if value is None or str(value).strip() == "":
+                        continue
+                    if isinstance(value, (dict, list)):
+                        value = json.dumps(value, ensure_ascii=True)
+                    story.append(Paragraph(f"{key}: {value}", styles["PDFBody"]))
+            else:
+                story.append(Paragraph("Nessuna risposta disponibile", styles["MetaText"]))
+
+            story.append(Spacer(1, 0.2 * cm))
+        story.append(Spacer(1, 0.3 * cm))
+
+    # Check minori
+    if minor_checks:
+        story.append(Paragraph("Check Minori", styles["SubSectionHeader"]))
+        for resp in minor_checks[:10]:
+            submit_date = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
+            story.append(Paragraph(f"<b>{submit_date}</b>", styles["HighlightLabel"]))
+            if resp.notes:
+                story.append(Paragraph(f"Note: {resp.notes[:200]}", styles["PDFBody"]))
+            story.append(Spacer(1, 0.1 * cm))
+        story.append(Spacer(1, 0.3 * cm))
+
+    # Check DCA
+    if dca_checks:
+        story.append(Paragraph("Check DCA", styles["SubSectionHeader"]))
+        for resp in dca_checks[:10]:
+            submit_date = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
+            story.append(Paragraph(f"<b>{submit_date}</b>", styles["HighlightLabel"]))
+            if resp.notes:
+                story.append(Paragraph(f"Note: {resp.notes[:200]}", styles["PDFBody"]))
+            story.append(Spacer(1, 0.1 * cm))
+        story.append(Spacer(1, 0.3 * cm))
+
+    # === PART 6: OTHER SECTIONS ===
     _append_export_section(story, styles, "Loom e Ticket", [
         ("Loom link", cliente.loom_link),
         ("Ticket associati", tickets_count),
@@ -2487,25 +2764,96 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
         # Weekly check responses
         if weekly_responses:
-            story.append(Paragraph(f"Weekly Check ({len(weekly_responses)} risposte)", styles["SubSectionHeader"]))
-            for resp in weekly_responses[:20]:
+            story.append(Paragraph(f"Check Settimanali ({len(weekly_responses)} risposte)", styles["SubSectionHeader"]))
+            for resp in weekly_responses[:15]:
                 submit_str = resp.submit_date.strftime("%d/%m/%Y") if resp.submit_date else "-"
-                metrics_parts = []
-                if resp.mood_rating: metrics_parts.append(f"Mood: {resp.mood_rating}")
-                if resp.energy_rating: metrics_parts.append(f"Energy: {resp.energy_rating}")
-                if resp.weight: metrics_parts.append(f"Weight: {resp.weight}")
                 
-                check_card = f"<b>{submit_str}</b>"
-                if metrics_parts:
-                    check_card += f" | {' | '.join(metrics_parts)}"
+                # Header con data
+                story.append(Paragraph(f"<b>{submit_str}</b>", styles["HighlightLabel"]))
                 
-                story.append(Paragraph(check_card, styles["HighlightLabel"]))
+                # Foto
+                photos_list = []
+                if resp.photo_front:
+                    photos_list.append("Frontale")
+                if resp.photo_side:
+                    photos_list.append("Laterale")
+                if resp.photo_back:
+                    photos_list.append("Posteriore")
+                if photos_list:
+                    story.append(Paragraph(f"<b>Foto:</b> {', '.join(photos_list)}", styles["PDFBody"]))
                 
+                # Riflessioni
                 if resp.what_worked:
-                    story.append(Paragraph(f"<b>Cosa ha funzionato:</b> {resp.what_worked[:150]}...", styles["PDFBody"]))
+                    story.append(Paragraph(f"<b>Cosa ha funzionato:</b> {resp.what_worked[:200]}" + ("..." if len(resp.what_worked) > 200 else ""), styles["PDFBody"]))
                 if resp.what_didnt_work:
-                    story.append(Paragraph(f"<b>Cosa non ha funzionato:</b> {resp.what_didnt_work[:150]}...", styles["PDFBody"]))
-                story.append(Spacer(1, 6))
+                    story.append(Paragraph(f"<b>Cosa non ha funzionato:</b> {resp.what_didnt_work[:200]}" + ("..." if len(resp.what_didnt_work) > 200 else ""), styles["PDFBody"]))
+                if resp.what_learned:
+                    story.append(Paragraph(f"<b>Cosa hai imparato:</b> {resp.what_learned[:200]}" + ("..." if len(resp.what_learned) > 200 else ""), styles["PDFBody"]))
+                
+                # Benessere - Valutazioni
+                wellbeing_ratings = []
+                if resp.digestion_rating:
+                    wellbeing_ratings.append(f"Digestione: {resp.digestion_rating}")
+                if resp.energy_rating:
+                    wellbeing_ratings.append(f"Energia: {resp.energy_rating}")
+                if resp.strength_rating:
+                    wellbeing_ratings.append(f"Forza: {resp.strength_rating}")
+                if resp.hunger_rating:
+                    wellbeing_ratings.append(f"Fame: {resp.hunger_rating}")
+                if resp.sleep_rating:
+                    wellbeing_ratings.append(f"Sonno: {resp.sleep_rating}")
+                if resp.mood_rating:
+                    wellbeing_ratings.append(f"Umore: {resp.mood_rating}")
+                if resp.motivation_rating:
+                    wellbeing_ratings.append(f"Motivazione: {resp.motivation_rating}")
+                if wellbeing_ratings:
+                    story.append(Paragraph(f"<b>Benessere:</b> {' | '.join(wellbeing_ratings)}", styles["PDFBody"]))
+                
+                # Peso
+                if resp.weight:
+                    story.append(Paragraph(f"<b>Peso:</b> {resp.weight} kg", styles["PDFBody"]))
+                
+                # Programmi
+                program_info = []
+                if resp.nutrition_program_adherence:
+                    program_info.append(f"Nutrizione: {resp.nutrition_program_adherence[:50]}")
+                if resp.training_program_adherence:
+                    program_info.append(f"Allenamento: {resp.training_program_adherence[:50]}")
+                if resp.exercise_modifications:
+                    program_info.append(f"Esercizi modificati: {resp.exercise_modifications[:50]}")
+                if program_info:
+                    story.append(Paragraph(f"<b>Programmi:</b> {' | '.join(program_info)}", styles["PDFBody"]))
+                
+                # Valutazioni Professionisti
+                prof_ratings = []
+                if resp.nutritionist_rating:
+                    prof_ratings.append(f"Nutrizionista: {resp.nutritionist_rating}/10")
+                if resp.coach_rating:
+                    prof_ratings.append(f"Coach: {resp.coach_rating}/10")
+                if resp.psychologist_rating:
+                    prof_ratings.append(f"Psicologo: {resp.psychologist_rating}/10")
+                if resp.progress_rating:
+                    prof_ratings.append(f"Progresso: {resp.progress_rating}/10")
+                if prof_ratings:
+                    story.append(Paragraph(f"<b>Valutazioni:</b> {' | '.join(prof_ratings)}", styles["PDFBody"]))
+                
+                # Feedback professionisti
+                if resp.nutritionist_feedback:
+                    story.append(Paragraph(f"<b>Feedback nutrizionista:</b> {resp.nutritionist_feedback[:150]}" + ("..." if len(resp.nutritionist_feedback) > 150 else ""), styles["PDFBody"]))
+                if resp.coach_feedback:
+                    story.append(Paragraph(f"<b>Feedback coach:</b> {resp.coach_feedback[:150]}" + ("..." if len(resp.coach_feedback) > 150 else ""), styles["PDFBody"]))
+                if resp.psychologist_feedback:
+                    story.append(Paragraph(f"<b>Feedback psicologo:</b> {resp.psychologist_feedback[:150]}" + ("..." if len(resp.psychologist_feedback) > 150 else ""), styles["PDFBody"]))
+                
+                # Referral
+                if resp.referral:
+                    story.append(Paragraph(f"<b>Referral:</b> {resp.referral[:150]}", styles["PDFBody"]))
+                
+                # Commenti extra
+                if resp.extra_comments:
+                    story.append(Paragraph(f"<b>Commenti:</b> {resp.extra_comments[:150]}" + ("..." if len(resp.extra_comments) > 150 else ""), styles["PDFBody"]))
+                
+                story.append(Spacer(1, 10))
 
         # Minor check responses
         if minor_checks:
