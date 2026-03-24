@@ -131,11 +131,19 @@ function ClientiDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
-  const isHealthManager = isHealthManagerUser(user);
-  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
-  const isCco = user?.specialty === 'cco';
-  const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
-  const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+   const isHealthManager = isHealthManagerUser(user);
+   const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
+   const isCco = user?.specialty === 'cco';
+   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
+   const isHmTeamLeader = Boolean(
+     isAdmin ||
+       user?.is_health_manager_team_leader ||
+       (user?.teams_led && user.teams_led.some(team => {
+         const teamType = team?.team_type?.value || team?.team_type;
+         return teamType === 'health_manager' || (team?.department?.includes('health') || team?.department?.includes('customer success'));
+       }))
+   );
+   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const isInfluencer = user?.role === 'influencer';
   const canSaveGlobalClientCard = !isInfluencer;
@@ -726,7 +734,7 @@ function ClientiDetail() {
   const [loadingDiaryHistory, setLoadingDiaryHistory] = useState(false);
 
   // ==================== HEALTH MANAGER STATE ====================
-  const [healthManagerSubTab, setHealthManagerSubTab] = useState('onboarding');
+  const [healthManagerSubTab, setHealthManagerSubTab] = useState('pannello_controllo');
   const [onboardingDraft, setOnboardingDraft] = useState({
     note_criticita_iniziali: '',
     loom_link: '',
@@ -1394,10 +1402,17 @@ function ClientiDetail() {
     finally { setLoadingCheckIn(false); }
   }, [id]);
 
-  useEffect(() => {
-    if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
-    if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
-  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions]);
+   useEffect(() => {
+     if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
+     if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
+   }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions]);
+
+   // Reset health manager subtab if user doesn't have permission
+   useEffect(() => {
+     if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && !isHmTeamLeader) {
+       setHealthManagerSubTab('onboarding');
+     }
+   }, [activeTab, healthManagerSubTab, isHmTeamLeader]);
 
   // Sync onboarding draft when cliente loads
   useEffect(() => {
@@ -4353,13 +4368,18 @@ function ClientiDetail() {
               {/* ========== HEALTH MANAGER TAB ========== */}
               {activeTab === 'health_manager' && (
                 <div>
-                  {/* Sub-tabs */}
-                  <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                    {[
-                      { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
-                      { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
-                      { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
-                    ].map((st) => (
+                    {/* Sub-tabs */}
+                    <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                      {[
+                        { key: 'pannello_controllo', label: 'Pannello di controllo', icon: 'ri-dashboard-line' },
+                        { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
+                        { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
+                        { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
+                      ].filter(st => {
+                        // Only show pannello_controllo for Team Leader HM
+                        if (st.key === 'pannello_controllo') return isHmTeamLeader;
+                        return true;
+                      }).map((st) => (
                       <button
                         key={st.key}
                         type="button"
@@ -4377,7 +4397,57 @@ function ClientiDetail() {
                     ))}
                   </div>
 
-                  {/* ── Onboarding sub-tab ── */}
+                   {/* ── Pannello di Controllo sub-tab ── */}
+                   {healthManagerSubTab === 'pannello_controllo' && (
+                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+                       <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
+                         <i className="ri-dashboard-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
+                         Pannello di Controllo
+                       </h6>
+                       <div style={{ overflowX: 'auto' }}>
+                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+                           <tbody>
+                             <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Onboarding</td>
+                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                 {cliente?.data_onboarding ? new Date(cliente.data_onboarding).toLocaleDateString('it-IT') : '—'}
+                               </td>
+                             </tr>
+                             <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Inizio Percorso</td>
+                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                 {cliente?.data_inizio_abbonamento ? new Date(cliente.data_inizio_abbonamento).toLocaleDateString('it-IT') : '—'}
+                               </td>
+                             </tr>
+                             <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Fine Percorso</td>
+                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
+                                 {cliente?.data_fine_percorso ? new Date(cliente.data_fine_percorso).toLocaleDateString('it-IT') : '—'}
+                               </td>
+                             </tr>
+                             <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Check-in Completato</td>
+                               <td style={{ padding: '12px 16px' }}>
+                                 <span style={{
+                                   display: 'inline-block',
+                                   padding: '6px 12px',
+                                   borderRadius: 6,
+                                   background: checkInInterventions?.length > 0 ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.18)',
+                                   color: checkInInterventions?.length > 0 ? '#166534' : '#64748b',
+                                   fontWeight: 700,
+                                   fontSize: 12,
+                                 }}>
+                                   {checkInInterventions?.length > 0 ? 'SI' : 'NO'}
+                                 </span>
+                               </td>
+                             </tr>
+                           </tbody>
+                         </table>
+                       </div>
+                     </div>
+                   )}
+
+                   {/* ── Onboarding sub-tab ── */}
                   {healthManagerSubTab === 'onboarding' && (
                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
                       <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
