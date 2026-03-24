@@ -2690,32 +2690,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Check saltati", cliente.check_saltati),
     ], col_widths)
 
-    # Check iniziali dettaglio (check_1, check_2, check_3)
-    if initial_check_responses:
-        story.append(Paragraph("Check Iniziali", styles["SubSectionHeader"]))
-        for idx, resp in enumerate(initial_check_responses[:10], 1):
-            assignment = resp.assignment
-            form_name = assignment.form.name if assignment and assignment.form else f"Check {idx}"
-            submit_date = resp.created_at.strftime("%d/%m/%Y") if resp.created_at else "-"
-            story.append(Paragraph(f"<b>{form_name}</b> - Compilato il: {submit_date}", styles["HighlightLabel"]))
-
-            formatted_responses = resp.get_formatted_responses()
-            if not formatted_responses and isinstance(resp.responses, dict):
-                formatted_responses = resp.responses
-
-            if formatted_responses:
-                for key, value in formatted_responses.items():
-                    if value is None or str(value).strip() == "":
-                        continue
-                    if isinstance(value, (dict, list)):
-                        value = json.dumps(value, ensure_ascii=True)
-                    story.append(Paragraph(f"{key}: {value}", styles["PDFBody"]))
-            else:
-                story.append(Paragraph("Nessuna risposta disponibile", styles["MetaText"]))
-
-            story.append(Spacer(1, 0.2 * cm))
-        story.append(Spacer(1, 0.3 * cm))
-
     # Check minori
     if minor_checks:
         story.append(Paragraph("Check Minori", styles["SubSectionHeader"]))
@@ -2761,6 +2735,64 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         story.append(PageBreak())
         story.append(Paragraph("Dettaglio Risposte Check", styles["SectionHeader"]))
         story.append(Spacer(1, 0.3 * cm))
+
+        # Initial check responses (compact layout)
+        if initial_check_responses:
+            story.append(Paragraph("Check Iniziali", styles["SubSectionHeader"]))
+            for idx, resp in enumerate(initial_check_responses[:10], 1):
+                assignment = resp.assignment
+                form_name = assignment.form.name if assignment and assignment.form else f"Check {idx}"
+                submit_date = resp.created_at.strftime("%d/%m/%Y") if resp.created_at else "-"
+                story.append(Paragraph(f"<b>{form_name}</b> - Compilato il: {submit_date}", styles["HighlightLabel"]))
+
+                formatted_responses = resp.get_formatted_responses()
+                if not formatted_responses and isinstance(resp.responses, dict):
+                    formatted_responses = resp.responses
+
+                if formatted_responses:
+                    items = []
+                    for key, value in formatted_responses.items():
+                        if value is None or str(value).strip() == "":
+                            continue
+                        if isinstance(value, (dict, list)):
+                            value = json.dumps(value, ensure_ascii=True)
+                        value_str = str(value)
+                        if len(value_str) > 180:
+                            value_str = value_str[:180] + "..."
+                        items.append((str(key), value_str))
+
+                    rows = []
+                    for i in range(0, len(items), 2):
+                        left_key, left_val = items[i]
+                        right_key, right_val = ("", "")
+                        if i + 1 < len(items):
+                            right_key, right_val = items[i + 1]
+                        rows.append([
+                            Paragraph(f"<b>{left_key}</b>", styles["MetaText"]),
+                            Paragraph(left_val, styles["PDFBody"]),
+                            Paragraph(f"<b>{right_key}</b>" if right_key else "", styles["MetaText"]),
+                            Paragraph(right_val, styles["PDFBody"]),
+                        ])
+
+                    table = Table(rows, colWidths=[4 * cm, 5 * cm, 4 * cm, 5 * cm])
+                    table.setStyle(TableStyle([
+                        ("BACKGROUND", (0, 0), (0, -1), LIGHT_GREEN_BG),
+                        ("BACKGROUND", (2, 0), (2, -1), LIGHT_GREEN_BG),
+                        ("BACKGROUND", (1, 0), (1, -1), WHITE),
+                        ("BACKGROUND", (3, 0), (3, -1), WHITE),
+                        ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#d1d5db")),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                        ("TOPPADDING", (0, 0), (-1, -1), 3),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ]))
+                    story.append(table)
+                else:
+                    story.append(Paragraph("Nessuna risposta disponibile", styles["MetaText"]))
+
+                story.append(Spacer(1, 0.2 * cm))
+            story.append(Spacer(1, 0.3 * cm))
 
         # Weekly check responses
         if weekly_responses:
