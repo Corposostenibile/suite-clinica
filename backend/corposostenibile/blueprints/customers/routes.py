@@ -1903,6 +1903,11 @@ def api_hm_coordinatrici_dashboard() -> Any:
     q = (request.args.get("q") or "").strip()
     cliente_id_filter = request.args.get("cliente_id", type=int)
     hm_filter = request.args.get("health_manager_id", type=int)
+    check_in_filter = (request.args.get("check_in_completed") or "").strip().lower()
+    contacted_renewal_filter = (request.args.get("contacted_for_renewal") or "").strip().lower()
+    renewal_filter = (request.args.get("renewal_completed") or "").strip().lower()
+    contacted_review_filter = (request.args.get("contacted_for_review") or "").strip().lower()
+    review_filter = (request.args.get("review_completed") or "").strip().lower()
     sort_by = (request.args.get("sort_by") or "health_manager").strip().lower()
     sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
     if sort_dir not in ("asc", "desc"):
@@ -1987,6 +1992,36 @@ def api_hm_coordinatrici_dashboard() -> Any:
 
     if q:
         query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    if check_in_filter == "yes":
+        query = query.filter(checkin_subq.c.last_check_in_call_date.isnot(None))
+    elif check_in_filter == "no":
+        query = query.filter(checkin_subq.c.last_check_in_call_date.is_(None))
+
+    def _apply_mock_flag_filter(base_query: Any, raw_value: str, salt: int) -> Any:
+        if raw_value not in ("yes", "no"):
+            return base_query
+        expr = ((Cliente.cliente_id + salt) % 3) != 0
+        return base_query.filter(expr if raw_value == "yes" else ~expr)
+
+    query = _apply_mock_flag_filter(query, contacted_renewal_filter, 3)
+    query = _apply_mock_flag_filter(query, renewal_filter, 7)
+    query = _apply_mock_flag_filter(query, contacted_review_filter, 11)
+
+    if review_filter == "yes":
+        query = query.filter(
+            or_(
+                review_subq.c.review_done_flag == 1,
+                and_(review_subq.c.review_done_flag.is_(None), ((Cliente.cliente_id + 13) % 3) != 0),
+            )
+        )
+    elif review_filter == "no":
+        query = query.filter(
+            or_(
+                review_subq.c.review_done_flag == 0,
+                and_(review_subq.c.review_done_flag.is_(None), ((Cliente.cliente_id + 13) % 3) == 0),
+            )
+        )
 
     sort_map = {
         "health_manager": func.lower(func.coalesce(hm_name_sql, "")),

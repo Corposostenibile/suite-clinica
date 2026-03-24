@@ -99,6 +99,13 @@ function ClientiListaHealthManager() {
   const [coordLoading, setCoordLoading] = useState(false);
   const [coordSortBy, setCoordSortBy] = useState('health_manager');
   const [coordSortDir, setCoordSortDir] = useState('asc');
+  const [coordFlagFilters, setCoordFlagFilters] = useState({
+    check_in_completed: '',
+    contacted_for_renewal: '',
+    renewal_completed: '',
+    contacted_for_review: '',
+    review_completed: '',
+  });
   const coordTableScrollRef = useRef(null);
   const coordTopScrollRef = useRef(null);
   const coordScrollSyncLockRef = useRef(false);
@@ -277,6 +284,7 @@ function ClientiListaHealthManager() {
         health_manager_id: selectedHmId || undefined,
         sort_by: coordSortBy,
         sort_dir: coordSortDir,
+        ...Object.fromEntries(Object.entries(coordFlagFilters).filter(([, value]) => Boolean(value))),
       });
       setCoordData(data.data || []);
       setCoordHealthManagers(data.health_managers || []);
@@ -287,7 +295,7 @@ function ClientiListaHealthManager() {
     } finally {
       setCoordLoading(false);
     }
-  }, [coordPagination.page, coordPagination.perPage, debouncedSearch, selectedHmId, coordSortBy, coordSortDir]);
+  }, [coordPagination.page, coordPagination.perPage, debouncedSearch, selectedHmId, coordSortBy, coordSortDir, coordFlagFilters]);
 
   useEffect(() => {
     if (mainTab === 'recensioni') fetchReviews();
@@ -677,6 +685,49 @@ function ClientiListaHealthManager() {
           </select>
         )}
       </div>
+
+      {isCoordinatriciTab && (
+        <div className="cl-coord-filters-row">
+          {[
+            ['check_in_completed', 'Check-in'],
+            ['contacted_for_renewal', 'Contattato rinnovo'],
+            ['renewal_completed', 'Rinnovo'],
+            ['contacted_for_review', 'Contattato review'],
+            ['review_completed', 'Review'],
+          ].map(([key, label]) => (
+            <select
+              key={key}
+              className="cl-coord-filter-select"
+              value={coordFlagFilters[key]}
+              onChange={(e) => {
+                const value = e.target.value;
+                setCoordFlagFilters((prev) => ({ ...prev, [key]: value }));
+                setCoordPagination((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              <option value="">{label}: tutti</option>
+              <option value="yes">{label}: SI</option>
+              <option value="no">{label}: NO</option>
+            </select>
+          ))}
+          <button
+            type="button"
+            className="cl-coord-filter-reset"
+            onClick={() => {
+              setCoordFlagFilters({
+                check_in_completed: '',
+                contacted_for_renewal: '',
+                renewal_completed: '',
+                contacted_for_review: '',
+                review_completed: '',
+              });
+              setCoordPagination((prev) => ({ ...prev, page: 1 }));
+            }}
+          >
+            <i className="ri-refresh-line"></i> Reset filtri
+          </button>
+        </div>
+      )}
 
       {/* ── Recensioni Content ── */}
       {isReviewTab && (
