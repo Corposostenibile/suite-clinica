@@ -99,6 +99,15 @@ function ClientiListaHealthManager() {
   const [coordLoading, setCoordLoading] = useState(false);
   const [coordSortBy, setCoordSortBy] = useState('health_manager');
   const [coordSortDir, setCoordSortDir] = useState('asc');
+  const coordTableScrollRef = useRef(null);
+  const coordTopScrollRef = useRef(null);
+  const coordScrollSyncLockRef = useRef(false);
+  const [coordScroll, setCoordScroll] = useState({
+    canLeft: false,
+    canRight: false,
+    hasOverflow: false,
+    scrollWidth: 0,
+  });
 
   const getApiErrorMessage = (err, fallback) => {
     const description = err?.response?.data?.description;
@@ -462,6 +471,52 @@ function ClientiListaHealthManager() {
     );
   };
 
+  const updateCoordScrollMetrics = useCallback(() => {
+    const el = coordTableScrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 1;
+    setCoordScroll({
+      canLeft: el.scrollLeft > 0,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+      hasOverflow,
+      scrollWidth: el.scrollWidth,
+    });
+  }, []);
+
+  const syncCoordTopFromTable = useCallback(() => {
+    const tableEl = coordTableScrollRef.current;
+    const topEl = coordTopScrollRef.current;
+    if (!tableEl || !topEl || coordScrollSyncLockRef.current) return;
+    coordScrollSyncLockRef.current = true;
+    topEl.scrollLeft = tableEl.scrollLeft;
+    coordScrollSyncLockRef.current = false;
+    updateCoordScrollMetrics();
+  }, [updateCoordScrollMetrics]);
+
+  const syncCoordTableFromTop = useCallback(() => {
+    const tableEl = coordTableScrollRef.current;
+    const topEl = coordTopScrollRef.current;
+    if (!tableEl || !topEl || coordScrollSyncLockRef.current) return;
+    coordScrollSyncLockRef.current = true;
+    tableEl.scrollLeft = topEl.scrollLeft;
+    coordScrollSyncLockRef.current = false;
+    updateCoordScrollMetrics();
+  }, [updateCoordScrollMetrics]);
+
+  const scrollCoordTable = (dir) => {
+    const el = coordTableScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 260, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (!isCoordinatriciTab) return;
+    updateCoordScrollMetrics();
+    const onResize = () => updateCoordScrollMetrics();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isCoordinatriciTab, coordData, updateCoordScrollMetrics]);
+
   return (
     <div className="container-fluid p-0">
       {/* Header */}
@@ -661,7 +716,42 @@ function ClientiListaHealthManager() {
           ) : (
             <>
               <div className="cl-table-card">
-                <div className="table-responsive">
+                {coordScroll.hasOverflow && (
+                  <div className="cl-top-scroll-wrap">
+                    {coordScroll.canLeft && (
+                      <button
+                        type="button"
+                        className="cl-top-scroll-arrow cl-top-scroll-arrow-left"
+                        onClick={() => scrollCoordTable(-1)}
+                        aria-label="Scorri tabella a sinistra"
+                      >
+                        <i className="ri-arrow-left-s-line"></i>
+                      </button>
+                    )}
+                    <div
+                      className="cl-top-scroll"
+                      ref={coordTopScrollRef}
+                      onScroll={syncCoordTableFromTop}
+                    >
+                      <div className="cl-top-scroll-inner" style={{ width: `${coordScroll.scrollWidth}px` }}></div>
+                    </div>
+                    {coordScroll.canRight && (
+                      <button
+                        type="button"
+                        className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
+                        onClick={() => scrollCoordTable(1)}
+                        aria-label="Scorri tabella a destra"
+                      >
+                        <i className="ri-arrow-right-s-line"></i>
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div
+                  className="table-responsive"
+                  ref={coordTableScrollRef}
+                  onScroll={syncCoordTopFromTable}
+                >
                   <table className="cl-table">
                     <thead>
                       <tr>
