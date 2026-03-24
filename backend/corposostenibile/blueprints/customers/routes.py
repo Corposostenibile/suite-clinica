@@ -2571,7 +2571,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
             story.append(Paragraph(f"<b>{entry.entry_date.strftime('%d/%m/%Y')}</b> - {_export_pdf_user_label(entry.author)}", styles["HighlightLabel"]))
             story.append(Paragraph(entry.content.replace("\n", "<br/>"), styles["PDFBody"]))
             story.append(Spacer(1, 4))
-         story.append(Spacer(1, 6))
+        story.append(Spacer(1, 6))
 
     story.append(Spacer(1, 0.5 * cm))
     # Psicologia section
