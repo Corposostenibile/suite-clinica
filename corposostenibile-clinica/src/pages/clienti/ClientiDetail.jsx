@@ -3088,31 +3088,58 @@ function ClientiDetail() {
 
   if (!cliente) return null;
 
+  const computeRemainingDaysFromDate = (renewalDate) => {
+    if (!renewalDate) return null;
+    const target = new Date(renewalDate);
+    if (Number.isNaN(target.getTime())) return null;
+    const today = new Date();
+    target.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffMs = target.getTime() - today.getTime();
+    return Math.round(diffMs / (1000 * 60 * 60 * 24));
+  };
+
   // Normalize data
   const c = {
-    id: cliente.cliente_id || cliente.clienteId,
-    nome: cliente.nome_cognome || cliente.nomeCognome,
-    statoCliente: cliente.stato_cliente || cliente.statoCliente || 'ghost',
-    alert: cliente.alert,
-    programma: cliente.programma_attuale || cliente.programmaAttuale,
-    tipologia: cliente.tipologia_cliente || cliente.tipologiaCliente,
-    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione,
-    tipologiaSupportoCoach: cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach,
-    dataInizio: cliente.data_inizio_abbonamento || cliente.dataInizioAbbonamento,
-    dataRinnovo: cliente.data_rinnovo || cliente.dataRinnovo,
-    giorniRimanenti: cliente.giorni_rimanenti_calcolati || cliente.giorniRimanentiCalcolati,
-    nutrizionistiMultipli: cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [],
-    coachesMultipli: cliente.coaches_multipli || cliente.coachesMultipli || [],
-    psicologiMultipli: cliente.psicologi_multipli || cliente.psicologiMultipli || [],
+    id: cliente.cliente_id ?? cliente.clienteId ?? null,
+    nome: cliente.nome_cognome ?? cliente.nomeCognome ?? '',
+    email: cliente.mail ?? cliente.email ?? formData.mail ?? '',
+    dataDiNascita: cliente.data_di_nascita ?? cliente.dataDiNascita ?? formData.data_di_nascita ?? '',
+    statoCliente: cliente.stato_cliente ?? cliente.statoCliente ?? 'ghost',
+    alert: Boolean(cliente.alert),
+    programma: cliente.programma_attuale ?? cliente.programmaAttuale ?? '',
+    tipologia: cliente.tipologia_cliente ?? cliente.tipologiaCliente ?? '',
+    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione ?? cliente.tipologiaSupportoNutrizione ?? '',
+    tipologiaSupportoCoach: cliente.tipologia_supporto_coach ?? cliente.tipologiaSupportoCoach ?? '',
+    dataInizio: cliente.data_inizio_abbonamento ?? cliente.dataInizioAbbonamento ?? null,
+    dataRinnovo: cliente.data_rinnovo ?? cliente.dataRinnovo ?? null,
+    giorniRimanenti: cliente.giorni_rimanenti_calcolati ?? cliente.giorniRimanentiCalcolati ?? null,
+    nutrizionistiMultipli: cliente.nutrizionisti_multipli ?? cliente.nutrizionistiMultipli ?? [],
+    coachesMultipli: cliente.coaches_multipli ?? cliente.coachesMultipli ?? [],
+    psicologiMultipli: cliente.psicologi_multipli ?? cliente.psicologiMultipli ?? [],
     nutrizionista: cliente.nutrizionista,
     coach: cliente.coach,
     psicologa: cliente.psicologa,
     // Team Esterno
-    healthManagerUser: cliente.health_manager_user || cliente.healthManagerUser,
-    personalConsultant: cliente.personal_consultant || cliente.personalConsultant,
+    healthManagerUser: cliente.health_manager_user ?? cliente.healthManagerUser ?? null,
+    personalConsultant: cliente.personal_consultant ?? cliente.personalConsultant ?? null,
   };
 
-  const age = calculateAge(formData.data_di_nascita);
+  const age = calculateAge(c.dataDiNascita);
+  const hmAssignment = getActiveProfessionals('health_manager')[0];
+  const healthManagerUser = c.healthManagerUser || (hmAssignment && {
+    id: hmAssignment.professionista_id,
+    full_name: hmAssignment.professionista_nome,
+    email: hmAssignment.professionista_email,
+    avatar_path: hmAssignment.avatar_path,
+  });
+  const remainingDays = c.giorniRimanenti ?? computeRemainingDaysFromDate(c.dataRinnovo);
+  const hasAssignedTeam = Boolean(
+    healthManagerUser ||
+    c.nutrizionistiMultipli?.length ||
+    c.coachesMultipli?.length ||
+    c.psicologiMultipli?.length,
+  );
   const statusGradient = STATUS_GRADIENTS[c.statoCliente] || STATUS_GRADIENTS.ghost;
   const statusColor = STATUS_COLORS[c.statoCliente] || 'secondary';
 
@@ -3228,7 +3255,7 @@ function ClientiDetail() {
             <div className="cd-profile-body">
               <h4 className="cd-profile-name">{c.nome}</h4>
               <p className="cd-profile-email">
-                {formData.mail || 'Nessuna email'}
+                {c.email || 'Nessuna email'}
               </p>
 
               {/* Badges */}
@@ -3254,7 +3281,7 @@ function ClientiDetail() {
               <div className="cd-stats-grid">
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">ID Paziente</div>
-                  <div className="cd-stat-box-value">#{c.id}</div>
+                  <div className="cd-stat-box-value">{c.id ? `#${c.id}` : '-'}</div>
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Età</div>
@@ -3262,7 +3289,7 @@ function ClientiDetail() {
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Giorni Rimanenti</div>
-                  <div className="cd-stat-box-value">{c.giorniRimanenti || '-'}</div>
+                  <div className="cd-stat-box-value">{remainingDays ?? '-'}</div>
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Rinnovo</div>
@@ -3276,17 +3303,7 @@ function ClientiDetail() {
               <div className="cd-team-section-title">Team Assegnato</div>
               <div>
                 {/* Health Manager */}
-                {(() => {
-                  const hmAssignment = getActiveProfessionals('health_manager')[0];
-                  const hmUser = c.healthManagerUser || formData.healthManagerUser || (hmAssignment && {
-                    id: hmAssignment.professionista_id,
-                    full_name: hmAssignment.professionista_nome,
-                    email: hmAssignment.professionista_email,
-                    avatar_path: hmAssignment.avatar_path,
-                  });
-                  if (!hmUser) return null;
-
-                  return (
+                {healthManagerUser && (
                     <div className="cd-team-group">
                       <div className="cd-team-group-header">
                         <div className="cd-team-icon health-manager">
@@ -3295,9 +3312,9 @@ function ClientiDetail() {
                         <span className="cd-team-group-label">Health Manager</span>
                       </div>
                       <div className="cd-team-member">
-                        {hmUser.avatar_path ? (
+                        {healthManagerUser.avatar_path ? (
                           <img
-                            src={hmUser.avatar_path}
+                            src={healthManagerUser.avatar_path}
                             alt=""
                             className="cd-team-member-avatar"
                           />
@@ -3306,7 +3323,7 @@ function ClientiDetail() {
                             className="cd-team-member-initials"
                             style={{ background: '#9333ea' }}
                           >
-                            {(hmUser.full_name || hmUser.email || '??')
+                            {(healthManagerUser.full_name || healthManagerUser.email || '??')
                               .split(' ')
                               .map(n => n[0])
                               .join('')
@@ -3315,12 +3332,11 @@ function ClientiDetail() {
                           </div>
                         )}
                         <span className="cd-team-member-name">
-                          {hmUser.full_name || hmUser.email}
+                          {healthManagerUser.full_name || healthManagerUser.email}
                         </span>
                       </div>
                     </div>
-                  );
-                })()}
+                )}
 
                 {/* Nutrizionisti */}
                 {c.nutrizionistiMultipli?.length > 0 && (
@@ -3416,7 +3432,7 @@ function ClientiDetail() {
                 )}
 
                 {/* Nessun professionista */}
-                {!c.healthManagerUser && !c.nutrizionistiMultipli?.length && !c.coachesMultipli?.length && !c.psicologiMultipli?.length && (
+                {!hasAssignedTeam && (
                   <div className="cd-team-empty">Nessun professionista assegnato</div>
                 )}
               </div>
