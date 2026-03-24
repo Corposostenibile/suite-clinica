@@ -2446,7 +2446,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Ultimo piano - fine", getattr(latest_meal_plan, "end_date", None)),
     ], col_widths)
 
-    # Patologie nutrizionali
+    # Scelte anamnesi (checkbox nutrizione)
     patologie_nutrizione = []
     if cliente.nessuna_patologia: patologie_nutrizione.append("Nessuna patologia")
     if cliente.patologia_ibs: patologie_nutrizione.append("IBS")
@@ -2467,11 +2467,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     if cliente.patologia_stitichezza: patologie_nutrizione.append("Stitichezza")
     if cliente.patologia_tiroidee: patologie_nutrizione.append("Tiroidee")
     if cliente.patologia_altro: patologie_nutrizione.append(f"Altro: {cliente.patologia_altro}")
-    if patologie_nutrizione:
-        story.append(Paragraph("Patologie Nutrizionali", styles["SubSectionHeader"]))
-        story.append(Paragraph(", ".join(patologie_nutrizione), styles["PDFBody"]))
-        story.append(Spacer(1, 0.2 * cm))
-
     # Alert nutrizione
     if cliente.alert_nutrizione:
         story.append(Paragraph("Alert Nutrizione", styles["SubSectionHeader"]))
@@ -2492,9 +2487,16 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     anamnesi_nutrizione = next((a for a in anamnesi_entries if a.service_type == "nutrizione"), None)
     if anamnesi_nutrizione:
         story.append(Paragraph("Anamnesi Nutrizione", styles["SubSectionHeader"]))
+        if patologie_nutrizione:
+            story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_nutrizione), styles["PDFBody"]))
+            story.append(Spacer(1, 0.1 * cm))
         story.append(Paragraph(f"<i>Creato il: {anamnesi_nutrizione.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
         story.append(Paragraph(anamnesi_nutrizione.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
+    elif patologie_nutrizione:
+        story.append(Paragraph("Anamnesi Nutrizione", styles["SubSectionHeader"]))
+        story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_nutrizione), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Diario nutrizione
     diario_nutrizione = [d for d in diary_entries if d.service_type == "nutrizione"]
@@ -2522,7 +2524,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Ultima location allenamento", getattr(latest_training_location, "location", None)),
     ], col_widths)
 
-    # Patologie coaching
+    # Scelte anamnesi (checkbox coaching)
     patologie_coaching = []
     if cliente.nessuna_patologia_coach: patologie_coaching.append("Nessuna patologia")
     if cliente.patologia_coach_infortuni: patologie_coaching.append("Infortuni pregressi")
@@ -2531,11 +2533,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     if cliente.patologia_coach_posturali: patologie_coaching.append("Problematiche posturali")
     if cliente.patologia_coach_cardiovascolari: patologie_coaching.append("Problematiche cardiovascolari")
     if cliente.patologia_coach_altro: patologie_coaching.append(f"Altro: {cliente.patologia_coach_altro}")
-    if patologie_coaching:
-        story.append(Paragraph("Patologie e Limitazioni Coaching", styles["SubSectionHeader"]))
-        story.append(Paragraph(", ".join(patologie_coaching), styles["PDFBody"]))
-        story.append(Spacer(1, 0.2 * cm))
-
     # Alert coaching
     if cliente.alert_coaching:
         story.append(Paragraph("Alert Coaching", styles["SubSectionHeader"]))
@@ -2556,9 +2553,16 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     anamnesi_coaching = next((a for a in anamnesi_entries if a.service_type == "coaching"), None)
     if anamnesi_coaching:
         story.append(Paragraph("Anamnesi Coaching", styles["SubSectionHeader"]))
+        if patologie_coaching:
+            story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_coaching), styles["PDFBody"]))
+            story.append(Spacer(1, 0.1 * cm))
         story.append(Paragraph(f"<i>Creato il: {anamnesi_coaching.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
         story.append(Paragraph(anamnesi_coaching.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
+    elif patologie_coaching:
+        story.append(Paragraph("Anamnesi Coaching", styles["SubSectionHeader"]))
+        story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_coaching), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Diario coaching
     diario_coaching = [d for d in diary_entries if d.service_type == "coaching"]
@@ -2580,7 +2584,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Call iniziale", "Si" if cliente.call_iniziale_psicologa else "No"),
     ], col_widths)
 
-    # Patologie psicologiche
+    # Scelte anamnesi (checkbox psicologia)
     patologie_psico = []
     if cliente.nessuna_patologia_psico: patologie_psico.append("Nessuna patologia")
     if cliente.patologia_psico_dca: patologie_psico.append("DCA")
@@ -2591,11 +2595,6 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     if cliente.patologia_psico_psicosomatiche: patologie_psico.append("Psicosomatiche")
     if cliente.patologia_psico_relazionali_altro: patologie_psico.append("Relazionali/Altro")
     if cliente.patologia_psico_altro: patologie_psico.append(f"Altro: {cliente.patologia_psico_altro}")
-    if patologie_psico:
-        story.append(Paragraph("Patologie Psicologiche", styles["SubSectionHeader"]))
-        story.append(Paragraph(", ".join(patologie_psico), styles["PDFBody"]))
-        story.append(Spacer(1, 0.2 * cm))
-
     # Alert psicologia
     if cliente.alert_psicologia:
         story.append(Paragraph("Alert Psicologia", styles["SubSectionHeader"]))
@@ -2616,9 +2615,16 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     anamnesi_psicologia = next((a for a in anamnesi_entries if a.service_type == "psicologia"), None)
     if anamnesi_psicologia:
         story.append(Paragraph("Anamnesi Psicologia", styles["SubSectionHeader"]))
+        if patologie_psico:
+            story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_psico), styles["PDFBody"]))
+            story.append(Spacer(1, 0.1 * cm))
         story.append(Paragraph(f"<i>Creato il: {anamnesi_psicologia.created_at.strftime('%d/%m/%Y')}</i>", styles["MetaText"]))
         story.append(Paragraph(anamnesi_psicologia.content.replace("\n", "<br/>"), styles["PDFBody"]))
         story.append(Spacer(1, 10))
+    elif patologie_psico:
+        story.append(Paragraph("Anamnesi Psicologia", styles["SubSectionHeader"]))
+        story.append(Paragraph("<b>Anamnesi:</b> " + ", ".join(patologie_psico), styles["PDFBody"]))
+        story.append(Spacer(1, 0.2 * cm))
 
     # Diario psicologia
     diario_psicologia = [d for d in diary_entries if d.service_type == "psicologia"]
