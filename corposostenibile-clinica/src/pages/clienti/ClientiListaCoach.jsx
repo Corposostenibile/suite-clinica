@@ -102,6 +102,10 @@ function ClientiListaCoach() {
     nuovo_allenamento_il_from: searchParams.get('nuovo_allenamento_il_from') || '',
     nuovo_allenamento_il_to: searchParams.get('nuovo_allenamento_il_to') || '',
     missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '0',
+    senza_patologie_nutrizionali: searchParams.get('senza_patologie_nutrizionali') || '0',
+    patologie_non_indicate_nutri: searchParams.get('patologie_non_indicate_nutri') || '0',
+    senza_patologie_psicologiche: searchParams.get('senza_patologie_psicologiche') || '0',
+    patologie_non_indicate_psico: searchParams.get('patologie_non_indicate_psico') || '0',
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -143,7 +147,9 @@ function ClientiListaCoach() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        // Tipologia: __missing__ → missing_tipologia=1, altrimenti valore diretto
+        tipologia: (filters.tipologia && filters.tipologia !== '__missing__') ? filters.tipologia : undefined,
+        missing_tipologia: filters.tipologia === '__missing__' ? '1' : undefined,
         coach_id: filters.coach || undefined,
         stato_coach: filters.statoCoach || undefined,
         stato_chat_coaching: filters.statoChatCoaching || undefined,
@@ -156,6 +162,10 @@ function ClientiListaCoach() {
         nuovo_allenamento_il_from: filters.nuovo_allenamento_il_from || undefined,
         nuovo_allenamento_il_to: filters.nuovo_allenamento_il_to || undefined,
         missing_piano_allenamento: filters.missing_piano_allenamento === '1' ? '1' : undefined,
+        senza_patologie_nutrizionali: filters.senza_patologie_nutrizionali === '1' ? '1' : undefined,
+        patologie_non_indicate_nutri: filters.patologie_non_indicate_nutri === '1' ? '1' : undefined,
+        senza_patologie_psicologiche: filters.senza_patologie_psicologiche === '1' ? '1' : undefined,
+        patologie_non_indicate_psico: filters.patologie_non_indicate_psico === '1' ? '1' : undefined,
       };
 
       const data = await clientiService.getClientiCoach(params);
@@ -206,7 +216,12 @@ function ClientiListaCoach() {
     reachOut: 'reach_out_coaching',
     luogoDiAllenamento: 'luogo_di_allenamento',
     callInizialeCoach: 'call_iniziale_coach',
+    nuovo_allenamento_il_to: 'nuovo_allenamento_il_to',
     missing_piano_allenamento: 'missing_piano_allenamento',
+    senza_patologie_nutrizionali: 'senza_patologie_nutrizionali',
+    patologie_non_indicate_nutri: 'patologie_non_indicate_nutri',
+    senza_patologie_psicologiche: 'senza_patologie_psicologiche',
+    patologie_non_indicate_psico: 'patologie_non_indicate_psico',
   };
 
   const handleSearchInput = (value) => {
@@ -259,6 +274,8 @@ function ClientiListaCoach() {
       allenamento_dal_from: '', allenamento_dal_to: '',
       nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
       missing_piano_allenamento: '0',
+      senza_patologie_nutrizionali: '0', patologie_non_indicate_nutri: '0',
+      senza_patologie_psicologiche: '0', patologie_non_indicate_psico: '0',
     });
     setSearchParams(new URLSearchParams());
   };

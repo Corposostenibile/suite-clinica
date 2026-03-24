@@ -91,6 +91,8 @@ function ClientiListaNutrizione() {
       reachOut: searchParams.get('reach_out_nutrizione') || '',
       callInizialeNutrizionista: searchParams.get('call_iniziale_nutrizionista') || '',
       missing_piano_dieta: searchParams.get('missing_piano_dieta') || '0',
+      senza_patologie_nutrizionali: searchParams.get('senza_patologie_nutrizionali') || '0',
+      patologie_non_indicate_nutri: searchParams.get('patologie_non_indicate_nutri') || '0',
     };
     // Init patologie from URL params
     const patKeys = [
@@ -151,6 +153,8 @@ function ClientiListaNutrizione() {
         reach_out_nutrizione: filters.reachOut || undefined,
         call_iniziale_nutrizionista: filters.callInizialeNutrizionista || undefined,
         missing_piano_dieta: filters.missing_piano_dieta === '1' ? '1' : undefined,
+        senza_patologie_nutrizionali: filters.senza_patologie_nutrizionali === '1' ? '1' : undefined,
+        patologie_non_indicate_nutri: filters.patologie_non_indicate_nutri === '1' ? '1' : undefined,
       };
       // Add patologie filters
       PATOLOGIE_NUTRI.forEach(p => {
@@ -206,6 +210,8 @@ function ClientiListaNutrizione() {
     reachOut: 'reach_out_nutrizione',
     callInizialeNutrizionista: 'call_iniziale_nutrizionista',
     missing_piano_dieta: 'missing_piano_dieta',
+    senza_patologie_nutrizionali: 'senza_patologie_nutrizionali',
+    patologie_non_indicate_nutri: 'patologie_non_indicate_nutri',
   };
 
   const handleSearchInput = (value) => {
@@ -255,6 +261,7 @@ function ClientiListaNutrizione() {
       stato: '', tipologia: '', nutrizionista: '',
       statoNutrizione: '', statoChatNutrizione: '', checkDay: '', reachOut: '',
       callInizialeNutrizionista: '', missing_piano_dieta: '0',
+      senza_patologie_nutrizionali: '0', patologie_non_indicate_nutri: '0',
     };
     PATOLOGIE_NUTRI.forEach(p => { clean[p.key] = '0'; });
     setFilters(clean);

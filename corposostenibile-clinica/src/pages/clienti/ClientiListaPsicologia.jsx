@@ -89,6 +89,8 @@ function ClientiListaPsicologia() {
       statoChatPsicologia: searchParams.get('stato_chat_psicologia') || '',
       reachOut: searchParams.get('reach_out_psicologia') || '',
       callInizialePsicologa: searchParams.get('call_iniziale_psicologa') || '',
+      senza_patologie_psicologiche: searchParams.get('senza_patologie_psicologiche') || '0',
+      patologie_non_indicate_psico: searchParams.get('patologie_non_indicate_psico') || '0',
     };
     // Init patologie from URL params
     PATOLOGIE_PSICO.forEach(p => { init[p.key] = searchParams.get(p.key) || '0'; });
@@ -141,6 +143,8 @@ function ClientiListaPsicologia() {
         stato_chat_psicologia: filters.statoChatPsicologia || undefined,
         reach_out_psicologia: filters.reachOut || undefined,
         call_iniziale_psicologa: filters.callInizialePsicologa || undefined,
+        senza_patologie_psicologiche: filters.senza_patologie_psicologiche === '1' ? '1' : undefined,
+        patologie_non_indicate_psico: filters.patologie_non_indicate_psico === '1' ? '1' : undefined,
       };
       // Add patologie filters
       PATOLOGIE_PSICO.forEach(p => {
@@ -193,6 +197,8 @@ function ClientiListaPsicologia() {
     statoChatPsicologia: 'stato_chat_psicologia',
     reachOut: 'reach_out_psicologia',
     callInizialePsicologa: 'call_iniziale_psicologa',
+    senza_patologie_psicologiche: 'senza_patologie_psicologiche',
+    patologie_non_indicate_psico: 'patologie_non_indicate_psico',
   };
 
   const handleSearchInput = (value) => {
@@ -242,6 +248,7 @@ function ClientiListaPsicologia() {
       stato: '', tipologia: '', psicologa: '',
       statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
       callInizialePsicologa: '',
+      senza_patologie_psicologiche: '0', patologie_non_indicate_psico: '0',
     };
     PATOLOGIE_PSICO.forEach(p => { clean[p.key] = '0'; });
     setFilters(clean);

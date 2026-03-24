@@ -153,6 +153,7 @@ const ClientiFilters = ({
                                         onChange={(e) => handleDraftChange('tipologia_supporto_nutrizione', e.target.value)}
                                     >
                                         <option value="">Tutte</option>
+                                        <option value="__missing__">Non indicato</option>
                                         {SUPPORT_TIPOLOGIA_KEYS.map((value) => (
                                             <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
                                         ))}
@@ -166,6 +167,7 @@ const ClientiFilters = ({
                                         onChange={(e) => handleDraftChange('tipologia_supporto_coach', e.target.value)}
                                     >
                                         <option value="">Tutte</option>
+                                        <option value="__missing__">Non indicato</option>
                                         {SUPPORT_TIPOLOGIA_KEYS.map((value) => (
                                             <option key={value} value={value}>{TIPOLOGIA_LABELS[value] || value}</option>
                                         ))}
@@ -182,6 +184,7 @@ const ClientiFilters = ({
                                     onChange={(e) => handleDraftChange('tipologia', e.target.value)}
                                 >
                                     <option value="">Tutte</option>
+                                    <option value="__missing__">Non indicato</option>
                                     {tipologiaOptions.map(([value, label]) => (
                                         <option key={value} value={value}>{label}</option>
                                     ))}
@@ -328,7 +331,7 @@ const ClientiFilters = ({
                             <h6 className="cl-advanced-heading">
                                 <RiHeartPulseLine /> Patologie Nutrizionali
                             </h6>
-                            <div className="row g-3 mb-4">
+                            <div className="row g-3 mb-2">
                                 {PATOLOGIE_NUTRI.map(p => (
                                     <div key={p.key} className="col-md-4">
                                         <div className="form-check form-switch">
@@ -343,6 +346,32 @@ const ClientiFilters = ({
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                            <div className="row g-3 mb-4">
+                                <div className="col-md-4">
+                                    <div className="form-check form-switch">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            id="modal-senza_patologie_nutrizionali"
+                                            checked={draft.senza_patologie_nutrizionali === '1'}
+                                            onChange={(e) => handleDraftChange('senza_patologie_nutrizionali', e.target.checked ? '1' : '0')}
+                                        />
+                                        <label className="form-check-label" htmlFor="modal-senza_patologie_nutrizionali">Nessuna patologia</label>
+                                    </div>
+                                </div>
+                                <div className="col-md-4">
+                                    <div className="form-check form-switch">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            id="modal-patologie_non_indicate_nutri"
+                                            checked={draft.patologie_non_indicate_nutri === '1'}
+                                            onChange={(e) => handleDraftChange('patologie_non_indicate_nutri', e.target.checked ? '1' : '0')}
+                                        />
+                                        <label className="form-check-label" htmlFor="modal-patologie_non_indicate_nutri">Non indicato</label>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Piani Mancanti */}
@@ -540,7 +569,7 @@ const ClientiFilters = ({
                             <h6 className="cl-advanced-heading">
                                 <RiBrainLine /> Patologie Psicologiche
                             </h6>
-                            <div className="row g-3">
+                            <div className="row g-3 mb-2">
                                 {PATOLOGIE_PSICO.map(p => (
                                     <div key={p.key} className="col-md-4">
                                         <div className="form-check form-switch">
@@ -555,6 +584,32 @@ const ClientiFilters = ({
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                            <div className="row g-3">
+                                <div className="col-md-4">
+                                    <div className="form-check form-switch">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            id="modal-senza_patologie_psicologiche"
+                                            checked={draft.senza_patologie_psicologiche === '1'}
+                                            onChange={(e) => handleDraftChange('senza_patologie_psicologiche', e.target.checked ? '1' : '0')}
+                                        />
+                                        <label className="form-check-label" htmlFor="modal-senza_patologie_psicologiche">Nessuna patologia psicologica</label>
+                                    </div>
+                                </div>
+                                <div className="col-md-4">
+                                    <div className="form-check form-switch">
+                                        <input
+                                            className="form-check-input"
+                                            type="checkbox"
+                                            id="modal-patologie_non_indicate_psico"
+                                            checked={draft.patologie_non_indicate_psico === '1'}
+                                            onChange={(e) => handleDraftChange('patologie_non_indicate_psico', e.target.checked ? '1' : '0')}
+                                        />
+                                        <label className="form-check-label" htmlFor="modal-patologie_non_indicate_psico">Non indicato</label>
+                                    </div>
+                                </div>
                             </div>
                         </>
                     )}
