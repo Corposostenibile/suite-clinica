@@ -20,6 +20,7 @@ from flask import (
     g,
     jsonify,
     request,
+    session,
     url_for,
     abort,
 )
@@ -1878,7 +1879,22 @@ def api_hm_coordinatrici_dashboard() -> Any:
         or current_user.role == UserRoleEnum.admin
         or specialty_value.strip().lower() == "cco"
     )
-    can_access = is_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
+
+    is_impersonated_by_admin_or_cco = False
+    if session.get("impersonating") and session.get("original_admin_id"):
+        original_admin = db.session.get(User, int(session.get("original_admin_id")))
+        if original_admin:
+            original_role = getattr(original_admin, "role", None)
+            original_role_value = original_role.value if hasattr(original_role, "value") else str(original_role or "")
+            original_specialty = getattr(original_admin, "specialty", None)
+            original_specialty_value = original_specialty.value if hasattr(original_specialty, "value") else str(original_specialty or "")
+            is_impersonated_by_admin_or_cco = bool(
+                getattr(original_admin, "is_admin", False)
+                or original_role_value == "admin"
+                or original_specialty_value.strip().lower() == "cco"
+            )
+
+    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
     if not can_access:
         abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale coordinatrici HM.")
 

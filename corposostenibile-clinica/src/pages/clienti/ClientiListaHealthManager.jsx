@@ -107,12 +107,27 @@ function ClientiListaHealthManager() {
   };
 
   // Health Manager filter (admin/TL only)
-  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
-  const isHmTeamLeader = Boolean(user?.role === 'team_leader' && (
-    String(user?.specialty || '').toLowerCase() === 'health_manager' ||
-    String(user?.department?.name || '').toLowerCase().includes('health')
-  ));
-  const canFilterByHm = isAdmin || isHmTeamLeader;
+  const roleValue = user?.role?.value || user?.role;
+  const specialtyValue = user?.specialty?.value || user?.specialty;
+  const isAdmin = Boolean(
+    user?.is_admin ||
+    roleValue === 'admin' ||
+    String(specialtyValue || '').toLowerCase() === 'cco'
+  );
+  const isHmTeamLeader = Boolean(
+    roleValue === 'team_leader' && (
+      user?.is_health_manager_team_leader ||
+      String(specialtyValue || '').toLowerCase() === 'health_manager' ||
+      String(user?.department?.name || '').toLowerCase().includes('health') ||
+      String(user?.department?.name || '').toLowerCase().includes('customer success') ||
+      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
+        const teamType = team?.team_type?.value || team?.team_type;
+        return String(teamType || '').toLowerCase() === 'health_manager';
+      }))
+    )
+  );
+  const isImpersonatingSession = Boolean(user?.impersonating);
+  const canFilterByHm = isAdmin || isHmTeamLeader || isImpersonatingSession;
   const [healthManagers, setHealthManagers] = useState([]);
   const [selectedHmId, setSelectedHmId] = useState('');
 
@@ -415,7 +430,7 @@ function ClientiListaHealthManager() {
           : statusLoading;
   const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
 
-  const canAccessCoordinatriciPanel = Boolean(isAdmin || isHmTeamLeader);
+  const canAccessCoordinatriciPanel = Boolean(isAdmin || isHmTeamLeader || isImpersonatingSession);
   const visibleMainTabs = MAIN_TABS.filter((tab) => tab.key !== 'coordinatrici_hm' || canAccessCoordinatriciPanel);
 
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString('it-IT') : '\u2014');
