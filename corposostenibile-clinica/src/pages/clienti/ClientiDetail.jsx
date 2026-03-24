@@ -131,19 +131,37 @@ function ClientiDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
-   const isHealthManager = isHealthManagerUser(user);
-   const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
-   const isCco = user?.specialty === 'cco';
-   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
-   const isHmTeamLeader = Boolean(
-     isAdmin ||
-       user?.is_health_manager_team_leader ||
-       (user?.teams_led && user.teams_led.some(team => {
-         const teamType = team?.team_type?.value || team?.team_type;
-         return teamType === 'health_manager' || (team?.department?.includes('health') || team?.department?.includes('customer success'));
-       }))
-   );
-   const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
+  const isHealthManager = isHealthManagerUser(user);
+  const roleValue = user?.role?.value || user?.role;
+  const specialtyValue = user?.specialty?.value || user?.specialty;
+  const isAdmin = Boolean(
+    user?.is_admin ||
+    roleValue === 'admin' ||
+    String(specialtyValue || '').toLowerCase() === 'cco'
+  );
+  const isCco = String(specialtyValue || '').toLowerCase() === 'cco';
+  const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
+  const isHmTeamLeader = Boolean(
+    roleValue === 'team_leader' && (
+      user?.is_health_manager_team_leader ||
+      String(specialtyValue || '').toLowerCase() === 'health_manager' ||
+      String(user?.department?.name || '').toLowerCase().includes('health') ||
+      String(user?.department?.name || '').toLowerCase().includes('customer success') ||
+      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
+        const teamType = team?.team_type?.value || team?.team_type;
+        return String(teamType || '').toLowerCase() === 'health_manager';
+      }))
+    )
+  );
+  const isImpersonatingSession = Boolean(user?.impersonating);
+  const canAccessHmControlPanel = Boolean(
+    isAdmin ||
+    isCco ||
+    isHmTeamLeader ||
+    isImpersonatingSession ||
+    roleValue === 'health_manager'
+  );
+  const specialtyGroup = normalizeSpecialtyGroup(specialtyValue);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const isInfluencer = user?.role === 'influencer';
   const canSaveGlobalClientCard = !isInfluencer;
@@ -744,6 +762,8 @@ function ClientiDetail() {
   const [loadingCustomerCare, setLoadingCustomerCare] = useState(false);
   const [checkInInterventions, setCheckInInterventions] = useState([]);
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
+  const [hmControlPanelData, setHmControlPanelData] = useState(null);
+  const [loadingHmControlPanel, setLoadingHmControlPanel] = useState(false);
   const [hmInterventionForm, setHmInterventionForm] = useState({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
   const [showHmInterventionModal, setShowHmInterventionModal] = useState(false);
   const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in'
@@ -1402,17 +1422,34 @@ function ClientiDetail() {
     finally { setLoadingCheckIn(false); }
   }, [id]);
 
-   useEffect(() => {
-     if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
-     if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
-   }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions]);
+  const fetchHmControlPanelData = useCallback(async () => {
+    if (!id || !canAccessHmControlPanel) return;
+    setLoadingHmControlPanel(true);
+    try {
+      const response = await clientiService.getHmCoordinatriciClienteDetail(id);
+      setHmControlPanelData(Array.isArray(response?.data) ? response.data[0] || null : null);
+    } catch (err) {
+      console.error('Error fetching HM control panel data', err);
+      setHmControlPanelData(null);
+    } finally {
+      setLoadingHmControlPanel(false);
+    }
+  }, [id, canAccessHmControlPanel]);
+
+  useEffect(() => {
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && canAccessHmControlPanel) {
+      fetchHmControlPanelData();
+    }
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
+  }, [activeTab, healthManagerSubTab, canAccessHmControlPanel, fetchCustomerCareInterventions, fetchCheckInInterventions, fetchHmControlPanelData]);
 
    // Reset health manager subtab if user doesn't have permission
    useEffect(() => {
-     if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && !isHmTeamLeader) {
+     if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && !canAccessHmControlPanel) {
        setHealthManagerSubTab('onboarding');
      }
-   }, [activeTab, healthManagerSubTab, isHmTeamLeader]);
+   }, [activeTab, healthManagerSubTab, canAccessHmControlPanel]);
 
   // Sync onboarding draft when cliente loads
   useEffect(() => {
@@ -4375,11 +4412,7 @@ function ClientiDetail() {
                         { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
                         { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
                         { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
-                      ].filter(st => {
-                        // Only show pannello_controllo for Team Leader HM
-                        if (st.key === 'pannello_controllo') return isHmTeamLeader;
-                        return true;
-                      }).map((st) => (
+                      ].filter((st) => st.key !== 'pannello_controllo' || canAccessHmControlPanel).map((st) => (
                       <button
                         key={st.key}
                         type="button"
@@ -4404,46 +4437,57 @@ function ClientiDetail() {
                          <i className="ri-dashboard-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
                          Pannello di Controllo
                        </h6>
-                       <div style={{ overflowX: 'auto' }}>
-                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-                           <tbody>
-                             <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Onboarding</td>
-                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                                 {cliente?.data_onboarding ? new Date(cliente.data_onboarding).toLocaleDateString('it-IT') : '—'}
-                               </td>
-                             </tr>
-                             <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Inizio Percorso</td>
-                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                                 {cliente?.data_inizio_abbonamento ? new Date(cliente.data_inizio_abbonamento).toLocaleDateString('it-IT') : '—'}
-                               </td>
-                             </tr>
-                             <tr style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Data Fine Percorso</td>
-                               <td style={{ padding: '12px 16px', color: '#64748b' }}>
-                                 {cliente?.data_fine_percorso ? new Date(cliente.data_fine_percorso).toLocaleDateString('it-IT') : '—'}
-                               </td>
-                             </tr>
-                             <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                               <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569', minWidth: 150 }}>Check-in Completato</td>
-                               <td style={{ padding: '12px 16px' }}>
+                       {loadingHmControlPanel ? (
+                         <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                       ) : !hmControlPanelData ? (
+                         <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                           <i className="ri-dashboard-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                           Nessun dato disponibile per questo paziente
+                         </div>
+                       ) : (
+                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                           {[
+                             { label: 'Nome cliente', value: hmControlPanelData.nome_cognome || '—' },
+                             { label: 'Health Manager', value: hmControlPanelData.health_manager_name || '—' },
+                             { label: 'Data onboarding', value: hmControlPanelData.onboarding_date ? new Date(hmControlPanelData.onboarding_date).toLocaleDateString('it-IT') : '—' },
+                             { label: 'Data inizio percorso', value: hmControlPanelData.path_start_date ? new Date(hmControlPanelData.path_start_date).toLocaleDateString('it-IT') : '—' },
+                             { label: 'Data fine percorso', value: hmControlPanelData.path_end_date ? new Date(hmControlPanelData.path_end_date).toLocaleDateString('it-IT') : '—' },
+                             { label: 'Data check-in call', value: hmControlPanelData.check_in_call_date ? new Date(hmControlPanelData.check_in_call_date).toLocaleDateString('it-IT') : '—' },
+                             { label: 'Data call rinnovo', value: hmControlPanelData.renewal_call_date ? new Date(hmControlPanelData.renewal_call_date).toLocaleDateString('it-IT') : '—' },
+                           ].map((item) => (
+                             <div key={item.label} style={{ padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, background: '#f8fafc' }}>
+                               <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>{item.label}</div>
+                               <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>{item.value}</div>
+                             </div>
+                           ))}
+                           {[
+                             ['Check-in', 'check_in_completed'],
+                             ['Contattato per il rinnovo', 'contacted_for_renewal'],
+                             ['Rinnovo', 'renewal_completed'],
+                             ['Contattato per review', 'contacted_for_review'],
+                             ['Review', 'review_completed'],
+                           ].map(([label, key]) => {
+                             const value = Boolean(hmControlPanelData.flags?.[key]);
+                             const isMock = Boolean(hmControlPanelData.flags_mocked?.[key]);
+                             return (
+                               <div key={key} style={{ padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff' }}>
+                                 <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
                                  <span style={{
                                    display: 'inline-block',
                                    padding: '6px 12px',
-                                   borderRadius: 6,
-                                   background: checkInInterventions?.length > 0 ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.18)',
-                                   color: checkInInterventions?.length > 0 ? '#166534' : '#64748b',
+                                   borderRadius: 999,
+                                   background: value ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.18)',
+                                   color: value ? '#166534' : '#64748b',
                                    fontWeight: 700,
                                    fontSize: 12,
                                  }}>
-                                   {checkInInterventions?.length > 0 ? 'SI' : 'NO'}
+                                   {value ? 'SI' : 'NO'}{isMock ? ' (mock)' : ''}
                                  </span>
-                               </td>
-                             </tr>
-                           </tbody>
-                         </table>
-                       </div>
+                               </div>
+                             );
+                           })}
+                         </div>
+                       )}
                      </div>
                    )}
 

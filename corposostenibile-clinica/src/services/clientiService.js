@@ -403,6 +403,17 @@ const clientiService = {
     return response.data;
   },
 
+  async getHmCoordinatriciClienteDetail(clienteId) {
+    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, {
+      params: {
+        cliente_id: clienteId,
+        page: 1,
+        per_page: 1,
+      },
+    });
+    return response.data;
+  },
+
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'

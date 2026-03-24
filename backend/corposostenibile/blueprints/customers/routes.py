@@ -1901,6 +1901,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
     q = (request.args.get("q") or "").strip()
+    cliente_id_filter = request.args.get("cliente_id", type=int)
     hm_filter = request.args.get("health_manager_id", type=int)
     sort_by = (request.args.get("sort_by") or "health_manager").strip().lower()
     sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
@@ -1980,6 +1981,9 @@ def api_hm_coordinatrici_dashboard() -> Any:
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if cliente_id_filter:
+        query = query.filter(Cliente.cliente_id == cliente_id_filter)
 
     if q:
         query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
