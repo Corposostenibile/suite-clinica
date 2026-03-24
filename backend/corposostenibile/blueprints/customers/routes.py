@@ -2737,7 +2737,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
     ], col_widths)
 
     # === PART 6: CHECK RESPONSES DETAILS ===
-    if weekly_responses or minor_checks or dca_checks:
+    if initial_check_responses or weekly_responses or minor_checks or dca_checks:
         story.append(Spacer(1, 0.5 * cm))
         story.append(Paragraph("Dettaglio Risposte Check", styles["SectionHeader"]))
         story.append(Spacer(1, 0.3 * cm))
