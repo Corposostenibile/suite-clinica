@@ -1973,8 +1973,8 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 Cliente.health_manager_id.isnot(None),
             )
         )
-        .distinct()
-        .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc())
+        .group_by(Cliente.health_manager_id, hm_name_sql)
+        .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
         .all()
     )
 
