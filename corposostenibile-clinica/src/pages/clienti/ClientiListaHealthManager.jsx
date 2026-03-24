@@ -716,37 +716,33 @@ function ClientiListaHealthManager() {
           ) : (
             <>
               <div className="cl-table-card">
-                {coordScroll.hasOverflow && (
-                  <div className="cl-top-scroll-wrap">
-                    {coordScroll.canLeft && (
-                      <button
-                        type="button"
-                        className="cl-top-scroll-arrow cl-top-scroll-arrow-left"
-                        onClick={() => scrollCoordTable(-1)}
-                        aria-label="Scorri tabella a sinistra"
-                      >
-                        <i className="ri-arrow-left-s-line"></i>
-                      </button>
-                    )}
-                    <div
-                      className="cl-top-scroll"
-                      ref={coordTopScrollRef}
-                      onScroll={syncCoordTableFromTop}
-                    >
-                      <div className="cl-top-scroll-inner" style={{ width: `${coordScroll.scrollWidth}px` }}></div>
-                    </div>
-                    {coordScroll.canRight && (
-                      <button
-                        type="button"
-                        className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
-                        onClick={() => scrollCoordTable(1)}
-                        aria-label="Scorri tabella a destra"
-                      >
-                        <i className="ri-arrow-right-s-line"></i>
-                      </button>
-                    )}
+                <div className="cl-top-scroll-wrap">
+                  <button
+                    type="button"
+                    className="cl-top-scroll-arrow cl-top-scroll-arrow-left"
+                    onClick={() => scrollCoordTable(-1)}
+                    disabled={!coordScroll.canLeft}
+                    aria-label="Scorri tabella a sinistra"
+                  >
+                    <i className="ri-arrow-left-s-line"></i>
+                  </button>
+                  <div
+                    className="cl-top-scroll"
+                    ref={coordTopScrollRef}
+                    onScroll={syncCoordTableFromTop}
+                  >
+                    <div className="cl-top-scroll-inner" style={{ width: `${Math.max(coordScroll.scrollWidth, 1)}px` }}></div>
                   </div>
-                )}
+                  <button
+                    type="button"
+                    className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
+                    onClick={() => scrollCoordTable(1)}
+                    disabled={!coordScroll.canRight}
+                    aria-label="Scorri tabella a destra"
+                  >
+                    <i className="ri-arrow-right-s-line"></i>
+                  </button>
+                </div>
                 <div
                   className="table-responsive"
                   ref={coordTableScrollRef}
@@ -898,28 +894,59 @@ function ClientiListaHealthManager() {
               <h5 className="cl-empty-title">Nessun cliente trovato</h5>
               <p className="cl-empty-desc">Nessun paziente associato al filtro Health Manager selezionato.</p>
             </div>
-          ) : (
-            <>
-              <div className="cl-table-card">
-                <div className="table-responsive">
-                  <table className="cl-table">
-                    <thead>
-                      <tr>
-                        <th style={{ minWidth: 180 }}>Nome cliente</th>
-                        <th style={{ minWidth: 160 }}>{renderSortableHeader('HM', 'health_manager')}</th>
-                        <th style={{ minWidth: 150 }}>{renderSortableHeader('Data onboarding', 'onboarding_date')}</th>
-                        <th style={{ minWidth: 150 }}>{renderSortableHeader('Data inizio percorso', 'path_start_date')}</th>
-                        <th style={{ minWidth: 150 }}>{renderSortableHeader('Data fine percorso', 'path_end_date')}</th>
-                        <th style={{ minWidth: 150 }}>{renderSortableHeader('Data check-in call', 'check_in_call_date')}</th>
-                        <th style={{ minWidth: 115, textAlign: 'center' }}>Check-in</th>
-                        <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
-                        <th style={{ minWidth: 170, textAlign: 'center' }}>Contattato per il rinnovo</th>
-                        <th style={{ minWidth: 110, textAlign: 'center' }}>Rinnovo</th>
-                        <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato per review</th>
-                        <th style={{ minWidth: 120, textAlign: 'center' }}>Review</th>
-                        <th style={{ textAlign: 'right', minWidth: 80 }}>Azioni</th>
-                      </tr>
-                    </thead>
+           ) : (
+             <>
+               <div className="cl-table-card">
+                 <div className="cl-top-scroll-wrap">
+                   <button
+                     type="button"
+                     className="cl-top-scroll-arrow cl-top-scroll-arrow-left"
+                     onClick={() => scrollCoordTable(-1)}
+                     disabled={!coordScroll.canLeft}
+                     aria-label="Scorri tabella a sinistra"
+                   >
+                     <i className="ri-arrow-left-s-line"></i>
+                   </button>
+                   <div
+                     className="cl-top-scroll"
+                     ref={coordTopScrollRef}
+                     onScroll={syncCoordTableFromTop}
+                   >
+                     <div className="cl-top-scroll-inner" style={{ width: `${Math.max(coordScroll.scrollWidth, 1)}px` }}></div>
+                   </div>
+                   <button
+                     type="button"
+                     className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
+                     onClick={() => scrollCoordTable(1)}
+                     disabled={!coordScroll.canRight}
+                     aria-label="Scorri tabella a destra"
+                   >
+                     <i className="ri-arrow-right-s-line"></i>
+                   </button>
+                 </div>
+                 <div
+                   className="table-responsive"
+                   ref={coordTableScrollRef}
+                   onScroll={syncCoordTopFromTable}
+                 >
+                   <table className="cl-table">
+                     <thead>
+                       <tr>
+                         <th style={{ minWidth: 180 }}>Nome cliente</th>
+                         <th style={{ minWidth: 160 }}>{renderSortableHeader('HM', 'health_manager')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data onboarding', 'onboarding_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data inizio percorso', 'path_start_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data fine percorso', 'path_end_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data check-in call', 'check_in_call_date')}</th>
+                         <th style={{ minWidth: 115, textAlign: 'center' }}>Check-in</th>
+                         <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
+                         <th style={{ minWidth: 170, textAlign: 'center' }}>Contattato per il rinnovo</th>
+                         <th style={{ minWidth: 110, textAlign: 'center' }}>Rinnovo</th>
+                         <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato per review</th>
+                         <th style={{ minWidth: 120, textAlign: 'center' }}>Review</th>
+                         <th style={{ textAlign: 'right', minWidth: 80 }}>Azioni</th>
+                       </tr>
+                     </thead>
                     <tbody>
                       {coordData.map((row) => {
                         const yesNoBadge = (value, isMock) => (
