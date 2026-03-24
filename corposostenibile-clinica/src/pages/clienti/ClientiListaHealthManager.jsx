@@ -726,13 +726,6 @@ function ClientiListaHealthManager() {
                   >
                     <i className="ri-arrow-left-s-line"></i>
                   </button>
-                  <div
-                    className="cl-top-scroll"
-                    ref={coordTopScrollRef}
-                    onScroll={syncCoordTableFromTop}
-                  >
-                    <div className="cl-top-scroll-inner" style={{ width: `${Math.max(coordScroll.scrollWidth, 1)}px` }}></div>
-                  </div>
                   <button
                     type="button"
                     className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
