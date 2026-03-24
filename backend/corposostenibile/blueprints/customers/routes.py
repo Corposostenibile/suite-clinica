@@ -1934,13 +1934,22 @@ def api_hm_coordinatrici_dashboard() -> Any:
         .subquery()
     )
 
+    hm_name_sql = func.trim(
+        func.concat(
+            func.coalesce(User.first_name, ""),
+            " ",
+            func.coalesce(User.last_name, ""),
+        )
+    )
+    hm_name_expr = hm_name_sql.label("health_manager_name")
+
     query = apply_role_filtering(
         db.session.query(
             Cliente,
             checkin_subq.c.last_check_in_call_date,
             rinnovo_subq.c.last_renewal_call_date,
             review_subq.c.review_done_flag,
-            User.full_name.label("health_manager_name"),
+            hm_name_expr,
         )
         .outerjoin(checkin_subq, checkin_subq.c.cliente_id == Cliente.cliente_id)
         .outerjoin(rinnovo_subq, rinnovo_subq.c.cliente_id == Cliente.cliente_id)
@@ -1959,7 +1968,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
         query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
 
     sort_map = {
-        "health_manager": func.lower(func.coalesce(User.full_name, "")),
+        "health_manager": func.lower(func.coalesce(hm_name_sql, "")),
         "onboarding_date": Cliente.onboarding_date,
         "path_start_date": Cliente.data_inizio_abbonamento,
         "path_end_date": Cliente.data_rinnovo,
