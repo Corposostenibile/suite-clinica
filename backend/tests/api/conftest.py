@@ -163,3 +163,16 @@ def ticket(db_session, user, admin_user, department, client_customer):
         db_session.commit()
         
     return ticket
+
+
+# Alias fixtures per test compatibility
+@pytest.fixture
+def login_test_user(user):
+    """Alias for 'user' fixture - regular test user for login tests."""
+    return user
+
+
+@pytest.fixture
+def admin_login_test_user(admin_user):
+    """Alias for 'admin_user' fixture - admin test user for login tests."""
+    return admin_user
