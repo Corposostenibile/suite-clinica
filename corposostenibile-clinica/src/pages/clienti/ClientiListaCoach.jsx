@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
 import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
+import DiarioModal from './DiarioModal';
 
 // Luogo colors
 const LUOGO_COLORS = {
@@ -111,7 +112,7 @@ function ClientiListaCoach() {
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showCheckDayModal, setShowCheckDayModal] = useState(false);
@@ -291,7 +292,6 @@ function ClientiListaCoach() {
       await clientiService.updateField(clienteId, field, value || null);
       fetchClienti();
       setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowCheckDayModal(false);
@@ -312,10 +312,11 @@ function ClientiListaCoach() {
     setShowStoriaModal(true);
   };
 
-  const openNoteModal = (cliente) => {
+
+
+  const openDiarioModal = (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_coach || '');
-    setShowNoteModal(true);
+    setShowDiarioModal(true);
   };
 
   const openStatoModal = (cliente) => {
@@ -572,6 +573,7 @@ function ClientiListaCoach() {
                     <th style={{ minWidth: '100px' }}>Luogo</th>
                     <th style={{ minWidth: '100px', textAlign: 'center' }}>Piano</th>
                     <th style={{ minWidth: '100px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -703,6 +705,19 @@ function ClientiListaCoach() {
                             {!cliente.storia_coaching && '+'}
                           </button>
                         </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="cl-action-btn"
+                            style={{
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600
+                            }}
+                            onClick={() => openDiarioModal(cliente)}
+                            title="Vedi Diario"
+                          >
+                            <i className="ri-book-2-line" style={{ marginRight: '4px' }}></i>Vedi
+                          </button>
+                        </td>
                         <td style={{ textAlign: 'right' }}>
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-action-btn" title="Dettaglio">
                             <i className="ri-eye-line"></i>
@@ -767,26 +782,15 @@ function ClientiListaCoach() {
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>Chiudi</button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_coach', modalValue)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salva'}
-          </button>
-        </>
-      )}
+
+
+      {/* Modal Diario */}
+      <DiarioModal 
+        show={showDiarioModal}
+        onClose={() => setShowDiarioModal(false)}
+        cliente={selectedCliente}
+        serviceType="coaching"
+      />
 
       {/* Modal Stato Coach */}
       {renderModal(showStatoModal, () => setShowStatoModal(false), 'Stato Coach', 'ri-circle-fill',
