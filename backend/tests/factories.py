@@ -9,7 +9,7 @@ from factory.alchemy import SQLAlchemyModelFactory
 from datetime import datetime, date, timedelta
 from faker import Faker
 from werkzeug.security import generate_password_hash
-from corposostenibile.models import Department, Team, User, Cliente
+from corposostenibile.models import Department, Team, User, Cliente, TeamTypeEnum
 from corposostenibile.extensions import db
 
 
@@ -34,6 +34,7 @@ class TeamFactory(SQLAlchemyModelFactory):
         sqlalchemy_session = db.session
     
     name = factory.Faker('job')
+    team_type = TeamTypeEnum.nutrizione  # Default value, can be overridden
     department = factory.SubFactory(DepartmentFactory)
 
 
