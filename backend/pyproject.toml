@@ -103,8 +103,47 @@ pywebpush = "^2.0.3"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
 pytest-flask = "^1.3"
+pytest-cov = "^4.1.0"
 flake8 = "^7.0"
 coverage = "^7.0"
+
+[tool.pytest.ini_options]
+# Test discovery
+testpaths = ["corposostenibile"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# Output & reporting
+addopts = "-v --tb=short"
+
+# Markers per categorizzare i test
+markers = [
+    "unit: unit tests (no database)",
+    "integration: integration tests (with database)",
+    "api: API endpoint tests",
+    "async: async/celery tests",
+    "slow: slow running tests",
+    "e2e: end-to-end tests",
+]
+
+[tool.coverage.run]
+source = ["corposostenibile"]
+omit = ["*/migrations/*", "*/tests/*", "*/conftest.py"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "pass",
+]
+skip_covered = false
+precision = 2
 
 [build-system]
 requires = ["poetry-core"]

@@ -1,82 +1,19 @@
 """
 Configurazione pytest per i test del blueprint client_checks.
+
+Le fixture di base (app, client, db, db_session) sono in /backend/conftest.py
+Questo file aggiunge fixture specifiche per client_checks.
 """
 import pytest
 from datetime import datetime
-from corposostenibile import create_app
-from corposostenibile.extensions import db as _db
-from corposostenibile.models import User, Cliente, Department
-from corposostenibile.blueprints.client_checks.models import (
-    CheckForm, CheckFormField, ClientCheckAssignment, ClientCheckResponse,
-    CheckFormTypeEnum, CheckFormFieldTypeEnum, CheckFormStatusEnum, AssignmentStatusEnum
+from corposostenibile.models import (
+    User, Cliente, Department, CheckForm, CheckFormField,
+    ClientCheckAssignment, ClientCheckResponse,
+    CheckFormTypeEnum, CheckFormStatusEnum
 )
 
 
-@pytest.fixture(scope='session')
-def app():
-    """Crea l'app Flask per i test."""
-    import os
-    app = create_app('testing')
-    test_db_uri = 'postgresql://corposostenibile:password@localhost:5432/corposostenibile_dev'
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = test_db_uri
-    
-    with app.app_context():
-        _db.create_all()
-        yield app
-        _db.drop_all()
-
-
-@pytest.fixture
-def client(app):
-    """Client di test Flask."""
-    return app.test_client()
-
-
-@pytest.fixture
-def db(app):
-    """Database di test."""
-    with app.app_context():
-        yield _db
-
-
-@pytest.fixture
-def sample_user(db):
-    """Crea un utente di test."""
-    user = User(
-        email='test@example.com',
-        first_name='Test',
-        last_name='User',
-        password_hash='hashed_password'
-    )
-    db.session.add(user)
-    db.session.commit()
-    return user
-
-
-@pytest.fixture
-def sample_department(db):
-    """Crea un dipartimento di test."""
-    department = Department(
-        name='Test Department',
-        description='Dipartimento per test'
-    )
-    db.session.add(department)
-    db.session.commit()
-    return department
-
-
-@pytest.fixture
-def sample_cliente(db):
-    """Crea un cliente di test."""
-    cliente = Cliente(
-        nome_cognome='Mario Rossi',
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
-    )
-    db.session.add(cliente)
-    db.session.commit()
-    return cliente
+# Fixture specifiche per client_checks (usare con db_session o db)
 
 
 @pytest.fixture

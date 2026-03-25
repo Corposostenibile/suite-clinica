@@ -307,9 +307,9 @@ def create_app(config_name: str | None = None) -> Flask:
     # Google OAuth blueprint
     if google_bp is not None and google_bp.name not in app.blueprints:
         app.register_blueprint(google_bp, url_prefix="/oauth/google")  # type: ignore[arg-type]
-    
-    # ENUM Postgres (solo se non in migrazione)
-    if not os.getenv("ALEMBIC_RUNNING"):
+     
+    # ENUM Postgres (solo se non in migrazione e non SQLite)
+    if not os.getenv("ALEMBIC_RUNNING") and not os.getenv("SKIP_ENUM_REGISTRATION"):
         with app.app_context():
             register_enums()
     
