@@ -520,6 +520,10 @@ def create_app(config_name: str | None = None) -> Flask:
                 flask_request.path.startswith('/api/')
                 or flask_request.path.startswith('/calendar/api/')
                 or flask_request.path.startswith('/loom/api/')
+                or flask_request.path.startswith('/quality/api/')
+                or flask_request.path.startswith('/integrations/api/')
+                or flask_request.path.startswith('/review/api/')
+                or flask_request.path.startswith('/tasks/api/')
             ):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
             return redirect('/auth/login')

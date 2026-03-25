@@ -1,0 +1,363 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.2, pluggy-1.6.0
+rootdir: /home/manu/suite-clinica/backend
+configfile: pyproject.toml
+plugins: langsmith-0.6.2, Flask-Dance-7.1.0, flask-1.3.0, Faker-37.12.0, cov-4.1.0, anyio-4.12.1
+collected 325 items
+
+tests/api/test_auth_api.py EE.FE.E.FEE..F....FFFF.F.F..FFFFFF..FFFF.F.FF [ 13%]
+F...F                                                                    [ 15%]
+tests/api/test_calendar_api.py ......................................... [ 28%]
+.........                                                                [ 30%]
+tests/api/test_customers_api.py ........F..F.........                    [ 37%]
+tests/api/test_integrations_api.py FEFEFEFEEFEEEFEFEFEFE.E.EFEFEFE       [ 46%]
+tests/api/test_quality_api.py FEE.EEEEEEFEEEFEEEFEEEEEEFEEEEFEEEFEEEFEEE [ 59%]
+FEEEFEEEEE                                                               [ 62%]
+tests/api/test_review_api.py FEEFEEFEEFEFEEFEEEFEEEFEE                   [ 70%]
+tests/api/test_tasks_api.py .EEEEEE..EEEE.EEEEE.EE.EEE                   [ 78%]
+tests/api/test_team_api.py ......F......F.....FFFFF..FFFFFFFF.F.FFF.FFF. [ 92%]
+FFFFFFF.F.F.F............                                                [100%]
+
+=============================== warnings summary ===============================
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:19: DeprecationWarning: 'setName' deprecated - use 'set_name'
+    token = pp.Word(tchar).setName("token")
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:20: DeprecationWarning: 'leaveWhitespace' deprecated - use 'leave_whitespace'
+    token68 = pp.Combine(pp.Word("-._~+/" + pp.nums + pp.alphas) + pp.Optional(pp.Word("=").leaveWhitespace())).setName(
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:20: DeprecationWarning: 'setName' deprecated - use 'set_name'
+    token68 = pp.Combine(pp.Word("-._~+/" + pp.nums + pp.alphas) + pp.Optional(pp.Word("=").leaveWhitespace())).setName(
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:24: DeprecationWarning: 'setName' deprecated - use 'set_name'
+    quoted_string = pp.dblQuotedString.copy().setName("quoted-string").setParseAction(unquote)
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:24: DeprecationWarning: 'setParseAction' deprecated - use 'set_parse_action'
+    quoted_string = pp.dblQuotedString.copy().setName("quoted-string").setParseAction(unquote)
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:25: DeprecationWarning: 'setName' deprecated - use 'set_name'
+    auth_param_name = token.copy().setName("auth-param-name").addParseAction(downcaseTokens)
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:25: DeprecationWarning: 'addParseAction' deprecated - use 'add_parse_action'
+    auth_param_name = token.copy().setName("auth-param-name").addParseAction(downcaseTokens)
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:27: DeprecationWarning: 'delimitedList' deprecated - use 'DelimitedList'
+    params = pp.Dict(pp.delimitedList(pp.Group(auth_param)))
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/httplib2/auth.py:33: DeprecationWarning: 'delimitedList' deprecated - use 'DelimitedList'
+    www_authenticate = pp.delimitedList(pp.Group(challenge))
+
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/marshmallow_sqlalchemy/load_instance_mixin.py:44: RemovedInMarshmallow4Warning: The `ordered` `class Meta` option is deprecated. Field order is already preserved by default. Set `Schema.dict_class` to OrderedDict to maintain the previous behavior.
+    super().__init__(meta, *args, **kwargs)
+
+tests/api/test_auth_api.py: 36 warnings
+tests/api/test_calendar_api.py: 50 warnings
+tests/api/test_customers_api.py: 21 warnings
+tests/api/test_integrations_api.py: 2 warnings
+tests/api/test_quality_api.py: 11 warnings
+tests/api/test_review_api.py: 8 warnings
+tests/api/test_tasks_api.py: 6 warnings
+tests/api/test_team_api.py: 52 warnings
+  /home/manu/suite-clinica/backend/corposostenibile/middleware/tracking.py:59: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow(),
+
+tests/api/test_auth_api.py: 36 warnings
+tests/api/test_calendar_api.py: 50 warnings
+tests/api/test_customers_api.py: 21 warnings
+tests/api/test_integrations_api.py: 2 warnings
+tests/api/test_quality_api.py: 11 warnings
+tests/api/test_review_api.py: 8 warnings
+tests/api/test_tasks_api.py: 6 warnings
+tests/api/test_team_api.py: 52 warnings
+  /home/manu/suite-clinica/backend/corposostenibile/middleware/tracking.py:60: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "updated_at": datetime.utcnow(),
+
+tests/api/test_auth_api.py: 14 warnings
+tests/api/test_calendar_api.py: 75 warnings
+tests/api/test_customers_api.py: 80 warnings
+tests/api/test_quality_api.py: 2 warnings
+tests/api/test_tasks_api.py: 4 warnings
+tests/api/test_team_api.py: 216 warnings
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/sqlalchemy/sql/schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/api/test_auth_api.py::TestAuthImpersonateUser::test_impersonate_nonexistent_user
+tests/api/test_auth_api.py::TestAuthStopImpersonation::test_impersonation_creates_log
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/auth/api.py:335: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    target_user = User.query.get(user_id)
+
+tests/api/test_calendar_api.py::TestCalendarGetEvents::test_get_events_with_time_range
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start = (datetime.utcnow() - timedelta(days=30)).isoformat() + 'Z'
+
+tests/api/test_calendar_api.py::TestCalendarGetEvents::test_get_events_with_time_range
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:57: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    end = (datetime.utcnow() + timedelta(days=30)).isoformat() + 'Z'
+
+tests/api/test_calendar_api.py::TestCalendarCreateEvent::test_create_event_requires_login
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:85: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'start': datetime.utcnow().isoformat(),
+
+tests/api/test_calendar_api.py::TestCalendarCreateEvent::test_create_event_requires_login
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:86: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'end': (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+tests/api/test_calendar_api.py::TestCalendarCreateEvent::test_create_event_no_google_auth
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:97: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'start': datetime.utcnow().isoformat(),
+
+tests/api/test_calendar_api.py::TestCalendarCreateEvent::test_create_event_no_google_auth
+  /home/manu/suite-clinica/backend/tests/api/test_calendar_api.py:98: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'end': (datetime.utcnow() + timedelta(hours=1)).isoformat()
+
+tests/api/test_calendar_api.py: 3 warnings
+tests/api/test_team_api.py: 11 warnings
+  /home/manu/.cache/pypoetry/virtualenvs/corposostenibile-suite-0Qzt_L1E-py3.12/lib/python3.12/site-packages/flask_sqlalchemy/query.py:30: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    rv = self.get(ident)
+
+tests/api/test_calendar_api.py::TestCalendarTokenCleanup::test_cleanup_tokens_success
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/calendar/tasks.py:68: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    threshold = datetime.utcnow() - timedelta(days=7)
+
+tests/api/test_calendar_api.py::TestCalendarTokenStatusAdmin::test_tokens_status_success
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/calendar/services.py:569: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/api/test_calendar_api.py::TestCalendarTokenStatusAdmin::test_tokens_status_success
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/calendar/tasks.py:116: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'timestamp': datetime.utcnow().isoformat(),
+
+tests/api/test_calendar_api.py::TestCalendarTokenStatusAdmin::test_tokens_status_success
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/calendar/routes.py:1171: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'timestamp': datetime.utcnow().isoformat()
+
+tests/api/test_calendar_api.py::TestCalendarCustomerMinimal::test_customer_minimal_not_found
+tests/api/test_calendar_api.py::TestCalendarCustomerMinimal::test_customer_minimal_success
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/calendar/routes.py:1109: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    cliente = Cliente.query.get(cliente_id)
+
+tests/api/test_customers_api.py::TestCustomersUpdateEndpoint::test_update_customer_name
+tests/api/test_customers_api.py::TestCustomersUpdateEndpoint::test_update_customer_email
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/customers/services.py:691: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/api/test_customers_api.py::TestCustomersUpdateEndpoint::test_update_customer_name
+tests/api/test_customers_api.py::TestCustomersUpdateEndpoint::test_update_customer_email
+  /home/manu/suite-clinica/backend/corposostenibile/blueprints/customers/services.py:772: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/api/test_team_api.py::TestTeamCreateMember::test_create_member_success
+tests/api/test_team_api.py::TestTeamCreateMember::test_create_admin_member
+tests/api/test_team_api.py::TestTeamCreateMember::test_create_external_member
+tests/api/test_team_api.py::TestTeamCreateMember::test_create_member_with_specialty
+  /home/manu/suite-clinica/backend/corposostenibile/models.py:1361: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.last_password_change_at = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/api/test_auth_api.py::TestAuthLogin::test_login_invalid_email - ...
+FAILED tests/api/test_auth_api.py::TestAuthLogin::test_login_inactive_user - ...
+FAILED tests/api/test_auth_api.py::TestAuthLogout::test_logout_then_access_protected_endpoint
+FAILED tests/api/test_auth_api.py::TestAuthForgotPassword::test_forgot_password_success
+FAILED tests/api/test_auth_api.py::TestAuthForgotPassword::test_forgot_password_nonexistent_email
+FAILED tests/api/test_auth_api.py::TestAuthForgotPassword::test_forgot_password_missing_email
+FAILED tests/api/test_auth_api.py::TestAuthForgotPassword::test_forgot_password_empty_body
+FAILED tests/api/test_auth_api.py::TestAuthForgotPassword::test_forgot_password_case_insensitive
+FAILED tests/api/test_auth_api.py::TestAuthVerifyResetToken::test_verify_reset_token_empty
+FAILED tests/api/test_auth_api.py::TestAuthResetPassword::test_reset_password_passwords_mismatch
+FAILED tests/api/test_auth_api.py::TestAuthResetPassword::test_reset_password_too_short
+FAILED tests/api/test_auth_api.py::TestAuthResetPassword::test_reset_password_no_uppercase
+FAILED tests/api/test_auth_api.py::TestAuthResetPassword::test_reset_password_no_number
+FAILED tests/api/test_auth_api.py::TestAuthResetPassword::test_reset_password_no_special_char
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUsers::test_impersonate_users_admin_success
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUsers::test_impersonate_users_excludes_inactive
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUsers::test_impersonate_users_excludes_admin
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUsers::test_impersonate_users_user_structure
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUser::test_impersonate_success
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUser::test_impersonate_not_authenticated
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUser::test_impersonate_self
+FAILED tests/api/test_auth_api.py::TestAuthImpersonateUser::test_impersonate_while_impersonating
+FAILED tests/api/test_auth_api.py::TestAuthStopImpersonation::test_stop_impersonation_success
+FAILED tests/api/test_auth_api.py::TestAuthStopImpersonation::test_impersonation_creates_log
+FAILED tests/api/test_customers_api.py::TestCustomersCreateEndpoint::test_create_customer_full
+FAILED tests/api/test_customers_api.py::TestCustomersUpdateEndpoint::test_update_customer_email
+FAILED tests/api/test_integrations_api.py::TestPostitList::test_postit_list_requires_login
+FAILED tests/api/test_integrations_api.py::TestPostitCreate::test_postit_create_requires_login
+FAILED tests/api/test_integrations_api.py::TestPostitReorder::test_postit_reorder_requires_login
+FAILED tests/api/test_integrations_api.py::TestNewsList::test_news_list_requires_login
+FAILED tests/api/test_integrations_api.py::TestGlobalSearch::test_search_requires_login
+FAILED tests/api/test_integrations_api.py::TestPushSubscribe::test_push_subscribe_requires_login
+FAILED tests/api/test_integrations_api.py::TestPushPublicKey::test_push_public_key_requires_login
+FAILED tests/api/test_integrations_api.py::TestPushUnsubscribe::test_push_unsubscribe_requires_login
+FAILED tests/api/test_integrations_api.py::TestPushNotifications::test_push_notifications_requires_login
+FAILED tests/api/test_integrations_api.py::TestTeamTickets::test_team_tickets_requires_login
+FAILED tests/api/test_integrations_api.py::TestLeadsIntegration::test_leads_requires_login
+FAILED tests/api/test_integrations_api.py::TestConfirmAssignment::test_confirm_assignment_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityProfessionistaTrend::test_trend_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityDashboardStats::test_dashboard_stats_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityCalcolaDipartimento::test_calcola_dipartimento_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityClientiEleggibili::test_clienti_eleggibili_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityCheckResponses::test_check_responses_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityCalcolaTrimestrale::test_calcola_trimestrale_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityQuarterlySummary::test_quarterly_summary_requires_login
+FAILED tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_requires_login
+FAILED tests/api/test_review_api.py::TestReviewMyTrainings::test_my_trainings_requires_login
+FAILED tests/api/test_review_api.py::TestReviewMyRequests::test_my_requests_requires_login
+FAILED tests/api/test_review_api.py::TestReviewReceivedRequests::test_received_requests_requires_login
+FAILED tests/api/test_review_api.py::TestReviewGivenTrainings::test_given_trainings_requires_login
+FAILED tests/api/test_review_api.py::TestReviewRequestRecipients::test_request_recipients_requires_login
+FAILED tests/api/test_review_api.py::TestReviewCreateRequest::test_create_request_requires_login
+FAILED tests/api/test_review_api.py::TestReviewRespondRequest::test_respond_request_requires_login
+FAILED tests/api/test_review_api.py::TestReviewCancelRequest::test_cancel_request_requires_login
+FAILED tests/api/test_team_api.py::TestTeamGetMembers::test_get_members_with_department_filter
+FAILED tests/api/test_team_api.py::TestTeamCreateMember::test_create_member_duplicate_email
+FAILED tests/api/test_team_api.py::TestTeamUpdateMember::test_update_member_success
+FAILED tests/api/test_team_api.py::TestTeamUpdateMember::test_update_member_email_conflict
+FAILED tests/api/test_team_api.py::TestTeamUpdateMember::test_update_member_password
+FAILED tests/api/test_team_api.py::TestTeamUpdateMember::test_update_member_role
+FAILED tests/api/test_team_api.py::TestTeamUpdateMember::test_update_member_specialty
+FAILED tests/api/test_team_api.py::TestTeamDeleteMember::test_delete_member_success
+FAILED tests/api/test_team_api.py::TestTeamDeleteMember::test_delete_self_not_allowed
+FAILED tests/api/test_team_api.py::TestTeamToggleMemberStatus::test_toggle_member_status_requires_admin
+FAILED tests/api/test_team_api.py::TestTeamToggleMemberStatus::test_toggle_member_status_not_found
+FAILED tests/api/test_team_api.py::TestTeamToggleMemberStatus::test_toggle_member_status_success
+FAILED tests/api/test_team_api.py::TestTeamUploadAvatar::test_upload_avatar_requires_admin
+FAILED tests/api/test_team_api.py::TestTeamUploadAvatar::test_upload_avatar_not_found
+FAILED tests/api/test_team_api.py::TestTeamUploadAvatar::test_upload_avatar_missing_file
+FAILED tests/api/test_team_api.py::TestTeamGetDepartments::test_get_departments_success
+FAILED tests/api/test_team_api.py::TestTeamGetStats::test_get_stats_success
+FAILED tests/api/test_team_api.py::TestTeamGetAdminDashboardStats::test_admin_dashboard_stats_requires_admin
+FAILED tests/api/test_team_api.py::TestTeamGetAdminDashboardStats::test_admin_dashboard_stats_success
+FAILED tests/api/test_team_api.py::TestTeamGetTeams::test_get_teams_success
+FAILED tests/api/test_team_api.py::TestTeamGetTeam::test_get_team_not_found
+FAILED tests/api/test_team_api.py::TestTeamGetTeam::test_get_team_success - s...
+FAILED tests/api/test_team_api.py::TestTeamCreateTeam::test_create_team_success
+FAILED tests/api/test_team_api.py::TestTeamUpdateTeam::test_update_team_requires_admin
+FAILED tests/api/test_team_api.py::TestTeamUpdateTeam::test_update_team_not_found
+FAILED tests/api/test_team_api.py::TestTeamUpdateTeam::test_update_team_success
+FAILED tests/api/test_team_api.py::TestTeamDeleteTeam::test_delete_team_requires_admin
+FAILED tests/api/test_team_api.py::TestTeamDeleteTeam::test_delete_team_not_found
+FAILED tests/api/test_team_api.py::TestTeamDeleteTeam::test_delete_team_success
+FAILED tests/api/test_team_api.py::TestTeamAddTeamMember::test_add_team_member_success
+FAILED tests/api/test_team_api.py::TestTeamRemoveTeamMember::test_remove_team_member_success
+FAILED tests/api/test_team_api.py::TestTeamCapacity::test_get_capacity_success
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_with_remember_me
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_wrong_password - ...
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_missing_password
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_case_insensitive_email
+ERROR tests/api/test_auth_api.py::TestAuthLogin::test_login_user_with_clinical_role
+ERROR tests/api/test_integrations_api.py::TestPostitList::test_postit_list_success
+ERROR tests/api/test_integrations_api.py::TestPostitCreate::test_postit_create_success
+ERROR tests/api/test_integrations_api.py::TestPostitReorder::test_postit_reorder_success
+ERROR tests/api/test_integrations_api.py::TestNewsList::test_news_list_success
+ERROR tests/api/test_integrations_api.py::TestNewsList::test_news_list_with_limit
+ERROR tests/api/test_integrations_api.py::TestGlobalSearch::test_search_success_empty
+ERROR tests/api/test_integrations_api.py::TestGlobalSearch::test_search_with_query
+ERROR tests/api/test_integrations_api.py::TestGlobalSearch::test_search_missing_query
+ERROR tests/api/test_integrations_api.py::TestPushSubscribe::test_push_subscribe_success
+ERROR tests/api/test_integrations_api.py::TestPushPublicKey::test_push_public_key_success
+ERROR tests/api/test_integrations_api.py::TestPushUnsubscribe::test_push_unsubscribe_success
+ERROR tests/api/test_integrations_api.py::TestPushNotifications::test_push_notifications_success
+ERROR tests/api/test_integrations_api.py::TestLoomPatientSearch::test_loom_search_success
+ERROR tests/api/test_integrations_api.py::TestLoomRecordings::test_loom_recordings_success
+ERROR tests/api/test_integrations_api.py::TestTeamTickets::test_team_tickets_success
+ERROR tests/api/test_integrations_api.py::TestLeadsIntegration::test_leads_success
+ERROR tests/api/test_integrations_api.py::TestConfirmAssignment::test_confirm_assignment_success
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_access_denied_for_regular_user
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_default_specialty
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_specialty_param
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_invalid_specialty
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_with_week_param
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_with_team_filter
+ERROR tests/api/test_quality_api.py::TestQualityWeeklyScores::test_weekly_scores_response_structure
+ERROR tests/api/test_quality_api.py::TestQualityProfessionistaTrend::test_trend_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityProfessionistaTrend::test_trend_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityProfessionistaTrend::test_trend_invalid_user
+ERROR tests/api/test_quality_api.py::TestQualityDashboardStats::test_dashboard_stats_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityDashboardStats::test_dashboard_stats_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityDashboardStats::test_dashboard_stats_bands_distribution
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_missing_week_param
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_invalid_week_format
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_invalid_specialty
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_success_empty_data
+ERROR tests/api/test_quality_api.py::TestQualityCalculate::test_calculate_response_structure
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaDipartimento::test_calcola_dipartimento_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaDipartimento::test_calcola_dipartimento_invalid_dept
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaDipartimento::test_calcola_dipartimento_valid_depts
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaDipartimento::test_calcola_dipartimento_with_week
+ERROR tests/api/test_quality_api.py::TestQualityClientiEleggibili::test_clienti_eleggibili_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityClientiEleggibili::test_clienti_eleggibili_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityClientiEleggibili::test_clienti_eleggibili_with_week
+ERROR tests/api/test_quality_api.py::TestQualityCheckResponses::test_check_responses_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityCheckResponses::test_check_responses_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityCheckResponses::test_check_responses_with_week
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaTrimestrale::test_calcola_trimestrale_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaTrimestrale::test_calcola_trimestrale_success
+ERROR tests/api/test_quality_api.py::TestQualityCalcolaTrimestrale::test_calcola_trimestrale_with_quarter
+ERROR tests/api/test_quality_api.py::TestQualityQuarterlySummary::test_quarterly_summary_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityQuarterlySummary::test_quarterly_summary_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityQuarterlySummary::test_quarterly_summary_with_quarter_param
+ERROR tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_requires_admin
+ERROR tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_user_not_found
+ERROR tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_admin_access
+ERROR tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_response_structure
+ERROR tests/api/test_quality_api.py::TestQualityKPIBreakdown::test_kpi_breakdown_with_quarter
+ERROR tests/api/test_review_api.py::TestReviewMyTrainings::test_my_trainings_success_empty
+ERROR tests/api/test_review_api.py::TestReviewMyTrainings::test_my_trainings_pagination
+ERROR tests/api/test_review_api.py::TestReviewMyRequests::test_my_requests_success
+ERROR tests/api/test_review_api.py::TestReviewMyRequests::test_my_requests_response_structure
+ERROR tests/api/test_review_api.py::TestReviewReceivedRequests::test_received_requests_success
+ERROR tests/api/test_review_api.py::TestReviewReceivedRequests::test_received_requests_with_status_filter
+ERROR tests/api/test_review_api.py::TestReviewGivenTrainings::test_given_trainings_success
+ERROR tests/api/test_review_api.py::TestReviewRequestRecipients::test_request_recipients_success
+ERROR tests/api/test_review_api.py::TestReviewRequestRecipients::test_request_recipients_search
+ERROR tests/api/test_review_api.py::TestReviewCreateRequest::test_create_request_success
+ERROR tests/api/test_review_api.py::TestReviewCreateRequest::test_create_request_invalid_recipient
+ERROR tests/api/test_review_api.py::TestReviewCreateRequest::test_create_request_missing_fields
+ERROR tests/api/test_review_api.py::TestReviewRespondRequest::test_respond_request_not_found
+ERROR tests/api/test_review_api.py::TestReviewRespondRequest::test_respond_request_approve
+ERROR tests/api/test_review_api.py::TestReviewRespondRequest::test_respond_request_reject
+ERROR tests/api/test_review_api.py::TestReviewCancelRequest::test_cancel_request_not_found
+ERROR tests/api/test_review_api.py::TestReviewCancelRequest::test_cancel_request_success
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_success_empty
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_with_pagination
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_mine_only
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_with_include_summary
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_with_include_filter_options
+ERROR tests/api/test_tasks_api.py::TestTasksListTasks::test_list_tasks_admin_filters
+ERROR tests/api/test_tasks_api.py::TestTasksCreateTask::test_create_task_success
+ERROR tests/api/test_tasks_api.py::TestTasksCreateTask::test_create_task_missing_title
+ERROR tests/api/test_tasks_api.py::TestTasksCreateTask::test_create_task_with_priority
+ERROR tests/api/test_tasks_api.py::TestTasksCreateTask::test_create_task_with_due_date
+ERROR tests/api/test_tasks_api.py::TestTasksUpdateTask::test_update_task_not_found
+ERROR tests/api/test_tasks_api.py::TestTasksUpdateTask::test_update_task_status
+ERROR tests/api/test_tasks_api.py::TestTasksUpdateTask::test_update_task_title
+ERROR tests/api/test_tasks_api.py::TestTasksUpdateTask::test_update_task_priority
+ERROR tests/api/test_tasks_api.py::TestTasksUpdateTask::test_update_task_due_date
+ERROR tests/api/test_tasks_api.py::TestTasksStats::test_stats_success
+ERROR tests/api/test_tasks_api.py::TestTasksStats::test_stats_contains_summary
+ERROR tests/api/test_tasks_api.py::TestTasksFilterOptions::test_filter_options_success
+ERROR tests/api/test_tasks_api.py::TestTasksFilterOptions::test_filter_options_contains_teams
+ERROR tests/api/test_tasks_api.py::TestTasksFilterOptions::test_filter_options_contains_assignees
+===== 88 failed, 136 passed, 816 warnings, 101 errors in 979.97s (0:16:19) =====
