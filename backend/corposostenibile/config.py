@@ -381,7 +381,15 @@ class DevelopmentConfig(BaseConfig):
 
 class TestingConfig(BaseConfig):
     TESTING: bool = True
-    SQLALCHEMY_DATABASE_URI: str = "sqlite:///:memory:"
+    # Usa PostgreSQL per i test (non SQLite) per supporto completo:
+    # - SQLAlchemy-Continuum versioning
+    # - Full-text search con TSVECTOR
+    # - Enum types PostgreSQL
+    # Database viene creato automaticamente da tests/utils/db_helpers.py
+    SQLALCHEMY_DATABASE_URI: str = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql://corposostenibile:password@localhost/corposostenibile_test"
+    )
     CELERY_TASK_ALWAYS_EAGER: bool = True
     WTF_CSRF_ENABLED: bool = False                  # semplifica i test
     

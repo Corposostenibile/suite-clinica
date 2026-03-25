@@ -99,6 +99,7 @@ mkdocs = "^1.6.1"
 mkdocs-material = "^9.7.1"
 google-genai = "^1.62.0"
 pywebpush = "^2.0.3"
+factory-boy = "^3.3.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
