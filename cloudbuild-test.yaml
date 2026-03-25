@@ -1,0 +1,128 @@
+# Cloud Build Configuration for Suite Clinica Test Suite
+# This file runs the comprehensive pytest test suite (325 tests)
+# Can be triggered on pull requests or as a separate validation step
+
+steps:
+  # 0. Clone the repo with full history (for proper test isolation)
+  - name: 'gcr.io/cloud-builders/git'
+    args:
+      - clone
+      - --branch=$BRANCH_NAME
+      - --single-branch
+      - https://github.com/Corposostenibile/suite-clinica.git
+      - .
+
+  # 1. Setup and run test suite
+  - name: 'python:3.12'
+    entrypoint: 'bash'
+    env:
+      - 'PYTHONUNBUFFERED=1'
+      - 'FLASK_ENV=testing'
+      - 'DATABASE_URL=postgresql://test:test@postgres:5432/suite_clinica_test'
+      - 'CELERY_BROKER_URL=redis://redis:6379/0'
+      - 'CELERY_RESULT_BACKEND=redis://redis:6379/1'
+    args:
+      - -lc
+      - |
+        set -euo pipefail
+        
+        echo "========================================"
+        echo "Suite Clinica - Pytest Test Suite"
+        echo "========================================"
+        
+        cd backend
+        
+        # Install dependencies
+        echo "[1/4] Installing dependencies..."
+        pip install poetry
+        poetry install --no-interaction --no-ansi
+        
+        # Run tests with detailed output
+        echo "[2/4] Running pytest suite..."
+        poetry run pytest tests/api/ \
+          -v \
+          --tb=short \
+          --junit-xml=/workspace/test-results.xml \
+          --html=/workspace/test-report.html \
+          --self-contained-html \
+          --cov=corposostenibile \
+          --cov-report=html:/workspace/coverage-report \
+          --cov-report=term-summary \
+          2>&1 | tee /workspace/test-output.log
+        
+        # Capture exit code
+        TEST_EXIT_CODE=$?
+        
+        echo "[3/4] Test execution completed (exit code: $TEST_EXIT_CODE)"
+        
+        # Generate summary
+        if [ $TEST_EXIT_CODE -eq 0 ]; then
+          echo "[4/4] ✅ All tests passed!"
+        else
+          echo "[4/4] ❌ Some tests failed (exit code: $TEST_EXIT_CODE)"
+        fi
+        
+        exit $TEST_EXIT_CODE
+    
+    # Connect to Cloud SQL Proxy and Redis
+    volumes:
+      - name: 'workspace'
+        path: '/workspace'
+
+  # 2. Upload test artifacts to Cloud Storage (for archival and analysis)
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - -m
+      - cp
+      - -r
+      - '/workspace/test-results.xml'
+      - 'gs://$PROJECT_ID-suite-clinica-test-artifacts/build-$BUILD_ID/'
+    onFailure: ['CONTINUE']  # Don't fail if upload fails
+
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - -m
+      - cp
+      - -r
+      - '/workspace/test-report.html'
+      - 'gs://$PROJECT_ID-suite-clinica-test-artifacts/build-$BUILD_ID/'
+    onFailure: ['CONTINUE']
+
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - -m
+      - cp
+      - -r
+      - '/workspace/coverage-report'
+      - 'gs://$PROJECT_ID-suite-clinica-test-artifacts/build-$BUILD_ID/'
+    onFailure: ['CONTINUE']
+
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args:
+      - -m
+      - cp
+      - '/workspace/test-output.log'
+      - 'gs://$PROJECT_ID-suite-clinica-test-artifacts/build-$BUILD_ID/'
+    onFailure: ['CONTINUE']
+
+# Service account needs access to Cloud SQL, Redis, and Cloud Storage
+serviceAccount: 'projects/$PROJECT_ID/serviceAccounts/suite-clinica-test-runner@$PROJECT_ID.iam.gserviceaccount.com'
+
+# Test configuration
+timeout: 1800s  # 30 minutes for full test suite execution
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'  # Use higher CPU for faster test execution
+
+# Artifacts to preserve
+artifacts:
+  objects:
+    location: 'gs://$PROJECT_ID-suite-clinica-test-artifacts/build-$BUILD_ID'
+    paths:
+      - 'test-results.xml'
+      - 'test-report.html'
+      - 'coverage-report/**'
+      - 'test-output.log'
+
+# Notification
+onFailure: ['NOTIFY']  # Send failure notification to configured channel

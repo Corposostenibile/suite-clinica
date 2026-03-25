@@ -366,6 +366,8 @@ All customer CRUD operations, filtering, pagination, authorization, and edge cas
 
 ## 📚 Command Reference
 
+### 📚 Command Reference
+
 ### Run Tests
 
 ```bash
@@ -376,6 +378,45 @@ poetry run pytest tests/api/test_auth_api.py -v
 
 # All customer tests (21 tests)
 poetry run pytest tests/api/test_customers_api.py -v
+
+# All team tests (70 tests)
+poetry run pytest tests/api/test_team_api.py -v
+
+# All calendar tests (50 tests)
+poetry run pytest tests/api/test_calendar_api.py -v
+
+# All quality tests (52 tests)
+poetry run pytest tests/api/test_quality_api.py -v
+
+# All tasks tests (26 tests)
+poetry run pytest tests/api/test_tasks_api.py -v
+
+# All review/training tests (25 tests)
+poetry run pytest tests/api/test_review_api.py -v
+
+# All integrations tests (31 tests)
+poetry run pytest tests/api/test_integrations_api.py -v
+
+# RUN ALL TESTS (325 tests)
+poetry run pytest tests/api/ -v --tb=short
+
+# Run with coverage report
+poetry run pytest tests/api/ --cov=corposostenibile --cov-report=html
+
+# Run with detailed output
+poetry run pytest tests/api/ -xvs
+
+# Run only failed tests
+poetry run pytest tests/api/ --lf
+```
+
+### CI/CD Integration
+
+Tests are integrated with GCP Cloud Build via:
+- `cloudbuild.yaml` - Main build and deploy pipeline
+- `cloudbuild-test.yaml` - Test suite validation (NEW)
+
+See `/docs/CI_CD_TEST_INTEGRATION.md` for detailed setup instructions.
 
 # All API tests
 poetry run pytest tests/api/ -v
