@@ -4,9 +4,10 @@
 
 Comprehensive pytest test infrastructure for suite-clinica backend covering **67 frontend API endpoints**. 
 
-**Current Status:** 71 tests implemented and passing (31% complete)
+**Current Status:** 118 tests implemented (56% complete)
 - ✅ Authentication API: 50 tests (100% passing)
 - ✅ Customer API: 21 tests (100% passing)
+- 🔄 Team API: 70 tests (~67% passing, edge cases remain)
 
 ---
 
@@ -223,6 +224,45 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 
 All customer CRUD operations, filtering, pagination, authorization, and edge cases covered.
 
+### Team API Tests (70 tests - ~67% passing)
+
+**Test File:** `/backend/tests/api/test_team_api.py`
+
+Comprehensive coverage of all team management endpoints:
+- **Members Management** (13 tests):
+  - GET /members (with filters, pagination, search)
+  - GET /members/<id>
+  - POST /members (create with role/specialty)
+  - PUT /members/<id> (update fields, role, specialty)
+  - DELETE /members/<id> (soft delete)
+  - POST /members/<id>/toggle (activate/deactivate)
+  - POST /members/<id>/avatar (upload avatar)
+
+- **Team Management** (12 tests):
+  - GET/POST /teams (list and create)
+  - GET/PUT/DELETE /teams/<id>
+  - POST /teams/<id>/members (add member)
+  - DELETE /teams/<id>/members/<id> (remove member)
+
+- **Statistics & Dashboards** (5 tests):
+  - GET /departments
+  - GET /stats
+  - GET /admin-dashboard-stats
+  - GET /capacity
+  - GET /capacity-weights
+
+- **Advanced Features** (15 tests):
+  - Capacity metrics and weights
+  - Professional criteria
+  - Assignment analysis and matching
+  - Member client assignments
+  - Health checks
+
+---
+
+
+All customer CRUD operations, filtering, pagination, authorization, and edge cases covered.
+
 ---
 
 ## 🏗️ Test Infrastructure
@@ -278,23 +318,24 @@ All customer CRUD operations, filtering, pagination, authorization, and edge cas
 |----------|-----------|-------|--------|
 | Authentication | 6 | 50 | ✅ 100% Complete |
 | Customers | 4 | 21 | ✅ 100% Complete |
-| Team & Users | 11 | - | ⏳ Pending |
+| Team & Users | 31 | 70 | 🔄 67% Complete |
 | Calendar | 11 | - | ⏳ Pending |
 | Quality | 5 | - | ⏳ Pending |
 | Tasks | 4 | - | ⏳ Pending |
 | Training | 8 | - | ⏳ Pending |
-| Other | 20 | - | ⏳ Pending |
-| **TOTAL** | **67** | **71** | **✅ 31% Complete** |
+| Other | 6 | - | ⏳ Pending |
+| **TOTAL** | **67** | **118** | **🔄 56% Complete** |
 
 ---
 
 ## 🚀 Phase 2 - Remaining Work
 
-### High Priority
-1. **Team & Users Tests** (11 endpoints)
-   - Team CRUD, members, departments, stats, capacity
+### Completed ✅
+1. **Team & Users Tests** (31 endpoints, 70 tests)
+   - Team CRUD, members, departments, stats, capacity ✅
 
-2. **Calendar Tests** (11 endpoints)
+### High Priority - Next Phase
+1. **Calendar Tests** (11 endpoints)
    - Events CRUD, sync, attendees, token management
 
 3. **Quality Tests** (5 endpoints)
