@@ -28,11 +28,11 @@ from corposostenibile.extensions import db
 # ============================================================================
 
 class TestPostitList:
-    """Test GET /postit/list - Get postits"""
+    """Test GET /postit/api/list - Get postits"""
     
     def test_postit_list_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/postit/list')
+        response = api_client.get('/postit/api/list')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_postit_list_success(self, api_client, login_test_user, db_session):
@@ -40,17 +40,17 @@ class TestPostitList:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/postit/list')
+        response = api_client.get('/postit/api/list')
         
         assert response.status_code == HTTPStatus.OK
 
 
 class TestPostitCreate:
-    """Test POST /postit/create - Create postit"""
+    """Test POST /postit/api/create - Create postit"""
     
     def test_postit_create_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.post('/postit/create', json={'content': 'Test'})
+        response = api_client.post('/postit/api/create', json={'content': 'Test'})
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_postit_create_success(self, api_client, login_test_user, db_session):
@@ -58,7 +58,7 @@ class TestPostitCreate:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.post('/postit/create', json={
+        response = api_client.post('/postit/api/create', json={
             'content': 'Test postit content'
         })
         
@@ -66,11 +66,11 @@ class TestPostitCreate:
 
 
 class TestPostitReorder:
-    """Test POST /postit/reorder - Reorder postits"""
+    """Test POST /postit/api/reorder - Reorder postits"""
     
     def test_postit_reorder_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.post('/postit/reorder', json={'order': []})
+        response = api_client.post('/postit/api/reorder', json={'order': []})
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_postit_reorder_success(self, api_client, login_test_user, db_session):
@@ -78,7 +78,7 @@ class TestPostitReorder:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.post('/postit/reorder', json={
+        response = api_client.post('/postit/api/reorder', json={
             'order': []
         })
         
@@ -90,11 +90,11 @@ class TestPostitReorder:
 # ============================================================================
 
 class TestNewsList:
-    """Test GET /news/list - Get news"""
+    """Test GET /api/news/list - Get news"""
     
     def test_news_list_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/news/list')
+        response = api_client.get('/api/news/list')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_news_list_success(self, api_client, login_test_user, db_session):
@@ -102,7 +102,7 @@ class TestNewsList:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/news/list')
+        response = api_client.get('/api/news/list')
         
         assert response.status_code == HTTPStatus.OK
         data = response.json
@@ -113,7 +113,7 @@ class TestNewsList:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/news/list?limit=5')
+        response = api_client.get('/api/news/list?limit=5')
         
         assert response.status_code == HTTPStatus.OK
 
@@ -123,11 +123,11 @@ class TestNewsList:
 # ============================================================================
 
 class TestGlobalSearch:
-    """Test GET /search/global - Global search"""
+    """Test GET /api/search/global - Global search"""
     
     def test_search_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/search/global?q=test')
+        response = api_client.get('/api/search/global?q=test')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_search_success_empty(self, api_client, login_test_user, db_session):
@@ -135,7 +135,7 @@ class TestGlobalSearch:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/search/global?q=')
+        response = api_client.get('/api/search/global?q=')
         
         assert response.status_code == HTTPStatus.OK
     
@@ -144,7 +144,7 @@ class TestGlobalSearch:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/search/global?q=test')
+        response = api_client.get('/api/search/global?q=test')
         
         assert response.status_code == HTTPStatus.OK
         data = response.json
@@ -155,7 +155,7 @@ class TestGlobalSearch:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/search/global')
+        response = api_client.get('/api/search/global')
         
         assert response.status_code in (HTTPStatus.OK, HTTPStatus.BAD_REQUEST)
 
@@ -165,11 +165,11 @@ class TestGlobalSearch:
 # ============================================================================
 
 class TestPushSubscribe:
-    """Test POST /push/subscriptions - Register push notification"""
+    """Test POST /api/push/subscriptions - Register push notification"""
     
     def test_push_subscribe_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.post('/push/subscriptions', json={
+        response = api_client.post('/api/push/subscriptions', json={
             'subscription': {}
         })
         assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -179,7 +179,7 @@ class TestPushSubscribe:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.post('/push/subscriptions', json={
+        response = api_client.post('/api/push/subscriptions', json={
             'subscription': {
                 'endpoint': 'https://example.com/push',
                 'keys': {
@@ -193,11 +193,11 @@ class TestPushSubscribe:
 
 
 class TestPushPublicKey:
-    """Test GET /push/public-key - Get push public key"""
+    """Test GET /api/push/public-key - Get push public key"""
     
     def test_push_public_key_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/push/public-key')
+        response = api_client.get('/api/push/public-key')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_push_public_key_success(self, api_client, login_test_user, db_session):
@@ -205,17 +205,17 @@ class TestPushPublicKey:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/push/public-key')
+        response = api_client.get('/api/push/public-key')
         
         assert response.status_code == HTTPStatus.OK
 
 
 class TestPushUnsubscribe:
-    """Test DELETE /push/subscriptions - Unregister push"""
+    """Test DELETE /api/push/subscriptions - Unregister push"""
     
     def test_push_unsubscribe_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.delete('/push/subscriptions', json={
+        response = api_client.delete('/api/push/subscriptions', json={
             'endpoint': 'test'
         })
         assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -225,7 +225,7 @@ class TestPushUnsubscribe:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.delete('/push/subscriptions', json={
+        response = api_client.delete('/api/push/subscriptions', json={
             'endpoint': 'https://example.com/push'
         })
         
@@ -233,11 +233,11 @@ class TestPushUnsubscribe:
 
 
 class TestPushNotifications:
-    """Test GET /push/notifications - Fetch notifications"""
+    """Test GET /api/push/notifications - Fetch notifications"""
     
     def test_push_notifications_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/push/notifications')
+        response = api_client.get('/api/push/notifications')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_push_notifications_success(self, api_client, login_test_user, db_session):
@@ -245,7 +245,7 @@ class TestPushNotifications:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/push/notifications')
+        response = api_client.get('/api/push/notifications')
         
         assert response.status_code == HTTPStatus.OK
         data = response.json
@@ -297,11 +297,11 @@ class TestLoomRecordings:
 # ============================================================================
 
 class TestTeamTickets:
-    """Test GET /team-tickets/ - Team tickets list"""
+    """Test GET /api/team-tickets/ - Team tickets list"""
     
     def test_team_tickets_requires_login(self, api_client):
         """Test that unauthenticated request fails"""
-        response = api_client.get('/team-tickets/')
+        response = api_client.get('/api/team-tickets/')
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_team_tickets_success(self, api_client, login_test_user, db_session):
@@ -309,7 +309,7 @@ class TestTeamTickets:
         db_session.commit()
         api_client.login(login_test_user)
         
-        response = api_client.get('/team-tickets/')
+        response = api_client.get('/api/team-tickets/')
         
         assert response.status_code == HTTPStatus.OK
         data = response.json

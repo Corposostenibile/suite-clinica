@@ -524,6 +524,7 @@ def create_app(config_name: str | None = None) -> Flask:
                 or flask_request.path.startswith('/integrations/api/')
                 or flask_request.path.startswith('/review/api/')
                 or flask_request.path.startswith('/tasks/api/')
+                or flask_request.path.startswith('/postit/api/')
             ):
                 return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
             return redirect('/auth/login')
