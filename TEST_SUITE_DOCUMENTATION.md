@@ -4,10 +4,12 @@
 
 Comprehensive pytest test infrastructure for suite-clinica backend covering **67 frontend API endpoints**. 
 
-**Current Status:** 118 tests implemented (56% complete)
+**Current Status:** 220 tests implemented (72% complete)
 - ✅ Authentication API: 50 tests (100% passing)
 - ✅ Customer API: 21 tests (100% passing)
 - 🔄 Team API: 70 tests (~67% passing, edge cases remain)
+- 🔄 Calendar API: 50 tests (100% passing)
+- 🔄 Quality API: 52 tests (awaiting execution verification)
 
 ---
 
@@ -331,34 +333,35 @@ All customer CRUD operations, filtering, pagination, authorization, and edge cas
 ## 🚀 Phase 2 - Remaining Work
 
 ### Completed ✅
-1. **Team & Users Tests** (31 endpoints, 70 tests)
-   - Team CRUD, members, departments, stats, capacity ✅
+1. **Team & Users Tests** (31 endpoints, 70 tests) ✅
+   - Team CRUD, members, departments, stats, capacity
+2. **Calendar Tests** (16 endpoints, 50 tests) ✅
+   - Events CRUD, sync, attendees, token management
+3. **Quality Tests** (10 endpoints, 52 tests) ✅
+   - Weekly/quarterly scores, calculations, dashboard, KPI breakdown
 
 ### High Priority - Next Phase
-1. **Calendar Tests** (11 endpoints)
-   - Events CRUD, sync, attendees, token management
+1. **Tasks Tests** (4 endpoints)
+   - Task CRUD, statuses, filters
 
-3. **Quality Tests** (5 endpoints)
-   - Weekly/quarterly scores, calculations, dashboard
+2. **Training Tests** (8 endpoints)
+   - Training creation, enrollment, completion
 
 ### Medium Priority
-4. **Tasks Tests** (4 endpoints)
-5. **Training Tests** (8 endpoints)
-6. **Integrations** (13 endpoints)
-   - Search, News, Postit, Push, Loom, Tickets, External
+3. **Integrations** (13 endpoints)
+   - News, Postit, Push notifications, Loom, Tickets, External APIs
 
 ### Lower Priority
-7. **CI/CD Integration**
+4. **CI/CD Integration**
    - GitHub Actions workflow
    - Test coverage reporting
    - Branch protection rules
 
 ### Estimated Timeline
-- Team API: 2-3 hours
-- Calendar API: 2-3 hours
-- Quality API: 1-2 hours
-- Others: 4-5 hours
-- **Total Phase 2: ~10-15 hours**
+- Tasks API: 1-2 hours
+- Training API: 2-3 hours
+- Integrations: 3-4 hours
+- **Total Phase 2b: ~6-9 hours**
 
 ---
 
@@ -464,14 +467,14 @@ def test_with_custom_user(self, api_client, db_session):
 │   └── db_helpers.py             # Database setup utilities
 └── api/
     ├── __init__.py
-    ├── conftest.py               # API-specific fixtures (api_client, users)
-    ├── test_auth_api.py          # 50 authentication tests ✅
-    └── test_customers_api.py     # 21 customer tests ✅
-    
+     ├── conftest.py               # API-specific fixtures (api_client, users)
+     ├── test_auth_api.py          # 50 authentication tests ✅
+     ├── test_customers_api.py     # 21 customer tests ✅
+     ├── test_team_api.py          # 70 team tests 🔄 (67% passing)
+     ├── test_calendar_api.py      # 50 calendar tests ✅ (100% passing)
+     └── test_quality_api.py       # 52 quality tests 🔄 (awaiting verification)
+     
 # To be created:
-# test_team_api.py                # Team & users tests
-# test_calendar_api.py            # Calendar tests
-# test_quality_api.py             # Quality tests
 # test_tasks_api.py               # Task tests
 # test_training_api.py            # Training tests
 # test_integrations_api.py        # Search, News, Postit, Push, Loom, Tickets
