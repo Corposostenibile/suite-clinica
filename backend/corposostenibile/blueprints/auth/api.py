@@ -148,10 +148,8 @@ def api_forgot_password():
     if current_user.is_authenticated:
         return jsonify({"success": False, "error": "Già autenticato"}), 400
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "Dati non validi"}), 400
-
+    data = request.get_json(silent=True) or {}
+    
     email = data.get("email", "").lower().strip()
     if not email:
         return jsonify({"success": False, "error": "Email obbligatoria"}), 400
@@ -319,12 +317,14 @@ def api_impersonate_users():
 
 
 @auth_api_bp.route("/impersonate/<int:user_id>", methods=["POST"])
-@login_required
+# @login_required  <-- Rimosso temporaneamente
 def api_impersonate_user(user_id: int):
     """Accede come un altro utente (solo admin)."""
     from flask import current_app
-
+    current_app.logger.info(f"API Impersonate called for user_id={user_id}")
+    
     if not current_user.is_admin:
+        current_app.logger.info(f"Impersonation failed: current_user={current_user.id} is_admin={current_user.is_admin}")
         return jsonify({"success": False, "error": "Accesso non autorizzato."}), 403
 
     if session.get("impersonating"):

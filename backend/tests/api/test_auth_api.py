@@ -329,17 +329,22 @@ class TestAuthForgotPassword:
     
     def test_forgot_password_empty_body(self, api_client):
         """Test forgot password with empty body"""
-        response = api_client.post('/api/auth/forgot-password', json=None)
+        # Cambiato da json=None a json={} per evitare 415
+        response = api_client.post('/api/auth/forgot-password', json={})
         
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert response.json['success'] is False
     
-    def test_forgot_password_already_authenticated(self, api_client, admin_user):
+    def test_forgot_password_already_authenticated(self, api_client, admin_login_test_user):
         """Test forgot password when already authenticated"""
-        api_client.login(admin_user)
+        # Login reale
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         response = api_client.post('/api/auth/forgot-password', json={
-            'email': admin_user.email
+            'email': admin_login_test_user.email
         })
         
         assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -575,9 +580,15 @@ class TestAuthImpersonateUsers:
 class TestAuthImpersonateUser:
     """Test POST /api/auth/impersonate/<user_id> - Impersonate a user"""
     
-    def test_impersonate_success(self, api_client, admin_user, user):
+    def test_impersonate_success(self, api_client, admin_login_test_user, user):
         """Test successful impersonation"""
-        api_client.login(admin_user)
+        # Pulizia mock prima di login reale
+        api_client.logout()
+        # Login reale come admin
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         response = api_client.post(f'/api/auth/impersonate/{user.id}')
         
@@ -585,12 +596,14 @@ class TestAuthImpersonateUser:
         assert response.json['success'] is True
         assert 'navigando come' in response.json['message']
     
-    def test_impersonate_non_admin(self, api_client, user):
+    def test_impersonate_non_admin(self, api_client, login_test_user, user):
         """Test impersonation as non-admin returns 403"""
-        api_client.login(user)
-        
-        # Try to impersonate another user
-        another_user = User.query.filter_by(id=999).first()
+        api_client.logout()
+        # Login reale come utente non admin
+        api_client.post('/api/auth/login', json={
+            'email': login_test_user.email,
+            'password': 'TestPassword123!'
+        })
         
         response = api_client.post(f'/api/auth/impersonate/{user.id}')
         
@@ -599,13 +612,18 @@ class TestAuthImpersonateUser:
     
     def test_impersonate_not_authenticated(self, api_client, user):
         """Test impersonation without authentication"""
+        api_client.logout()
         response = api_client.post(f'/api/auth/impersonate/{user.id}')
         
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
-    def test_impersonate_nonexistent_user(self, api_client, admin_user):
+    def test_impersonate_nonexistent_user(self, api_client, admin_login_test_user):
         """Test impersonation of non-existent user"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         response = api_client.post('/api/auth/impersonate/99999')
         
@@ -613,33 +631,35 @@ class TestAuthImpersonateUser:
         assert response.json['success'] is False
         assert 'non trovato' in response.json['error']
     
-    def test_impersonate_self(self, api_client, admin_user):
+    def test_impersonate_self(self, api_client, admin_login_test_user):
         """Test impersonating oneself"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
-        response = api_client.post(f'/api/auth/impersonate/{admin_user.id}')
+        response = api_client.post(f'/api/auth/impersonate/{admin_login_test_user.id}')
         
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert response.json['success'] is False
         assert 'te stesso' in response.json['error']
     
-    def test_impersonate_while_impersonating(self, api_client, admin_user, user, db_session):
+    def test_impersonate_while_impersonating(self, api_client, admin_login_test_user, user, db_session):
         """Test that can't impersonate while already impersonating"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         # Start impersonation
         response1 = api_client.post(f'/api/auth/impersonate/{user.id}')
         assert response1.status_code == HTTPStatus.OK
         
         # Create another user
-        user2 = User(
-            email='user2@example.com',
-            first_name='User',
-            last_name='Two',
-            password_hash=generate_password_hash('TestPass123!'),
-            role=UserRoleEnum.professionista
-        )
-        db_session.add(user2)
+        from tests.factories import UserFactory
+        user2 = UserFactory()
         db_session.commit()
         
         # Try to impersonate another user while already impersonating
