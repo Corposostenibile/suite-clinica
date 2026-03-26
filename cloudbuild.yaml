@@ -1,6 +1,7 @@
 steps:
   # 1. Build Layer: Crea l'immagine Docker
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-backend-image'
     entrypoint: 'bash'
     env:
       - 'CB_PROJECT_ID=$PROJECT_ID'
@@ -57,6 +58,7 @@ steps:
   # 1.2. Backend Test Suite: Execute pytest
   - name: 'python:3.11'
     id: 'run-backend-tests'
+    waitFor: ['launch-test-db']
     entrypoint: 'bash'
     env:
       - 'DATABASE_URL=postgresql://test:test@localhost:5432/suite_clinica_test'
@@ -77,11 +79,14 @@ steps:
   # 1.3. Cleanup: Stop Test Database
   - name: 'gcr.io/cloud-builders/docker'
     id: 'cleanup-test-db'
+    waitFor: ['run-backend-tests']
     args: ['stop', 'test-postgres']
     onFailure: ['CONTINUE']
 
   # 2. Push Layer: Carica su Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-backend-image'
+    waitFor: ['build-backend-image', 'run-backend-tests']
     entrypoint: 'bash'
     env:
       - 'CB_PROJECT_ID=$PROJECT_ID'
@@ -113,6 +118,8 @@ steps:
 
   # 3. Deploy Layer: Aggiorna GKE
   - name: 'gcr.io/cloud-builders/gke-deploy'
+    id: 'deploy-backend'
+    waitFor: ['push-backend-image']
     args:
       - run
       - --filename=k8s/deployment.yaml
@@ -131,6 +138,8 @@ steps:
   # 3b. Enforce backend image rollout explicitly (gke-deploy can report success
   # without updating the live Deployment image in some cases).
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'kubectl-set-backend-image'
+    waitFor: ['deploy-backend']
     args:
       - set
       - image
@@ -141,6 +150,8 @@ steps:
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
 
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'kubectl-rollout-backend'
+    waitFor: ['kubectl-set-backend-image']
     args:
       - rollout
       - status
@@ -152,6 +163,8 @@ steps:
 
   # 3c. Enforce celery image rollout
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'kubectl-set-celery-image'
+    waitFor: ['deploy-backend']
     args:
       - set
       - image
@@ -163,6 +176,8 @@ steps:
       - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
 
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'kubectl-rollout-celery'
+    waitFor: ['kubectl-set-celery-image']
     args:
       - rollout
       - status
@@ -174,6 +189,8 @@ steps:
 
   # 4. Migration Layer: Applica automaticamente le migrazioni Alembic
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'run-migrations'
+    waitFor: ['kubectl-rollout-backend']
     args:
       - exec
       - deployment/suite-clinica-backend
@@ -191,6 +208,8 @@ steps:
 
   # 4b. Schema parity check separato: evita falsi negativi e isola meglio exit code/risorse
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'verify-schema-parity'
+    waitFor: ['run-migrations']
     args:
       - exec
       - deployment/suite-clinica-backend
@@ -208,6 +227,8 @@ steps:
 
   # 5. Initial Checks Seed Layer: crea/aggiorna i check iniziali usati dal bridge GHL
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'seed-initial-checks'
+    waitFor: ['verify-schema-parity']
     args:
       - exec
       - deployment/suite-clinica-backend
@@ -233,6 +254,8 @@ steps:
 
   # 6. Sync Criteria Layer: Esegue lo script di sincronizzazione criteri caricando i dati dal file Excel
   - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'sync-criteria'
+    waitFor: ['seed-initial-checks']
     args:
       - exec
       - deployment/suite-clinica-backend
