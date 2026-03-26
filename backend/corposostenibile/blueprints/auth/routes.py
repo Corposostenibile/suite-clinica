@@ -318,8 +318,119 @@ def impersonate_list():
 def impersonate_user(user_id: int):
     """Accede come un altro utente."""
     if not current_user.is_admin:
+        if request.is_json:
+            return {'success': False, 'error': 'Accesso non autorizzato.'}, 403
         flash("Accesso non autorizzato.", "danger")
         return redirect(url_for("welcome.index"))
+
+    # Non permettere impersonation se già in modalità impersonazione
+    if session.get('impersonating'):
+        if request.is_json:
+            return {'success': False, 'error': 'Sei già in modalità impersonazione.'}, 400
+        flash("Sei già in modalità impersonazione. Torna al tuo account prima.", "warning")
+        return redirect(url_for("welcome.index"))
+
+    target_user = User.query.get(user_id)
+    if not target_user:
+        if request.is_json:
+            return {'success': False, 'error': 'Utente non trovato.'}, 404
+        return "Not Found", 404
+
+    # Non permettere di impersonare se stessi
+    if target_user.id == current_user.id:
+        if request.is_json:
+            return {'success': False, 'error': 'Non puoi impersonare te stesso.'}, 400
+        flash("Non puoi impersonare te stesso.", "warning")
+        return redirect(url_for("auth.impersonate_list"))
+
+    # Salva l'ID dell'admin originale nella sessione
+    session['impersonating'] = True
+    session['original_admin_id'] = current_user.id
+    session['original_admin_name'] = current_user.full_name
+
+    # Crea log dell'impersonazione
+    log = ImpersonationLog(
+        admin_id=current_user.id,
+        impersonated_user_id=target_user.id,
+        ip_address=request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR'),
+        user_agent=request.user_agent.string[:500] if request.user_agent else None,
+        reason=request.form.get('reason', '')
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    # Salva l'ID del log per aggiornarlo quando si esce
+    session['impersonation_log_id'] = log.id
+
+    # Effettua il login come l'utente target
+    logout_user()
+    login_user(target_user)
+
+    if request.is_json:
+        return {'success': True, 'message': f'Stai ora navigando come {target_user.full_name}'}, 200
+
+    flash(f"Stai ora navigando come {target_user.full_name}", "info")
+    return redirect(url_for("welcome.index"))
+
+
+@auth_bp.route("/stop-impersonation", methods=["POST"])
+@login_required
+def stop_impersonation():
+    """Torna all'account admin originale."""
+    if not session.get('impersonating'):
+        if request.is_json:
+            return {'success': False, 'error': 'Non sei in modalità impersonazione.'}, 400
+        flash("Non sei in modalità impersonazione.", "warning")
+        return redirect(url_for("welcome.index"))
+
+    original_admin_id = session.get('original_admin_id')
+    impersonation_log_id = session.get('impersonation_log_id')
+
+    if not original_admin_id:
+        if request.is_json:
+            return {'success': False, 'error': 'Errore: impossibile recuperare l\'account originale.'}, 400
+        flash("Errore: impossibile recuperare l'account originale.", "danger")
+        # Pulisci comunque la sessione
+        session.pop('impersonating', None)
+        session.pop('original_admin_id', None)
+        session.pop('original_admin_name', None)
+        session.pop('impersonation_log_id', None)
+        return redirect(url_for("auth.logout"))
+
+    # Aggiorna il log con timestamp di fine
+    if impersonation_log_id:
+        log = ImpersonationLog.query.get(impersonation_log_id)
+        if log:
+            log.ended_at = datetime.utcnow()
+            db.session.commit()
+
+    # Recupera l'admin originale
+    admin = User.query.get(original_admin_id)
+    if not admin:
+        if request.is_json:
+            return {'success': False, 'error': 'Errore: account admin non trovato.'}, 400
+        flash("Errore: account admin non trovato.", "danger")
+        session.pop('impersonating', None)
+        session.pop('original_admin_id', None)
+        session.pop('original_admin_name', None)
+        session.pop('impersonation_log_id', None)
+        return redirect(url_for("auth.login"))
+
+    # Pulisci la sessione di impersonation
+    session.pop('impersonating', None)
+    session.pop('original_admin_id', None)
+    session.pop('original_admin_name', None)
+    session.pop('impersonation_log_id', None)
+
+    # Effettua il login come admin
+    logout_user()
+    login_user(admin)
+
+    if request.is_json:
+        return {'success': True, 'message': f'Sei tornato al tuo account ({admin.full_name})'}, 200
+
+    flash(f"Sei tornato al tuo account ({admin.full_name})", "success")
+    return redirect(url_for("welcome.index"))
 
     # Non permettere impersonation se già in modalità impersonation
     if session.get('impersonating'):
@@ -359,53 +470,3 @@ def impersonate_user(user_id: int):
     flash(f"Stai ora navigando come {target_user.full_name}", "info")
     return redirect(url_for("welcome.index"))
 
-
-@auth_bp.route("/stop-impersonation", methods=["POST"])
-@login_required
-def stop_impersonation():
-    """Torna all'account admin originale."""
-    if not session.get('impersonating'):
-        flash("Non sei in modalità impersonazione.", "warning")
-        return redirect(url_for("welcome.index"))
-
-    original_admin_id = session.get('original_admin_id')
-    impersonation_log_id = session.get('impersonation_log_id')
-
-    if not original_admin_id:
-        flash("Errore: impossibile recuperare l'account originale.", "danger")
-        # Pulisci comunque la sessione
-        session.pop('impersonating', None)
-        session.pop('original_admin_id', None)
-        session.pop('original_admin_name', None)
-        session.pop('impersonation_log_id', None)
-        return redirect(url_for("auth.logout"))
-
-    # Aggiorna il log con timestamp di fine
-    if impersonation_log_id:
-        log = ImpersonationLog.query.get(impersonation_log_id)
-        if log:
-            log.ended_at = datetime.utcnow()
-            db.session.commit()
-
-    # Recupera l'admin originale
-    admin = User.query.get(original_admin_id)
-    if not admin:
-        flash("Errore: account admin non trovato.", "danger")
-        session.pop('impersonating', None)
-        session.pop('original_admin_id', None)
-        session.pop('original_admin_name', None)
-        session.pop('impersonation_log_id', None)
-        return redirect(url_for("auth.login"))
-
-    # Pulisci la sessione di impersonation
-    session.pop('impersonating', None)
-    session.pop('original_admin_id', None)
-    session.pop('original_admin_name', None)
-    session.pop('impersonation_log_id', None)
-
-    # Effettua il login come admin
-    logout_user()
-    login_user(admin)
-
-    flash(f"Sei tornato al tuo account ({admin.full_name})", "success")
-    return redirect(url_for("welcome.index"))

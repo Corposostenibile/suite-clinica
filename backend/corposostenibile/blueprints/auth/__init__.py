@@ -65,25 +65,31 @@ def _request_loader(req) -> User | None:  # pragma: no cover
 # --------------------------------------------------------------------------- #
 def init_app(app: Flask) -> None:  # noqa: D401
     """
-    Registra blueprint e inizializza *login_manager* sull’app principale.
-    Da invocare nella *application-factory* **dopo** l’init delle estensioni.
+    Registra blueprint e inizializza *login_manager* sull'app principale.
     """
     # ---- LoginManager ---- #
-    login_manager.init_app(app)
+    if not hasattr(app, 'login_manager'):
+        login_manager.init_app(app)
+    
+    # Always set loaders, even if already initialized
+    login_manager.user_loader(_load_user)
     login_manager.request_loader(_request_loader)
 
-    # remember-me cookie valido 30 giorni (override via app.config se serve)
+    # remember-me cookie valido 30 giorni
     app.config.setdefault("REMEMBER_COOKIE_DURATION", timedelta(days=30))
 
     # ---- Blueprint ---- #
-    app.register_blueprint(auth_bp, url_prefix="/auth")
-
+    # Verifica esistenza blueprint tramite il nome del blueprint stesso
+    if auth_bp.name not in app.blueprints:
+        app.register_blueprint(auth_bp, url_prefix="/auth")
+    
     # ---- API Blueprint for React ---- #
-    app.register_blueprint(auth_api_bp)
+    if auth_api_bp.name not in app.blueprints:
+        app.register_blueprint(auth_api_bp)
 
     # ---- Jinja helper ---- #
     @app.context_processor
     def _inject_user() -> dict[str, Any]:  # pragma: no cover
         """Rende `current_user` disponibile come `g_user` nei template."""
-        from flask_login import current_user  # late import
+        from flask_login import current_user
         return {"g_user": current_user}

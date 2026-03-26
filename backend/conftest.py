@@ -41,6 +41,28 @@ def app():
     # Ora crea app (il database esiste già e le migrazioni sono applicate)
     app = create_app('testing')
     
+    # Ensure LoginManager loaders are set
+    from corposostenibile.extensions import login_manager
+    from corposostenibile.models import User
+    from werkzeug.security import check_password_hash
+    
+    @login_manager.user_loader
+    def _load_user(user_id: str):
+        try:
+            return User.query.get(int(user_id))
+        except Exception:
+            return None
+
+    @login_manager.request_loader
+    def _request_loader(req):
+        auth = req.authorization
+        if not auth:
+            return None
+        user = User.query.filter_by(email=auth.username).first()
+        if user and check_password_hash(user.password_hash, auth.password):
+            return user
+        return None
+    
     yield app
 
 

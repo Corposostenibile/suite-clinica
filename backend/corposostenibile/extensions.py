@@ -26,16 +26,12 @@ Bootstrap di **tutte** le estensioni condivise:
 """
 from __future__ import annotations
 
-from typing import Optional, Dict, Any, Callable
-import redis
+from werkzeug.security import check_password_hash
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta
 import logging
-
-# ────────────────────────────────────────────────────────────────────────────
-#  ORM + VERSIONING (SQLAlchemy-Continuum)
-# ────────────────────────────────────────────────────────────────────────────
+import redis
 from sqlalchemy_continuum import make_versioned, versioning_manager
 
 # Configure versioning (user tracking disabled until database migration)
@@ -234,6 +230,24 @@ def init_app(app):  # noqa: D401
 
     if "REMEMBER_COOKIE_DURATION" in app.config:
         login_manager.remember_cookie_duration = app.config["REMEMBER_COOKIE_DURATION"]
+
+    # Set loaders for Flask-Login
+    @login_manager.user_loader
+    def _load_user(user_id: str):
+        try:
+            return _models.User.query.get(int(user_id))
+        except Exception:
+            return None
+
+    @login_manager.request_loader
+    def _request_loader(req):
+        auth = req.authorization
+        if not auth:
+            return None
+        user = _models.User.query.filter_by(email=auth.username).first()
+        if user and check_password_hash(user.password_hash, auth.password):
+            return user
+        return None
 
     # ── WebSocket (Sock) ────────────────────────────────────────────────
     sock.init_app(app)
