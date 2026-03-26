@@ -40,13 +40,13 @@ def db_session(app):
     """
     from corposostenibile.models import Cliente, User, Department, Team, ClienteFreezeHistory
     from sqlalchemy import text
+    from corposostenibile.extensions import db
 
     # Usa la session standard di Flask-SQLAlchemy
     session = db.session
 
     # Cleanup PRIMA del test: pulisci il database per iniziare da zero
     # Usa un approccio ibrido: TRUNCATE dentro una transazione con retry su deadlock
-    # Questo è più efficiente di DELETE ma gestisce i deadlock quando accadono
     import time
     max_retries = 3
     retry_delay = 0.1  # 100ms
@@ -66,7 +66,6 @@ def db_session(app):
                 continue
             elif attempt == max_retries - 1:
                 # Ultimo tentativo fallito, lascia passare l'errore
-                # o usa strategia alternativa con DELETE
                 try:
                     session.execute(text('DELETE FROM clienti'))
                     session.execute(text('DELETE FROM users'))
@@ -75,64 +74,10 @@ def db_session(app):
                     session.commit()
                 except Exception:
                     session.rollback()
-                    # Se anche questo fallisce, continua comunque (i test potrebbero funzionare lo stesso)
                     pass
             break
 
     yield session
-
-    # Nota: il cleanup è fatto all'inizio del test successivo, non alla fine
-    # Questo evita problemi con sequences e garantisce uno stato pulito
-
-
-@pytest.fixture
-def client(app, db_session):
-    """
-    Test client Flask con database isolato.
-
-    Ogni richiesta HTTP viene eseguita con la session isolata del test.
-    """
-    return app.test_client()
-
-
-@pytest.fixture
-def authenticated_client(client, db_session, app):
-    """
-    Client autenticato per test route protette.
-
-    Crea un utente admin e mocka current_user per i test.
-    """
-    from tests.factories import UserFactory, DepartmentFactory
-    from corposostenibile.models import User
-    from unittest.mock import patch
-    import uuid
-
-    # Crea utente di test con nomi univoci per evitare collisioni
-    unique_id = str(uuid.uuid4())[:8]
-    dept = DepartmentFactory(name=f"Test Department {unique_id}")
-    user = UserFactory(
-        email=f"admin-{unique_id}@test.com",
-        first_name="Admin",
-        last_name="Test",
-        is_admin=True,
-        is_active=True
-    )
-    db_session.commit()  # Commit per rendere visibili i dati
-
-    # Mock current_user per ritornare sempre il nostro utente di test
-    # Questo bypassa completamente Flask-Login e il user_loader
-    mock_current_user = patch('flask_login.utils._get_user')
-    mock_user = mock_current_user.start()
-    mock_user.return_value = user
-
-    # Aggiungi riferimento all'utente per i test
-    client.test_user = user
-
-    yield client
-
-    # Cleanup: ferma il mock
-    mock_current_user.stop()
-
 
 @pytest.fixture(scope='function', autouse=True)
 def set_factory_session(db_session):
@@ -146,72 +91,30 @@ def set_factory_session(db_session):
 
     # Lista di tutte le factory classes
     factory_classes = [
-        # Core factories
-        factories.DepartmentFactory,
-        factories.TeamFactory,
-        factories.UserFactory,
-        factories.ClienteFactory,
-        # Customers blueprint factories
-        factories.InfluencerFactory,
-        factories.SalesPersonFactory,
-        factories.CustomerCareInterventionFactory,
-        factories.CheckInInterventionFactory,
-        factories.ContinuityCallInterventionFactory,
-        factories.CartellaClinicaFactory,
-        factories.AllegatoFactory,
-        factories.ClienteFreezeHistoryFactory,
-        factories.ClienteProfessionistaHistoryFactory,
-        factories.CallBonusFactory,
-        # Communications blueprint factories
-        factories.CommunicationFactory,
-        factories.CommunicationReadFactory,
-        # News blueprint factories
-        factories.NewsFactory,
-        factories.NewsReadFactory,
-        factories.NewsCommentFactory,
-        factories.NewsLikeFactory,
-        # Review blueprint factories
-        factories.ReviewFactory,
-        factories.ReviewAcknowledgmentFactory,
-        factories.ReviewMessageFactory,
-        factories.ReviewRequestFactory,
-        # Department/OKR blueprint factories
-        factories.DepartmentObjectiveFactory,
-        factories.DepartmentKeyResultFactory,
-        factories.DepartmentOKRUpdateFactory,
-        # Team blueprint factories
-        factories.WeeklyReportFactory,
-        factories.AnonymousSurveyFactory,
-        factories.AnonymousSurveyResponseFactory,
-        factories.DocumentAcknowledgmentFactory,
-        factories.CertificationFactory,
-        factories.UserEducationFactory,
-        factories.UserSalaryHistoryFactory,
-        factories.HRNoteFactory,
-        # Nutrition blueprint factories
-        factories.FoodCategoryFactory,
-        factories.FoodFactory,
-        factories.RecipeFactory,
-        factories.MealPlanFactory,
-        factories.TrainingPlanFactory,
-        factories.TrainingLocationFactory,
-        # Recruiting blueprint factories
-        factories.RecruitingKanbanFactory,
-        factories.KanbanStageFactory,
-        factories.JobOfferFactory,
-        factories.JobQuestionFactory,
-        factories.JobApplicationFactory,
-        factories.ApplicationAnswerFactory,
-        factories.ApplicationStageHistoryFactory,
-        factories.OnboardingTemplateFactory,
-        factories.OnboardingTaskFactory,
-        factories.OnboardingChecklistFactory,
-        factories.OnboardingProgressFactory,
-        factories.JobOfferAdvertisingCostFactory,
-        # Knowledge Base blueprint factories
-        factories.KBCategoryFactory,
-        factories.KBArticleFactory,
-        factories.KBAttachmentFactory,
+        factories.DepartmentFactory, factories.TeamFactory, factories.UserFactory,
+        factories.ClienteFactory, factories.InfluencerFactory, factories.SalesPersonFactory,
+        factories.CustomerCareInterventionFactory, factories.CheckInInterventionFactory,
+        factories.ContinuityCallInterventionFactory, factories.CartellaClinicaFactory,
+        factories.AllegatoFactory, factories.ClienteFreezeHistoryFactory,
+        factories.ClienteProfessionistaHistoryFactory, factories.CallBonusFactory,
+        factories.CommunicationFactory, factories.CommunicationReadFactory,
+        factories.NewsFactory, factories.NewsReadFactory, factories.NewsCommentFactory,
+        factories.NewsLikeFactory, factories.ReviewFactory, factories.ReviewAcknowledgmentFactory,
+        factories.ReviewMessageFactory, factories.ReviewRequestFactory,
+        factories.DepartmentObjectiveFactory, factories.DepartmentKeyResultFactory,
+        factories.DepartmentOKRUpdateFactory, factories.WeeklyReportFactory,
+        factories.AnonymousSurveyFactory, factories.AnonymousSurveyResponseFactory,
+        factories.DocumentAcknowledgmentFactory, factories.CertificationFactory,
+        factories.UserEducationFactory, factories.UserSalaryHistoryFactory,
+        factories.HRNoteFactory, factories.FoodCategoryFactory, factories.FoodFactory,
+        factories.RecipeFactory, factories.MealPlanFactory, factories.TrainingPlanFactory,
+        factories.TrainingLocationFactory, factories.RecruitingKanbanFactory,
+        factories.KanbanStageFactory, factories.JobOfferFactory, factories.JobQuestionFactory,
+        factories.JobApplicationFactory, factories.ApplicationAnswerFactory,
+        factories.ApplicationStageHistoryFactory, factories.OnboardingTemplateFactory,
+        factories.OnboardingTaskFactory, factories.OnboardingChecklistFactory,
+        factories.OnboardingProgressFactory, factories.JobOfferAdvertisingCostFactory,
+        factories.KBCategoryFactory, factories.KBArticleFactory, factories.KBAttachmentFactory,
     ]
 
     # Setta session per tutte le factories

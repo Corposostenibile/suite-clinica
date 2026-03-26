@@ -214,17 +214,36 @@ def forgot_password():
     if current_user.is_authenticated:
         return redirect(url_for("team.user_list"))
 
-    form = ForgotPasswordForm()
+    if request.is_json:
+        form = ForgotPasswordForm(data=request.get_json())
+    else:
+        form = ForgotPasswordForm()
+
     if form.validate_on_submit():
         user: User | None = User.query.filter_by(email=form.email.data.lower()).first()
         if user:
             _send_reset_email(user)
+            if request.is_json:
+                return {'success': True, 'message': 'Email inviata! Controlla la tua casella di posta.'}, 200
             flash("Email inviata! Controlla la tua casella di posta.", "success")
             return redirect(url_for("auth.login"))
         else:
+            if request.is_json:
+                return {'success': False, 'error': 'Questa email non esiste nel sistema.'}, 400
             flash("Questa email non esiste nel sistema.", "danger")
+    elif request.is_json and (form.errors or not request.get_json()):
+        return {'success': False, 'error': form.errors if form.errors else 'Missing email'}, 400
 
     return render_template("auth/forgot_password.html", form=form)
+
+
+@auth_bp.route("/verify-reset-token/<token>", methods=["GET"])
+def verify_reset_token(token: str):
+    """Verifica validità token."""
+    user = _verify_reset_token(token)
+    if user:
+        return {'valid': True}, 200
+    return {'valid': False, 'error': 'Token non valido o scaduto'}, 400
 
 
 @auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])

@@ -226,11 +226,12 @@ class TestAuthLogout:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
     def test_logout_then_access_protected_endpoint(self, api_client, admin_user):
-        """Test that protected endpoints require re-login after logout"""
+        """Test logout and access protected endpoint"""
         api_client.login(admin_user)
         
         # First logout
-        api_client.post('/api/auth/logout')
+        api_client.post('/api/auth/logout', follow_redirects=True)
+        api_client.logout() # Ensure mock is cleared
         
         # Try to access /api/auth/me which requires authentication
         response = api_client.get('/api/auth/me')

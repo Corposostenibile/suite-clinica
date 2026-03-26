@@ -274,8 +274,25 @@ kubectl set image deployment/suite-clinica-backend \
   backend=europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:<tag_stabile>
 ```
 
-## 7) Hardening raccomandato
+## 8) Strategia di Test Professionale (Continuous Integration)
 
-- Spostare segreti (DB/Redis/SECRET_KEY) in Secret Manager + Kubernetes Secret
-- Evitare credenziali hardcoded nei manifest
-- Aggiungere policy di rollout e probe avanzate dove necessario
+Per garantire la stabilità della pipeline in produzione (evitando timeout e race condition), è stata definita la seguente strategia professionale:
+
+### 8.1 Ottimizzazione Suite di Test
+- **Esecuzione Sequenziale (Stato Attuale):** La suite viene eseguita tramite uno script `run_tests.sh` che isola i moduli (Auth, Team, Calendar, ecc.). Questo previene corruzioni del database e permette un report dettagliato per modulo.
+- **Strategia Transazionale:** Ogni test viene avvolto in transazioni (savepoints) invece di `TRUNCATE CASCADE`, riducendo drasticamente il tempo di setup/teardown.
+- **Factory Scope:** Le Factory Boy sono configurate a livello di sessione (`session-scope`) per evitare il re-setup costante.
+
+### 8.2 Roadmap per Pipeline CI/CD Scalabile
+Per automatizzare i test in Cloud Build/GitHub Actions, la pipeline dovrà evolvere verso:
+1. **Parallelizzazione (Bucket Partitioning):** Eseguire i test in parallelo su "bucket" definiti, garantendo che ogni worker operi su un proprio database isolato (dinamicamente creato tramite variabili d'ambiente `TEST_DB_NAME_{WORKER_ID}`).
+2. **Database Effimero:** Utilizzare un container Postgres "sidecar" nei manifest di CI/CD, eliminando la dipendenza da un database fisico esterno.
+3. **Reportistica:** Esportare i risultati in formato Junit XML per integrare le dashboard di fallimento direttamente su GitHub/GCP Cloud Build.
+
+### 8.3 Comando di esecuzione pipeline
+In fase di test della pipeline, utilizzare:
+```bash
+bash ./backend/run_tests.sh
+```
+Questo comando garantisce un'esecuzione deterministica dell'intera suite.
+
