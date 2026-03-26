@@ -154,7 +154,7 @@ def api_forgot_password():
 
     email = data.get("email", "").lower().strip()
     if not email:
-        return jsonify({"success": False, "error": "Email richiesta"}), 400
+        return jsonify({"success": False, "error": "Email obbligatoria"}), 400
 
     user = User.query.filter_by(email=email).first()
     if user:

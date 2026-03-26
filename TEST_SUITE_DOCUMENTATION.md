@@ -349,9 +349,13 @@ All customer CRUD operations, filtering, pagination, authorization, and edge cas
 6. **Integrations Tests** (14 endpoints, 31 tests) ✅
    - Postit, News, Search, Push notifications, Loom, Tickets, External APIs
 
+### Frontend Testing Status ⚠️
+- **Status:** OUT OF SCOPE (Current Phase)
+- **Decision:** Per massimizzare la velocità di sviluppo e data la natura altamente dinamica della UI, la garanzia di qualità è affidata interamente alla suite di test backend (67 endpoint coperti). I test frontend (Vitest/Playwright) verranno valutati in una fase successiva di consolidamento.
+
 ### Next Phase
 - Execution verification and bug fixing
-- CI/CD integration with GitHub Actions
+- CI/CD integration with Google Cloud Build (In Progress)
 - Test coverage reporting
 - Performance optimization
 
