@@ -301,7 +301,7 @@ steps:
         fi
 
 # Configurazione Timeout e Log
-timeout: 1200s
+timeout: 3600s
 options:
   logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
