@@ -59,6 +59,7 @@ steps:
         done
         docker run --rm --network "$$NET" \
           -e DATABASE_URL=postgresql://test:test@$$DB_CONTAINER:5432/suite_clinica_test \
+          -e TEST_DATABASE_URL=postgresql://test:test@$$DB_CONTAINER:5432/suite_clinica_test \
           -e FLASK_ENV=testing \
           -e PYTHONUNBUFFERED=1 \
           -e FLASK_SKIP_DOTENV=1 \
