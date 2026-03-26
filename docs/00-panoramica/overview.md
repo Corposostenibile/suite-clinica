@@ -133,7 +133,7 @@ Gestisce l'accesso alla piattaforma, i profili di tutti i professionisti, i ruol
 
 **Include**: `auth`, `team`, `department`, `recruiting`, `kpi`, `dev_tracker`, `it_projects`
 
-→ Vedi: [Blueprint 01 — Autenticazione & Team](../blueprint/01-auth-team.md)
+→ Vedi: [Autenticazione](../02-team-organizzazione/autenticazione.md) · [Team & Professionisti](../02-team-organizzazione/team-professionisti.md)
 
 ---
 
@@ -142,7 +142,7 @@ Il cuore operativo della suite. Contiene l'intera scheda paziente, le liste per 
 
 **Include**: `customers`, `nutrition`, `client_checks`, `clienti/` (React), check form pubblici
 
-→ Vedi: [Blueprint 02 — Gestione Clienti](../blueprint/02-clienti.md)
+→ Vedi: [Gestione Clienti](../03-clienti-core/gestione-clienti.md) _(in lavorazione)_
 
 ---
 
@@ -151,7 +151,7 @@ Tutti gli strumenti che il team usa quotidianamente per organizzare il lavoro: t
 
 **Include**: `tasks`, `calendar`, `communications`, `knowledge_base`, `quality`, `postit`, `search`, `loom`, `news`
 
-→ Vedi: [Blueprint 05 — Task & Calendario](../blueprint/05-task-calendario.md)
+→ Vedi: [Task & Calendario](../04-strumenti-operativi/task-calendario.md) _(in lavorazione)_
 
 ---
 
@@ -160,7 +160,7 @@ Sistema di ticketing interno per segnalazioni e richieste tra team. Include il s
 
 **Include**: `ticket`, `team_tickets`
 
-→ Vedi: [Blueprint 07 — Ticket & Supporto](../blueprint/07-ticket.md)
+→ Vedi: [Ticket & Supporto](../04-strumenti-operativi/ticket.md) _(in lavorazione)_
 
 ---
 
@@ -169,7 +169,7 @@ Il layer di connessione con i sistemi esterni: CRM GoHighLevel per la gestione l
 
 **Include**: `ghl_integration`, `respond_io`, `appointment_setting`, `review`, `marketing_automation`, `suitemind`, `sop_chatbot`, `push_notifications`
 
-→ Vedi: [Blueprint 10 — Integrazioni GHL](../blueprint/10-ghl.md)
+→ Vedi: [Integrazioni GHL](../05-integrazioni/ghl-integration.md) _(in lavorazione)_
 
 ---
 
@@ -285,10 +285,10 @@ main                    ← branch stabile, production-ready
 
 | Area | Documento |
 |------|-----------|
-| Deploy e CI/CD | [ci_cd_analysis.md](../infrastruttura/ci_cd_analysis.md) |
-| Setup GCP | [gcp_infrastructure_setup_report.md](../infrastruttura/gcp_infrastructure_setup_report.md) |
-| Migrazioni DB | [procedura_migrazione.md](../infrastruttura/procedura_migrazione.md) |
-| Infrastruttura 2026 | [rapporto_infrastruttura_2026.md](../infrastruttura/rapporto_infrastruttura_2026.md) |
+| Deploy e CI/CD | [ci_cd_analysis.md](../01-infrastruttura/ci_cd_analysis.md) |
+| Setup GCP | [gcp_infrastructure_setup_report.md](../01-infrastruttura/gcp_infrastructure_setup_report.md) |
+| Migrazioni DB | [procedura_migrazione.md](../01-infrastruttura/procedura_migrazione.md) |
+| Infrastruttura 2026 | [rapporto_infrastruttura_2026.md](../01-infrastruttura/rapporto_infrastruttura_2026.md) |
 
 ---
 
@@ -298,38 +298,38 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 
 | Blueprint | Funzionalità principale | Doc dedicata |
 |-----------|------------------------|-------------|
-| `auth` | Autenticazione, sessioni, OAuth2 Google | [01-auth-team.md](../blueprint/01-auth-team.md) |
+| `auth` | Autenticazione, sessioni, OAuth2 Google | [autenticazione.md](../02-team-organizzazione/autenticazione.md) |
 | `welcome` | Homepage, dashboard | — |
-| `customers` | CRUD pazienti, scheda completa | [02-clienti.md](../blueprint/02-clienti.md) |
-| `team` | Professionisti, ruoli, profili | [01-auth-team.md](../blueprint/01-auth-team.md) |
-| `department` | Dipartimenti, documenti org | [01-auth-team.md](../blueprint/01-auth-team.md) |
-| `nutrition` | Piani alimentari, alimenti, macro | [04-nutrizione.md](../blueprint/04-nutrizione.md) |
-| `client_checks` | Check periodici, form pubblici | [03-client-checks.md](../blueprint/03-client-checks.md) |
-| `tasks` | Task, reminder, solleciti | [05-task-calendario.md](../blueprint/05-task-calendario.md) |
-| `calendar` | Calendario, Google Calendar OAuth | [05-task-calendario.md](../blueprint/05-task-calendario.md) |
-| `communications` | Chat interna, messaggistica | [06-comunicazioni.md](../blueprint/06-comunicazioni.md) |
-| `respond_io` | Integrazione WhatsApp Respond.io | [11-respond-io.md](../blueprint/11-respond-io.md) |
-| `ticket` | Ticket interni | [07-ticket.md](../blueprint/07-ticket.md) |
-| `team_tickets` | Ticket trasversali tra team | [07-ticket.md](../blueprint/07-ticket.md) |
-| `quality` | Quality score professionisti | [08-quality.md](../blueprint/08-quality.md) |
-| `feedback` | Feedback per area (nutrizione/coach/psico) | [08-quality.md](../blueprint/08-quality.md) |
-| `feedback_global` | Sistema feedback democratico anonimo | [08-quality.md](../blueprint/08-quality.md) |
-| `knowledge_base` | Base di conoscenza interna | [13-knowledge-base.md](../blueprint/13-knowledge-base.md) |
-| `documentation` | Documentazione tecnica integrata | [13-knowledge-base.md](../blueprint/13-knowledge-base.md) |
+| `customers` | CRUD pazienti, scheda completa | _(in lavorazione)_ |
+| `team` | Professionisti, ruoli, profili | [team-professionisti.md](../02-team-organizzazione/team-professionisti.md) |
+| `department` | Dipartimenti, documenti org | [team-professionisti.md](../02-team-organizzazione/team-professionisti.md) |
+| `nutrition` | Piani alimentari, alimenti, macro | _(in lavorazione)_ |
+| `client_checks` | Check periodici, form pubblici | _(in lavorazione)_ |
+| `tasks` | Task, reminder, solleciti | _(in lavorazione)_ |
+| `calendar` | Calendario, Google Calendar OAuth | _(in lavorazione)_ |
+| `communications` | Chat interna, messaggistica | _(in lavorazione)_ |
+| `respond_io` | Integrazione WhatsApp Respond.io | _(in lavorazione)_ |
+| `ticket` | Ticket interni | _(in lavorazione)_ |
+| `team_tickets` | Ticket trasversali tra team | _(in lavorazione)_ |
+| `quality` | Quality score professionisti | _(in lavorazione)_ |
+| `feedback` | Feedback per area (nutrizione/coach/psico) | _(in lavorazione)_ |
+| `feedback_global` | Sistema feedback democratico anonimo | _(in lavorazione)_ |
+| `knowledge_base` | Base di conoscenza interna | _(in lavorazione)_ |
+| `documentation` | Documentazione tecnica integrata | _(in lavorazione)_ |
 | `loom` | Libreria video Loom | — |
-| `kpi` | KPI, ARR, metriche aziendali | [09-kpi-finance.md](../blueprint/09-kpi-finance.md) |
-| `finance` | Modulo finanziario | [09-kpi-finance.md](../blueprint/09-kpi-finance.md) |
-| `recruiting` | Candidature, selezione | [01-auth-team.md](../blueprint/01-auth-team.md) |
-| `ghl_integration` | GoHighLevel CRM, webhook, status | [10-ghl.md](../blueprint/10-ghl.md) |
-| `old_suite_integration` | Bridge verso CRM legacy (temporaneo) | [10-ghl.md](../blueprint/10-ghl.md) |
-| `sales_form` | Form onboarding pubblici | [10-ghl.md](../blueprint/10-ghl.md) |
-| `appointment_setting` | Messaggi automatici appuntamenti | [11-respond-io.md](../blueprint/11-respond-io.md) |
-| `marketing_automation` | Automazioni marketing, sequenze | [11-respond-io.md](../blueprint/11-respond-io.md) |
-| `suitemind` | AI assegnazione, chat su SOP | [12-suitemind.md](../blueprint/12-suitemind.md) |
-| `sop_chatbot` | Chatbot RAG su procedure aziendali | [12-suitemind.md](../blueprint/12-suitemind.md) |
-| `push_notifications` | Notifiche push PWA | [14-push-notifications.md](../blueprint/14-push-notifications.md) |
-| `pwa` | Progressive Web App manifest | [14-push-notifications.md](../blueprint/14-push-notifications.md) |
-| `review` | Raccolta recensioni Trustpilot | [08-quality.md](../blueprint/08-quality.md) |
+| `kpi` | KPI, ARR, metriche aziendali | _(in lavorazione)_ |
+| `finance` | Modulo finanziario | _(in lavorazione)_ |
+| `recruiting` | Candidature, selezione | _(in lavorazione)_ |
+| `ghl_integration` | GoHighLevel CRM, webhook, status | _(in lavorazione)_ |
+| `old_suite_integration` | Bridge verso CRM legacy (temporaneo) | _(in lavorazione)_ |
+| `sales_form` | Form onboarding pubblici | _(in lavorazione)_ |
+| `appointment_setting` | Messaggi automatici appuntamenti | _(in lavorazione)_ |
+| `marketing_automation` | Automazioni marketing, sequenze | _(in lavorazione)_ |
+| `suitemind` | AI assegnazione, chat su SOP | _(in lavorazione)_ |
+| `sop_chatbot` | Chatbot RAG su procedure aziendali | _(in lavorazione)_ |
+| `push_notifications` | Notifiche push PWA | _(in lavorazione)_ |
+| `pwa` | Progressive Web App manifest | _(in lavorazione)_ |
+| `review` | Raccolta recensioni Trustpilot | _(in lavorazione)_ |
 | `postit` | Note rapide / promemoria | — |
 | `search` | Ricerca full-text globale | — |
 | `news` | Bacheca novità/aggiornamenti | — |
@@ -338,5 +338,5 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 | `database_registry` | Registro modelli DB (tool interno) | — |
 | `dev_tracker` | Tracker sviluppo team IT | — |
 | `it_projects` | Gestione progetti IT | — |
-| `manual` | Manuale operativo suite | [13-knowledge-base.md](../blueprint/13-knowledge-base.md) |
+| `manual` | Manuale operativo suite | _(in lavorazione)_ |
 | `health` | Health check endpoint | — |
