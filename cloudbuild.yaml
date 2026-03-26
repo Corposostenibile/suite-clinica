@@ -57,14 +57,16 @@ steps:
           echo "Waiting for Postgres... ($i/30)"
           sleep 2
         done
-        docker run --rm --network "$$NET" -v "$$WORKDIR/backend":/workspace/backend -w /workspace/backend python:3.11 bash -lc "\
+        docker run --rm --network "$$NET" \
+          -e DATABASE_URL=postgresql://test:test@$$DB_CONTAINER:5432/suite_clinica_test \
+          -e FLASK_ENV=testing \
+          -e PYTHONUNBUFFERED=1 \
+          -e FLASK_SKIP_DOTENV=1 \
+          -v "$$WORKDIR/backend":/workspace/backend -w /workspace/backend python:3.11 bash -lc "\
           set -euo pipefail && \
           apt-get update && apt-get install -y libpq-dev gcc && \
           pip install poetry==1.7.1 && \
           poetry install --no-interaction --no-ansi && \
-          DATABASE_URL=postgresql://test:test@$$DB_CONTAINER:5432/suite_clinica_test \\
-          FLASK_ENV=testing \\
-          PYTHONUNBUFFERED=1 \\
           poetry run pytest tests/api/ -v --tb=short"
         docker stop "$$DB_CONTAINER"
         docker rm "$$DB_CONTAINER"
@@ -300,5 +302,5 @@ steps:
 # Configurazione Timeout e Log
 timeout: 1200s
 options:
-  logging: GCS_ONLY
+  logging: CLOUD_LOGGING_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
