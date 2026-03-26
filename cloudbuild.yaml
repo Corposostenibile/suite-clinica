@@ -73,8 +73,6 @@ steps:
         cd backend
         poetry install --no-interaction --no-ansi
         poetry run pytest tests/api/ -v --tb=short
-    # Use host network to connect to the docker-run postgres container
-    network: 'host'
 
   # 1.3. Cleanup: Stop Test Database
   - name: 'gcr.io/cloud-builders/docker'
