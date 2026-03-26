@@ -738,7 +738,7 @@ def get_members():
         query = query.filter(User.is_active == False)
 
     # Department filter
-    if department_id:
+    if department_id and hasattr(User, "department_id"):
         query = query.filter(User.department_id == department_id)
 
     # Role filter - include team leader as "grade" of professional domains.
@@ -1223,15 +1223,20 @@ def get_team_stats():
         User.is_external == True
     ).count()
 
-    return jsonify({
-        'success': True,
+    stats = {
         'total_members': total_members,
         'total_active': total_active,
         'total_admins': total_admins,
         'total_trial': total_trial,
         'total_team_leaders': total_team_leaders,
         'total_professionisti': total_professionisti,
-        'total_external': total_external
+        'total_external': total_external,
+    }
+
+    return jsonify({
+        'success': True,
+        'stats': stats,
+        **stats,
     })
 
 
@@ -1779,6 +1784,9 @@ def get_admin_dashboard_stats():
     Dashboard statistics for professionals; data filtered by role
     (admin=all, TL=team members, professionista=own).
     """
+    perm_error = _require_admin()
+    if perm_error:
+        return perm_error
     from corposostenibile.models import QualityWeeklyScore, Cliente, StatoClienteEnum
     from corposostenibile.models import cliente_nutrizionisti, cliente_coaches, cliente_psicologi
     from datetime import datetime, timedelta
@@ -2706,6 +2714,7 @@ def get_professionals_capacity():
         return jsonify({
             'success': True,
             'rows': [],
+            'capacity': [],
             'total': 0,
             'can_edit': _can_edit_professional_capacity(current_user)
         })
@@ -2799,6 +2808,7 @@ def get_professionals_capacity():
     return jsonify({
         'success': True,
         'rows': rows,
+        'capacity': rows,
         'total': len(rows),
         'can_edit': _can_edit_professional_capacity(current_user),
         'weights': weights_by_role,

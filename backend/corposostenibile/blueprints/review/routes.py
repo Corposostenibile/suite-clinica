@@ -1511,13 +1511,14 @@ def _get_training_recipients(user):
                             'department': user_team.head.specialty_display if hasattr(user_team.head, 'specialty_display') else None,
                         })
 
-        # Fallback: se senza team, head del proprio dipartimento
-        if not recipients and user.department and user.department.head and user.department.head.id != user.id:
+        # Fallback: se senza team, head del proprio dipartimento (se esiste la relazione)
+        user_department = getattr(user, 'department', None)
+        if not recipients and user_department and getattr(user_department, 'head', None) and user_department.head.id != user.id:
             recipients.append({
-                'id': user.department.head.id,
-                'name': f"{user.department.head.first_name} {user.department.head.last_name}",
-                'role': f"Head {user.department.name}",
-                'department': user.department.head.specialty_display if hasattr(user.department.head, 'specialty_display') else None,
+                'id': user_department.head.id,
+                'name': f"{user_department.head.first_name} {user_department.head.last_name}",
+                'role': f"Head {user_department.name}",
+                'department': user_department.head.specialty_display if hasattr(user_department.head, 'specialty_display') else None,
             })
 
     return recipients

@@ -199,7 +199,7 @@ class TestTasksUpdateTask:
             title='Test Task',
             description='Description',
             assignee=login_test_user,
-            status=TaskStatusEnum.open,
+            status=TaskStatusEnum.todo,
             priority=TaskPriorityEnum.medium
         )
         db_session.add(task)
@@ -218,7 +218,7 @@ class TestTasksUpdateTask:
             title='Original Title',
             description='Description',
             assignee=login_test_user,
-            status=TaskStatusEnum.open,
+            status=TaskStatusEnum.todo,
             priority=TaskPriorityEnum.medium
         )
         db_session.add(task)
@@ -237,7 +237,7 @@ class TestTasksUpdateTask:
             title='Test Task',
             description='Description',
             assignee=login_test_user,
-            status=TaskStatusEnum.open,
+            status=TaskStatusEnum.todo,
             priority=TaskPriorityEnum.low
         )
         db_session.add(task)
@@ -256,7 +256,7 @@ class TestTasksUpdateTask:
             title='Test Task',
             description='Description',
             assignee=login_test_user,
-            status=TaskStatusEnum.open,
+            status=TaskStatusEnum.todo,
             priority=TaskPriorityEnum.medium
         )
         db_session.add(task)

@@ -170,6 +170,14 @@ def api_forgot_password():
     })
 
 
+@auth_api_bp.route("/verify-reset-token/", methods=["GET"])
+def api_verify_reset_token_empty():
+    return jsonify({
+        "valid": False,
+        "error": "Link non valido o scaduto."
+    }), 400
+
+
 @auth_api_bp.route("/verify-reset-token/<token>", methods=["GET"])
 def api_verify_reset_token(token: str):
     """
@@ -317,18 +325,15 @@ def api_impersonate_users():
 
 
 @auth_api_bp.route("/impersonate/<int:user_id>", methods=["POST"])
-# @login_required  <-- Rimosso temporaneamente
+@login_required
 def api_impersonate_user(user_id: int):
     """Accede come un altro utente (solo admin)."""
     from flask import current_app
-    current_app.logger.info(f"API Impersonate called for user_id={user_id}")
-    
-    if not current_user.is_admin:
-        current_app.logger.info(f"Impersonation failed: current_user={current_user.id} is_admin={current_user.is_admin}")
-        return jsonify({"success": False, "error": "Accesso non autorizzato."}), 403
-
     if session.get("impersonating"):
         return jsonify({"success": False, "error": "Sei già in modalità impersonazione. Torna al tuo account prima."}), 400
+
+    if not current_user.is_admin:
+        return jsonify({"success": False, "error": "Accesso non autorizzato."}), 403
 
     try:
         db.session.rollback()

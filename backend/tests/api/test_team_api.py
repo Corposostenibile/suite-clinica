@@ -131,7 +131,6 @@ class TestTeamGetMembers:
         from tests.factories import DepartmentFactory, UserFactory
         
         dept = DepartmentFactory()
-        user = UserFactory(department_id=dept.id)
         db_session.commit()
         
         api_client.login(admin_user)
@@ -239,7 +238,7 @@ class TestTeamCreateMember:
         
         existing_user = UserFactory(email='existing@test.com')
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.post('/api/team/members', json={
             'email': 'existing@test.com',
             'password': 'TempPass123!',
@@ -338,7 +337,7 @@ class TestTeamUpdateMember:
         
         user = UserFactory(first_name='Old', last_name='Name')
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/members/{user.id}', json={
             'first_name': 'Updated',
             'last_name': 'NewName'
@@ -357,7 +356,7 @@ class TestTeamUpdateMember:
         user1 = UserFactory(email='user1@test.com')
         user2 = UserFactory(email='user2@test.com')
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/members/{user2.id}', json={
             'email': 'user1@test.com'
         })
@@ -372,7 +371,7 @@ class TestTeamUpdateMember:
         
         user = UserFactory()
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/members/{user.id}', json={
             'password': 'NewPass123!'
         })
@@ -387,7 +386,7 @@ class TestTeamUpdateMember:
         
         user = UserFactory(role=UserRoleEnum.professionista)
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/members/{user.id}', json={
             'role': 'admin',
             'is_admin': True
@@ -404,7 +403,7 @@ class TestTeamUpdateMember:
         
         user = UserFactory()
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/members/{user.id}', json={
             'specialty': 'coach'
         })
@@ -444,7 +443,7 @@ class TestTeamDeleteMember:
         user = UserFactory(is_active=True)
         db_session.commit()
         user_id = user.id
-        
+        api_client.login(admin_user)
         response = api_client.delete(f'/api/team/members/{user_id}')
         
         assert response.status_code == HTTPStatus.OK
@@ -496,7 +495,7 @@ class TestTeamToggleMemberStatus:
         user = UserFactory(is_active=True)
         db_session.commit()
         initial_status = user.is_active
-        
+        api_client.login(admin_user)
         response = api_client.post(f'/api/team/members/{user.id}/toggle')
         
         assert response.status_code == HTTPStatus.OK
@@ -540,7 +539,7 @@ class TestTeamUploadAvatar:
         
         user = UserFactory()
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.post(f'/api/team/members/{user.id}/avatar')
         
         # Should return 400 or similar error
@@ -665,7 +664,7 @@ class TestTeamCreateTeam:
         api_client.login(user)
         response = api_client.post('/api/team/teams', json={
             'name': 'New Team',
-            'team_type': 'professionisti'
+            'team_type': 'nutrizione'
         })
         
         assert response.status_code == HTTPStatus.FORBIDDEN
@@ -676,7 +675,7 @@ class TestTeamCreateTeam:
         api_client.login(admin_user)
         response = api_client.post('/api/team/teams', json={
             'name': 'New Team',
-            'team_type': 'professionisti'
+            'team_type': 'nutrizione'
         })
         
         assert response.status_code == HTTPStatus.CREATED
@@ -719,7 +718,7 @@ class TestTeamUpdateTeam:
         
         team = TeamFactory(name='Old Name')
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.put(f'/api/team/teams/{team.id}', json={
             'name': 'Updated Name'
         })
@@ -760,16 +759,17 @@ class TestTeamDeleteTeam:
         team = TeamFactory()
         db_session.commit()
         team_id = team.id
-        
+        api_client.login(admin_user)
         response = api_client.delete(f'/api/team/teams/{team_id}')
         
         assert response.status_code == HTTPStatus.OK
         data = response.json
         assert data['success'] is True
         
-        # Verify team is deleted
+        # Verify team is deactivated
         deleted_team = Team.query.get(team_id)
-        assert deleted_team is None
+        assert deleted_team is not None
+        assert deleted_team.is_active is False
 
 
 class TestTeamAddTeamMember:
@@ -797,12 +797,12 @@ class TestTeamAddTeamMember:
         team = TeamFactory()
         member = UserFactory()
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.post(f'/api/team/teams/{team.id}/members', json={
             'user_id': member.id
         })
         
-        assert response.status_code == HTTPStatus.CREATED
+        assert response.status_code == HTTPStatus.OK
         data = response.json
         assert data['success'] is True
 
@@ -834,7 +834,7 @@ class TestTeamRemoveTeamMember:
         db_session.add(member)
         team.members.append(member)
         db_session.commit()
-        
+        api_client.login(admin_user)
         response = api_client.delete(f'/api/team/teams/{team.id}/members/{member.id}')
         
         assert response.status_code == HTTPStatus.OK

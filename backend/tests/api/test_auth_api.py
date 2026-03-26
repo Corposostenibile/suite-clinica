@@ -580,7 +580,7 @@ class TestAuthImpersonateUsers:
 class TestAuthImpersonateUser:
     """Test POST /api/auth/impersonate/<user_id> - Impersonate a user"""
     
-    def test_impersonate_success(self, api_client, admin_login_test_user, user):
+    def test_impersonate_success(self, api_client, admin_login_test_user, login_test_user, db_session):
         """Test successful impersonation"""
         # Pulizia mock prima di login reale
         api_client.logout()
@@ -590,7 +590,9 @@ class TestAuthImpersonateUser:
             'password': 'AdminPass123!'
         })
         
-        response = api_client.post(f'/api/auth/impersonate/{user.id}')
+        target_user_id = db_session.query(User.id).filter_by(email="login_test@example.com").scalar()
+        assert target_user_id is not None
+        response = api_client.post(f'/api/auth/impersonate/{target_user_id}')
         
         assert response.status_code == HTTPStatus.OK
         assert response.json['success'] is True
@@ -610,10 +612,10 @@ class TestAuthImpersonateUser:
         assert response.status_code == HTTPStatus.FORBIDDEN
         assert response.json['success'] is False
     
-    def test_impersonate_not_authenticated(self, api_client, user):
+    def test_impersonate_not_authenticated(self, api_client, login_test_user):
         """Test impersonation without authentication"""
         api_client.logout()
-        response = api_client.post(f'/api/auth/impersonate/{user.id}')
+        response = api_client.post(f'/api/auth/impersonate/{login_test_user.id}')
         
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
@@ -645,7 +647,7 @@ class TestAuthImpersonateUser:
         assert response.json['success'] is False
         assert 'te stesso' in response.json['error']
     
-    def test_impersonate_while_impersonating(self, api_client, admin_login_test_user, user, db_session):
+    def test_impersonate_while_impersonating(self, api_client, admin_login_test_user, login_test_user, db_session):
         """Test that can't impersonate while already impersonating"""
         api_client.logout()
         api_client.post('/api/auth/login', json={
@@ -654,7 +656,9 @@ class TestAuthImpersonateUser:
         })
         
         # Start impersonation
-        response1 = api_client.post(f'/api/auth/impersonate/{user.id}')
+        target_user_id = db_session.query(User.id).filter_by(email="login_test@example.com").scalar()
+        assert target_user_id is not None
+        response1 = api_client.post(f'/api/auth/impersonate/{target_user_id}')
         assert response1.status_code == HTTPStatus.OK
         
         # Create another user
@@ -672,12 +676,18 @@ class TestAuthImpersonateUser:
 class TestAuthStopImpersonation:
     """Test POST /api/auth/stop-impersonation - Return to admin account"""
     
-    def test_stop_impersonation_success(self, api_client, admin_user, user):
+    def test_stop_impersonation_success(self, api_client, admin_login_test_user, login_test_user, db_session):
         """Test successful stop of impersonation"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         # Start impersonation
-        api_client.post(f'/api/auth/impersonate/{user.id}')
+        target_user_id = db_session.query(User.id).filter_by(email="login_test@example.com").scalar()
+        assert target_user_id is not None
+        api_client.post(f'/api/auth/impersonate/{target_user_id}')
         
         # Stop impersonation
         response = api_client.post('/api/auth/stop-impersonation')
@@ -686,9 +696,13 @@ class TestAuthStopImpersonation:
         assert response.json['success'] is True
         assert 'tornato' in response.json['message']
     
-    def test_stop_impersonation_not_impersonating(self, api_client, admin_user):
+    def test_stop_impersonation_not_impersonating(self, api_client, admin_login_test_user):
         """Test stop impersonation when not impersonating"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         response = api_client.post('/api/auth/stop-impersonation')
         
@@ -702,17 +716,24 @@ class TestAuthStopImpersonation:
         
         assert response.status_code == HTTPStatus.UNAUTHORIZED
     
-    def test_stop_impersonation_returns_to_admin(self, api_client, admin_user, user):
+    def test_stop_impersonation_returns_to_admin(self, api_client, admin_login_test_user, login_test_user, db_session):
         """Test that stopping impersonation returns to admin user"""
-        api_client.login(admin_user)
-        admin_id = admin_user.id
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
+        admin_id = db_session.query(User.id).filter_by(email=admin_login_test_user.email).scalar()
+        assert admin_id is not None
         
         # Start impersonation
-        api_client.post(f'/api/auth/impersonate/{user.id}')
+        target_user_id = db_session.query(User.id).filter_by(email="login_test@example.com").scalar()
+        assert target_user_id is not None
+        api_client.post(f'/api/auth/impersonate/{target_user_id}')
         
         # Verify we're now logged in as the other user
         response1 = api_client.get('/api/auth/me')
-        assert response1.json['user']['id'] == user.id
+        assert response1.json['user']['id'] == target_user_id
         
         # Stop impersonation
         api_client.post('/api/auth/stop-impersonation')
@@ -721,14 +742,20 @@ class TestAuthStopImpersonation:
         response2 = api_client.get('/api/auth/me')
         assert response2.json['user']['id'] == admin_id
     
-    def test_impersonation_creates_log(self, api_client, admin_user, user, db_session):
+    def test_impersonation_creates_log(self, api_client, admin_login_test_user, login_test_user, db_session):
         """Test that impersonation creates a log entry"""
-        api_client.login(admin_user)
+        api_client.logout()
+        api_client.post('/api/auth/login', json={
+            'email': admin_login_test_user.email,
+            'password': 'AdminPass123!'
+        })
         
         initial_log_count = db_session.query(ImpersonationLog).count()
         
         # Start impersonation
-        api_client.post(f'/api/auth/impersonate/{user.id}')
+        target_user_id = db_session.query(User.id).filter_by(email="login_test@example.com").scalar()
+        assert target_user_id is not None
+        api_client.post(f'/api/auth/impersonate/{target_user_id}')
         
         # Stop impersonation
         api_client.post('/api/auth/stop-impersonation')
@@ -739,6 +766,8 @@ class TestAuthStopImpersonation:
         
         # Check log details
         log = db_session.query(ImpersonationLog).order_by(ImpersonationLog.id.desc()).first()
-        assert log.admin_id == admin_user.id
-        assert log.impersonated_user_id == user.id
+        admin_id = db_session.query(User.id).filter_by(email=admin_login_test_user.email).scalar()
+        assert admin_id is not None
+        assert log.admin_id == admin_id
+        assert log.impersonated_user_id == target_user_id
         assert log.ended_at is not None

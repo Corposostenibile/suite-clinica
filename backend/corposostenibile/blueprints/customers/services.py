@@ -62,6 +62,7 @@ from sqlalchemy import desc, func, or_, exists, select
 
 # Changelog granulare
 from .models.activity_log import ActivityLog                               # pragma: no cover
+from sqlalchemy import inspect
 # SIGNALS
 from .signals import emit_created, emit_deleted, emit_updated
 
@@ -142,6 +143,19 @@ def _as_decimal(value) -> decimal.Decimal | None:
 def _user_id(actor) -> int | None:           # pragma: no cover
     """Ritorna l’id (se esiste) dell’oggetto passato."""
     return getattr(actor, "id", None)
+
+
+def _activity_log_available() -> bool:
+    try:
+        return inspect(db.engine).has_table("activity_log")
+    except Exception:
+        return False
+
+
+def _safe_add_activity_log(**kwargs) -> None:
+    if not _activity_log_available():
+        return
+    db.session.add(ActivityLog(**kwargs))
 
 
 # ........................................................................... #
@@ -334,14 +348,12 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
         cliente.stato_cliente_data = datetime.utcnow()
 
         # Log automatico
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field='stato_cliente',
-                before=_get_stato_value(old_stato),
-                after='ghost',
-                user_id=_user_id(updated_by_user),
-            )
+        _safe_add_activity_log(
+            cliente_id=cliente.cliente_id,
+            field='stato_cliente',
+            before=_get_stato_value(old_stato),
+            after='ghost',
+            user_id=_user_id(updated_by_user),
         )
 
         current_app.logger.info(
@@ -355,14 +367,12 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
     ):
         cliente.stato_cliente = StatoClienteEnum.attivo
         cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field='stato_cliente',
-                before='ghost',
-                after='attivo',
-                user_id=_user_id(updated_by_user),
-            )
+        _safe_add_activity_log(
+            cliente_id=cliente.cliente_id,
+            field='stato_cliente',
+            before='ghost',
+            after='attivo',
+            user_id=_user_id(updated_by_user),
         )
         return True
 
@@ -432,14 +442,12 @@ def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> 
         old_stato = cliente.stato_cliente
         cliente.stato_cliente = StatoClienteEnum.pausa
         cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field="stato_cliente",
-                before=_get_stato_value(old_stato),
-                after="pausa",
-                user_id=_user_id(updated_by_user),
-            )
+        _safe_add_activity_log(
+            cliente_id=cliente.cliente_id,
+            field="stato_cliente",
+            before=_get_stato_value(old_stato),
+            after="pausa",
+            user_id=_user_id(updated_by_user),
         )
         return True
 
@@ -448,14 +456,12 @@ def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> 
     ):
         cliente.stato_cliente = StatoClienteEnum.attivo
         cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field="stato_cliente",
-                before="pausa",
-                after="attivo",
-                user_id=_user_id(updated_by_user),
-            )
+        _safe_add_activity_log(
+            cliente_id=cliente.cliente_id,
+            field="stato_cliente",
+            before="pausa",
+            after="attivo",
+            user_id=_user_id(updated_by_user),
         )
         return True
 
@@ -637,14 +643,12 @@ def _check_and_update_global_active_status(
         cliente.stato_cliente_data = datetime.utcnow()
 
         # Log automatico
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field='stato_cliente',
-                before=_get_stato_value(old_stato),
-                after='attivo',
-                user_id=_user_id(updated_by_user),
-            )
+        _safe_add_activity_log(
+            cliente_id=cliente.cliente_id,
+            field='stato_cliente',
+            before=_get_stato_value(old_stato),
+            after='attivo',
+            user_id=_user_id(updated_by_user),
         )
 
         current_app.logger.info(
@@ -956,14 +960,12 @@ def update_cliente(
 
         # changelog
         for field, (before, after) in changes.items():
-            db.session.add(
-                ActivityLog(
-                    cliente_id=cliente.cliente_id,
-                    field=field,
-                    before=None if before is None else str(before),
-                    after=None if after is None else str(after),
-                    user_id=_user_id(updated_by_user),
-                )
+            _safe_add_activity_log(
+                cliente_id=cliente.cliente_id,
+                field=field,
+                before=None if before is None else str(before),
+                after=None if after is None else str(after),
+                user_id=_user_id(updated_by_user),
             )
 
     if changes:

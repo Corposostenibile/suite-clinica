@@ -13,6 +13,7 @@ from corposostenibile.extensions import db
 from corposostenibile.blueprints.search import bp
 
 @bp.route('/global', methods=['GET'])
+@login_required
 def global_search():
     """
     Global search endpoint across multiple entities.
