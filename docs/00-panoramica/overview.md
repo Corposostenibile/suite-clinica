@@ -149,9 +149,9 @@ Il cuore operativo della suite. Contiene l'intera scheda paziente, le liste per 
 ### 3. ⚙️ Strumenti Operativi Interni
 Tutti gli strumenti che il team usa quotidianamente per organizzare il lavoro: task e reminder, calendario integrato con Google, chat interna, knowledge base, formazione, quality score, post-it e ricerca globale.
 
-**Include**: `tasks`, `calendar`, `communications`, `knowledge_base`, `quality`, `postit`, `search`, `loom`, `news`
+**Include**: `tasks`, `calendar`, `knowledge_base`, `quality`, `postit`, `search`, `loom`, `news`
 
-→ Vedi: [Task & Calendario](../04-strumenti-operativi/task-calendario.md) _(in lavorazione)_
+→ Vedi: [Task & Calendario](../04-strumenti-operativi/task-calendario.md)
 
 ---
 
@@ -160,16 +160,16 @@ Sistema di ticketing interno per segnalazioni e richieste tra team. Include il s
 
 **Include**: `ticket`, `team_tickets`
 
-→ Vedi: [Ticket & Supporto](../04-strumenti-operativi/ticket.md) _(in lavorazione)_
+→ Vedi: [Ticket & Supporto](../04-strumenti-operativi/ticket-supporto.md)
 
 ---
 
-### 5. 🔗 Integrazioni Esterne
-Il layer di connessione con i sistemi esterni: CRM GoHighLevel per la gestione lead/opportunità, Respond.io per la messaggistica WhatsApp, Google Calendar per la sincronizzazione appuntamenti, Trustpilot per le recensioni e Microsoft Teams per le notifiche interne.
+### 5. 💬 Comunicazione e Integrazioni
+Il layer di connessione con i sistemi esterni e la comunicazione interna: CRM GoHighLevel, messaggistica WhatsApp via Respond.io, Appointment Setting, notifiche push e bacheca aziendale.
 
-**Include**: `ghl_integration`, `respond_io`, `appointment_setting`, `review`, `marketing_automation`, `suitemind`, `sop_chatbot`, `push_notifications`
+**Include**: `communications`, `respond_io`, `appointment_setting`, `push_notifications`, `ghl_integration`, `marketing_automation`
 
-→ Vedi: [Integrazioni GHL](../05-integrazioni/ghl-integration.md) _(in lavorazione)_
+→ Vedi: [Area Comunicazione](../05-comunicazione/README.md) · [Integrazione Respond.io](../05-comunicazione/integrazione-respond-io.md)
 
 ---
 
@@ -307,10 +307,10 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 | `client_checks` | Check periodici, form pubblici | [check-periodici.md](../03-clienti-core/check-periodici.md) |
 | `tasks` | Task, reminder, solleciti | [task-calendario.md](../04-strumenti-operativi/task-calendario.md) |
 | `calendar` | Calendario, Google Calendar OAuth | [task-calendario.md](../04-strumenti-operativi/task-calendario.md) |
-| `communications` | Chat interna, messaggistica | _(in lavorazione)_ |
-| `respond_io` | Integrazione WhatsApp Respond.io | _(in lavorazione)_ |
+| `communications` | Bacheca annunci interni, avvisi dept | [comunicazione-interna.md](../05-comunicazione/comunicazione-interna.md) |
+| `respond_io` | Integrazione WhatsApp Respond.io | [integrazione-respond-io.md](../05-comunicazione/integrazione-respond-io.md) |
 | `ticket` | Ticketing interno (multi-dept) | [ticket-supporto.md](../04-strumenti-operativi/ticket-supporto.md) |
-| `team_tickets` | Ticket trasversali tra team | _(in lavorazione)_ |
+| `team_tickets` | Ticket trasversali tra team | [ticket-supporto.md](../04-strumenti-operativi/ticket-supporto.md) |
 | `quality` | Quality score professionisti | _(in lavorazione)_ |
 | `feedback` | Feedback per area (nutrizione/coach/psico) | _(in lavorazione)_ |
 | `feedback_global` | Sistema feedback democratico anonimo | _(in lavorazione)_ |
@@ -323,11 +323,11 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 | `ghl_integration` | GoHighLevel CRM, webhook, status | _(in lavorazione)_ |
 | `old_suite_integration` | Bridge verso CRM legacy (temporaneo) | _(in lavorazione)_ |
 | `sales_form` | Form onboarding pubblici | _(in lavorazione)_ |
-| `appointment_setting` | Messaggi automatici appuntamenti | _(in lavorazione)_ |
+| `appointment_setting` | Monitoraggio performance front-end | [appointment-setting.md](../05-comunicazione/appointment-setting.md) |
 | `marketing_automation` | Automazioni marketing, sequenze | _(in lavorazione)_ |
 | `suitemind` | AI assegnazione, chat su SOP | _(in lavorazione)_ |
 | `sop_chatbot` | Chatbot RAG su procedure aziendali | _(in lavorazione)_ |
-| `push_notifications` | Notifiche push PWA | _(in lavorazione)_ |
+| `push_notifications` | Notifiche push browser (PWA) | [notifiche-push.md](../05-comunicazione/notifiche-push.md) |
 | `pwa` | Progressive Web App manifest | _(in lavorazione)_ |
 | `review` | Raccolta recensioni Trustpilot | _(in lavorazione)_ |
 | `postit` | Note rapide / promemoria | — |

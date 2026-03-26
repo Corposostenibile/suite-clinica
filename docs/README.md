@@ -22,6 +22,14 @@ La documentazione è organizzata per aree tematiche ed è pensata per essere uti
 ### 🏥 Clienti Core
 - [Piano Medico Nutrizione](./03-clienti-core/piano_medico_nutrizione.md)
 - [Test Medico Passo-Passo](./03-clienti-core/test_medico_passo_passo.md)
+- [Gestione Clienti](./03-clienti-core/gestione-clienti.md)
+
+### 💬 Comunicazione & Messaggistica
+- [Area 05: Comunicazione](./05-comunicazione/README.md)
+- [Comunicazione Interna](./05-comunicazione/comunicazione-interna.md)
+- [Integrazione Respond.io](./05-comunicazione/integrazione-respond-io.md)
+- [Appointment Setting](./05-comunicazione/appointment-setting.md)
+- [Notifiche Push](./05-comunicazione/notifiche-push.md)
 
 ### ⚙️ Sviluppo e Varie
 - [Refactor Plan](./06-sviluppo-e-varie/refactor_status_report.md)
