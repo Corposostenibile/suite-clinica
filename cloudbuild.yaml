@@ -300,5 +300,5 @@ steps:
 # Configurazione Timeout e Log
 timeout: 1200s
 options:
-  logging: CLOUD_LOGGING_ONLY
+  logging: GCS_ONLY
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
