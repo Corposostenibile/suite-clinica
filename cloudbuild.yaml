@@ -79,7 +79,6 @@ steps:
     id: 'cleanup-test-db'
     waitFor: ['run-backend-tests']
     args: ['stop', 'test-postgres']
-    onFailure: ['CONTINUE']
 
   # 2. Push Layer: Carica su Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
