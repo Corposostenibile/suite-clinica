@@ -1,6 +1,6 @@
-# Area 05: Comunicazione
+# Area 05: Comunicazione e Integrazioni
 
-Questa sezione documenta tutti gli strumenti di comunicazione utilizzati all'interno della Suite Clinica, distinguendo tra flussi interni al team e integrazioni per la messaggistica con i clienti.
+Questa sezione documenta gli strumenti di comunicazione della Suite Clinica, includendo sia i flussi interni sia le integrazioni esterne collegate alla messaggistica e al lifecycle clienti.
 
 ## Indice dei Documenti
 
@@ -11,6 +11,12 @@ Questa sezione documenta tutti gli strumenti di comunicazione utilizzati all'int
 ### 💬 Comunicazione Esterna & Lead
 - [Integrazione Respond.io](./integrazione-respond-io.md) — Gestione messaggistica WhatsApp, integrazione webhook e follow-up automatici.
 - [Appointment Setting](./appointment-setting.md) — Monitoraggio performance, messaggi inviati e tassi di conversione funnel.
+
+### 🔗 Integrazioni correlate (da consolidare)
+- GoHighLevel (GHL)
+- SuiteMind AI / SOP chatbot
+- Automazioni marketing
+- Trustpilot / review lifecycle
 
 ---
 
