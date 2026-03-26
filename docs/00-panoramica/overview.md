@@ -142,7 +142,7 @@ Il cuore operativo della suite. Contiene l'intera scheda paziente, le liste per 
 
 **Include**: `customers`, `nutrition`, `client_checks`, `clienti/` (React), check form pubblici
 
-→ Vedi: [Gestione Clienti](../03-clienti-core/gestione-clienti.md) _(in lavorazione)_
+→ Vedi: [Gestione Clienti](../03-clienti-core/gestione-clienti.md) · [Check Periodici](../03-clienti-core/check-periodici.md)
 
 ---
 
@@ -300,16 +300,16 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 |-----------|------------------------|-------------|
 | `auth` | Autenticazione, sessioni, OAuth2 Google | [autenticazione.md](../02-team-organizzazione/autenticazione.md) |
 | `welcome` | Homepage, dashboard | — |
-| `customers` | CRUD pazienti, scheda completa | _(in lavorazione)_ |
+| `customers` | CRUD pazienti, scheda completa | [gestione-clienti.md](../03-clienti-core/gestione-clienti.md) |
 | `team` | Professionisti, ruoli, profili | [team-professionisti.md](../02-team-organizzazione/team-professionisti.md) |
 | `department` | Dipartimenti, documenti org | [team-professionisti.md](../02-team-organizzazione/team-professionisti.md) |
 | `nutrition` | Piani alimentari, alimenti, macro | _(in lavorazione)_ |
-| `client_checks` | Check periodici, form pubblici | _(in lavorazione)_ |
-| `tasks` | Task, reminder, solleciti | _(in lavorazione)_ |
-| `calendar` | Calendario, Google Calendar OAuth | _(in lavorazione)_ |
+| `client_checks` | Check periodici, form pubblici | [check-periodici.md](../03-clienti-core/check-periodici.md) |
+| `tasks` | Task, reminder, solleciti | [task-calendario.md](../04-strumenti-operativi/task-calendario.md) |
+| `calendar` | Calendario, Google Calendar OAuth | [task-calendario.md](../04-strumenti-operativi/task-calendario.md) |
 | `communications` | Chat interna, messaggistica | _(in lavorazione)_ |
 | `respond_io` | Integrazione WhatsApp Respond.io | _(in lavorazione)_ |
-| `ticket` | Ticket interni | _(in lavorazione)_ |
+| `ticket` | Ticketing interno (multi-dept) | [ticket-supporto.md](../04-strumenti-operativi/ticket-supporto.md) |
 | `team_tickets` | Ticket trasversali tra team | _(in lavorazione)_ |
 | `quality` | Quality score professionisti | _(in lavorazione)_ |
 | `feedback` | Feedback per area (nutrizione/coach/psico) | _(in lavorazione)_ |
@@ -317,7 +317,7 @@ Di seguito tutti i 42 blueprint del backend con una descrizione sintetica:
 | `knowledge_base` | Base di conoscenza interna | _(in lavorazione)_ |
 | `documentation` | Documentazione tecnica integrata | _(in lavorazione)_ |
 | `loom` | Libreria video Loom | — |
-| `kpi` | KPI, ARR, metriche aziendali | _(in lavorazione)_ |
+| `kpi` | KPI, ARR, metriche aziendali | [kpi-performance.md](../02-team-organizzazione/kpi-performance.md) |
 | `finance` | Modulo finanziario | _(in lavorazione)_ |
 | `recruiting` | Candidature, selezione | _(in lavorazione)_ |
 | `ghl_integration` | GoHighLevel CRM, webhook, status | _(in lavorazione)_ |
