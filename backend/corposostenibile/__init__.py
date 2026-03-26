@@ -507,27 +507,28 @@ def create_app(config_name: str | None = None) -> Flask:
     if not react_dist.exists():
         react_dist = Path(__file__).parent.parent.parent / "corposostenibile-clinica" / "dist"
 
+    app.login_manager.login_view = None
+
+    @app.login_manager.unauthorized_handler
+    def unauthorized():
+        """Return 401 for API calls, redirect for web pages."""
+        from flask import request as flask_request
+
+        if (
+            flask_request.path.startswith('/api/')
+            or flask_request.path.startswith('/calendar/api/')
+            or flask_request.path.startswith('/loom/api/')
+            or flask_request.path.startswith('/quality/api/')
+            or flask_request.path.startswith('/integrations/api/')
+            or flask_request.path.startswith('/review/api/')
+            or flask_request.path.startswith('/tasks/api/')
+            or flask_request.path.startswith('/postit/api/')
+        ):
+            return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
+        return redirect('/auth/login')
+
     if react_dist.exists():
-        from flask import send_from_directory, request as flask_request, make_response, abort
-
-        # Override login_manager to redirect to React SPA login (not Jinja)
-        app.login_manager.login_view = None
-
-        @app.login_manager.unauthorized_handler
-        def unauthorized():
-            """Redirect to React login for pages, 401 for API calls."""
-            if (
-                flask_request.path.startswith('/api/')
-                or flask_request.path.startswith('/calendar/api/')
-                or flask_request.path.startswith('/loom/api/')
-                or flask_request.path.startswith('/quality/api/')
-                or flask_request.path.startswith('/integrations/api/')
-                or flask_request.path.startswith('/review/api/')
-                or flask_request.path.startswith('/tasks/api/')
-                or flask_request.path.startswith('/postit/api/')
-            ):
-                return jsonify({"authenticated": False, "error": "Login richiesto"}), 401
-            return redirect('/auth/login')
+        from flask import send_from_directory, make_response, abort
 
         @app.get("/static/clinica/<path:filename>")
         def serve_react_static_assets(filename):
