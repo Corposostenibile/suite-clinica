@@ -1,8 +1,24 @@
-# Test Medico – Guida passo passo (credenziali e flusso)
+# Guida al Test Medico
 
-Questa guida spiega **con quali credenziali** fare **cosa**, per verificare che il Medico veda i pazienti assegnati e che le modifiche Nutrizione funzionino.
+> **Categoria**: `clienti`
+> **Destinatari**: Sviluppatori, QA, Admin
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
+
+## Cos'è e a Cosa Serve
+
+Questa guida operativa descrive i passi per verificare la corretta implementazione della figura del Medico nell'area Nutrizione. Copre l'intero flusso: dalla creazione dell'utente alla verifica della visibilità RBAC e dell'interfaccia unificata.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Sviluppatori / QA** | Test di regressione dopo modifiche al modulo nutrizione |
+| **Admin** | Verifica configurazione iniziale nuovi professionisti medici |
 
 ## Ruoli e credenziali da usare
 

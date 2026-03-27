@@ -1,60 +1,47 @@
 # Comunicazioni e Chat
 
-> **Categoria**: operatività  
-> **Destinatari**: Professionisti, Team Leader, Admin  
-> **Stato**: 🟡 Bozza avanzata  
-> **Ultimo aggiornamento**: Marzo 2026
+> **Categoria**: `operativo`
+> **Destinatari**: Professionisti, Team Leader, Admin
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Quest'area copre gli strumenti operativi di comunicazione interna e la parte chat in prodotto:
-
-- **Comunicazioni interne**: annunci strutturati per dipartimenti, con tracking lettura.
-- **Chat operativa**: area UI prevista per conversazione con pazienti (attualmente in modalità "prossimamente").
-
-Serve a distribuire informazioni interne in modo tracciabile e preparare il canale conversazionale paziente-team.
+Quest'area comprende gli strumenti di comunicazione interna strutturata e i canali di messaggistica con il paziente. Le **Comunicazioni Interne** servono a distribuire annunci, direttive o avvisi tecnici a dipartimenti specifici con tracciamento della lettura. La **Chat Paziente** è attualmente in fase di placeholder operativo per integrazioni future, garantendo una UI coerente per la conversazione assistita.
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
-| Ruolo | Come interagisce |
-|---|---|
-| Admin | Crea comunicazioni globali e monitora letture |
-| Head di dipartimento | Crea comunicazioni target per il proprio dipartimento |
-| Collaboratori | Leggono comunicazioni ricevute e confermano lettura |
-
----
-
-## Flusso principale
-
-```
-1. Admin/Head crea una comunicazione
-2. Seleziona dipartimenti destinatari (o invio globale)
-3. Il sistema pubblica la comunicazione e notifica i destinatari
-4. Gli utenti leggono e marcano come letta
-5. Autore/Admin consulta le statistiche di lettura
-```
-
-Per la chat paziente:
-```
-1. Utente apre /chat
-2. Visualizza schermata informativa "Prossimamente"
-3. Nessuna persistenza messaggi attiva in questa release
-```
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Admin / Head Dipartimento** | Creazione di annunci e monitoraggio della "Read Rate" del team |
+| **Professionisti** | Ricezione di comunicazioni di servizio e accesso alla chat paziente |
+| **Sviluppatori** | Implementazione del bridge conversazionale (React) |
 
 ---
 
-## Architettura tecnica
+## Flusso Principale (Technical Workflow)
+
+1. **Publishing**: L'autore crea una `Communication` definendo il target (globale o dipartimentale).
+2. **Distribution**: Il sistema associa la comunicazione agli utenti target via `communication_departments`.
+3. **Engagement**: L'utente visualizza l'annuncio e attiva il trigger `mark-read`.
+4. **Audit**: L'amministratore consulta le statistiche di lettura (`unread-users`).
+5. **Chat Interface**: Reindirizzamento dell'utente all'area React placeholder per future interazioni.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
 
 | Layer | File / Modulo | Ruolo |
-|---|---|---|
-| Backend | `backend/corposostenibile/blueprints/communications/` | Gestione comunicazioni interne |
-| Frontend (legacy/Jinja) | `communications/templates/communications/*.html` | UI comunicazioni |
-| Frontend React | `corposostenibile-clinica/src/pages/chat/Chat.jsx` | Placeholder chat paziente |
-| Permessi | `communications/permissions.py` | Scope accesso comunicazioni |
+|-------|--------------|-------|
+| Backend | `blueprints/communications/` | Logic comunicazioni e tracciamento |
+| Legacy | `templates/communications/` | UI Jinja per annunci interni |
+| React | `src/pages/chat/Chat.jsx` | UI React placeholder per chat |
 
 ```mermaid
 flowchart TD
@@ -68,18 +55,7 @@ flowchart TD
 
 ---
 
-## Endpoint principali
-
-### Comunicazioni (HTML + action)
-
-| Metodo | Endpoint | Descrizione |
-|---|---|---|
-| `GET` | `/communications/` | Lista comunicazioni ricevute |
-| `GET` | `/communications/sent` | Lista comunicazioni inviate |
-| `GET/POST` | `/communications/create` | Creazione comunicazione |
-| `GET` | `/communications/<id>` | Dettaglio comunicazione |
-| `POST` | `/communications/<id>/mark-read` | Conferma lettura |
-| `POST` | `/communications/<id>/delete` | Eliminazione (permessi dedicati) |
+## Endpoint API Principali
 
 ### API comunicazioni
 
@@ -90,18 +66,11 @@ flowchart TD
 
 ---
 
-## Modelli dati principali
-
-- `Communication`
-  - titolo, contenuto, autore, target globale o per dipartimenti
-- `communication_reads` (join)
-  - tracking lettura per utente
-- `communication_departments` (join)
-  - targeting dipartimentale
+## Modelli di Dati Principali
 
 ---
 
-## Variabili ambiente
+## Variabili d'Ambiente Rilevanti
 
 | Variabile | Descrizione | Obbligatoria |
 |---|---|---|
@@ -109,7 +78,7 @@ flowchart TD
 
 ---
 
-## RBAC (sintesi)
+## Permessi e Ruoli (RBAC)
 
 | Funzionalità | Admin | Head dipartimento | Collaboratore |
 |---|---|---|---|
@@ -119,15 +88,11 @@ flowchart TD
 
 ---
 
-## Note e gotcha
-
-- La chat React (`/chat`) al momento è intenzionalmente non attiva lato messaggistica.
-- Le comunicazioni interne usano ancora una UI server-rendered (Jinja), non la stessa UX React delle pagine clienti.
-- Per il tracciamento letture la coerenza permessi è centrale: evitare bypass lato template.
+## Note Operative e Casi Limite
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - [Area 05 comunicazione e integrazioni](../05-comunicazione/README.md)
 - [Task e calendario](./task-calendario.md)

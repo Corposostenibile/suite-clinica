@@ -1,34 +1,34 @@
 # Diario e Progresso Cliente
 
-> **Categoria**: clienti  
-> **Destinatari**: Sviluppatori, Professionisti, Team Leader  
-> **Stato**: 🟡 Bozza avanzata  
-> **Ultimo aggiornamento**: Marzo 2026
+> **Categoria**: `clienti`
+> **Destinatari**: Sviluppatori, Professionisti, Team Leader
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-L'area Diario e Progresso raccoglie due funzionalità complementari:
-
-- **Diario clinico per servizio** (nutrizione, coaching, psicologia): note operative datate, modificabili e storicizzate.
-- **Progresso paziente**: grafici, trend e confronto fotografico "prima/dopo" basati sui check periodici.
-
-L'obiettivo è dare ai professionisti una lettura rapida dell'evoluzione del paziente, senza perdere il contesto storico.
+L'area Diario e Progresso raccoglie due funzionalità complementari per il monitoraggio dell'evoluzione del paziente: il **Diario clinico per servizio** (note operative datate e storicizzate) e il **Progresso paziente** (visualizzazione grafica di trend e confronto fotografico basati sui check periodici).
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
-| Ruolo | Come interagisce |
-|---|---|
-| Professionista | Inserisce note diario e interpreta i trend progresso |
-| Team Leader | Supervisione dei percorsi del proprio team |
-| Admin/CCO | Controllo trasversale e supporto operativo |
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Professionista** | Documentazione delle sedute e analisi dei cambiamenti fisici/metrici |
+| **Team Leader** | Supervisione della qualità clinica dei percorsi del team |
+| **Admin / CCO** | Audit log delle sedute e supporto operativo |
 
 ---
 
-## Flusso principale
+## Flusso Principale (Technical Workflow)
+
+1. **Daily Entry**: Il professionista apre il modal o il tab diario e inserisce una nota (`DiarioModal`).
+2. **Metrics Ingestion**: Ad ogni check compilato, il sistema aggiorna le serie temporali dei pesi e dei rating.
+3. **Trend Analysis**: Il frontend richiede le metriche aggregate (`feedback-metrics`).
+4. **Visual Comparison**: Il sistema seleziona l'immagine di baseline e l'ultima caricata per il "Prima & Dopo".
 
 ```
 1. L'utente apre la scheda paziente
@@ -69,7 +69,7 @@ flowchart TD
 
 ---
 
-## Endpoint principali
+## Endpoint API Principali
 
 ### Diario per servizio
 
@@ -92,7 +92,7 @@ flowchart TD
 
 ---
 
-## Modelli dati principali
+## Modelli di Dati Principali
 
 - `ServiceDiaryEntry`
   - `cliente_id`, `service_type`, `entry_date`, `content`, `author_user_id`
@@ -104,7 +104,7 @@ flowchart TD
 
 ---
 
-## Variabili d'ambiente rilevanti
+## Variabili d'Ambiente Rilevanti
 
 | Variabile | Descrizione | Obbligatoria |
 |---|---|---|
@@ -113,7 +113,7 @@ flowchart TD
 
 ---
 
-## Permessi e ruoli (RBAC)
+## Permessi e Ruoli (RBAC)
 
 | Funzionalità | Admin/CCO | Team Leader | Professionista |
 |---|---|---|---|
@@ -124,7 +124,7 @@ flowchart TD
 
 ---
 
-## Note e gotcha
+## Note Operative e Casi Limite
 
 - Errore comune: usare `serviceType="coach"` nel modal diario. Il valore corretto API è `coaching`.
 - Il modal diario usa `createPortal(..., document.body)`: senza container valido React lancia `Target container is not a DOM element`.
@@ -133,7 +133,7 @@ flowchart TD
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - [Check periodici](./check-periodici.md)
 - [Gestione clienti](./gestione-clienti.md)

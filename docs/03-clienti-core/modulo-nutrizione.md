@@ -1,37 +1,35 @@
 # Modulo Nutrizione
 
-> **Categoria**: clienti  
-> **Destinatari**: Sviluppatori, Nutrizionisti, Team Leader  
-> **Stato**: 🟡 Bozza avanzata  
-> **Ultimo aggiornamento**: Marzo 2026
+> **Categoria**: `clienti`
+> **Destinatari**: Sviluppatori, Nutrizionisti, Team Leader
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Il modulo Nutrizione gestisce la parte clinico-operativa nutrizionale della scheda paziente:
-
-- anamnesi nutrizionale
-- diario professionale nutrizionale
-- piani alimentari PDF con versioning
-- file extra collegati ai piani
-- stato servizio nutrizione e stato chat nutrizione
-
-Permette al nutrizionista di avere una storia completa del percorso del paziente, mantenendo tracciabilità delle modifiche.
+Il modulo Nutrizione gestisce la parte clinico-operativa nutrizionale della scheda paziente. Permette al nutrizionista di documentare l'anamnesi iniziale, gestire un diario professionale per ogni seduta, e caricare/aggiornare i piani alimentari PDF con un sistema di versioning integrato, garantendo la tracciabilità storica del percorso.
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
-| Ruolo | Come interagisce |
-|---|---|
-| Nutrizionista | Gestisce anamnesi, diario e piani alimentari dei propri clienti |
-| Team Leader nutrizione | Supervisione e supporto operativo |
-| Admin / CCO | Visibilità completa e gestione trasversale |
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Nutrizionista** | Gestione anamnesi, diario professionale e caricamento piani alimentari |
+| **Team Leader Nutrizione** | Supervisione dei casi clinici e supporto operativo al team |
+| **Admin / CCO** | Visione globale e gestione dei permessi di eliminazione |
 
 ---
 
-## Flusso principale (utente)
+## Flusso Principale (Technical Workflow)
+
+1. **Anamnesi Onboarding**: Compilazione dei dati iniziali nel tab Nutrizione.
+2. **Periodic Diary**: Inserimento di note ad ogni check o variazione.
+3. **Meal Plan Delivery**: Caricamento del PDF (`MealPlan`).
+4. **Versioning**: In caso di aggiornamento, il vecchio file viene spostato nello storico (`PlanFileVersion`).
+5. **Extra Assets**: Caricamento di file binari aggiuntivi correlati al piano.
 
 ```
 1. Il professionista apre la scheda paziente
@@ -99,7 +97,7 @@ flowchart TD
 
 ---
 
-## Modelli dati principali
+## Modelli di Dati Principali
 
 - `ServiceAnamnesi`
   - `cliente_id`, `service_type`, `content`, `created_by_user_id`, `last_modified_by_user_id`
@@ -112,7 +110,7 @@ flowchart TD
 
 ---
 
-## Variabili ambiente rilevanti
+## Variabili d'Ambiente Rilevanti
 
 | Variabile | Descrizione | Obbligatoria |
 |---|---|---|
@@ -132,7 +130,7 @@ flowchart TD
 
 ---
 
-## Note e gotcha
+## Note Operative e Casi Limite
 
 - I `service_type` validi lato API diario/anamnesi sono: `nutrizione`, `coaching`, `psicologia`.
 - Il diario nutrizione in lista specialistica usa un modal condiviso (`DiarioModal`) e deve passare `serviceType="nutrizione"`.
@@ -141,7 +139,7 @@ flowchart TD
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - [Gestione clienti](./gestione-clienti.md)
 - [Diario e progresso](./diario-progresso.md)

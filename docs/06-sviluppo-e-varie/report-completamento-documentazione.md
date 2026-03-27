@@ -1,10 +1,15 @@
 # Report Completamento Documentazione
 
-> **Obiettivo**: fotografia dello stato documentazione e piano esecutivo dei prossimi passi  
-> **Ambito**: copertura tecnica (sviluppatori) + copertura operativa (professionisti)  
-> **Data**: Marzo 2026
+> **Categoria**: `sviluppo`
+> **Destinatari**: Sviluppatori, Stakeholder
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
+
+## Cos'è e a Cosa Serve
+
+Questo report analizza lo stato della documentazione della Suite Clinica al termine del ciclo di standardizzazione di Marzo 2026. Definisce i criteri di qualità raggiunti, identifica i gap residui e traccia la roadmap per gli Sprint successivi (Guide Operative e Integrazioni Avanzate).
 
 ## 1) Stato sintetico
 

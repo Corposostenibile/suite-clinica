@@ -1,58 +1,47 @@
 # Ricerca Globale
 
-> **Categoria**: operatività  
-> **Destinatari**: Professionisti, Team Leader, Admin  
-> **Stato**: 🟡 Bozza avanzata  
-> **Ultimo aggiornamento**: Marzo 2026
+> **Categoria**: `operativo`
+> **Destinatari**: Professionisti, Team Leader, Admin
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-La Ricerca Globale consente di trovare rapidamente informazioni distribuite in più aree della suite da un unico punto.
-
-La ricerca aggrega risultati su categorie diverse:
-
-- pazienti
-- check
-- professionisti
-- training/formazione
-
-Riduce il tempo di navigazione tra moduli e migliora la produttività operativa.
+La Ricerca Globale è lo strumento di navigazione rapida della Suite. Consente di trovare istantaneamente informazioni distribuite in moduli diversi (Pazienti, Check, Professionisti, Formazione) inserendo una query testuale unica. Il backend aggrega i risultati applicando filtri RBAC in tempo reale per garantire la privacy dei dati.
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
-| Ruolo | Come interagisce |
-|---|---|
-| Professionista | Ricerca pazienti, check e training nel proprio perimetro |
-| Team Leader | Ricerca estesa al proprio team |
-| Admin | Ricerca trasversale completa |
-
----
-
-## Flusso principale
-
-```
-1. L'utente apre la pagina Ricerca Globale
-2. Inserisce query (minimo 2 caratteri)
-3. Il frontend chiama endpoint search globale
-4. Il backend applica scope RBAC
-5. I risultati sono restituiti per categoria con count e paginazione
-6. L'utente apre il dettaglio dal link suggerito
-```
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Professionisti** | Ricerca rapida di pazienti e dei relativi check o training assegnati |
+| **Team Leader** | Ricerca estesa ai membri del proprio team e alle loro attività |
+| **Admin** | Ricerca trasversale su tutta l'anagrafica e la cronologia operativa |
 
 ---
 
-## Architettura tecnica
+## Flusso Principale (Technical Workflow)
 
-| Layer | File / Modulo | Ruolo |
-|---|---|---|
-| Frontend | `corposostenibile-clinica/src/pages/GlobalSearchPage.jsx` | Interfaccia ricerca |
-| Backend | `backend/corposostenibile/blueprints/search/routes.py` | Endpoint search aggregato |
-| App init | `backend/corposostenibile/__init__.py` | Registrazione prefix API |
-| DB | `Cliente`, `WeeklyCheckResponse`, `User`, `Review`, `ReviewMessage` | Sorgenti risultati |
+1. **Query Entry**: L'utente inserisce almeno 2 caratteri nella barra di ricerca.
+2. **Aggregated Fetch**: Il frontend chiama l'API globale passandogli query e categoria opzionale.
+3. **RBAC Scoping**: Il backend filtra le query SQLAlchemy in base ai permessi dell'utente loggato.
+4. **Serialization**: I risultati vengono raggruppati per categoria con conteggi e link diretti.
+5. **Navigation**: L'utente seleziona il risultato e viene reindirizzato alla pagina di dettaglio.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Frontend | `GlobalSearchPage.jsx` | UI di ricerca e rendering risultati |
+| Backend | `search_bp` | Centralina di ricerca cross-modulo |
+| Data | `search/routes.py` | Query SQLAlchemy su Cliente, User, Review |
 
 ```mermaid
 flowchart TD
@@ -66,13 +55,13 @@ flowchart TD
 
 ---
 
-## Endpoint principali
+## Endpoint API Principali
 
 | Metodo | Endpoint | Descrizione |
 |---|---|---|
 | `GET` | `/api/search/global` | Ricerca cross-modulo |
 
-### Query params
+### Query Parametri
 
 | Parametro | Tipo | Note |
 |---|---|---|
@@ -81,34 +70,19 @@ flowchart TD
 | `page` | int | Pagina risultati |
 | `per_page` | int | Numero risultati per pagina |
 
-Risposta:
-- `results[]`
-- `counts` per categoria
-- `pagination`
-
 ---
 
-## RBAC e visibilità
+## Permessi e Ruoli (RBAC)
 
 | Ruolo | Scope ricerca |
 |---|---|
-| Admin | Nessun filtro aggiuntivo |
-| Team Leader | Solo entità nel perimetro del proprio team |
-| Professionista | Solo entità collegate ai propri clienti/attività |
-
-Il backend applica il filtro direttamente nella query SQLAlchemy per ogni categoria risultato.
+| **Admin** | Nessun filtro aggiuntivo |
+| **Team Leader** | Solo entità nel perimetro del proprio team |
+| **Professionista** | Solo entità collegate ai propri clienti/attività |
 
 ---
 
-## Variabili ambiente
-
-| Variabile | Descrizione | Obbligatoria |
-|---|---|---|
-| N/A | Nessuna variabile specifica dedicata al modulo search | N/A |
-
----
-
-## Note e gotcha
+## Note Operative e Casi Limite
 
 - Query con meno di 2 caratteri tornano risultato vuoto (comportamento intenzionale).
 - Le categorie non hanno lo stesso costo query: `training` e `check` possono essere più pesanti.
@@ -117,7 +91,7 @@ Il backend applica il filtro direttamente nella query SQLAlchemy per ogni catego
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - [Gestione clienti](../03-clienti-core/gestione-clienti.md)
 - [Check periodici](../03-clienti-core/check-periodici.md)

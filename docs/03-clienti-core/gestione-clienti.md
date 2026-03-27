@@ -1,15 +1,26 @@
 # Gestione Clienti
 
-> **Categoria**: Clienti Core
+> **Categoria**: `clienti`
 > **Destinatari**: Sviluppatori, Professionisti, Amministratori
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Il modulo clienti è il **nucleo operativo** della Suite Clinica. Ogni paziente è rappresentato da una scheda (`Cliente`) che raccoglie tutti i dati clinici, amministrativi, relazionali e di tracciamento del percorso.
+Il modulo clienti è il **nucleo operativo** della Suite Clinica. Ogni paziente è rappresentato da una scheda (`Cliente`) che raccoglie tutti i dati clinici, amministrativi, relazionali e di tracciamento del percorso, permettendo una gestione centralizzata e collaborativa tra i diversi professionisti della salute.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Professionisti** | Gestione clinica, aggiornamento piani e monitoraggio diario |
+| **Health Manager** | Onboarding, gestione commerciale e monitoraggio soddisfazione |
+| **Team Leader / CCO** | Supervisione casi clinici e performance del team |
+| **Amministratori** | Gestione configurazioni, permessi e audit log |
 
 Funzionalità principali:
 - Anagrafica completa del paziente con 70+ campi strutturati
@@ -40,7 +51,7 @@ La visibilità dei clienti è determinata dal ruolo dell'utente loggato:
 
 ---
 
-## Come funziona (flusso utente)
+## Flusso Principale (dal punto di vista dell'utente)
 
 ### Visualizzazione lista clienti
 
@@ -126,7 +137,27 @@ POST /customers/<id>/history/<tx_id>/restore
 
 ---
 
-## Architettura tecnica
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | File / Modulo | Ruolo |
+|-------|--------------|-------|
+| Backend | `blueprints/customers/` | API REST, logica business, versioning |
+| Frontend | `src/pages/customers/` | Scheda paziente React (Tab-based) |
+| Database | Modello `Cliente` | Persistenza dati (tabella `clienti`) |
+
+### Schema del Ciclo di Vita Cliente
+
+```mermaid
+stateDiagram-v2
+    [*] --> Attivo: Creazione / Onboarding
+    Attivo --> Pausa: Freeze (HM/Admin)
+    Pausa --> Attivo: Riattivazione
+    Attivo --> Stop: Termine Percorso / Abbandono
+    Stop --> Attivo: Rinnovo / Ri-entry
+    Attivo --> Ghost: Mancata Risposta (Auto/Manuale)
+```
 
 ### Blueprint
 
@@ -167,7 +198,7 @@ data_scadenza_psicologia = data_inizio_psicologia + durata_psicologia_giorni
 
 ---
 
-## API / Endpoint principali
+## Endpoint API Principali
 
 | Metodo | Endpoint | Auth | Descrizione |
 |--------|----------|------|-------------|
@@ -203,7 +234,7 @@ I filtri vengono applicati via `customers/filters.py`:
 
 ---
 
-## Modello di dati — `Cliente`
+## Modelli di Dati Principali
 
 Tabella: `clienti` — versionata con SQLAlchemy-Continuum (`__versioned__ = {}`)
 
@@ -338,7 +369,7 @@ L'endpoint `POST /customers/dashboard/data` accetta filtri arbitrari e ricalcola
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Rollback profilattico**: prima di certi endpoint viene eseguito `db.session.rollback()` per evitare errori da transazioni aperte.
 - **ActivityLog**: ogni `update_cliente()` scrive un record in `ActivityLog` con user, timestamp e campi modificati. Questo è usato dallo storico versioni per identificare l'utente responsabile.
@@ -349,7 +380,7 @@ L'endpoint `POST /customers/dashboard/data` accetta filtri arbitrari e ricalcola
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Check Periodici](./check-periodici.md) — form check settimanali, DCA, flusso pubblico
 - → [Team & Professionisti](../02-team-organizzazione/team-professionisti.md) — assegnazioni e capienza

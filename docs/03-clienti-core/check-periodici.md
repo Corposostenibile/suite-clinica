@@ -1,15 +1,26 @@
 # Check Periodici
 
-> **Categoria**: Clienti Core
+> **Categoria**: `clienti`
 > **Destinatari**: Sviluppatori, Professionisti, Admin
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Il sistema di check periodici permette ai professionisti di raccogliere feedback regolari dai propri pazienti attraverso form digitali inviati direttamente al cliente. Il paziente riceve un link personalizzato, compila il form (senza bisogno di fare login), e il professionista legge la compilazione direttamente dalla suite.
+Il sistema di check periodici permette ai professionisti di raccogliere feedback regolari dai propri pazienti attraverso form digitali. Il paziente riceve un link personalizzato via WhatsApp o email, compila il form senza necessità di login, e i dati vengono aggregati nella suite per il monitoraggio clinico e il calcolo del Quality Score.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Clienti** | Compilazione feedback settimanale o specifico (DCA) |
+| **Professionisti** | Lettura feedback, visione foto progresso, conferma lettura |
+| **Admin** | Creazione template form (Form Builder) e assegnazione manuale |
+| **Coordinatori** | Valutazione "Quality Score" basata sulle risposte |
 
 Il sistema è composto da **tre tipologie di check distinte**, ognuna con struttura e scopo differente:
 
@@ -21,14 +32,42 @@ Il sistema è composto da **tre tipologie di check distinte**, ognuna con strutt
 
 ---
 
-## Chi lo usa e come
+## Flusso Principale (Technical Workflow)
 
-| Ruolo | Azione |
-|-------|--------|
-| **Admin** | Crea/gestisce template form, assegna, visualizza tutte le risposte |
-| **Professionista** | Visualizza le risposte dei propri pazienti, conferma lettura |
-| **Team Leader** | Visualizza le risposte dei clienti del proprio team |
-| **Cliente (pubblico)** | Compila il form via link senza autenticazione |
+1. **Assignment**: L'admin o il sistema assegna un form (link permanente o token unico).
+2. **Notification**: Il link viene inviato al cliente.
+3. **Submission**: Il cliente compila il form (pubblico, bypass CSRF).
+4. **Ingestion**: I dati vengono salvati in JSONB o tabelle strutturate (Weekly/DCA).
+5. **Review**: Il professionista riceve la notifica e conferma la lettura nella Inbox.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Backend | `check_forms_bp` | Gestione template e assegnazioni |
+| Public | `public_checks_bp` | Rendering form pubblici e upload foto |
+| Storage | `uploaded_file` | Gestione persistenza foto su PVC |
+
+### Schema del Flusso Check
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente (Phone)
+    participant S as Suite (Public API)
+    participant P as Professionista (Dashboard)
+    
+    C->>S: GET /public/<token>
+    S-->>C: Form HTML/React
+    C->>S: POST Data + Foto
+    S->>S: Validazione & Save
+    S-->>P: Socket Notification
+    P->>S: GET /da-leggere
+    P->>S: POST /conferma-lettura
+```
 
 ---
 
@@ -138,7 +177,7 @@ Il professionista ha una **Inbox check** (`/client-checks/da-leggere`) che mostr
 
 ---
 
-## Architettura tecnica
+## Dettaglio Implementazione
 
 ### Blueprint
 
@@ -165,7 +204,7 @@ _can_access_cliente_checks(cliente_id)
 
 ---
 
-## API / Endpoint principali
+## Endpoint API Principali
 
 ### Route admin (autenticazione richiesta)
 
@@ -204,7 +243,7 @@ _can_access_cliente_checks(cliente_id)
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `WeeklyCheck` (tabella `weekly_checks`)
 
@@ -290,7 +329,7 @@ Constraint univoco su `(response_type, response_id, user_id)` — ogni professio
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Link permanente vs. token unico**: il Weekly Check usa un **token permanente** (lo stesso link per tutte le compilazioni), mentre i `ClientCheckAssignment` generici usano un **token per assegnazione** (un'assegnazione = un link dedicato).
 - **Reset sequenza DB**: la funzione `_fix_sequence()` viene chiamata in caso di `UniqueViolation` per correggere seq PostgreSQL disallineati dopo import di dati.
@@ -301,7 +340,7 @@ Constraint univoco su `(response_type, response_id, user_id)` — ogni professio
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Gestione Clienti](./gestione-clienti.md) — scheda paziente, CRUD, stati percorso
 - → [Team & Professionisti](../02-team-organizzazione/team-professionisti.md) — assegnazione clienti ai team

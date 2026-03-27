@@ -35,8 +35,8 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 - [Check periodici](./03-clienti-core/check-periodici.md)
 - [Modulo nutrizione](./03-clienti-core/modulo-nutrizione.md)
 - [Diario e progresso](./03-clienti-core/diario-progresso.md)
-- [Piano medico nutrizione](./03-clienti-core/piano_medico_nutrizione.md)
-- [Test medico passo-passo](./03-clienti-core/test_medico_passo_passo.md)
+- [Specifiche integrazione medica](./03-clienti-core/specifiche-integrazione-medica.md)
+- [Guida al test medico](./03-clienti-core/guida-test-medico.md)
 
 ### 04 — Strumenti operativi
 - [Task e calendario](./04-strumenti-operativi/task-calendario.md)
@@ -53,6 +53,7 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 - [Notifiche push](./05-comunicazione/notifiche-push.md)
 
 ### 06 — Sviluppo e varie
+- [Report completamento documentazione](./06-sviluppo-e-varie/report-completamento-documentazione.md)
 - [Refactor status report](./06-sviluppo-e-varie/refactor_status_report.md)
 - [Refining refactor plan](./06-sviluppo-e-varie/refining_refactor_plan.md)
 
@@ -60,40 +61,26 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 
 | Documento | Owner | Stato | Ultimo aggiornamento | Prossima revisione |
 |---|---|---|---|---|
-| `00-panoramica/overview.md` | Team IT | Completo | 03/2026 | 06/2026 |
-| `02-team-organizzazione/autenticazione.md` | Team IT | Completo | 03/2026 | 06/2026 |
-| `03-clienti-core/gestione-clienti.md` | Team IT + Core Clinico | Completo | 03/2026 | 05/2026 |
-| `03-clienti-core/check-periodici.md` | Team IT + Client Checks | Completo | 03/2026 | 05/2026 |
-| `03-clienti-core/modulo-nutrizione.md` | Team IT + Nutrizione | Bozza avanzata | 03/2026 | 04/2026 |
-| `03-clienti-core/diario-progresso.md` | Team IT + Core Clinico | Bozza avanzata | 03/2026 | 04/2026 |
-| `04-strumenti-operativi/comunicazioni-chat.md` | Team IT + Operations | Bozza avanzata | 03/2026 | 04/2026 |
-| `04-strumenti-operativi/quality-score.md` | Team IT + Quality | Bozza avanzata | 03/2026 | 04/2026 |
-| `04-strumenti-operativi/ricerca-globale.md` | Team IT | Bozza avanzata | 03/2026 | 04/2026 |
+| `00-panoramica/overview.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
+| `02-team-organizzazione/autenticazione.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
+| `03-clienti-core/gestione-clienti.md` | Team IT | 🟢 Completo | 27/03/2026 | 05/2026 |
+| `04-strumenti-operativi/task-calendario.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
+| `05-comunicazione/integrazione-respond-io.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
 
 ## Checklist qualità (prima del merge)
 
 ### Verifica tecnica
 - Endpoint e metodi HTTP verificati su blueprint/backend.
 - Modelli dati e campi citati coerenti con `models.py`.
-- Regole RBAC allineate al comportamento reale (non solo teorico).
+- Regole RBAC allineate al comportamento reale.
 
 ### Verifica funzionale
 - Sezione introduttiva comprensibile anche a non-tecnici.
 - Flusso utente scritto in passaggi sequenziali chiari.
-- Terminologia coerente con UI e naming del prodotto.
 
 ### Verifica navigazione
-- Link relativi funzionanti (README -> documento, documento -> correlati).
+- Link relativi funzionanti.
 - Documento indicizzato in questa pagina.
-- Coerenza titolo file, titolo H1 e area di appartenenza.
-
-## Regole contributo rapide
-
-1. Scrivere in italiano.
-2. Usare Markdown puro (`.md`).
-3. Usare il template standard come baseline.
-4. Aggiornare il tracker stato quando si aggiunge o si modifica un documento.
 
 ---
-
 Ultimo aggiornamento: Marzo 2026

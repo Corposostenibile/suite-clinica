@@ -1,55 +1,48 @@
 # Quality Score
 
-> **Categoria**: operatività  
-> **Destinatari**: Admin, CCO, Team Leader, Team Quality  
-> **Stato**: 🟡 Bozza avanzata  
-> **Ultimo aggiornamento**: Marzo 2026
+> **Categoria**: `operativo`
+> **Destinatari**: Admin, CCO, Team Leader, Team Quality
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Il modulo Quality Score misura in modo strutturato la qualità operativa dei professionisti (nutrizione, coach, psicologia), combinando:
-
-- qualità percepita sui check
-- aderenza/esecuzione periodica
-- componenti bonus/malus trimestrali
-
-È usato per monitoraggio performance, governance interna e meccanismi incentivanti.
+Il modulo Quality Score è il sistema di governance clinica della Suite. Misura oggettivamente la qualità del lavoro dei professionisti (Nutrizione, Coaching, Psicologia) aggregando feedback dei pazienti, aderenza alle scadenze e valutazioni dei coordinatori. I dati vengono calcolati su base settimanale e consolidati trimestralmente per determinare bonus operativi e aree di miglioramento.
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
-| Ruolo | Come interagisce |
-|---|---|
-| Admin/CCO | Esegue calcoli, legge dashboard e breakdown |
-| Team Leader | Consulta score del proprio ambito |
-| Team Quality | Analizza trend e gap operativi |
-
----
-
-## Flusso operativo
-
-```
-1. Selezione specialità e settimana
-2. Calcolo eleggibilità clienti per professionista
-3. Processamento check responses nel periodo
-4. Calcolo score settimanale per professionista
-5. Aggregazione dashboard + trend
-6. Calcolo trimestrale con Super Malus (quando richiesto)
-```
+| Ruolo | Utilizzo |
+|-------|----------|
+| **CCO / Admin** | Esecuzione calcoli massivi e analisi strategica delle performance |
+| **Team Leader** | Monitoraggio della qualità media del proprio team e coaching individuale |
+| **Team Quality** | Audit granulare degli score e gestione Super Malus |
 
 ---
 
-## Architettura tecnica
+## Flusso Principale (Technical Workflow)
 
-| Layer | File / Modulo | Ruolo |
-|---|---|---|
-| Backend routes | `backend/corposostenibile/blueprints/quality/routes.py` | API quality JSON |
-| Services | `quality/services/*.py` | eligibility, calculator, reviews, super malus |
-| Data | `QualityWeeklyScore`, `QualityClientScore`, `EleggibilitaSettimanale` | persistenza score |
-| Frontend | `corposostenibile-clinica/src/pages/quality/Quality.jsx` | dashboard quality |
+1. **Eligibility Filter**: Identificazione dei clienti attivi gestiti dal professionista nel periodo.
+2. **Data Ingestion**: Recupero dei Weekly Check e DCA Check ricevuti nella settimana.
+3. **Rating Calculation**: Aggregazione dei voti (0-10) ponderati per specialità.
+4. **Adherence Audit**: Calcolo della "Miss Rate" (check non letti o non pervenuti).
+5. **Periodic Consolidation**: Generazione dello score settimanale (`QualityWeeklyScore`).
+6. **Quarterly Bonus**: Calcolo trimestrale con applicazione di Bonus/Malus e Super Malus.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Logic | `CalculatorService` | Core engine per il calcolo delle medie |
+| Eligibility | `EligibilityService` | Filtro RBAC e stati cliente nel tempo |
+| Backend | `quality_bp` | API REST per dashboard e trend |
 
 ```mermaid
 flowchart TD
@@ -84,7 +77,7 @@ Prefix blueprint: `/quality/api`
 
 ---
 
-## Modelli dati principali
+## Modelli di Dati Principali
 
 - `QualityWeeklyScore`
   - score settimanale, miss rate, quality final, bonus band
@@ -97,7 +90,7 @@ Prefix blueprint: `/quality/api`
 
 ---
 
-## Variabili ambiente
+## Variabili d'Ambiente Rilevanti
 
 | Variabile | Descrizione | Obbligatoria |
 |---|---|---|
@@ -105,7 +98,7 @@ Prefix blueprint: `/quality/api`
 
 ---
 
-## RBAC (sintesi)
+## Permessi e Ruoli (RBAC)
 
 | Funzionalità | Admin/CCO | Team Leader | Professionista |
 |---|---|---|---|
@@ -115,7 +108,7 @@ Prefix blueprint: `/quality/api`
 
 ---
 
-## Note e gotcha
+## Note Operative e Casi Limite
 
 - Il modulo è API-centrico e richiede coerenza tra specialità utente e filtro richiesto.
 - Alcune route sono `admin_required` esteso a CCO; i team leader hanno accesso solo a una parte dei dati.
@@ -124,7 +117,7 @@ Prefix blueprint: `/quality/api`
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - [Check periodici](../03-clienti-core/check-periodici.md)
 - [KPI e performance](../02-team-organizzazione/kpi-performance.md)

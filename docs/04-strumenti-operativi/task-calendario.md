@@ -1,69 +1,58 @@
 # Task & Calendario
 
-> **Categoria**: Strumenti Operativi
+> **Categoria**: `operativo`
 > **Destinatari**: Professionisti, Admin, Team Leader
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Panoramica
+## Cos'è e a Cosa Serve
 
-La Suite Clinica fornisce due strumenti operativi integrati:
-
-- **Task Manager** — gestione di attività manuali e automatiche assegnate ai professionisti
-- **Calendario** — integrazione nativa con Google Calendar per meeting e appuntamenti
-
-I due moduli sono collegati: un task nasce automaticamente quando si verifica un evento clinicamente rilevante (nuova assegnazione cliente, check compilato, formazione assegnata).
+La Suite Clinica fornisce un sistema integrato di gestione delle attività (**Task Manager**) e degli appuntamenti (**Calendario Google**). I due moduli permettono ai professionisti di organizzare il lavoro quotidiano, automatizzando la creazione di promemoria in risposta a eventi clinici (es. nuovi check, scadenze, onboarding) e sincronizzando bidirezionalmente i meeting con i pazienti.
 
 ---
 
-## Task Manager
+## Chi lo Usa
 
-### Cos'è un task
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Professionisti** | Gestione della propria "To-Do" clinica e sincronizzazione appuntamenti Google |
+| **Team Leader** | Supervisione dei task dei membri del team e coordinamento appuntamenti |
+| **Admin / CCO** | Configurazione integrazioni OAuth2 e monitoraggio backlog operativo globale |
 
-Un `Task` è un'attività assegnata a un professionista con:
-- **Titolo e descrizione**
-- **Categoria** (tipo di attività)
-- **Priorità** (da bassa a urgente)
-- **Stato** (da fare → completato → archiviato)
-- **Scadenza** opzionale
-- **Collegamento** opzionale a un cliente
-- **Payload** JSON per dati contestuali (es. ID del check da leggere)
+---
 
-### Categorie di task
+## Flusso Principale (Technical Workflow)
 
-| Categoria (`TaskCategoryEnum`) | Significato |
-|-------------------------------|-------------|
-| `onboarding` | Benvenuto per nuovo cliente assegnato |
-| `check` | Check compilato dal cliente da leggere |
-| `formazione` | Review o richiesta di training assegnata |
-| `rinnovo` | Promemoria rinnovo abbonamento |
-| `generico` | Task manuale creato dall'utente |
+1. **Automation Trigger**: Un evento SQLAlchemy (es. check ricevuto) scatena la creazione di un `Task`.
+2. **Notification**: Viene inviata una push notification all'assegnatario.
+3. **Execution**: Il professionista gestisce l'attività (es. legge il check).
+4. **Completion**: Il cambio stato in `done` sincronizza automaticamente lo stato di lettura dell'oggetto sorgente.
+5. **Calendar Sync**: Il sistema sincronizza eventi Google ogni volta che viene visualizzato il calendario o creato un `Meeting`.
 
-### Priorità
+---
 
-| Priorità | Descrizione |
-|----------|-------------|
-| `low` | Bassa priorità |
-| `medium` | Normale |
-| `high` | Alta — da gestire presto |
-| `urgent` | Urgente — notifica immediata |
+## Architettura Tecnica
 
-### Stati del task
+### Componenti coinvolti
 
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Eventi | `events.py` | Listener SQLAlchemy per task automatici |
+| OAuth | `google_auth_bp` | Gestione token Google OAuth2 |
+| Backend | `tasks_bp`, `calendar_bp` | API REST e logica di business |
+
+### Schema Ciclo di Vita Task
+
+```mermaid
+stateDiagram-v2
+    [*] --> Todo: Trigger Automatico / Manuale
+    Todo --> InProgress: Presa in carico
+    InProgress --> Done: Completamento (Trigger Read Check)
+    Done --> Archived: Archiviazione manuale
+    Todo --> Archived: Cancellazione logica
 ```
-todo → in_progress → done
-                  ↓
-               archived
-```
-
-| Stato | Descrizione |
-|-------|-------------|
-| `todo` | Da fare |
-| `in_progress` | In lavorazione |
-| `done` | Completato |
-| `archived` | Archiviato (rimosso dalla vista normale) |
 
 ---
 
@@ -172,17 +161,7 @@ Al commit, ogni task creato scatena una push notification all'assegnatario trami
 
 ---
 
-### API Task
-
-Prefisso: `/api/tasks`
-
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| `GET` | `/api/tasks/` | Lista task (con filtri) |
-| `POST` | `/api/tasks/` | Crea task manuale |
-| `PUT` | `/api/tasks/<id>` | Aggiorna stato/completamento |
-| `GET` | `/api/tasks/stats` | Statistiche per dashboard |
-| `GET` | `/api/tasks/filter-options` | Opzioni filtri (assegnatari, team, ruoli) |
+## Endpoint API Principali
 
 **Esempio risposta task** (`_serialize_task`):
 ```json
@@ -284,7 +263,7 @@ I dettagli aggiuntivi compilabili dopo il meeting:
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `Task` (tabella `tasks`)
 
@@ -329,25 +308,11 @@ I dettagli aggiuntivi compilabili dopo il meeting:
 
 ---
 
-## API Calendario
-
-Prefisso: `/calendar`
-
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| `GET` | `/calendar/dashboard` | Dashboard calendario |
-| `GET` | `/calendar/connect` | Callback OAuth Google |
-| `GET` | `/calendar/disconnect` | Disconnetti Google Calendar |
-| `GET` | `/calendar/sync` | Sincronizza tutti gli eventi da Google |
-| `GET` | `/calendar/api/connection-status` | Stato connessione (JSON) |
-| `POST` | `/calendar/api/events` | Crea nuovo evento su Google Calendar |
-| `GET` | `/calendar/api/meetings/<cliente_id>` | Meeting del cliente (solo propri) |
-| `GET/PUT/DELETE` | `/calendar/api/meeting/<id>` | Gestione singolo meeting |
-| `POST` | `/calendar/api/sync-single-event` | Sincronizza singolo evento da Google |
+## Endpoint API Calendario
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Ordinamento task**: i task non completati appaiono prima di quelli `done`, poi per `created_at` decrescente.
 - **Idempotenza push onboarding**: non c'è deduplicazione dei task di onboarding — se un professionista viene rimosso e riassegnato, viene generato un nuovo task ogni volta. Controllare prima di assegnare in massa.
@@ -356,7 +321,7 @@ Prefisso: `/calendar`
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Check Periodici](../03-clienti-core/check-periodici.md) — integrazione task↔check, Inbox lettura
 - → [Team & Professionisti](../02-team-organizzazione/team-professionisti.md) — struttura team per RBAC task

@@ -1,47 +1,59 @@
 # Ticket & Supporto Interno
 
-> **Categoria**: Strumenti Operativi
+> **Categoria**: `operativo`
 > **Destinatari**: Admin, Team Leader, Professionisti
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
-Il sistema di ticketing è uno strumento di **comunicazione interna strutturata** tra i professionisti della suite e i dipartimenti di supporto. Permette di:
-
-- Aprire richieste formali a un dipartimento specifico (es. IT, Sales, HR, Health Manager team)
-- Tracciare lo stato: dalla creazione alla risoluzione
-- Condividere il ticket con più dipartimenti
-- Allegare file (max 5 allegati per ticket)
-- Lasciare note interne e seguire la timeline completa delle attività
-- Ricevere notifiche email automatiche a ogni cambio di stato
-
-Il numero di ticket è **univoco** e autogenerato (`Ticket.generate_ticket_number()`).
+Il sistema di ticketing è lo strumento di **comunicazione interna strutturata** per la gestione delle richieste di supporto tra i diversi dipartimenti (IT, Sales, HR, Health Management). Permette di tracciare ogni richiesta dal momento dell'apertura fino alla risoluzione finale, con un sistema di multi-assegnazione, condivisione tra team e storico completo delle attività (Timeline).
 
 ---
 
-## Flusso del ticket
+## Chi lo Usa
 
-```
-1. Professionista → "Nuovo Ticket"
-2. Seleziona il dipartimento destinatario
-3. Seleziona il membro del dipartimento a cui assegnare
-4. Compila: titolo, descrizione, urgenza, categoria (se compatibile), cliente correlato (opzionale)
-5. Allega file (opzionale, max 5)
-6. Crea → Ticket generato con stato "nuovo"
-7. Il sistema invia notifiche:
-   - Email di conferma al richiedente
-   - Email di notifica al dipartimento (notification_email)
-   - Email all'utente assegnato
-```
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Professionisti** | Apertura di richieste di supporto tecnico o amministrativo |
+| **Heads di Dipartimento** | Gestione, assegnazione e risoluzione dei ticket del proprio ambito |
+| **Amministratori** | Supervisione globale e risoluzione di casi cross-dipartimentali |
 
-```
-8. L'assegnatario apre il ticket → stato diventa "in lavorazione" (automatico)
-9. Lavora sul ticket, aggiunge note interne, cambia urgenza
-10. Eventualmente condivide con altri dipartimenti
-11. Chiude il ticket → stato "chiuso", timestamp recorded
+---
+
+## Flusso Principale (Technical Workflow)
+
+1. **Creation**: Il richiedente apre un ticket specificando dipartimento e urgenza.
+2. **Notification**: Il sistema invia email automatiche a richiedente e dipartimento.
+3. **Drafting**: L'assegnatario apre il ticket; lo stato passa a `in_lavorazione`.
+4. **Collaboration**: Aggiunta di commenti, allegati o condivisione con altri dipartimenti.
+5. **Resolution**: Chiusura del ticket con registrazione del timestamp `closed_at`.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Backend | `tickets_bp` | Gestione ticket, commenti e allegati |
+| Notifiche | `email_templates.py` | Generazione email HTML di supporto |
+| Storage | `ticket_attachments/` | Filesystem storage per file caricati |
+
+### Schema Ciclo di Vita Ticket
+
+```mermaid
+stateDiagram-v2
+    [*] --> Nuovo: Creazione
+    Nuovo --> InLavorazione: Assegnazione / Apertura
+    InLavorazione --> InAttesa: Richiesta info
+    InAttesa --> InLavorazione: Risposta ricevuta
+    InLavorazione --> Risolto: Soluzione proposta
+    Risolto --> Chiuso: Conferma / Auto-close
+    InLavorazione --> Chiuso: Chiusura diretta
 ```
 
 ---
@@ -204,38 +216,11 @@ Le email usano template HTML dedicati definiti in `email_templates.py`. L'invio 
 
 ---
 
-## API / Endpoint principali
-
-### Route HTML (interfaccia Jinja2)
-
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| `GET` | `/tickets/` | Dashboard ticket |
-| `GET` | `/tickets/my-tickets` | Ticket creati dall'utente |
-| `GET/POST` | `/tickets/new` | Crea nuovo ticket |
-| `GET` | `/tickets/<id>` | Dettaglio ticket |
-| `POST` | `/tickets/<id>/edit` | Modifica ticket |
-| `POST` | `/tickets/<id>/delete` | Elimina ticket |
-| `POST` | `/tickets/<id>/share` | Condividi con altri dipartimenti |
-| `POST` | `/tickets/<id>/close` | Chiudi ticket |
-
-### API JSON (AJAX)
-
-| Metodo | Endpoint | Descrizione |
-|--------|----------|-------------|
-| `PATCH` | `/tickets/api/<id>/status` | Cambio stato veloce |
-| `PATCH` | `/tickets/api/<id>/assign` | Assegna utente |
-| `GET` | `/tickets/api/<id>/assignable-users` | Lista utenti assegnabili |
-| `GET` | `/tickets/api/<id>/comments` | Lista commenti |
-| `POST` | `/tickets/api/<id>/comments` | Aggiungi commento |
-| `GET` | `/tickets/api/<id>/timeline` | Timeline attività |
-| `GET` | `/tickets/api/dashboard-stats` | Statistiche dashboard (con filtri) |
-| `GET` | `/tickets/api/search-clients` | Ricerca clienti (autocomplete) |
-| `GET` | `/tickets/api/department/<id>/members` | Membri del dipartimento |
+## Endpoint API Principali
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `Ticket` (tabella `tickets`)
 
@@ -306,7 +291,7 @@ Le email usano template HTML dedicati definiti in `email_templates.py`. L'invio 
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Email esterna richiedente**: se il campo `requester_email` non corrisponde a nessun utente interno, viene trattato come email esterna e riceve notifiche semplificate.
 - **Gestione speciale Sales**: i dipartimenti "Consulenti Sales 1" e "Consulenti Sales 2" sono trattati come un'unica entità logica "Sales Team" ai fini dell'assegnazione e della visualizzazione membri.
@@ -316,7 +301,7 @@ Le email usano template HTML dedicati definiti in `email_templates.py`. L'invio 
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Task & Calendario](./task-calendario.md) — task manager e integrazione Google Calendar
 - → [Team & Professionisti](../02-team-organizzazione/team-professionisti.md) — struttura dipartimenti per RBAC

@@ -1,6 +1,15 @@
 # Appointment Setting
 
-Il modulo **Appointment Setting** (blueprint `appointment_setting_api`) è dedicato al monitoraggio delle performance del team di front-end che gestisce il primo contatto con le lead.
+> **Categoria**: `comunicazione`
+> **Destinatari**: Appointment Setters, CCO, Admin
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
+
+---
+
+## Cos'è e a Cosa Serve
+
+Il modulo Appointment Setting è dedicato al monitoraggio analitico delle performance del team di front-end che gestisce il primo contatto con le lead. Permette di misurare l'efficacia del processo di vendita iniziale attraverso l'analisi dei funnel di conversione, dei tempi di risposta e della produttività dei singoli operatori (messaggi inviati, contatti chiusi, conversazioni assegnate).
 
 ## Cos'è e a cosa serve
 Serve a misurare l'efficacia della comunicazione iniziale e del processo di vendita. Permette di:

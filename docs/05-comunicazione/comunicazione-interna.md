@@ -1,6 +1,15 @@
 # Comunicazione Interna (Annunci)
 
-Il modulo **Comunicazione Interna** (blueprint `communications`) gestisce il sistema di bacheca aziendale, permettendo al team amministrativo e ai responsabili di inviare annunci, avvisi e comunicazioni importanti ai collaboratori.
+> **Categoria**: `comunicazione`
+> **Destinatari**: Tutto il personale, Admin, Team Leader
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
+
+---
+
+## Cos'è e a Cosa Serve
+
+Il modulo Comunicazione Interna gestisce il sistema di bacheca aziendale digitale. Permette al team amministrativo e ai responsabili di dipartimento di inviare annunci, avvisi tecnici e comunicazioni istituzionali in modo tracciabile, differenziando i destinatari per ruolo o area di competenza e garantendo la conferma di lettura per le informazioni critiche.
 
 ## Cos'è e a cosa serve
 Serve a centralizzare le comunicazioni istituzionali dell'azienda, superando la dispersione dei messaggi su chat informali. Permette di:
@@ -8,17 +17,22 @@ Serve a centralizzare le comunicazioni istituzionali dell'azienda, superando la 
 - Richiedere una **conferma di lettura** individuale per comunicazioni critiche.
 - Monitorare le **statistiche di visualizzazione** in tempo reale.
 
-## Chi lo usa
-- **Amministratori / CCO**: Possono creare comunicazioni globali e vedere tutte le statistiche.
-- **Head of Department**: Possono creare comunicazioni per il proprio dipartimento.
-- **Tutto il personale**: Possono leggere le comunicazioni ricevute e confermare la lettura.
+## Chi lo Usa
 
-## Come funziona (flusso utente)
-1. L'autore accede alla sezione Comunicazioni → Invia Nuova.
-2. Compila il titolo, il contenuto (HTML/Rich Text) e seleziona i destinatari.
-3. Al momento dell'invio, la comunicazione appare nella bacheca dei destinatari.
-4. L'utente riceve un avviso visivo (badge) e può cliccare sulla comunicazione per leggerla.
-5. Se richiesto, l'utente clicca su "Segna come letto".
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Admin / CCO** | Creazione di annunci globali e monitoraggio della "Read Rate" aziendale |
+| **Head of Department** | Invio di comunicazioni mirate ai membri del proprio dipartimento |
+| **Tutto il personale** | Consultazione bacheca e conferma lettura delle direttive ricevute |
+
+## Flusso Principale (Technical Workflow)
+
+1. **Publishing**: L'autore redige l'annuncio e seleziona i dipartimenti target.
+2. **Notification**: Il sistema attiva un badge visivo sulla UI del destinatario.
+3. **Engagement**: L'utente apre la comunicazione (`Communication`).
+4. **Read Confirmation**: Se richiesto, l'utente preme "Segna come letto", attivando un record `CommunicationReads`.
+5. **Monitoring**: L'autore consulta la percentuale di lettura e l'elenco degli utenti in sospeso.
+ Industrial 
 
 ## Architettura Tecnica
 Il modulo è implementato come un blueprint Flask con un sistema di permessi basato sulla funzione `can_create_communication`.

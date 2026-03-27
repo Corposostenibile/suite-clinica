@@ -1,9 +1,25 @@
-# Piano: Percorso Nutrizione e controllo semestrale Medico
+# Specifiche Integrazione Medica
 
-**Branch:** `feature/new-check-one`  
-**Stato:** Il tipo professionista **Medico** è già implementato su questo branch (backend, frontend, tab Medico, assegnazioni). Non serve aggiungere il Medico.
+> **Categoria**: `clienti`
+> **Destinatari**: Sviluppatori, Medici, Nutrizionisti
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
+
+## Cos'è e a Cosa Serve
+
+Questo documento definisce le specifiche tecniche e funzionali per l'integrazione della figura del **Medico** all'interno dell'area Nutrizione. L'obiettivo è permettere una gestione collaborativa del percorso clinico, unificando l'anamnesi e permettendo il monitoraggio delle call di visita semestrali.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Medico** | Consultazione anamnesi unificata e registrazione date visite |
+| **Nutrizionista** | Coordinamento dei piani alimentari in base al parere medico |
+| **Sviluppatori** | Riferimento per l'implementazione del branch `feature/new-check-one` |
 
 ## Obiettivi
 
@@ -78,8 +94,8 @@
 
 ---
 
-## Riferimenti codice
+### Documenti Correlati
 
-- **Nutrizione sub-tab / Panoramica:** `ClientiDetail.jsx` – stato `nutrizioneSubTab`, array sub-tab, blocco `nutrizioneSubTab === 'panoramica'`.
-- **Setup Nutrizione:** stesso file, blocco `nutrizioneSubTab === 'setup'` (Call Iniziale Nutrizionista, Reach Out).
-- **Patologie / Anamnesi:** `nutrizioneSubTab === 'patologie'`, `nutrizioneSubTab === 'anamnesi'` (o chiavi equivalenti), API `getAnamnesi(id, 'nutrizione')`.
+- [Modulo Nutrizione](./modulo-nutrizione.md)
+- [Guida Test Medico](./test_medico_passo_passo.md)
+- [Gestione Clienti](./gestione-clienti.md)
