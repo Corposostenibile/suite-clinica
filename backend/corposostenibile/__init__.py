@@ -570,6 +570,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
         @app.before_request
         def serve_spa_for_pages():
+            from flask import request as flask_request
             """Intercept page requests and serve React SPA instead of Jinja templates."""
             path = flask_request.path
 
