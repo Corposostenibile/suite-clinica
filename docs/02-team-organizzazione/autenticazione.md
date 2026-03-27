@@ -1,13 +1,15 @@
 # Autenticazione
 
-> **Categoria**: Team & Organizzazione
-> **Destinatari**: Sviluppatori, Team IT, Amministratori
+# Autenticazione
+
+> **Categoria**: `team-organizzazione`
+> **Destinatari**: Sviluppatori, Professionisti
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
 Il modulo di autenticazione gestisce l'accesso sicuro alla Suite Clinica. Ogni membro del team accede con le proprie credenziali (email + password) e ottiene una sessione valida per navigare nelle aree a cui è autorizzato.
 
@@ -15,7 +17,7 @@ Per motivi operativi (supporto, debug, formazione), gli amministratori possono a
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
 | Ruolo | Azione |
 |-------|--------|
@@ -25,7 +27,7 @@ Per motivi operativi (supporto, debug, formazione), gli amministratori possono a
 
 ---
 
-## Come funziona (flusso utente)
+## Flusso Principale (dal punto di vista dell'utente)
 
 ### Login
 
@@ -75,7 +77,27 @@ Permette agli admin di navigare la suite nei panni di un altro utente, utile per
 
 ---
 
-## Architettura tecnica
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | File / Modulo | Ruolo |
+|-------|--------------|-------|
+| Backend | `blueprints/auth/` | Route server-side, template Jinja2 |
+| Backend | `blueprints/auth_api/` | REST API JSON |
+| Frontend | `src/pages/auth/` | Interfaccia React di login |
+| Database | Modello `User` | Persistenza dati utenti |
+
+### Schema del flusso
+
+```mermaid
+flowchart TD
+    A[Utente] --> B[Frontend React /auth/login]
+    B --> C[API /api/auth/login]
+    C --> D[Flask-Login Session]
+    C --> E[(PostgreSQL - users)]
+    D --> F[Redirect /welcome]
+```
 
 Il modulo è composto da **due blueprint separati**:
 
@@ -90,7 +112,7 @@ Il frontend React usa esclusivamente le API REST (`/api/auth`). Le route server-
 
 ---
 
-## API / Endpoint principali
+## Endpoint API Principali
 
 | Metodo | Endpoint | Auth richiesta | Descrizione |
 |--------|----------|---------------|-------------|
@@ -141,7 +163,7 @@ POST /api/auth/login
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `User` (tabella `users`)
 
@@ -175,7 +197,7 @@ POST /api/auth/login
 
 ---
 
-## Configurazione & Variabili d'ambiente
+## Variabili d'Ambiente Rilevanti
 
 | Variabile | Utilizzo |
 |-----------|---------|
@@ -196,7 +218,7 @@ La password deve rispettare **tutti** i criteri seguenti:
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Rollback preventivo**: prima di ogni query di login viene eseguito `db.session.rollback()` per evitare errori da transazioni aperte da richieste precedenti.
 - **Sessione Google OAuth2**: gestita separatamente da Flask-Dance (blueprint `google`). Il token OAuth non è usato per l'autenticazione alla suite, ma solo per le integrazioni (Calendar, ecc.).
@@ -205,7 +227,7 @@ La password deve rispettare **tutti** i criteri seguenti:
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Team & Professionisti](./team-professionisti.md) — ruoli e struttura organizzativa
 - → [Panoramica generale](../00-panoramica/overview.md) — visione d'insieme della suite

@@ -1,16 +1,61 @@
-# Guida alla Migrazione Manuale (Database e Upload)
+# Procedura di Migrazione
 
-Questa guida descrive la procedura utilizzata per migrare i dati e i file dalla "Old Suite" alla nuova infrastruttura su Google Cloud Platform.
+> **Categoria**: `infrastruttura`
+> **Destinatari**: Sviluppatori, DevOps
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
-## Componenti Principali
-- **Script di Migrazione Database**: `backend/scripts/migration_scripts/schema_comparator.py`
-  - Gestisce il parsing del dump della vecchia Suite, la mappatura dei dati sul nuovo schema e la generazione di un dump SQL compatibile.
-- **Job Migrazione Database**: `k8s/db-migration-job.yaml`
-  - Esegue la migrazione all'interno del cluster GKE.
-- **Job Migrazione Upload**: `k8s/uploads-migration-job.yaml`
-  - Scarica l'archivio degli upload da Google Cloud Storage e lo estrae nel Persistent Volume Claim dedicato.
+---
 
-## Procedura di Esecuzione
+## Cos'è e a Cosa Serve
+
+Questa guida descrive la procedura operativa per migrare i dati e i file dalla "Old Suite" alla nuova infrastruttura su Google Cloud Platform. Copre la migrazione del database (schema e dati) e degli asset multimediali (upload), garantendo l'integrità dei dati e la continuità operativa.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **DevOps / SysAdmin** | Esecuzione dei Job Kubernetes di migrazione |
+| **Sviluppatori** | Debug degli script di migrazione e verifica coerenza schema |
+
+---
+
+## Flusso Principale (Technical Workflow)
+
+1. **Dump Preparation**: Preparazione dei dump della vecchia e nuova suite nel PVC dedicato.
+2. **Schema Audit**: Verifica della parità tra lo schema del dump e i modelli SQLAlchemy.
+3. **Database Migration**: Esecuzione del Job `suite-clinica-db-migration` per il replay dei dati.
+4. **Uploads Migration**: Esecuzione del Job `suite-clinica-uploads-migration` per il sync dei file da GCS.
+5. **Post-Migration**: Allineamento sequenze ID, migrazione ticket legacy e verifica finale.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Risorsa / Script | Ruolo |
+|-------|------------------|-------|
+| Backend | `schema_comparator.py` | Core logic di mappatura e migrazione |
+| K8s Job | `db-migration-job.yaml` | Esecutore migrazione DB |
+| K8s Job | `uploads-migration-job.yaml` | Esecutore sync upload (tar.gz via pipe) |
+| Storage | `db-backups-pvc` | Persistenza temporanea dei dump |
+
+### Schema del Processo
+
+```mermaid
+flowchart TD
+    A[Old Suite Dump] --> B[Migration Script]
+    C[New Suite Schema] --> B
+    B -- SQL Replay --> D[(Cloud SQL)]
+    E[GCS Bucket Uploads] -- tar stream --> F[uploads-pvc]
+```
+
+---
+
+## Dettaglio Procedura Esecutiva
 
 ### 1. Preparazione dei Backup (Database)
 I backup devono essere presenti nel Persistent Volume Claim `db-backups-pvc`. 
@@ -147,7 +192,19 @@ Note:
 - Lo script è idempotente: se rilanciato, salta i ticket già migrati.
 - Migra solo i ticket non chiusi; i ticket chiusi restano nel sistema legacy come archivio.
 
-## Note Tecniche Importanti
+## Variabili d'Ambiente Rilevanti
+
+| Variabile | Descrizione |
+|-----------|-------------|
+| `MIGRATION_REFRESH_NEW_SCHEMA` | Se `1`, rigenera lo schema target prima dell'import |
+| `OLD_SUITE_BACKUP` | Nome del file dump sorgente nel PVC |
+| `STRICT_ORGANIGRAM` | Se `1`, filtra utenti fuori organigramma ufficiale |
+| `TMPDIR` | Path temporaneo (deve puntare al PVC per evitare eviction) |
+
+---
+
+## Note Operative e Casi Limite
+
 - **Ordine di import FK-aware**: lo script genera SQL ordinando le tabelle per dipendenze foreign key (prima principali, poi dipendenti) per ridurre errori FK non necessari.
 - **Errori SQL**: Nel Job è impostato `psql -v ON_ERROR_STOP=0` per permettere alla migrazione di procedere anche se alcuni record orfani o sporchi del vecchio DB violano i vincoli di integrità.
 - **Idempotenza**: Lo script usa `ON CONFLICT (...) DO NOTHING` per le tabelle principali. Se rilanciato, non duplicherà i dati esistenti.
@@ -158,9 +215,9 @@ Note:
 - **Modalità organigramma (opzionale)**: impostando `STRICT_ORGANIGRAM=1` lo script torna al comportamento restrittivo (filtra professionisti fuori organigramma ufficiale e ricostruisce `teams`/`team_members`).
 - **Dati Check Azienda**: la migrazione deve includere anche le tabelle `weekly_checks`, `weekly_check_responses` e `weekly_check_link_assignments` (oltre a `dca_*` e `minor_*` se presenti), altrimenti la pagina `/check-azienda` risulta vuota anche con applicazione funzionante.
 - **Campi obbligatori utenti**: durante la generazione dump vengono normalizzati `role`, `specialty` e booleani (`is_admin`, `is_active`, `is_external`, `is_trial`) per evitare errori `NOT NULL`/enum su `users`.
-- **`team_members` derivata se assente nel dump**: nel ramo streaming (`STRICT_ORGANIGRAM=0`), se il dump non contiene righe `team_members`, lo script ricostruisce la tabella usando almeno i `head_id` dei `teams` e arricchisce con l'organigramma ufficiale (`OFFICIAL_TEAMS`) quando trova corrispondenze nome->utente.
-- **Temp su PVC obbligatorio**: il Job imposta `TMPDIR` e `MIGRATION_TMP_DIR` su `/data/backups/migration_output/tmp`; evitare `/tmp` locale per non incorrere in eviction.
-- **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre lo step 2 (update `migration-script-config`) prima di rilanciare il Job.
+- **`team_members` derivata se assente nel dump**: nel ramo streaming (`STRICT_ORGANIGRAM=0`), se le righe `team_members` mancano, lo script ricostruisce la tabella usando i `head_id` dei `teams` e l'organigramma ufficiale.
+- **Temp su PVC obbligatorio**: il Job imposta `TMPDIR` e `MIGRATION_TMP_DIR` su `/data/backups/migration_output/tmp`.
+- **ConfigMap obbligatoria dopo modifiche script**: se si modifica `schema_comparator.py`, rieseguire sempre l'update della ConfigMap.
 
 ### Recovery rapido (errore finale dopo replay dati già completato)
 
@@ -238,21 +295,9 @@ kubectl rollout status deployment/suite-clinica-backend --timeout=900s
 Mitigazione raccomandata:
 - usare una strategia di deploy compatibile con PVC `RWO` (`Recreate` oppure `RollingUpdate` con `maxSurge: 0`)
 
-## Incidente Reale: 21 Febbraio 2026 (GKE scale-down)
+### Documenti Correlati
 
-Sintomo osservato:
-- Job `suite-clinica-db-migration` terminato con `BackoffLimitExceeded`.
-- Eventi pod: `ScaleDown` seguito da `Killing` dei container `migrator`/`cloud-sql-proxy`.
-
-Causa:
-- Pod di migrazione eseguito su nodo entrato in fase di rimozione/autoscaling durante un run lungo.
-
-Mitigazione applicata:
-1. `backoffLimit` alzato a `6` in `k8s/db-migration-job.yaml`.
-2. Rimosse toleration verso nodi candidati a rimozione (`autoscaling.gke.io/defrag-candidate`, `ToBeDeletedByClusterAutoscaler`).
-3. Rilancio del job con monitoraggio eventi/log fino a completamento.
-
-Comando diagnostico rapido:
-```bash
-kubectl get events -n default --sort-by=.lastTimestamp | rg "suite-clinica-db-migration|ScaleDown|Killing|BackoffLimitExceeded"
-```
+- [Setup Infrastruttura GCP](./gcp_infrastructure_setup_report.md)
+- [Compliance Infrastruttura](./infrastructure_compliance_report.md)
+- [Analisi CI/CD](./ci_cd_analysis.md)
+- [Panoramica Generale](../00-panoramica/overview.md)

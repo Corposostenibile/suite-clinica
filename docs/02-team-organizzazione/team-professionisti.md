@@ -1,13 +1,15 @@
 # Team & Professionisti
 
-> **Categoria**: Team & Organizzazione
+# Team & Professionisti
+
+> **Categoria**: `team-organizzazione`
 > **Destinatari**: Sviluppatori, Amministratori, CCO, Team Leader
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
 Il modulo Team gestisce l'intera struttura organizzativa di Corposostenibile: i professionisti, i loro ruoli, le specializzazioni, i team di appartenenza e i dipartimenti. È il punto di riferimento per capire **chi è chi** nel sistema, quali pazienti gestisce e quanta capacità ha disponibile.
 
@@ -21,7 +23,7 @@ Funzionalità principali:
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
 | Ruolo | Accesso |
 |-------|---------|
@@ -33,7 +35,7 @@ Funzionalità principali:
 
 ---
 
-## Come funziona (flusso utente)
+## Flusso Principale (dal punto di vista dell'utente)
 
 ### Visualizzazione del Team
 
@@ -82,7 +84,25 @@ La promozione tra stage è manuale da parte dell'admin/supervisor.
 
 ---
 
-## Architettura tecnica
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | File / Modulo | Ruolo |
+|-------|--------------|-------|
+| Backend | `blueprints/team/` | Route server-side (legacy/admin) |
+| Backend | `blueprints/team_api/` | REST API |
+| Frontend | `src/pages/team/` | Interfaccia React per gestione team |
+| Database | Modelli `User`, `Team`, `Department` | Persistenza dati organizzativi |
+
+### Schema del flusso
+
+```mermaid
+flowchart TD
+    A[Utente] --> B[Frontend React /team]
+    B --> C[API /api/team/members]
+    C --> D[(PostgreSQL - users/teams)]
+```
 
 ### Blueprint
 
@@ -103,7 +123,7 @@ Le regole di accesso sono implementate in tre livelli:
 
 ---
 
-## API / Endpoint principali
+## Endpoint API Principali
 
 | Metodo | Endpoint | Auth | Descrizione |
 |--------|----------|------|-------------|
@@ -134,7 +154,7 @@ Le regole di accesso sono implementate in tre livelli:
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `User` — campi rilevanti per il Team
 
@@ -235,7 +255,7 @@ graph TD
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Promozione automatica a Team Leader**: quando un professionista viene impostato come `head_id` di un team, il sistema lo promuove automaticamente a `team_leader` (funzione `_promote_team_head_to_team_leader`). La promozione è **solo in salita**: il downgrade è manuale.
 - **Health Manager Team Leader**: è un caso speciale — un `team_leader` che guida un team di tipo `health_manager`. Il sistema lo identifica con `_is_health_manager_team_leader()` e gli assegna permessi ibridi.
@@ -245,7 +265,7 @@ graph TD
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Autenticazione](./autenticazione.md) — login, sessioni, reset password
 - → [Panoramica generale](../00-panoramica/overview.md) — visione d'insieme della suite

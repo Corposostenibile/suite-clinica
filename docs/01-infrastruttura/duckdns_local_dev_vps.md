@@ -1,8 +1,58 @@
-# Sviluppo Locale su VPS (DuckDNS) + PWA tablet (stato reale)
+# Sviluppo Locale su VPS (DuckDNS)
 
-Data aggiornamento: 27 Febbraio 2026
+> **Categoria**: `infrastruttura`
+> **Destinatari**: Sviluppatori
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
-Questa guida descrive la configurazione attuale su VPS per `suite-clinica.duckdns.org`, usato come **ambiente locale/shared di sviluppo** (non GCP produzione), con URL web canonici in root (es. `/auth/login`, `/clienti-lista`) e PWA installabile.
+---
+
+## Cos'è e a Cosa Serve
+
+Questa guida descrive la configurazione dell'ambiente di sviluppo "locale" ospitato su VPS. Utilizza DuckDNS per fornire un dominio pubblico (`suite-clinica.duckdns.org`) e HTTPS, permettendo il test delle PWA su tablet e l'integrazione con servizi esterni che richiedono webhook HTTPS senza dover deployare ogni volta su GCP.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Sviluppatori** | Sviluppo quotidiano, test PWA, debug webhook esterni |
+
+---
+
+## Flusso Principale (Development Workflow)
+
+1. **Start Services**: Avvio di backend e frontend tramite PM2 (wrapper `dev.sh`).
+2. **Coding**: Modifica del codice localmente (o via SSH).
+3. **Hot Reload**: Vite (frontend) e PM2 Watch (backend) applicano le modifiche istantaneamente.
+4. **Testing**: Accesso via `https://suite-clinica.duckdns.org` da qualsiasi dispositivo.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente | Ruolo |
+|-------|------------|-------|
+| Proxy | Nginx | Reverse proxy, Terminazione TLS, Routing root |
+| Frontend | Vite (Port 3001) | Sviluppo PWA via PM2 |
+| Backend | Flask (Port 5001) | API Backend via PM2 |
+| DNS / SSL | DuckDNS + Certbot | Risoluzione dominio e certificati SSL |
+
+### Schema del setup
+
+```mermaid
+graph TD
+    User[Tablet / Dev Machine] -- HTTPS --> Nginx[Nginx Reverse Proxy]
+    Nginx -- /api/* --> BE[Backend Flask :5001]
+    Nginx -- /* --> FE[Frontend Vite :3001]
+```
+
+---
+
+## Dettaglio Configurazione VPS
 
 ## 0) Due ambienti diversi (separazione importante)
 
@@ -231,17 +281,17 @@ curl -i http://127.0.0.1:5001/api/auth/me | head -n 20
 curl -i https://suite-clinica.duckdns.org/api/auth/me | head -n 20
 ```
 
-### 6.1 Setup Push Notifications (Task)
+## Variabili d'Ambiente Rilevanti
 
-Per notifiche push PWA sui nuovi task assegnati:
+| Variabile | Descrizione |
+|-----------|-------------|
+| `VAPID_PUBLIC_KEY` | Chiave pubblica per notifiche push |
+| `VAPID_PRIVATE_KEY` | Path alla chiave privata VAPID |
+| `VAPID_CLAIMS_SUB` | Email di contatto per push provider |
 
-1. Configura VAPID in `backend/.env`:
+---
 
-```env
-VAPID_PUBLIC_KEY=...
-VAPID_PRIVATE_KEY=/percorso/chiave/vapid_private.pem
-VAPID_CLAIMS_SUB=mailto:it@corposostenibile.com
-```
+## Note Operative e Casi Limite
 
 2. Esegui le migrazioni (obbligatorio):
 
@@ -381,10 +431,8 @@ Comandi `dev.sh` utili:
 sudo certbot certificates
 ```
 
-## 11) Percorsi utili
+### Documenti Correlati
 
-- Script setup HTTPS: `scripts/setup_vps_https_pwa.sh`
-- Doc VPS/PWA (sviluppo locale su VPS): `docs/vps/duckdns_local_dev_vps.md`
-- Frontend React: `corposostenibile-clinica`
-- Backend Poetry: `backend`
-- Vhost Nginx server: `/etc/nginx/sites-available/suite-clinica.duckdns.org`
+- [Setup Infrastruttura GCP](./gcp_infrastructure_setup_report.md)
+- [Analisi CI/CD](./ci_cd_analysis.md)
+- [Panoramica Generale](../00-panoramica/overview.md)

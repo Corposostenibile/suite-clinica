@@ -1,33 +1,64 @@
-# Analisi CI/CD GCP (stato operativo per deploy PWA)
+# Analisi CI/CD GCP
 
-Target: Developers / DevOps
-Stack: GitHub -> Cloud Build -> Artifact Registry -> GKE Autopilot -> GCE Ingress (HTTPS)
+> **Categoria**: `infrastruttura`
+> **Destinatari**: Sviluppatori, DevOps
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
-Questo documento descrive la pipeline attuale e i manifest necessari per esporre l'app come sito web normale + PWA su dominio HTTPS.
+---
 
-## 1) Flusso deploy
+## Cos'è e a Cosa Serve
 
-1. Push su branch trigger (es. `main`)
-2. Cloud Build esegue `cloudbuild.yaml`
-3. Build immagine Docker multi-stage (frontend React build + backend Flask runtime)
-4. Push immagine su Artifact Registry
-5. Deploy su GKE con `gke-deploy`:
-- `k8s/deployment.yaml`
-- `k8s/service.yaml`
-- `k8s/frontendconfig.yaml`
-- `k8s/managed-certificate.yaml`
-- `k8s/ingress.yaml`
-- `k8s/hpa.yaml`
-6. Post-deploy:
-- migrazioni DB (`flask db upgrade` via `kubectl exec`)
-- seed check iniziali (`seed_initial_checks.py` via `kubectl exec`, automatico in `cloudbuild.yaml`)
-- sync criteri AI (`PYTHONPATH=/app python /app/scripts/migration_scripts/sync_criteria_prod.py` via `kubectl exec`)
+Questo documento descrive la pipeline di Continuous Integration e Continuous Deployment (CI/CD) su Google Cloud Platform. La pipeline automatizza il passaggio dal codice sorgente al deploy operativo dell'applicazione (Backend Flask + Frontend React) su un cluster GKE Autopilot, garantendo coerenza tra gli ambienti e velocità di rilascio.
 
-Nota operativa:
-- `sync_criteria_prod.py` è uno step post-deploy separato dalla migrazione DB
-- in produzione deve aggiornare i criteri degli utenti esistenti; la creazione automatica utenti mancanti va evitata (modalità safe di default)
+---
 
-## 2) Componenti Kubernetes rilevanti per PWA
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Sviluppatori** | Per capire come il proprio codice finisce in produzione |
+| **DevOps / SysAdmin** | Per gestire la configurazione di Cloud Build e dei manifest K8s |
+| **Team Leader** | Per verificare lo stato operativo del deploy per le PWA |
+
+---
+
+## Flusso Principale (dal punto di vista tecnico)
+
+1. **Push**: Lo sviluppatore esegue il push sul branch `main`.
+2. **Trigger**: Cloud Build rileva il cambiamento e avvia il build.
+3. **Build & Push**: Viene creata l'immagine Docker multi-stage e salvata in Artifact Registry.
+4. **Deploy**: `gke-deploy` applica i manifest aggiornati al cluster GKE.
+5. **Post-Deploy**: Vengono eseguite le migrazioni del database e il seed dei dati iniziali.
+
+---
+
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | Componente GCP | Ruolo |
+|-------|----------------|-------|
+| SCM | GitHub | Repository del codice sorgente |
+| CI/CD | Cloud Build | Automazione build e deploy |
+| Registry | Artifact Registry | Storage immagini Docker |
+| Orchestration | GKE Autopilot | Esecuzione container |
+| Networking | Cloud Load Balancing | Ingress HTTP/S e Terminazione TLS |
+
+### Schema del flusso
+
+```mermaid
+graph LR
+    GH[GitHub] -- push --> CB[Cloud Build]
+    CB -- docker build --> AR[Artifact Registry]
+    CB -- kubectl apply --> GKE[GKE Autopilot]
+    GKE -- ingress --> LB[Load Balancer]
+    LB -- HTTPS --> User[Utente Finale]
+```
+
+---
+
+## Risorse Kubernetes Rilevanti
 
 ### 2.1 Deployment (`k8s/deployment.yaml`)
 
@@ -66,23 +97,14 @@ Punti chiave:
 
 - redirect HTTP -> HTTPS abilitato
 
-## 3) URL e comportamento atteso
+## Endpoint di Verifica
 
-URL canonici (no prefisso tecnico):
-- `https://<dominio>/auth/login`
-- `https://<dominio>/clienti-lista`
-
-PWA:
-- `https://<dominio>/manifest.webmanifest`
-- `https://<dominio>/sw.js`
-
-API backend sullo stesso host:
-- `https://<dominio>/api/...`
-- `https://<dominio>/ghl/...`
-- `https://<dominio>/review/...`
-- endpoint push:
-  - `https://<dominio>/api/push/public-key`
-  - `https://<dominio>/api/push/subscriptions`
+| Tipo | URL / Path | Scopo |
+|------|------------|-------|
+| Web | `https://<dominio>/auth/login` | Login standard |
+| PWA | `https://<dominio>/manifest.webmanifest` | Manifest PWA |
+| PWA | `https://<dominio>/sw.js` | Service Worker |
+| API | `https://<dominio>/api/push/public-key` | Verifica chiavi Push |
 
 ## 4) Cloud Build (estratto)
 
@@ -143,25 +165,14 @@ kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
 '
 ```
 
-### Variabili env consigliate (GHL + Respond.io)
+## Variabili d'Ambiente Rilevanti
 
-Per il flusso lead GHL -> invio check iniziali -> sync chat Respond.io, configurare almeno:
-
-- `RESPOND_IO_API_TOKEN`
-- `RESPOND_IO_API_BASE_URL` (default: `https://api.respond.io/v2`)
-- `RESPOND_IO_DEFAULT_CHANNEL_ID` (opzionale; se assente usa l'ultimo canale del contatto)
-- `GHL_GLOBAL_STATUS_WEBHOOK_MODE` (`mock` default, oppure `live`)
-- `GHL_GLOBAL_STATUS_WEBHOOK_URL` (obbligatoria in `live`; endpoint ricezione evento stato globale cliente)
-
-Nota operativa:
-- all'arrivo del lead (`/ghl/webhook/opportunity-data`) il bridge assegna la conversazione al `health_manager_email` ricevuto da GHL usando l'identifier del contatto (`phone:` preferito, fallback `email:`) e invia un messaggio testuale mock.
-- quando `stato_cliente` globale passa a `pausa` o `ghost`, viene emesso evento `cliente.global_status.changed` dopo commit DB (in `mock` viene loggato senza chiamata HTTP esterna).
-
-Push check (utente autenticato):
-
-```bash
-curl -i https://<dominio>/api/push/public-key
-```
+| Variabile | Descrizione |
+|-----------|-------------|
+| `SESSION_COOKIE_SECURE` | Obbligatoria `true` in produzione |
+| `VAPID_PUBLIC_KEY` | Chiave pubblica per notifiche push |
+| `RESPOND_IO_API_TOKEN` | Integrazione chat esterna |
+| `GHL_GLOBAL_STATUS_WEBHOOK_URL` | Sync stato clienti da GHL |
 
 ## 6) Problemi comuni
 
@@ -274,8 +285,13 @@ kubectl set image deployment/suite-clinica-backend \
   backend=europe-west8-docker.pkg.dev/suite-clinica/suite-clinica-repo/backend:<tag_stabile>
 ```
 
-## 7) Hardening raccomandato
+## Note Operative e Casi Limite
 
-- Spostare segreti (DB/Redis/SECRET_KEY) in Secret Manager + Kubernetes Secret
-- Evitare credenziali hardcoded nei manifest
-- Aggiungere policy di rollout e probe avanzate dove necessario
+> [!IMPORTANT]
+> In caso di errori `Multi-Attach` su volumi `RWO`, è spesso necessario scalare il deployment a zero repliche per permettere il distacco del volume prima del nuovo rollout.
+
+### Documenti Correlati
+
+- [Setup Infrastruttura GCP](./gcp_infrastructure_setup_report.md)
+- [Procedura Migrazione](./procedura_migrazione.md)
+- [Panoramica Generale](../00-panoramica/overview.md)

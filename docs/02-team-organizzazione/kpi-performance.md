@@ -1,13 +1,15 @@
 # KPI & Performance
 
-> **Categoria**: Team & Organizzazione
+# KPI & Performance
+
+> **Categoria**: `team-organizzazione`
 > **Destinatari**: Amministratori, CCO, Team Leader
 > **Stato**: 🟢 Completo
-> **Ultimo aggiornamento**: Marzo 2026
+> **Ultimo aggiornamento**: 27/03/2026
 
 ---
 
-## Cos'è e a cosa serve
+## Cos'è e a Cosa Serve
 
 Il modulo KPI traccia le performance dell'azienda e dei singoli professionisti attraverso metriche calcolate su periodi configurabili. Serve a rispondere a due domande fondamentali:
 
@@ -18,7 +20,7 @@ I risultati vengono storicizzati come **snapshot** per confrontare periodi diver
 
 ---
 
-## Chi lo usa
+## Chi lo Usa
 
 | Ruolo | Accesso |
 |-------|---------|
@@ -31,7 +33,7 @@ I risultati vengono storicizzati come **snapshot** per confrontare periodi diver
 
 ---
 
-## Come funziona (flusso utente)
+## Flusso Principale (dal punto di vista dell'utente)
 
 ```
 1. L'admin accede alla dashboard KPI (/kpi/dashboard)
@@ -147,7 +149,7 @@ Ogni snapshot include:
 
 ---
 
-## API / Endpoint principali
+## Endpoint API Principali
 
 Tutti gli endpoint richiedono autenticazione admin. Prefix: `/kpi`
 
@@ -178,7 +180,7 @@ GET /kpi/api/tasso-rinnovi?periodo_inizio=2026-01-01&periodo_fine=2026-01-31
 
 ---
 
-## Modelli di dati
+## Modelli di Dati Principali
 
 ### `KPISnapshot` (tabella `kpi_snapshots`)
 
@@ -218,7 +220,27 @@ GET /kpi/api/tasso-rinnovi?periodo_inizio=2026-01-01&periodo_fine=2026-01-31
 
 ---
 
-## Architettura tecnica
+## Architettura Tecnica
+
+### Componenti coinvolti
+
+| Layer | File / Modulo | Ruolo |
+|-------|--------------|-------|
+| Backend | `blueprints/kpi/` | Endpoint HTTP e logica di calcolo |
+| Backend | `kpi/services.py` | Business logic (KPIService, ARRService) |
+| Frontend | `src/pages/kpi/` | Dashboard React (solo Admin) |
+| Database | Modelli `KPISnapshot`, `ProfessionistaBonusSnapshot` | Persistenza metriche |
+
+### Schema del flusso
+
+```mermaid
+flowchart TD
+    A[Admin] --> B[Dashboard React]
+    B --> C[API /kpi/api/calcola]
+    C --> D[KPIService / ARRService]
+    D --> E[(PostgreSQL)]
+    D --> F[Salvataggio Snapshot]
+```
 
 Il modulo è organizzato in tre servizi separati:
 
@@ -235,7 +257,7 @@ I servizi sono **stateless**: ricevono il periodo come parametro e restituiscono
 
 ---
 
-## Note & Gotcha
+## Note Operative e Casi Limite
 
 - **Denominatore mai zero**: se non ci sono clienti in scadenza o referral, il denominatore viene forzato a `1` per evitare divisioni per zero. Il risultato sarà 0% in quel caso.
 - **Snapshot solo se denominatore > 0**: per ARR, lo snapshot non viene salvato se `denominatore_totale == 0` (nessuna attività nel periodo).
@@ -244,7 +266,7 @@ I servizi sono **stateless**: ricevono il periodo come parametro e restituiscono
 
 ---
 
-## Documenti correlati
+## Documenti Correlati
 
 - → [Team & Professionisti](./team-professionisti.md) — struttura team, capienza, ruoli
 - → [Autenticazione](./autenticazione.md) — accesso e sessioni

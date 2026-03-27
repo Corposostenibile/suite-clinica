@@ -1,6 +1,52 @@
-# Rapporto Strategico Infrastruttura Suite Clinica 2026
+# Rapporto Strategico Infrastruttura 2026
 
-## 1. Analisi dello Stato Attuale (Post-Ottimizzazione)
+> **Categoria**: `infrastruttura`
+> **Destinatari**: Amministratori, Management
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
+
+---
+
+## Cos'è e a Cosa Serve
+
+Questo documento definisce la strategia infrastrutturale a lungo termine per la Suite Clinica. Analizza lo stato attuale ("Lean Infrastructure"), definisce i piani di scalabilità in base al numero di utenti e stabilisce le linee guida per la continuità operativa (Disaster Recovery) e il controllo dei costi.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Management** | Pianificazione budget e visione strategica |
+| **Amministratori** | Decisioni su upgrade risorse e scalabilità |
+| **DevOps** | Implementazione dei livelli di scalabilità previsti |
+
+---
+
+## Architettura Tecnica
+
+### Piano di Scalabilità Graduale
+
+| Utenti | Risorse GKE | Database (vCPU/RAM) | Redis Cache | Costo Est. Mensile |
+| :--- | :--- | :--- | :--- | :--- |
+| **200** | 1 Pod | 2 vCPU / 7.5GB | 1GB (Basic) | €250 - €350 |
+| **400** | 1 Pod | 2 vCPU / 7.5GB | 2GB (Basic) | €400 - €500 |
+| **600** | 1-2 Pod | 4 vCPU / 15GB | 5GB (HA) | €700 - €900 |
+| **800** | 2 Pod | 4 vCPU / 15GB | 10GB | €1.000 - €1.200 |
+| **1000** | 2-3 Pod | 8 vCPU / 30GB | 20GB | €1.500+ |
+
+### Schema della Scalabilità
+
+```mermaid
+graph TD
+    U[Utenti 200] --> L1[Lean Infra - 1 Pod]
+    U2[Utenti 600] --> L2[Growth Infra - 2 Pod + HA]
+    U3[Utenti 1000] --> L3[Enterprise Infra - 3+ Pod + Max DB]
+```
+
+---
+
+## Analisi dello Stato Attuale (Post-Ottimizzazione)
 Abbiamo completato la fase di ottimizzazione estrema (Lean Infrastructure) per massimizzare l'efficienza economica senza compromettere la stabilità.
 
 *   **Database (Cloud SQL):** Migrato a un'istanza dinamica da **10GB SSD** in configurazione **Single Zone (Zonal)**. Abbiamo rimosso l'Alta Affidabilità (HA) per questa fase, dimezzando i costi operativi del database. Abilitato **Auto-Resize**.
@@ -52,13 +98,13 @@ In caso di disastro totale di una regione Google (es. intero data center offline
 
 ---
 
-## 5. Nota Tecnica sulla Migrazione in Corso e Costi Job
-Per accelerare il passaggio dalla vecchia Suite, stiamo utilizzando **Job ad alta potenza temporanea** (4 CPU / 6GB RAM). 
+## Note Operative e Casi Limite
 
-**Impatto sui Costi:**
-*   In GKE Autopilot, i Job hanno un costo **"a consumo"** (Pay-per-execution).
-*   Paghiamo le risorse extra **solo per i minuti in cui il Job è in esecuzione** (es. i 30 minuti necessari all'import).
-*   **Automazione:** Una volta completato il compito, il Pod si spegne automaticamente e **la fatturazione si interrompe all'istante**. Non è necessario spegnerli manualmente, ma è buona norma pulirli per ordine.
+> [!TIP]
+> Per massimizzare il risparmio in fase di sviluppo, i Job di migrazione utilizzano risorse temporanee ad alta potenza che si spengono automaticamente al termine dell'esecuzione, interrompendo istantaneamente la fatturazione.
 
----
-*Documento aggiornato il 11/02/2026 per la Direzione Generale Corposostenibile.*
+### Documenti Correlati
+
+- [Setup Infrastruttura GCP](./gcp_infrastructure_setup_report.md)
+- [Compliance Infrastruttura](./infrastructure_compliance_report.md)
+- [Panoramica Generale](../00-panoramica/overview.md)

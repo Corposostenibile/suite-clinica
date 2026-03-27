@@ -1,8 +1,48 @@
-# Report di Conformità Infrastrutturale: "As-Built" vs "Dipartimento IT 2026"
+# Compliance Infrastruttura
 
-**Stato Analisi**: ✅ Conforme con Deviazioni Pianificate
+> **Categoria**: `infrastruttura`
+> **Destinatari**: Sviluppatori, DevOps, Amministratori
+> **Stato**: 🟢 Completo
+> **Ultimo aggiornamento**: 27/03/2026
 
-Questo documento certifica che l'infrastruttura configurata su Google Cloud Platform rispecchia le direttive strategiche del documento "Dipartimento IT 2026", con le eccezioni tecniche indicate di seguito.
+---
+
+## Cos'è e a Cosa Serve
+
+Questo documento certifica la conformità dell'infrastruttura reale "As-Built" su Google Cloud Platform rispetto alle direttive strategiche del piano "Dipartimento IT 2026". Serve a tracciare le scelte architetturali, giustificare eventuali deviazioni tecniche e pianificare i futuri sviluppi per il raggiungimento della piena conformità.
+
+---
+
+## Chi lo Usa
+
+| Ruolo | Utilizzo |
+|-------|----------|
+| **Amministratori** | Verifica allineamento strategico e approvazione costi |
+| **DevOps / DevOps** | Riferimento per la gestione delle deviazioni (es. networking DB) |
+| **Auditor IT** | Verifica formale della struttura tecnologica |
+
+---
+
+## Architettura Tecnica
+
+### Confronto Stato Attuale vs Obiettivo
+
+```mermaid
+graph TD
+    subgraph Obiettivo_2026
+        A[Private DB]
+        B[Read Replica]
+        C[Disaster Recovery]
+    end
+    subgraph Stato_Attuale
+        D[Public IP DB - Workaround]
+        E[Single Instance HA]
+        F[Regione Singola - Milano]
+    end
+    D -.-> A
+    E -.-> B
+    F -.-> C
+```
 
 ---
 
@@ -50,8 +90,13 @@ Componenti previsti dal piano ma esplicitamente rimandati alla Fase 2 (Post-Depl
 
 ---
 
-## 4. Conclusione
-L'infrastruttura **Backend Core** è conforme al 95% con il piano Strategico.
-Le uniche differenze sostanziali riguardano il networking del Database (causa permessi IAM) e il rinvio delle componenti di Disaster Recovery e Read Replica per efficienza di costi in fase di sviluppo iniziale.
+## Note Operative e Casi Limite
 
-**L'ambiente è idoneo per iniziare il deployment.**
+> [!NOTE]
+> La conformità è attualmente al 95%. Il restante 5% riguarda principalmente il networking del Database (causa permessi IAM limitati) e componenti di scalabilità/DR rimandate per efficienza di costi in fase iniziale.
+
+### Documenti Correlati
+
+- [Setup Infrastruttura GCP](./gcp_infrastructure_setup_report.md)
+- [Analisi CI/CD](./ci_cd_analysis.md)
+- [Panoramica Generale](../00-panoramica/overview.md)
