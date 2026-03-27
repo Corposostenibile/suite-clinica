@@ -25,6 +25,10 @@ from sqlalchemy.orm.dynamic import AppenderQuery  # patch __len__
 from corposostenibile.extensions import db
 from corposostenibile.models import (
     Cliente,
+    ClienteMarketingFlag,
+    ClienteMarketingContent,
+    MarketingFlagTypeEnum,
+    MarketingContentTypeEnum,
     TipologiaClienteEnum,
     StatoClienteEnum,
     GiornoEnum,
@@ -201,6 +205,12 @@ class CustomerFilterParams:
     missing_consulente_alimentare: bool = False
 
     # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+    # Marketing
+    marketing_usabile: Optional[bool] = None  # 3-state
+    marketing_stories: Optional[bool] = None  # 3-state
+    marketing_carosello: Optional[bool] = None  # 3-state
+    marketing_videofeedback: Optional[bool] = None  # 3-state
+
     # Consenso Social
     consenso_social_richiesto: Optional[bool] = None  # 3-state
     consenso_social_accettato: Optional[bool] = None  # 3-state
@@ -289,7 +299,8 @@ class CustomerFilterParams:
     patologia_stitichezza: Optional[bool] = None
     patologia_tiroidee: Optional[bool] = None
     con_almeno_una_patologia_nutrizionale: bool = False
-    senza_patologie_nutrizionali: bool = False
+    senza_patologie_nutrizionali: bool = False  # nessuna_patologia = True (utente ha scelto esplicitamente)
+    patologie_non_indicate_nutri: bool = False  # tutti i campi patologia vuoti/False e nessuna_patologia = False
 
     # ─────────────────── TAB 9: COACHING ─────────────────── #
     stato_coach: List[StatoClienteEnum] = field(default_factory=list)
@@ -322,7 +333,11 @@ class CustomerFilterParams:
     patologia_psico_psicosomatiche: Optional[bool] = None
     patologia_psico_relazionali_altro: Optional[bool] = None
     con_almeno_una_patologia_psicologica: bool = False
-    senza_patologie_psicologiche: bool = False
+    senza_patologie_psicologiche: bool = False  # nessuna_patologia_psico = True (utente ha scelto esplicitamente)
+    patologie_non_indicate_psico: bool = False  # tutti i campi patologia psico vuoti/False e nessuna_patologia_psico = False
+
+    # ─────────────────── TIPOLOGIA MANCANTE ─────────────────── #
+    missing_tipologia: bool = False  # tipologia_cliente IS NULL
 
     # ─────────────────── TAB 12: PAGAMENTI ─────────────────── #
     modalita_pagamento: List[PagamentoEnum] = field(default_factory=list)
@@ -489,6 +504,10 @@ class CustomerFilterParams:
             missing_health_manager=args.get("missing_health_manager") == "1",
             missing_consulente_alimentare=args.get("missing_consulente_alimentare") == "1",
             # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+            marketing_usabile=_parse_3state_bool(args.get("marketing_usabile")),
+            marketing_stories=_parse_3state_bool(args.get("marketing_stories")),
+            marketing_carosello=_parse_3state_bool(args.get("marketing_carosello")),
+            marketing_videofeedback=_parse_3state_bool(args.get("marketing_videofeedback")),
             consenso_social_richiesto=_parse_3state_bool(args.get("consenso_social_richiesto")),
             consenso_social_accettato=_parse_3state_bool(args.get("consenso_social_accettato")),
             consenso_social_con_documento=args.get("consenso_social_con_documento") == "1",
@@ -560,6 +579,7 @@ class CustomerFilterParams:
             patologia_tiroidee=_parse_3state_bool(args.get("patologia_tiroidee")),
             con_almeno_una_patologia_nutrizionale=args.get("con_almeno_una_patologia_nutrizionale") == "1",
             senza_patologie_nutrizionali=args.get("senza_patologie_nutrizionali") == "1",
+            patologie_non_indicate_nutri=args.get("patologie_non_indicate_nutri") == "1",
             # ─────────────────── TAB 9: COACHING ─────────────────── #
             stato_coach=_parse_multi_value(_getlist("stato_coach"), StatoClienteEnum) if _getlist("stato_coach") else [],
             stato_chat_coaching=_parse_multi_value(_getlist("stato_chat_coaching"), StatoClienteEnum) if _getlist("stato_chat_coaching") else [],
@@ -589,6 +609,9 @@ class CustomerFilterParams:
             patologia_psico_relazionali_altro=_parse_3state_bool(args.get("patologia_psico_relazionali_altro")),
             con_almeno_una_patologia_psicologica=args.get("con_almeno_una_patologia_psicologica") == "1",
             senza_patologie_psicologiche=args.get("senza_patologie_psicologiche") == "1",
+            patologie_non_indicate_psico=args.get("patologie_non_indicate_psico") == "1",
+            # ─────────────────── TIPOLOGIA MANCANTE ─────────────────── #
+            missing_tipologia=args.get("missing_tipologia") == "1",
             # ─────────────────── TAB 12: PAGAMENTI ─────────────────── #
             modalita_pagamento=_parse_multi_value(_getlist("modalita_pagamento"), PagamentoEnum) if _getlist("modalita_pagamento") else [],
             deposito_iniziale_min=_parse_float(args.get("deposito_iniziale_min")),
@@ -672,6 +695,9 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     # -------- tipologia filter ------
     if p.tipologia:
         qry = qry.filter(Cliente.tipologia_cliente.in_(p.tipologia))
+
+    if p.missing_tipologia:
+        qry = qry.filter(Cliente.tipologia_cliente.is_(None))
 
     if p.tipologia_supporto_nutrizione:
         qry = qry.filter(Cliente.tipologia_supporto_nutrizione == p.tipologia_supporto_nutrizione)
@@ -993,6 +1019,44 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         )
 
     # ─────────────────── TAB 7: HEALTH MANAGER ─────────────────── #
+    if p.marketing_usabile is not None:
+        if p.marketing_usabile:
+            qry = qry.filter(
+                Cliente.cliente_id.in_(
+                    db.session.query(ClienteMarketingFlag.cliente_id).filter(
+                        ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+                        ClienteMarketingFlag.checked.is_(True),
+                    )
+                )
+            )
+        else:
+            qry = qry.filter(
+                ~Cliente.cliente_id.in_(
+                    db.session.query(ClienteMarketingFlag.cliente_id).filter(
+                        ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+                        ClienteMarketingFlag.checked.is_(True),
+                    )
+                )
+            )
+
+    def _apply_marketing_content_filter(base_query: Query, content_type: MarketingContentTypeEnum, expected: bool) -> Query:
+        content_subq = db.session.query(ClienteMarketingContent.cliente_id).filter(
+            ClienteMarketingContent.content_type == content_type,
+            ClienteMarketingContent.checked.is_(True),
+        )
+        return (
+            base_query.filter(Cliente.cliente_id.in_(content_subq))
+            if expected
+            else base_query.filter(~Cliente.cliente_id.in_(content_subq))
+        )
+
+    if p.marketing_stories is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.stories, p.marketing_stories)
+    if p.marketing_carosello is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.carosello, p.marketing_carosello)
+    if p.marketing_videofeedback is not None:
+        qry = _apply_marketing_content_filter(qry, MarketingContentTypeEnum.videofeedback, p.marketing_videofeedback)
+
     # Consenso Social
     if p.consenso_social_richiesto is not None:
         qry = qry.filter(Cliente.consenso_social_richiesto == p.consenso_social_richiesto)
@@ -1164,8 +1228,18 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         qry = qry.filter(or_(*conditions))
     
     if p.senza_patologie_nutrizionali:
-        conditions = [pat_field != True for _, pat_field in patologie_nutrizionali]
-        qry = qry.filter(and_(*conditions))
+        # "Nessuna Patologia" = l'utente ha selezionato esplicitamente "nessuna patologia"
+        qry = qry.filter(Cliente.nessuna_patologia == True)
+    
+    if p.patologie_non_indicate_nutri:
+        # "Non Indicato" = nessun campo compilato (nessuna patologia specifica E nessuna_patologia = False)
+        conditions_false = [pat_field.isnot(True) for _, pat_field in patologie_nutrizionali]
+        qry = qry.filter(
+            and_(
+                Cliente.nessuna_patologia.isnot(True),
+                *conditions_false
+            )
+        )
 
     # ─────────────────── TAB 9: COACHING ─────────────────── #
     if p.stato_coach:
@@ -1238,8 +1312,18 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
         qry = qry.filter(or_(*conditions))
     
     if p.senza_patologie_psicologiche:
-        conditions = [pat_field != True for _, pat_field in patologie_psicologiche]
-        qry = qry.filter(and_(*conditions))
+        # "Nessuna Patologia Psicologica" = l'utente ha selezionato esplicitamente "nessuna patologia psico"
+        qry = qry.filter(Cliente.nessuna_patologia_psico == True)
+    
+    if p.patologie_non_indicate_psico:
+        # "Non Indicato" = nessun campo compilato (nessuna patologia specifica E nessuna_patologia_psico = False)
+        conditions_false = [pat_field.isnot(True) for _, pat_field in patologie_psicologiche]
+        qry = qry.filter(
+            and_(
+                Cliente.nessuna_patologia_psico.isnot(True),
+                *conditions_false
+            )
+        )
 
     # ─────────────────── TAB 12: PAGAMENTI ─────────────────── #
     if p.modalita_pagamento:

@@ -132,36 +132,10 @@ function ClientiDetail() {
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
   const isHealthManager = isHealthManagerUser(user);
-  const roleValue = user?.role?.value || user?.role;
-  const specialtyValue = user?.specialty?.value || user?.specialty;
-  const isAdmin = Boolean(
-    user?.is_admin ||
-    roleValue === 'admin' ||
-    String(specialtyValue || '').toLowerCase() === 'cco'
-  );
-  const isCco = String(specialtyValue || '').toLowerCase() === 'cco';
+  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
+  const isCco = user?.specialty === 'cco';
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
-  const isHmTeamLeader = Boolean(
-    roleValue === 'team_leader' && (
-      user?.is_health_manager_team_leader ||
-      String(specialtyValue || '').toLowerCase() === 'health_manager' ||
-      String(user?.department?.name || '').toLowerCase().includes('health') ||
-      String(user?.department?.name || '').toLowerCase().includes('customer success') ||
-      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
-        const teamType = team?.team_type?.value || team?.team_type;
-        return String(teamType || '').toLowerCase() === 'health_manager';
-      }))
-    )
-  );
-  const isImpersonatingSession = Boolean(user?.impersonating);
-  const canAccessHmControlPanel = Boolean(
-    isAdmin ||
-    isCco ||
-    isHmTeamLeader ||
-    isImpersonatingSession ||
-    roleValue === 'health_manager'
-  );
-  const specialtyGroup = normalizeSpecialtyGroup(specialtyValue);
+  const specialtyGroup = normalizeSpecialtyGroup(user?.specialty);
   const isSpecialtyRestrictedRole = isProfessionista || isRestrictedTeamLeader;
   const isInfluencer = user?.role === 'influencer';
   const canSaveGlobalClientCard = !isInfluencer;
@@ -194,7 +168,7 @@ function ClientiDetail() {
     // Tutti i ruoli vedono tutte le tab della scheda paziente
     return new Set([
       'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
-      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'richieste_call',
+      'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
       ...(canViewMarketingTab ? ['marketing'] : [])
     ]);
   }, []);
@@ -752,7 +726,7 @@ function ClientiDetail() {
   const [loadingDiaryHistory, setLoadingDiaryHistory] = useState(false);
 
   // ==================== HEALTH MANAGER STATE ====================
-  const [healthManagerSubTab, setHealthManagerSubTab] = useState('pannello_controllo');
+  const [healthManagerSubTab, setHealthManagerSubTab] = useState('onboarding');
   const [onboardingDraft, setOnboardingDraft] = useState({
     note_criticita_iniziali: '',
     loom_link: '',
@@ -762,27 +736,40 @@ function ClientiDetail() {
   const [loadingCustomerCare, setLoadingCustomerCare] = useState(false);
   const [checkInInterventions, setCheckInInterventions] = useState([]);
   const [loadingCheckIn, setLoadingCheckIn] = useState(false);
-  const [hmControlPanelData, setHmControlPanelData] = useState(null);
-  const [loadingHmControlPanel, setLoadingHmControlPanel] = useState(false);
+  const [rinnovoInterventions, setRinnovoInterventions] = useState([]);
+  const [loadingRinnovo, setLoadingRinnovo] = useState(false);
   const [hmInterventionForm, setHmInterventionForm] = useState({ notes: '', loom_link: '', intervention_date: new Date().toISOString().split('T')[0] });
   const [showHmInterventionModal, setShowHmInterventionModal] = useState(false);
-  const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in'
+  const [hmInterventionType, setHmInterventionType] = useState('customer_care'); // 'customer_care' | 'check_in' | 'rinnovo'
   const [editingInterventionId, setEditingInterventionId] = useState(null);
 
-  // ==================== MARKETING STATE ====================
+  // ==================== MARKETING / TRUSTPILOT STATE ====================
+  const [trustpilotData, setTrustpilotData] = useState(null);
+  const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
+  const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
   const [videoReviewRequests, setVideoReviewRequests] = useState([]);
   const [loadingVideoReviewRequests, setLoadingVideoReviewRequests] = useState(false);
   const [showVideoReviewBookingModal, setShowVideoReviewBookingModal] = useState(false);
-  const [videoReviewBookingDate, setVideoReviewBookingDate] = useState(new Date().toISOString().split('T')[0]);
-  const [videoReviewBookingTime, setVideoReviewBookingTime] = useState('12:00');
   const [showVideoReviewConfirmModal, setShowVideoReviewConfirmModal] = useState(false);
   const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
-  const [videoReviewError, setVideoReviewError] = useState('');
-  const [marketingSubTab, setMarketingSubTab] = useState('video_review');
-  const [exportingClinicalPdf, setExportingClinicalPdf] = useState(false);
-  const [marketingPdfError, setMarketingPdfError] = useState('');
+  const [marketingConsents, setMarketingConsents] = useState({
+    note_marketing: '',
+    usabile_marketing: { checked: false, checked_date: '' },
+    contents: { stories: [], carosello: [], videofeedback: [] },
+  });
+  const [marketingInfluencers, setMarketingInfluencers] = useState([]);
+  const [loadingMarketingConsents, setLoadingMarketingConsents] = useState(false);
+  const [savingMarketingConsents, setSavingMarketingConsents] = useState(false);
+  const [showMarketingContentModal, setShowMarketingContentModal] = useState(false);
+  const [editingMarketingContent, setEditingMarketingContent] = useState(null);
+  const [marketingContentForm, setMarketingContentForm] = useState({
+    content_type: 'stories',
+    checked: true,
+    checked_date: new Date().toISOString().split('T')[0],
+    influencer_ids: [],
+  });
 
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
@@ -887,19 +874,6 @@ function ClientiDetail() {
   const [callBonusInterestStep, setCallBonusInterestStep] = useState('ask'); // 'ask' | 'book_hm'
   const [confirmingBooking, setConfirmingBooking] = useState(false);
   const [decliningCallBonus, setDecliningCallBonus] = useState(false);
-
-  // Richieste Call sub-tab state
-  const [richiesteCallSubTab, setRichiesteCallSubTab] = useState('call_bonus');
-
-  // Call Rinnovo state
-  const [callRinnovoHistory, setCallRinnovoHistory] = useState([]);
-  const [loadingCallRinnovo, setLoadingCallRinnovo] = useState(false);
-  const [showCallRinnovoModal, setShowCallRinnovoModal] = useState(false);
-  const [callRinnovoForm, setCallRinnovoForm] = useState({ tipo_professionista: '', note_richiesta: '' });
-  const [savingCallRinnovo, setSavingCallRinnovo] = useState(false);
-  const [selectedCallRinnovo, setSelectedCallRinnovo] = useState(null);
-  const [showCallRinnovoConfirmModal, setShowCallRinnovoConfirmModal] = useState(false);
-  const [callRinnovoConfirmForm, setCallRinnovoConfirmForm] = useState({ note_hm: '' });
 
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInterruptModal, setShowInterruptModal] = useState(false);
@@ -1014,14 +988,6 @@ function ClientiDetail() {
     patologia_psico_relazionali_altro: false,
     patologia_psico_altro_check: false,
     patologia_psico_altro: '',
-    nessuna_patologia_coach: false,
-    patologia_coach_infortuni: false,
-    patologia_coach_dolori_cronici: false,
-    patologia_coach_limitazioni_articolari: false,
-    patologia_coach_posturali: false,
-    patologia_coach_cardiovascolari: false,
-    patologia_coach_altro_check: false,
-    patologia_coach_altro: '',
     sedute_psicologia_comprate: 0,
     sedute_psicologia_svolte: 0,
   });
@@ -1102,7 +1068,7 @@ function ClientiDetail() {
     if (activeTab === 'coaching' && id) {
       if (coachingSubTab === 'panoramica') {
         fetchStoricoCoaching();
-      } else if (coachingSubTab === 'patologie') {
+      } else if (coachingSubTab === 'anamnesi') {
         fetchAnamnesiCoaching();
       } else if (coachingSubTab === 'diario') {
         fetchDiarioCoaching();
@@ -1311,17 +1277,30 @@ function ClientiDetail() {
   useEffect(() => { setLoomPage(1); }, [patientLoomRecordings, loomSortOrder]);
   useEffect(() => { if (loomPage > loomTotalPages) setLoomPage(loomTotalPages); }, [loomPage, loomTotalPages]);
 
+  // ── Marketing / Trustpilot ──
+  const fetchTrustpilotStatus = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingTrustpilot(true);
+    try {
+      const data = await clientiService.getTrustpilotStatus(id);
+      setTrustpilotData(data);
+    } catch (err) { console.error('Error fetching Trustpilot status:', err); }
+    finally { setLoadingTrustpilot(false); }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') fetchTrustpilotStatus();
+  }, [activeTab, fetchTrustpilotStatus]);
+
   const fetchVideoReviewRequests = useCallback(async () => {
     if (!id || !canUseVideoReviewFlow) return;
     setLoadingVideoReviewRequests(true);
-    setVideoReviewError('');
     try {
       const data = await clientiService.getVideoReviewRequests(id);
       setVideoReviewRequests(Array.isArray(data?.data) ? data.data : []);
     } catch (err) {
       console.error('Error fetching video review requests:', err);
       setVideoReviewRequests([]);
-      setVideoReviewError(err?.response?.data?.description || 'Errore nel caricamento richieste video recensione.');
     } finally {
       setLoadingVideoReviewRequests(false);
     }
@@ -1333,18 +1312,151 @@ function ClientiDetail() {
     }
   }, [activeTab, fetchVideoReviewRequests]);
 
+  const fetchMarketingConsents = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingMarketingConsents(true);
+    try {
+      const [consentsRes, influencersRes] = await Promise.all([
+        clientiService.getMarketingConsents(id),
+        clientiService.listMarketingInfluencers(),
+      ]);
+      const data = consentsRes?.data || {};
+      setMarketingConsents({
+        note_marketing: data.note_marketing || '',
+        usabile_marketing: {
+          checked: Boolean(data?.usabile_marketing?.checked),
+          checked_date: data?.usabile_marketing?.checked_date || '',
+        },
+        contents: {
+          stories: Array.isArray(data?.contents?.stories) ? data.contents.stories : [],
+          carosello: Array.isArray(data?.contents?.carosello) ? data.contents.carosello : [],
+          videofeedback: Array.isArray(data?.contents?.videofeedback) ? data.contents.videofeedback : [],
+        },
+      });
+      setMarketingInfluencers(Array.isArray(influencersRes?.data) ? influencersRes.data : []);
+    } catch (err) {
+      console.error('Error fetching marketing consents:', err);
+    } finally {
+      setLoadingMarketingConsents(false);
+    }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing') {
+      fetchMarketingConsents();
+    }
+  }, [activeTab, fetchMarketingConsents]);
+
+  const handleSaveMarketingConsents = async () => {
+    if (!id) return;
+    setSavingMarketingConsents(true);
+    try {
+      await clientiService.saveMarketingConsents(id, {
+        note_marketing: marketingConsents.note_marketing,
+        usabile_marketing: marketingConsents.usabile_marketing,
+      });
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error saving marketing consents:', err);
+      alert('Errore nel salvataggio dei consensi marketing.');
+    } finally {
+      setSavingMarketingConsents(false);
+    }
+  };
+
+  const openNewMarketingContentModal = (contentType) => {
+    setEditingMarketingContent(null);
+    setMarketingContentForm({
+      content_type: contentType,
+      checked: true,
+      checked_date: new Date().toISOString().split('T')[0],
+      influencer_ids: [],
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const openEditMarketingContentModal = (item) => {
+    setEditingMarketingContent(item);
+    setMarketingContentForm({
+      content_type: item.content_type,
+      checked: Boolean(item.checked),
+      checked_date: item.checked_date || '',
+      influencer_ids: Array.isArray(item.influencers) ? item.influencers.map((i) => i.influencer_id) : [],
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const handleSaveMarketingContent = async () => {
+    if (!id) return;
+    setSavingMarketingConsents(true);
+    try {
+      const payload = {
+        content_type: marketingContentForm.content_type,
+        checked: marketingContentForm.checked,
+        checked_date: marketingContentForm.checked ? (marketingContentForm.checked_date || null) : null,
+        influencer_ids: marketingContentForm.influencer_ids,
+      };
+      if (editingMarketingContent?.id) {
+        await clientiService.updateMarketingContent(editingMarketingContent.id, payload);
+      } else {
+        await clientiService.createMarketingContent(id, payload);
+      }
+      setShowMarketingContentModal(false);
+      setEditingMarketingContent(null);
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error saving marketing content:', err);
+      alert('Errore nel salvataggio del contenuto marketing.');
+    } finally {
+      setSavingMarketingConsents(false);
+    }
+  };
+
+  const handleDeleteMarketingContent = async (contentId) => {
+    if (!window.confirm('Eliminare questo contenuto marketing?')) return;
+    try {
+      await clientiService.deleteMarketingContent(contentId);
+      await fetchMarketingConsents();
+    } catch (err) {
+      console.error('Error deleting marketing content:', err);
+      alert('Errore durante eliminazione contenuto.');
+    }
+  };
+
+  const handleGenerateTrustpilotLink = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('link');
+    try {
+      const result = await clientiService.generateTrustpilotLink(id);
+      const link = result?.data?.trustpilot_link;
+      if (link) await navigator.clipboard.writeText(link);
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error generating Trustpilot link:', err);
+    } finally { setSendingTrustpilotAction(null); }
+  };
+
+  const handleSendTrustpilotInvite = async () => {
+    if (!id) return;
+    setSendingTrustpilotAction('invite');
+    try {
+      await clientiService.sendTrustpilotInvite(id);
+      await fetchTrustpilotStatus();
+    } catch (err) {
+      console.error('Error sending Trustpilot invite:', err);
+    } finally { setSendingTrustpilotAction(null); }
+  };
 
   const handleVideoReviewBooked = async () => {
-    if (!id || !videoReviewBookingDate || !videoReviewBookingTime) return;
+    if (!id) return;
     setSavingVideoReviewAction(true);
-    setVideoReviewError('');
     try {
-      await clientiService.createVideoReviewBooked(id, { booking_date: videoReviewBookingDate, booking_time: videoReviewBookingTime });
+      await clientiService.createVideoReviewBooked(id);
       setShowVideoReviewBookingModal(false);
       await fetchVideoReviewRequests();
     } catch (err) {
       console.error('Error creating video review booking:', err);
-      setVideoReviewError(err?.response?.data?.description || 'Errore nella registrazione della prenotazione.');
+      alert('Errore nella registrazione della prenotazione.');
     } finally {
       setSavingVideoReviewAction(false);
     }
@@ -1359,7 +1471,6 @@ function ClientiDetail() {
   const handleVideoReviewHmConfirm = async () => {
     if (!selectedVideoReviewRequest?.id) return;
     setSavingVideoReviewAction(true);
-    setVideoReviewError('');
     try {
       await clientiService.confirmVideoReviewByHm(selectedVideoReviewRequest.id, videoReviewHmForm);
       setShowVideoReviewConfirmModal(false);
@@ -1368,36 +1479,9 @@ function ClientiDetail() {
       await fetchVideoReviewRequests();
     } catch (err) {
       console.error('Error confirming video review:', err);
-      setVideoReviewError(err?.response?.data?.description || 'Errore nella conferma HM.');
+      alert('Errore nella conferma HM.');
     } finally {
       setSavingVideoReviewAction(false);
-    }
-  };
-
-  const handleExportClinicalFolderPdf = async () => {
-    if (!id) return;
-    setExportingClinicalPdf(true);
-    setMarketingPdfError('');
-    try {
-      const response = await clientiService.exportClinicalFolderPdf(id);
-      const contentDisposition = response?.headers?.['content-disposition'] || '';
-      const filenameMatch = contentDisposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
-      const rawFilename = filenameMatch?.[1] || `cartella_clinica_${id}.pdf`;
-      const filename = decodeURIComponent(rawFilename.replace(/"/g, '').trim());
-
-      const blobUrl = URL.createObjectURL(response.data);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
-    } catch (err) {
-      console.error('Error exporting clinical folder PDF:', err);
-      setMarketingPdfError(err?.response?.data?.description || 'Errore durante l\'export PDF della cartella clinica.');
-    } finally {
-      setExportingClinicalPdf(false);
     }
   };
 
@@ -1407,7 +1491,7 @@ function ClientiDetail() {
     setLoadingCustomerCare(true);
     try {
       const data = await clientiService.getCustomerCareInterventions(id);
-      setCustomerCareInterventions(Array.isArray(data) ? data : data.items || []);
+      setCustomerCareInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching customer care interventions', err); }
     finally { setLoadingCustomerCare(false); }
   }, [id]);
@@ -1417,39 +1501,26 @@ function ClientiDetail() {
     setLoadingCheckIn(true);
     try {
       const data = await clientiService.getCheckInInterventions(id);
-      setCheckInInterventions(Array.isArray(data) ? data : data.items || []);
+      setCheckInInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching check-in interventions', err); }
     finally { setLoadingCheckIn(false); }
   }, [id]);
 
-  const fetchHmControlPanelData = useCallback(async () => {
-    if (!id || !canAccessHmControlPanel) return;
-    setLoadingHmControlPanel(true);
+  const fetchRinnovoInterventions = useCallback(async () => {
+    if (!id) return;
+    setLoadingRinnovo(true);
     try {
-      const response = await clientiService.getHmCoordinatriciClienteDetail(id);
-      setHmControlPanelData(Array.isArray(response?.data) ? response.data[0] || null : null);
-    } catch (err) {
-      console.error('Error fetching HM control panel data', err);
-      setHmControlPanelData(null);
-    } finally {
-      setLoadingHmControlPanel(false);
-    }
-  }, [id, canAccessHmControlPanel]);
+      const data = await clientiService.getRinnovoInterventions(id);
+      setRinnovoInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
+    } catch (err) { console.error('Error fetching rinnovo interventions', err); }
+    finally { setLoadingRinnovo(false); }
+  }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && canAccessHmControlPanel) {
-      fetchHmControlPanelData();
-    }
     if (activeTab === 'health_manager' && healthManagerSubTab === 'customer_care') fetchCustomerCareInterventions();
     if (activeTab === 'health_manager' && healthManagerSubTab === 'check_in') fetchCheckInInterventions();
-  }, [activeTab, healthManagerSubTab, canAccessHmControlPanel, fetchCustomerCareInterventions, fetchCheckInInterventions, fetchHmControlPanelData]);
-
-   // Reset health manager subtab if user doesn't have permission
-   useEffect(() => {
-     if (activeTab === 'health_manager' && healthManagerSubTab === 'pannello_controllo' && !canAccessHmControlPanel) {
-       setHealthManagerSubTab('onboarding');
-     }
-   }, [activeTab, healthManagerSubTab, canAccessHmControlPanel]);
+    if (activeTab === 'health_manager' && healthManagerSubTab === 'rinnovo') fetchRinnovoInterventions();
+  }, [activeTab, healthManagerSubTab, fetchCustomerCareInterventions, fetchCheckInInterventions, fetchRinnovoInterventions]);
 
   // Sync onboarding draft when cliente loads
   useEffect(() => {
@@ -1478,17 +1549,23 @@ function ClientiDetail() {
         if (hmInterventionType === 'customer_care') {
           await clientiService.updateCustomerCareIntervention(editingInterventionId, hmInterventionForm);
           fetchCustomerCareInterventions();
-        } else {
+        } else if (hmInterventionType === 'check_in') {
           await clientiService.updateCheckInIntervention(editingInterventionId, hmInterventionForm);
           fetchCheckInInterventions();
+        } else {
+          await clientiService.updateRinnovoIntervention(editingInterventionId, hmInterventionForm);
+          fetchRinnovoInterventions();
         }
       } else {
         if (hmInterventionType === 'customer_care') {
           await clientiService.createCustomerCareIntervention(id, hmInterventionForm);
           fetchCustomerCareInterventions();
-        } else {
+        } else if (hmInterventionType === 'check_in') {
           await clientiService.createCheckInIntervention(id, hmInterventionForm);
           fetchCheckInInterventions();
+        } else {
+          await clientiService.createRinnovoIntervention(id, hmInterventionForm);
+          fetchRinnovoInterventions();
         }
       }
       setShowHmInterventionModal(false);
@@ -1503,9 +1580,12 @@ function ClientiDetail() {
       if (type === 'customer_care') {
         await clientiService.deleteCustomerCareIntervention(interventionId);
         fetchCustomerCareInterventions();
-      } else {
+      } else if (type === 'check_in') {
         await clientiService.deleteCheckInIntervention(interventionId);
         fetchCheckInInterventions();
+      } else {
+        await clientiService.deleteRinnovoIntervention(interventionId);
+        fetchRinnovoInterventions();
       }
     } catch (err) { console.error('Error deleting intervention', err); }
   };
@@ -1581,26 +1661,10 @@ function ClientiDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'richieste_call') {
+    if (activeTab === 'call_bonus') {
       fetchCallBonusHistory();
-      fetchCallRinnovoHistory();
-      fetchVideoReviewRequests();
     }
   }, [activeTab, fetchCallBonusHistory]);
-
-  // Fetch Call Rinnovo History
-  const fetchCallRinnovoHistory = useCallback(async () => {
-    if (!id) return;
-    setLoadingCallRinnovo(true);
-    try {
-      const result = await clientiService.getCallRinnovoHistory(id);
-      setCallRinnovoHistory(result.data || []);
-    } catch (err) {
-      console.error('Error fetching call rinnovo history:', err);
-    } finally {
-      setLoadingCallRinnovo(false);
-    }
-  }, [id]);
 
   // ── Call Bonus Handlers ──
   const handleOpenCallBonusModal = () => {
@@ -1692,69 +1756,6 @@ function ClientiDetail() {
       alert('Errore nella conferma interesse. Riprova.');
     } finally {
       setConfirmingBooking(false);
-    }
-  };
-
-  // ── Call Rinnovo Handlers ──
-  const handleOpenCallRinnovoModal = () => {
-    setCallRinnovoForm({ tipo_professionista: '', note_richiesta: '' });
-    setShowCallRinnovoModal(true);
-  };
-
-  const handleCreateCallRinnovo = async () => {
-    if (!callRinnovoForm.tipo_professionista) return;
-    setSavingCallRinnovo(true);
-    try {
-      await clientiService.createCallRinnovoRequest(id, callRinnovoForm);
-      setShowCallRinnovoModal(false);
-      fetchCallRinnovoHistory();
-    } catch (err) {
-      console.error('Error creating call rinnovo:', err);
-      alert('Errore nella creazione della richiesta. Riprova.');
-    } finally {
-      setSavingCallRinnovo(false);
-    }
-  };
-
-  const handleAcceptCallRinnovo = async (callRinnovoId) => {
-    try {
-      await clientiService.acceptCallRinnovo(callRinnovoId);
-      fetchCallRinnovoHistory();
-    } catch (err) {
-      console.error('Error accepting call rinnovo:', err);
-      alert('Errore nell\'accettazione. Riprova.');
-    }
-  };
-
-  const handleDeclineCallRinnovo = async (callRinnovoId) => {
-    try {
-      await clientiService.declineCallRinnovo(callRinnovoId);
-      fetchCallRinnovoHistory();
-    } catch (err) {
-      console.error('Error declining call rinnovo:', err);
-      alert('Errore nel rifiuto. Riprova.');
-    }
-  };
-
-  const handleOpenCallRinnovoConfirm = (item) => {
-    setSelectedCallRinnovo(item);
-    setCallRinnovoConfirmForm({ note_hm: '' });
-    setShowCallRinnovoConfirmModal(true);
-  };
-
-  const handleConfirmCallRinnovo = async () => {
-    if (!selectedCallRinnovo) return;
-    setSavingCallRinnovo(true);
-    try {
-      await clientiService.confirmCallRinnovo(selectedCallRinnovo.id, callRinnovoConfirmForm);
-      setShowCallRinnovoConfirmModal(false);
-      setSelectedCallRinnovo(null);
-      fetchCallRinnovoHistory();
-    } catch (err) {
-      console.error('Error confirming call rinnovo:', err);
-      alert('Errore nella conferma. Riprova.');
-    } finally {
-      setSavingCallRinnovo(false);
     }
   };
 
@@ -2893,14 +2894,6 @@ function ClientiDetail() {
       patologia_psico_relazionali_altro: c.patologia_psico_relazionali_altro || false,
       patologia_psico_altro_check: c.patologia_psico_altro_check || c.patologiaPsicoAltroCheck || (!!c.patologia_psico_altro) || false,
       patologia_psico_altro: c.patologia_psico_altro || c.patologiaPsicoAltro || '',
-      nessuna_patologia_coach: c.nessuna_patologia_coach || c.nessunaPatologiaCoach || false,
-      patologia_coach_infortuni: c.patologia_coach_infortuni || c.patologiaCoachInfortuni || false,
-      patologia_coach_dolori_cronici: c.patologia_coach_dolori_cronici || c.patologiaCoachDoloriCronici || false,
-      patologia_coach_limitazioni_articolari: c.patologia_coach_limitazioni_articolari || c.patologiaCoachLimitazioniArticolari || false,
-      patologia_coach_posturali: c.patologia_coach_posturali || c.patologiaCoachPosturali || false,
-      patologia_coach_cardiovascolari: c.patologia_coach_cardiovascolari || c.patologiaCoachCardiovascolari || false,
-      patologia_coach_altro_check: c.patologia_coach_altro_check || c.patologiaCoachAltroCheck || (!!c.patologia_coach_altro) || false,
-      patologia_coach_altro: c.patologia_coach_altro || c.patologiaCoachAltro || '',
       sedute_psicologia_comprate: c.sedute_psicologia_comprate ?? 0,
       sedute_psicologia_svolte: c.sedute_psicologia_svolte ?? 0,
     });
@@ -2932,30 +2925,6 @@ function ClientiDetail() {
   const handleInputChange = (field, value) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
-
-      if (field === 'nessuna_patologia_coach' && value) {
-        updated.patologia_coach_infortuni = false;
-        updated.patologia_coach_dolori_cronici = false;
-        updated.patologia_coach_limitazioni_articolari = false;
-        updated.patologia_coach_posturali = false;
-        updated.patologia_coach_cardiovascolari = false;
-        updated.patologia_coach_altro_check = false;
-        updated.patologia_coach_altro = '';
-      }
-
-      if (
-        [
-          'patologia_coach_infortuni',
-          'patologia_coach_dolori_cronici',
-          'patologia_coach_limitazioni_articolari',
-          'patologia_coach_posturali',
-          'patologia_coach_cardiovascolari',
-          'patologia_coach_altro_check',
-        ].includes(field) && value
-      ) {
-        updated.nessuna_patologia_coach = false;
-      }
-
       // Auto-calculate data_rinnovo
       if (field === 'data_inizio_abbonamento' || field === 'durata_programma_giorni') {
         const dataInizio = field === 'data_inizio_abbonamento' ? value : prev.data_inizio_abbonamento;
@@ -3081,10 +3050,10 @@ function ClientiDetail() {
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
     { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
-    { id: 'richieste_call', label: 'Richieste Call', icon: 'ri-phone-line' },
+    { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
     ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
-    if (isInfluencer && (tab.id === 'tickets' || tab.id === 'richieste_call')) return false;
+    if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
     return getAllowedMainTabsForUser().has(tab.id);
   });
 
@@ -3119,31 +3088,58 @@ function ClientiDetail() {
 
   if (!cliente) return null;
 
+  const computeRemainingDaysFromDate = (renewalDate) => {
+    if (!renewalDate) return null;
+    const target = new Date(renewalDate);
+    if (Number.isNaN(target.getTime())) return null;
+    const today = new Date();
+    target.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    const diffMs = target.getTime() - today.getTime();
+    return Math.round(diffMs / (1000 * 60 * 60 * 24));
+  };
+
   // Normalize data
   const c = {
-    id: cliente.cliente_id || cliente.clienteId,
-    nome: cliente.nome_cognome || cliente.nomeCognome,
-    statoCliente: cliente.stato_cliente || cliente.statoCliente || 'ghost',
-    alert: cliente.alert,
-    programma: cliente.programma_attuale || cliente.programmaAttuale,
-    tipologia: cliente.tipologia_cliente || cliente.tipologiaCliente,
-    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione || cliente.tipologiaSupportoNutrizione,
-    tipologiaSupportoCoach: cliente.tipologia_supporto_coach || cliente.tipologiaSupportoCoach,
-    dataInizio: cliente.data_inizio_abbonamento || cliente.dataInizioAbbonamento,
-    dataRinnovo: cliente.data_rinnovo || cliente.dataRinnovo,
-    giorniRimanenti: cliente.giorni_rimanenti_calcolati || cliente.giorniRimanentiCalcolati,
-    nutrizionistiMultipli: cliente.nutrizionisti_multipli || cliente.nutrizionistiMultipli || [],
-    coachesMultipli: cliente.coaches_multipli || cliente.coachesMultipli || [],
-    psicologiMultipli: cliente.psicologi_multipli || cliente.psicologiMultipli || [],
+    id: cliente.cliente_id ?? cliente.clienteId ?? null,
+    nome: cliente.nome_cognome ?? cliente.nomeCognome ?? '',
+    email: cliente.mail ?? cliente.email ?? formData.mail ?? '',
+    dataDiNascita: cliente.data_di_nascita ?? cliente.dataDiNascita ?? formData.data_di_nascita ?? '',
+    statoCliente: cliente.stato_cliente ?? cliente.statoCliente ?? 'ghost',
+    alert: Boolean(cliente.alert),
+    programma: cliente.programma_attuale ?? cliente.programmaAttuale ?? '',
+    tipologia: cliente.tipologia_cliente ?? cliente.tipologiaCliente ?? '',
+    tipologiaSupportoNutrizione: cliente.tipologia_supporto_nutrizione ?? cliente.tipologiaSupportoNutrizione ?? '',
+    tipologiaSupportoCoach: cliente.tipologia_supporto_coach ?? cliente.tipologiaSupportoCoach ?? '',
+    dataInizio: cliente.data_inizio_abbonamento ?? cliente.dataInizioAbbonamento ?? null,
+    dataRinnovo: cliente.data_rinnovo ?? cliente.dataRinnovo ?? null,
+    giorniRimanenti: cliente.giorni_rimanenti_calcolati ?? cliente.giorniRimanentiCalcolati ?? null,
+    nutrizionistiMultipli: cliente.nutrizionisti_multipli ?? cliente.nutrizionistiMultipli ?? [],
+    coachesMultipli: cliente.coaches_multipli ?? cliente.coachesMultipli ?? [],
+    psicologiMultipli: cliente.psicologi_multipli ?? cliente.psicologiMultipli ?? [],
     nutrizionista: cliente.nutrizionista,
     coach: cliente.coach,
     psicologa: cliente.psicologa,
     // Team Esterno
-    healthManagerUser: cliente.health_manager_user || cliente.healthManagerUser,
-    personalConsultant: cliente.personal_consultant || cliente.personalConsultant,
+    healthManagerUser: cliente.health_manager_user ?? cliente.healthManagerUser ?? null,
+    personalConsultant: cliente.personal_consultant ?? cliente.personalConsultant ?? null,
   };
 
-  const age = calculateAge(formData.data_di_nascita);
+  const age = calculateAge(c.dataDiNascita);
+  const hmAssignment = getActiveProfessionals('health_manager')[0];
+  const healthManagerUser = c.healthManagerUser || (hmAssignment && {
+    id: hmAssignment.professionista_id,
+    full_name: hmAssignment.professionista_nome,
+    email: hmAssignment.professionista_email,
+    avatar_path: hmAssignment.avatar_path,
+  });
+  const remainingDays = c.giorniRimanenti ?? computeRemainingDaysFromDate(c.dataRinnovo);
+  const hasAssignedTeam = Boolean(
+    healthManagerUser ||
+    c.nutrizionistiMultipli?.length ||
+    c.coachesMultipli?.length ||
+    c.psicologiMultipli?.length,
+  );
   const statusGradient = STATUS_GRADIENTS[c.statoCliente] || STATUS_GRADIENTS.ghost;
   const statusColor = STATUS_COLORS[c.statoCliente] || 'secondary';
 
@@ -3259,7 +3255,7 @@ function ClientiDetail() {
             <div className="cd-profile-body">
               <h4 className="cd-profile-name">{c.nome}</h4>
               <p className="cd-profile-email">
-                {formData.mail || 'Nessuna email'}
+                {c.email || 'Nessuna email'}
               </p>
 
               {/* Badges */}
@@ -3285,7 +3281,7 @@ function ClientiDetail() {
               <div className="cd-stats-grid">
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">ID Paziente</div>
-                  <div className="cd-stat-box-value">#{c.id}</div>
+                  <div className="cd-stat-box-value">{c.id ? `#${c.id}` : '-'}</div>
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Età</div>
@@ -3293,7 +3289,7 @@ function ClientiDetail() {
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Giorni Rimanenti</div>
-                  <div className="cd-stat-box-value">{c.giorniRimanenti || '-'}</div>
+                  <div className="cd-stat-box-value">{remainingDays ?? '-'}</div>
                 </div>
                 <div className="cd-stat-box">
                   <div className="cd-stat-box-label">Rinnovo</div>
@@ -3307,17 +3303,7 @@ function ClientiDetail() {
               <div className="cd-team-section-title">Team Assegnato</div>
               <div>
                 {/* Health Manager */}
-                {(() => {
-                  const hmAssignment = getActiveProfessionals('health_manager')[0];
-                  const hmUser = c.healthManagerUser || formData.healthManagerUser || (hmAssignment && {
-                    id: hmAssignment.professionista_id,
-                    full_name: hmAssignment.professionista_nome,
-                    email: hmAssignment.professionista_email,
-                    avatar_path: hmAssignment.avatar_path,
-                  });
-                  if (!hmUser) return null;
-
-                  return (
+                {healthManagerUser && (
                     <div className="cd-team-group">
                       <div className="cd-team-group-header">
                         <div className="cd-team-icon health-manager">
@@ -3326,9 +3312,9 @@ function ClientiDetail() {
                         <span className="cd-team-group-label">Health Manager</span>
                       </div>
                       <div className="cd-team-member">
-                        {hmUser.avatar_path ? (
+                        {healthManagerUser.avatar_path ? (
                           <img
-                            src={hmUser.avatar_path}
+                            src={healthManagerUser.avatar_path}
                             alt=""
                             className="cd-team-member-avatar"
                           />
@@ -3337,7 +3323,7 @@ function ClientiDetail() {
                             className="cd-team-member-initials"
                             style={{ background: '#9333ea' }}
                           >
-                            {(hmUser.full_name || hmUser.email || '??')
+                            {(healthManagerUser.full_name || healthManagerUser.email || '??')
                               .split(' ')
                               .map(n => n[0])
                               .join('')
@@ -3346,12 +3332,11 @@ function ClientiDetail() {
                           </div>
                         )}
                         <span className="cd-team-member-name">
-                          {hmUser.full_name || hmUser.email}
+                          {healthManagerUser.full_name || healthManagerUser.email}
                         </span>
                       </div>
                     </div>
-                  );
-                })()}
+                )}
 
                 {/* Nutrizionisti */}
                 {c.nutrizionistiMultipli?.length > 0 && (
@@ -3447,7 +3432,7 @@ function ClientiDetail() {
                 )}
 
                 {/* Nessun professionista */}
-                {!c.healthManagerUser && !c.nutrizionistiMultipli?.length && !c.coachesMultipli?.length && !c.psicologiMultipli?.length && (
+                {!hasAssignedTeam && (
                   <div className="cd-team-empty">Nessun professionista assegnato</div>
                 )}
               </div>
@@ -4405,14 +4390,15 @@ function ClientiDetail() {
               {/* ========== HEALTH MANAGER TAB ========== */}
               {activeTab === 'health_manager' && (
                 <div>
-                    {/* Sub-tabs */}
-                    <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-                      {[
-                        { key: 'pannello_controllo', label: 'Pannello di controllo', icon: 'ri-dashboard-line' },
-                        { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
-                        { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
-                        { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
-                      ].filter((st) => st.key !== 'pannello_controllo' || canAccessHmControlPanel).map((st) => (
+                  {/* Sub-tabs */}
+                  <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                    {[
+                      { key: 'onboarding', label: 'Call Onboarding', icon: 'ri-user-add-line' },
+                      { key: 'customer_care', label: 'Call Customer Care', icon: 'ri-customer-service-2-line' },
+                      { key: 'check_in', label: 'Call Check-in', icon: 'ri-phone-line' },
+                      { key: 'rinnovo', label: 'Call Rinnovo', icon: 'ri-phone-lock-line' },
+                      { key: 'referral', label: 'Call Referral', icon: 'ri-gift-line' },
+                    ].map((st) => (
                       <button
                         key={st.key}
                         type="button"
@@ -4430,73 +4416,12 @@ function ClientiDetail() {
                     ))}
                   </div>
 
-                   {/* ── Pannello di Controllo sub-tab ── */}
-                   {healthManagerSubTab === 'pannello_controllo' && (
-                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
-                       <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
-                         <i className="ri-dashboard-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                         Pannello di Controllo
-                       </h6>
-                       {loadingHmControlPanel ? (
-                         <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
-                       ) : !hmControlPanelData ? (
-                         <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
-                           <i className="ri-dashboard-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
-                           Nessun dato disponibile per questo paziente
-                         </div>
-                       ) : (
-                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                           {[
-                             { label: 'Nome cliente', value: hmControlPanelData.nome_cognome || '—' },
-                             { label: 'Health Manager', value: hmControlPanelData.health_manager_name || '—' },
-                             { label: 'Data onboarding', value: hmControlPanelData.onboarding_date ? new Date(hmControlPanelData.onboarding_date).toLocaleDateString('it-IT') : '—' },
-                             { label: 'Data inizio percorso', value: hmControlPanelData.path_start_date ? new Date(hmControlPanelData.path_start_date).toLocaleDateString('it-IT') : '—' },
-                             { label: 'Data fine percorso', value: hmControlPanelData.path_end_date ? new Date(hmControlPanelData.path_end_date).toLocaleDateString('it-IT') : '—' },
-                             { label: 'Data check-in call', value: hmControlPanelData.check_in_call_date ? new Date(hmControlPanelData.check_in_call_date).toLocaleDateString('it-IT') : '—' },
-                             { label: 'Data call rinnovo', value: hmControlPanelData.renewal_call_date ? new Date(hmControlPanelData.renewal_call_date).toLocaleDateString('it-IT') : '—' },
-                           ].map((item) => (
-                             <div key={item.label} style={{ padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, background: '#f8fafc' }}>
-                               <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 6 }}>{item.label}</div>
-                               <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>{item.value}</div>
-                             </div>
-                           ))}
-                           {[
-                             ['Check-in', 'check_in_completed'],
-                             ['Contattato per il rinnovo', 'contacted_for_renewal'],
-                             ['Rinnovo', 'renewal_completed'],
-                             ['Contattato per review', 'contacted_for_review'],
-                             ['Review', 'review_completed'],
-                           ].map(([label, key]) => {
-                             const value = Boolean(hmControlPanelData.flags?.[key]);
-                             const isMock = Boolean(hmControlPanelData.flags_mocked?.[key]);
-                             return (
-                               <div key={key} style={{ padding: 16, border: '1px solid #e2e8f0', borderRadius: 12, background: '#fff' }}>
-                                 <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginBottom: 10 }}>{label}</div>
-                                 <span style={{
-                                   display: 'inline-block',
-                                   padding: '6px 12px',
-                                   borderRadius: 999,
-                                   background: value ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.18)',
-                                   color: value ? '#166534' : '#64748b',
-                                   fontWeight: 700,
-                                   fontSize: 12,
-                                 }}>
-                                   {value ? 'SI' : 'NO'}{isMock ? ' (mock)' : ''}
-                                 </span>
-                               </div>
-                             );
-                           })}
-                         </div>
-                       )}
-                     </div>
-                   )}
-
-                   {/* ── Onboarding sub-tab ── */}
+                  {/* ── Onboarding sub-tab ── */}
                   {healthManagerSubTab === 'onboarding' && (
                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
                       <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
                         <i className="ri-user-add-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                        Onboarding Paziente
+                        Call Onboarding Paziente
                       </h6>
                       <div className="mb-3">
                         <label className="form-label fw-semibold">Note Criticita Iniziali</label>
@@ -4544,7 +4469,7 @@ function ClientiDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h6 style={{ fontWeight: 700, margin: 0 }}>
                           <i className="ri-customer-service-2-line" style={{ marginRight: 8, color: '#f59e0b' }}></i>
-                          Interventi Customer Care
+                          Interventi Call Customer Care
                         </h6>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('customer_care')}>
                           <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
@@ -4596,7 +4521,7 @@ function ClientiDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h6 style={{ fontWeight: 700, margin: 0 }}>
                           <i className="ri-phone-line" style={{ marginRight: 8, color: '#6366f1' }}></i>
-                          Interventi Check-in
+                          Interventi Call Check-in
                         </h6>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('check_in')}>
                           <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
@@ -4607,7 +4532,7 @@ function ClientiDetail() {
                       ) : checkInInterventions.length === 0 ? (
                         <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
                           <i className="ri-phone-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
-                          Nessun intervento check-in registrato
+                          Nessun intervento call check-in registrato
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -4642,6 +4567,124 @@ function ClientiDetail() {
                     </div>
                   )}
 
+                  {/* ── Rinnovo sub-tab ── */}
+                  {healthManagerSubTab === 'rinnovo' && (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <h6 style={{ fontWeight: 700, margin: 0 }}>
+                          <i className="ri-phone-lock-line" style={{ marginRight: 8, color: '#8b5cf6' }}></i>
+                          Interventi Call Rinnovo
+                        </h6>
+                        <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('rinnovo')}>
+                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                        </button>
+                      </div>
+                      {loadingRinnovo ? (
+                        <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                      ) : rinnovoInterventions.length === 0 ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-phone-lock-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun intervento call rinnovo registrato
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {rinnovoInterventions.map((intervention) => (
+                            <div key={intervention.id} style={{ padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                <div>
+                                  <span style={{ fontSize: 12, color: '#94a3b8' }}>{intervention.intervention_date}</span>
+                                  {intervention.created_by_name && (
+                                    <span style={{ fontSize: 12, color: '#94a3b8', marginLeft: 12 }}>— {intervention.created_by_name}</span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: 6 }}>
+                                  <button type="button" className="btn btn-outline-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => openEditHmIntervention(intervention, 'rinnovo')}>
+                                    <i className="ri-edit-line"></i>
+                                  </button>
+                                  <button type="button" className="btn btn-outline-danger btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleDeleteHmIntervention(intervention.id, 'rinnovo')}>
+                                    <i className="ri-delete-bin-line"></i>
+                                  </button>
+                                </div>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 14, whiteSpace: 'pre-wrap' }}>{intervention.notes}</p>
+                              {intervention.loom_link && (
+                                <a href={intervention.loom_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#6366f1', marginTop: 6, display: 'inline-block' }}>
+                                  <i className="ri-video-line" style={{ marginRight: 4 }}></i>Video Loom
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Referral sub-tab ── */}
+                  {healthManagerSubTab === 'referral' && (
+                    <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
+                      <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
+                        <i className="ri-gift-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
+                        Call Referral Bonus
+                      </h6>
+                      <div className="row">
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus Scelto</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. Sconto 10%"
+                            value={cliente.referral_bonus_scelto || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_scelto: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_scelto', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus Scelto'));
+                            }}
+                          />
+                        </div>
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus Utilizzato</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. 1 mese"
+                            value={cliente.referral_bonus_utilizzato || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_utilizzato: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_utilizzato', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus Utilizzato'));
+                            }}
+                          />
+                        </div>
+                        <div className="col-md-4 mb-3">
+                          <label className="form-label fw-semibold">Bonus ancora da utilizzare</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            placeholder="Es. 2 mesi"
+                            value={cliente.referral_bonus_da_utilizzare || ''}
+                            onChange={(e) => setCliente(prev => ({ ...prev, referral_bonus_da_utilizzare: e.target.value }))}
+                            onBlur={(e) => {
+                              clientiService.updateField(cliente.cliente_id, 'referral_bonus_da_utilizzare', e.target.value)
+                                .then(() => {
+                                  setSaveSuccess(true);
+                                  setTimeout(() => setSaveSuccess(false), 3000);
+                                })
+                                .catch(() => alert('Errore nel salvataggio del Bonus da utilizzare'));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* ── Modal Nuovo/Modifica Intervento ── */}
                   {showHmInterventionModal && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.4)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -4649,7 +4692,13 @@ function ClientiDetail() {
                       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,.15)' }}
                         onClick={(e) => e.stopPropagation()}>
                         <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
-                          {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {hmInterventionType === 'customer_care' ? 'Customer Care' : 'Check-in'}
+                          {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {
+                            hmInterventionType === 'customer_care'
+                              ? 'Call Customer Care'
+                              : hmInterventionType === 'check_in'
+                                ? 'Call Check-in'
+                                : 'Call Rinnovo'
+                          }
                         </h6>
                         <div className="mb-3">
                           <label className="form-label fw-semibold">Data</label>
@@ -5735,7 +5784,7 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
-                          { key: 'patologie', label: 'Patologie', icon: 'ri-heart-pulse-line', color: 'red' },
+                          { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: 'red' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
                           { key: 'vecchie_note', label: 'Vecchie Note', icon: 'ri-archive-line', color: 'secondary' },
@@ -6449,22 +6498,22 @@ function ClientiDetail() {
                     </div>
                   )}
 
-                  {/* ===== PATOLOGIE SUB-TAB (Coaching) ===== */}
-                  {coachingSubTab === 'patologie' && (
-                    <div data-tour="coaching-patologie">
+                  {/* ===== ANAMNESI SUB-TAB (Coaching) ===== */}
+                  {coachingSubTab === 'anamnesi' && (
+                    <div>
                       <div className="cd-sections">
                       <div>
                         <div className="cd-section-title">
-                          Patologie Coaching
+                          Anamnesi Coaching
                         </div>
                         <div className="cd-inner-card">
                           <div className="cd-inner-card-body">
                             <div className="cd-inner-card-header-row">
                               <div className="cd-inner-card-header-left">
                                 <div className="cd-icon-circle orange">
-                                  <i className="ri-heart-pulse-line"></i>
+                                  <i className="ri-file-list-3-line"></i>
                                 </div>
-                                <span className="cd-inner-card-title">Patologie e Anamnesi Coach</span>
+                                <span className="cd-inner-card-title">Anamnesi Coach</span>
                               </div>
                               <button
                                 className="cd-btn-save"
@@ -6486,68 +6535,6 @@ function ClientiDetail() {
                               </div>
                             ) : (
                               <>
-                                <div className="cd-field" style={{ marginBottom: 16 }}>
-                                  <div className="row g-2">
-                                    <div className="col-12">
-                                      <div className="form-check">
-                                        <input
-                                          type="checkbox"
-                                          className="form-check-input"
-                                          id="nessuna_patologia_coach"
-                                          checked={formData.nessuna_patologia_coach || false}
-                                          onChange={(e) => handleInputChange('nessuna_patologia_coach', e.target.checked)}
-                                        />
-                                        <label className="form-check-label" htmlFor="nessuna_patologia_coach">Nessuna patologia</label>
-                                      </div>
-                                    </div>
-
-                                    {[
-                                      ['patologia_coach_infortuni', 'Infortuni pregressi'],
-                                      ['patologia_coach_dolori_cronici', 'Dolori cronici'],
-                                      ['patologia_coach_limitazioni_articolari', 'Limitazioni articolari'],
-                                      ['patologia_coach_posturali', 'Problematiche posturali'],
-                                      ['patologia_coach_cardiovascolari', 'Problematiche cardiovascolari'],
-                                    ].map(([field, label]) => (
-                                      <div className="col-md-6" key={field}>
-                                        <div className="form-check">
-                                          <input
-                                            type="checkbox"
-                                            className="form-check-input"
-                                            id={field}
-                                            checked={formData[field] || false}
-                                            onChange={(e) => handleInputChange(field, e.target.checked)}
-                                          />
-                                          <label className="form-check-label" htmlFor={field}>{label}</label>
-                                        </div>
-                                      </div>
-                                    ))}
-
-                                    <div className="col-12">
-                                      <div className="form-check">
-                                        <input
-                                          type="checkbox"
-                                          className="form-check-input"
-                                          id="patologia_coach_altro_check"
-                                          checked={formData.patologia_coach_altro_check || false}
-                                          onChange={(e) => handleInputChange('patologia_coach_altro_check', e.target.checked)}
-                                        />
-                                        <label className="form-check-label" htmlFor="patologia_coach_altro_check">Altro</label>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  {formData.patologia_coach_altro_check && (
-                                    <div className="mt-2">
-                                      <textarea
-                                        className="cd-input"
-                                        rows={2}
-                                        placeholder="Specifica patologie/limitazioni aggiuntive"
-                                        value={formData.patologia_coach_altro || ''}
-                                        onChange={(e) => handleInputChange('patologia_coach_altro', e.target.value)}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-
                                 <div className="cd-field">
                                   <textarea
                                     className="cd-textarea"
@@ -8231,443 +8218,128 @@ function ClientiDetail() {
                 <div>
                   <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
                     <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                    Marketing
+                    Marketing — Trustpilot
                   </h5>
 
-                  <ScrollableSubtabs style={{ marginBottom: 20 }}>
-                    <button
-                      className={`cd-subtab ${marketingSubTab === 'video_review' ? 'active green' : ''}`}
-                      onClick={() => setMarketingSubTab('video_review')}
-                    >
-                      <i className="ri-video-line"></i>
-                      Video Recensione
-                    </button>
-                    <button
-                      className={`cd-subtab ${marketingSubTab === 'export_pdf' ? 'active green' : ''}`}
-                      onClick={() => setMarketingSubTab('export_pdf')}
-                    >
-                      <i className="ri-file-pdf-line"></i>
-                      Export Cartella PDF
-                    </button>
-                  </ScrollableSubtabs>
+                  <div style={{ marginBottom: 24, padding: 16, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                      <div style={{ fontWeight: 700 }}>
+                        <i className="ri-shield-check-line" style={{ marginRight: 6, color: '#25B36A' }}></i>
+                        Consensi Marketing
+                      </div>
+                      <button className="btn btn-success btn-sm" onClick={handleSaveMarketingConsents} disabled={savingMarketingConsents}>
+                        {savingMarketingConsents ? 'Salvataggio...' : 'Salva Consensi'}
+                      </button>
+                    </div>
 
-                  {marketingSubTab === 'video_review' && canUseVideoReviewFlow && (
+                    {loadingMarketingConsents ? (
+                      <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                    ) : (
+                      <>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Note Marketing</label>
+                          <textarea
+                            className="form-control"
+                            rows={3}
+                            value={marketingConsents.note_marketing || ''}
+                            onChange={(e) => setMarketingConsents((prev) => ({ ...prev, note_marketing: e.target.value }))}
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <div className="form-check form-switch">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              id="marketing-usabile-check"
+                              checked={Boolean(marketingConsents?.usabile_marketing?.checked)}
+                              onChange={(e) =>
+                                setMarketingConsents((prev) => ({
+                                  ...prev,
+                                  usabile_marketing: {
+                                    checked: e.target.checked,
+                                    checked_date: e.target.checked
+                                      ? (prev?.usabile_marketing?.checked_date || new Date().toISOString().split('T')[0])
+                                      : '',
+                                  },
+                                }))
+                              }
+                            />
+                            <label className="form-check-label" htmlFor="marketing-usabile-check">Usabile per marketing</label>
+                          </div>
+                        </div>
+
+                        {[
+                          { key: 'stories', label: 'Stories Editate', icon: 'ri-instagram-line' },
+                          { key: 'carosello', label: 'Carosello Editato', icon: 'ri-layout-grid-line' },
+                          { key: 'videofeedback', label: 'Videofeedback Editato', icon: 'ri-video-line' },
+                        ].map((section) => (
+                          <div key={section.key} style={{ marginTop: 18 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                              <h6 style={{ margin: 0, fontWeight: 700 }}>
+                                <i className={section.icon} style={{ marginRight: 6 }}></i>{section.label}
+                              </h6>
+                              <button className="btn btn-outline-success btn-sm" onClick={() => openNewMarketingContentModal(section.key)}>
+                                <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                              </button>
+                            </div>
+                            {!marketingConsents?.contents?.[section.key]?.length ? (
+                              <div style={{ fontSize: 13, color: '#94a3b8', padding: '8px 0' }}>Nessuna registrazione.</div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {marketingConsents.contents[section.key].map((item) => (
+                                  <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 10, background: '#f8fafc' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                      <div style={{ fontSize: 13 }}>
+                                        <strong>{item.checked ? 'Editato' : 'Non editato'}</strong>
+                                        <span style={{ marginLeft: 10, color: '#64748b' }}>{item.checked_date || 'Data non indicata'}</span>
+                                        <div style={{ color: '#64748b', marginTop: 4 }}>
+                                          {(item.influencers || []).map((x) => x.name).join(', ') || 'Nessun profilo influencer'}
+                                        </div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: 6 }}>
+                                        <button className="btn btn-outline-secondary btn-sm" onClick={() => openEditMarketingContentModal(item)}>
+                                          <i className="ri-edit-line"></i>
+                                        </button>
+                                        <button className="btn btn-outline-danger btn-sm" onClick={() => handleDeleteMarketingContent(item.id)}>
+                                          <i className="ri-delete-bin-line"></i>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+
+                  {canUseVideoReviewFlow && (
                     <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
                         <div>
                           <div style={{ fontWeight: 700, marginBottom: 4 }}>
                             <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
-                            Video Recensioni Completate
+                            Video Recensione con HM
                           </div>
                           <div style={{ fontSize: 13, color: '#64748b' }}>
-                            Solo le video recensioni completate con link Loom sono visualizzate qui.
+                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
                           </div>
-                        </div>
-                      </div>
-
-                      {videoReviewError && (
-                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
-                          {videoReviewError}
-                        </div>
-                      )}
-
-                      {loadingVideoReviewRequests ? (
-                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
-                      ) : (
-                        <>
-                          {(() => {
-                            const completedVideoReviews = videoReviewRequests
-                              .filter(item => item.status === 'hm_confirmed' && item.loom_link);
-                            return completedVideoReviews.length === 0 ? (
-                              <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna video recensione completata.</div>
-                            ) : (
-                              <div style={{ overflowX: 'auto' }}>
-                                <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
-                                  <thead>
-                                    <tr>
-                                      <th>HM</th>
-                                      <th>Data conferma</th>
-                                      <th>Link Loom</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {completedVideoReviews.map((item) => (
-                                      <tr key={item.id}>
-                                        <td>{item.hm_name || '—'}</td>
-                                        <td>{item.hm_confirmed_at ? new Date(item.hm_confirmed_at).toLocaleDateString('it-IT') : '—'}</td>
-                                        <td>
-                                          {item.loom_link ? (
-                                            <a href={item.loom_link} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-primary">
-                                              <i className="ri-external-link-line me-1"></i>Apri Loom
-                                            </a>
-                                          ) : '—'}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            );
-                          })()}
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {marketingSubTab === 'video_review' && !canUseVideoReviewFlow && (
-                    <div className="alert alert-warning">
-                      Non hai i permessi per gestire le video recensioni per questo paziente.
-                    </div>
-                  )}
-
-                  {marketingSubTab === 'export_pdf' && (
-                    <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                        <i className="ri-file-pdf-line" style={{ marginRight: 6, color: '#ef4444' }}></i>
-                        Export cartella clinica in PDF
-                      </div>
-                      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
-                        Il PDF include tutte le sezioni principali della cartella clinica del paziente.
-                      </div>
-                      {marketingPdfError && (
-                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
-                          {marketingPdfError}
-                        </div>
-                      )}
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={handleExportClinicalFolderPdf}
-                        disabled={exportingClinicalPdf}
-                      >
-                        {exportingClinicalPdf ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm" style={{ marginRight: 8 }}></span>
-                            Generazione PDF...
-                          </>
-                        ) : (
-                          <>
-                            <i className="ri-download-2-line" style={{ marginRight: 4 }}></i>
-                            Genera e scarica PDF
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-
-              {/* ==================== RICHIESTE CALL TAB ==================== */}
-              {/* ==================== RICHIESTE CALL TAB ==================== */}
-              {activeTab === 'richieste_call' && (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <h5 style={{ fontWeight: 700, margin: 0 }}>
-                      <i className="ri-phone-line" style={{ marginRight: 8, color: '#3b82f6' }}></i>
-                      Gestione Richieste Call
-                    </h5>
-                  </div>
-
-                  <ScrollableSubtabs style={{ marginBottom: 20 }}>
-                    <button
-                      className={`cd-subtab ${richiesteCallSubTab === 'call_bonus' ? 'active green' : ''}`}
-                      onClick={() => setRichiesteCallSubTab('call_bonus')}
-                    >
-                      <i className="ri-gift-line"></i>
-                      Call Bonus
-                    </button>
-                    <button
-                      className={`cd-subtab ${richiesteCallSubTab === 'call_rinnovo' ? 'active green' : ''}`}
-                      onClick={() => setRichiesteCallSubTab('call_rinnovo')}
-                    >
-                      <i className="ri-refresh-line"></i>
-                      Call Rinnovo
-                    </button>
-                    <button
-                      className={`cd-subtab ${richiesteCallSubTab === 'video_recensione' ? 'active green' : ''}`}
-                      onClick={() => setRichiesteCallSubTab('video_recensione')}
-                    >
-                      <i className="ri-video-line"></i>
-                      Video Recensione
-                    </button>
-                  </ScrollableSubtabs>
-
-                  {/* ===== CALL BONUS SUB-TAB ===== */}
-                  {richiesteCallSubTab === 'call_bonus' && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div>
-                          <span className="cd-badge" style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
-                            <i className="ri-gift-line me-1"></i>Call Bonus
-                          </span>
-                        </div>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={handleOpenCallBonusModal}
-                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
-                        >
-                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
-                        </button>
-                      </div>
-
-                      {loadingCallBonus ? (
-                        <div className="text-center py-4"><div className="spinner-border text-primary"></div></div>
-                      ) : callBonusHistory && callBonusHistory.length > 0 ? (
-                        <div className="cd-table-wrap">
-                          <table className="cd-table">
-                            <thead>
-                              <tr>
-                                <th>Data</th>
-                                <th>Professionista Richiesto</th>
-                                <th>Note / Obiettivo</th>
-                                <th>Stato</th>
-                                <th>Calendly</th>
-                                <th style={{ textAlign: 'right' }}>Azioni</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {callBonusHistory.map((cb) => {
-                                const statusColor = {
-                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
-                                  'accettata': { bg: '#fef3c7', color: '#92400e', label: 'In Attesa Risposta' },
-                                  'interessato': { bg: '#dcfce7', color: '#166534', label: 'Interessato' },
-                                  'non_interessato': { bg: '#fee2e2', color: '#991b1b', label: 'Non Interessato' },
-                                  'rifiutata': { bg: '#f3f4f6', color: '#4b5563', label: 'Rifiutata da professionista' },
-                                }[cb.status] || { bg: '#f3f4f6', color: '#374151', label: cb.status };
-
-                                return (
-                                  <tr key={cb.id}>
-                                    <td>
-                                      {cb.data_richiesta
-                                        ? new Date(cb.data_richiesta).toLocaleDateString('it-IT')
-                                        : '—'}
-                                    </td>
-                                    <td>
-                                      <span className="fw-semibold">
-                                        {cb.tipo_professionista.charAt(0).toUpperCase() + cb.tipo_professionista.slice(1)}
-                                      </span>
-                                      {cb.professionista_nome && (
-                                        <div className="small text-muted" style={{ marginTop: 2 }}>
-                                          {cb.professionista_nome}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td><span className="small text-muted">{cb.note_richiesta || '—'}</span></td>
-                                    <td>
-                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
-                                        {statusColor.label}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      {cb.status === 'interessato' || cb.hm_booking_confirmed ? (
-                                        <span className="cd-badge" style={{ background: '#dcfce7', color: '#166534' }}>
-                                          <i className="ri-check-line me-1"></i>Confermata
-                                        </span>
-                                      ) : '-'}
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                      {cb.status === 'accettata' && cb.is_assigned_professional ? (
-                                        <button
-                                          type="button"
-                                          className="btn btn-sm btn-primary"
-                                          style={{ padding: '2px 10px', fontSize: 12, fontWeight: 700 }}
-                                          onClick={() => { setCallBonusResponseModal(cb); setCallBonusInterestStep('ask'); }}
-                                        >
-                                          Rispondi
-                                        </button>
-                                      ) : cb.status === 'accettata' && cb.is_requester ? (
-                                        <span className="small text-muted">In attesa del professionista</span>
-                                      ) : cb.status === 'interessato' && cb.hm_calendar_link ? (
-                                        <a
-                                          href={cb.hm_calendar_link}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-sm btn-outline-primary"
-                                          style={{ padding: '2px 8px', fontSize: 12 }}
-                                        >
-                                          <i className="ri-calendar-event-line me-1"></i>Calendly HM
-                                        </a>
-                                      ) : '—'}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="cd-empty">
-                          <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
-                          <p className="cd-empty-text">Nessuna richiesta Call Bonus effettuata finora.</p>
-                          <button
-                            className="btn btn-outline-primary mt-3"
-                            onClick={handleOpenCallBonusModal}
-                          >
-                            Fai la Prima Richiesta
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ===== CALL RINNOVO SUB-TAB ===== */}
-                  {richiesteCallSubTab === 'call_rinnovo' && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                        <div>
-                          <span className="cd-badge" style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e' }}>
-                            <i className="ri-refresh-line me-1"></i>Call Rinnovo
-                          </span>
-                        </div>
-                        <button
-                          className="btn btn-success btn-sm"
-                          onClick={handleOpenCallRinnovoModal}
-                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
-                        >
-                          <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuova Richiesta
-                        </button>
-                      </div>
-
-                      {loadingCallRinnovo ? (
-                        <div className="text-center py-4"><div className="spinner-border text-success"></div></div>
-                      ) : callRinnovoHistory && callRinnovoHistory.length > 0 ? (
-                        <div className="cd-table-wrap">
-                          <table className="cd-table">
-                            <thead>
-                              <tr>
-                                <th>Data Richiesta</th>
-                                <th>Professionista</th>
-                                <th>Note</th>
-                                <th>Stato</th>
-                                <th>Data Risposta</th>
-                                <th style={{ textAlign: 'right' }}>Azioni</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {callRinnovoHistory.map((item) => {
-                                const statusColor = {
-                                  'proposta': { bg: '#dbeafe', color: '#1e40af', label: 'Proposta' },
-                                  'accettata': { bg: '#dcfce7', color: '#166534', label: 'Accettata' },
-                                  'rifiutata': { bg: '#fee2e2', color: '#991b1b', label: 'Rifiutata' },
-                                  'confermata': { bg: '#d1fae5', color: '#065f46', label: 'Confermata' },
-                                }[item.status] || { bg: '#f3f4f6', color: '#374151', label: item.status };
-
-                                return (
-                                  <tr key={item.id}>
-                                    <td>
-                                      {item.data_richiesta
-                                        ? new Date(item.data_richiesta).toLocaleDateString('it-IT')
-                                        : '—'}
-                                    </td>
-                                    <td>
-                                      <span className="fw-semibold">
-                                        {item.tipo_professionista.charAt(0).toUpperCase() + item.tipo_professionista.slice(1)}
-                                      </span>
-                                      {item.professionista_name && (
-                                        <div className="small text-muted" style={{ marginTop: 2 }}>
-                                          {item.professionista_name}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td><span className="small text-muted">{item.note_richiesta || '—'}</span></td>
-                                    <td>
-                                      <span className="cd-badge" style={{ background: statusColor.bg, color: statusColor.color }}>
-                                        {statusColor.label}
-                                      </span>
-                                    </td>
-                                    <td>
-                                      {item.data_risposta
-                                        ? new Date(item.data_risposta).toLocaleDateString('it-IT')
-                                        : '—'}
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                      {item.status === 'proposta' && (
-                                        <>
-                                          <button
-                                            className="btn btn-sm btn-success me-1"
-                                            style={{ padding: '2px 8px', fontSize: 11 }}
-                                            onClick={() => handleAcceptCallRinnovo(item.id)}
-                                          >
-                                            <i className="ri-check-line"></i>
-                                          </button>
-                                          <button
-                                            className="btn btn-sm btn-danger"
-                                            style={{ padding: '2px 8px', fontSize: 11 }}
-                                            onClick={() => handleDeclineCallRinnovo(item.id)}
-                                          >
-                                            <i className="ri-close-line"></i>
-                                          </button>
-                                        </>
-                                      )}
-                                      {item.status === 'accettata' && (
-                                        <button
-                                          className="btn btn-sm btn-primary"
-                                          style={{ padding: '2px 8px', fontSize: 11 }}
-                                          onClick={() => handleOpenCallRinnovoConfirm(item)}
-                                        >
-                                          Conferma
-                                        </button>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="cd-empty">
-                          <i className="ri-phone-find-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
-                          <p className="cd-empty-text">Nessuna richiesta Call Rinnovo effettuata finora.</p>
-                          <button
-                            className="btn btn-outline-success mt-3"
-                            onClick={handleOpenCallRinnovoModal}
-                          >
-                            Fai la Prima Richiesta
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ===== VIDEO RECENSIONE SUB-TAB ===== */}
-                  {richiesteCallSubTab === 'video_recensione' && (
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                        <div>
-                          <span className="cd-badge" style={{ background: 'rgba(14, 165, 233, 0.1)', color: '#0ea5e9' }}>
-                            <i className="ri-video-line me-1"></i>Video Recensione
-                          </span>
                         </div>
                         <button
                           className="btn btn-primary btn-sm"
                           onClick={() => setShowVideoReviewBookingModal(true)}
-                          disabled={!cliente?.health_manager_id}
-                          style={{ padding: '8px 16px', borderRadius: 8, fontWeight: 600 }}
                         >
                           <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
-                          Prenota Video Recensione
+                          Prenota video recensione con HM
                         </button>
                       </div>
-
-                      {!cliente?.health_manager_id && (
-                        <div className="alert alert-warning py-2" style={{ marginBottom: 12 }}>
-                          Assegna prima un Health Manager al paziente per abilitare la prenotazione video recensione.
-                        </div>
-                      )}
-                      {videoReviewError && (
-                        <div className="alert alert-danger py-2" style={{ marginBottom: 12 }}>
-                          {videoReviewError}
-                        </div>
-                      )}
 
                       {loadingVideoReviewRequests ? (
                         <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
                       ) : videoReviewRequests.length === 0 ? (
-                        <div className="cd-empty">
-                          <i className="ri-video-line cd-empty-icon" style={{ fontSize: 32, marginBottom: 12 }}></i>
-                          <p className="cd-empty-text">Nessuna richiesta video recensione registrata.</p>
-                        </div>
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
                       ) : (
                         <div style={{ overflowX: 'auto' }}>
                           <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
@@ -8675,10 +8347,8 @@ function ClientiDetail() {
                               <tr>
                                 <th>Stato</th>
                                 <th>Prenotata da</th>
-                                <th>HM</th>
                                 <th>Data prenotazione</th>
-                                <th>Orario</th>
-                                <th>Calendario HM</th>
+                                <th>Loom</th>
                                 <th>Azione</th>
                               </tr>
                             </thead>
@@ -8691,13 +8361,11 @@ function ClientiDetail() {
                                     </span>
                                   </td>
                                   <td>{item.requested_by_name || '—'}</td>
-                                  <td>{item.hm_name || '—'}</td>
-                                  <td>{item.booking_date ? new Date(item.booking_date).toLocaleDateString('it-IT') : '—'}</td>
-                                  <td>{item.booking_time ? new Date(`1970-01-01T${item.booking_time}`).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
                                   <td>
-                                    {item.hm_calendar_link ? (
-                                      <a href={item.hm_calendar_link} target="_blank" rel="noopener noreferrer">
-                                        <i className="ri-calendar-event-line"></i>
+                                    {item.loom_link ? (
+                                      <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
+                                        <i className="ri-external-link-line"></i>
                                       </a>
                                     ) : '—'}
                                   </td>
@@ -8716,6 +8384,231 @@ function ClientiDetail() {
                       )}
                     </div>
                   )}
+
+                  {loadingTrustpilot ? (
+                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
+                  ) : (
+                    <>
+                      {/* Status boxes */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Integrazione</div>
+                          <div style={{ fontWeight: 700, color: trustpilotData?.enabled ? '#22c55e' : '#94a3b8' }}>
+                            {trustpilotData?.enabled ? 'Abilitato' : 'Disabilitato'}
+                          </div>
+                        </div>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Ultimo invito</div>
+                          <div style={{ fontWeight: 700 }}>
+                            {trustpilotData?.latest?.invitation_status || '—'}
+                          </div>
+                        </div>
+                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
+                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Stelle</div>
+                          <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>
+                            {trustpilotData?.latest?.stelle ? `${'★'.repeat(trustpilotData.latest.stelle)}` : '—'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      {trustpilotData?.can_manage && (
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-success btn-sm"
+                            disabled={!trustpilotData?.enabled || sendingTrustpilotAction === 'link'}
+                            onClick={handleGenerateTrustpilotLink}
+                          >
+                            <i className="ri-link" style={{ marginRight: 4 }}></i>
+                            {sendingTrustpilotAction === 'link' ? 'Generazione...' : 'Genera Link Review'}
+                          </button>
+                          <button
+                            className="btn btn-outline-primary btn-sm"
+                            disabled={!trustpilotData?.enabled || !trustpilotData?.email_configured || sendingTrustpilotAction === 'invite'}
+                            onClick={handleSendTrustpilotInvite}
+                          >
+                            <i className="ri-mail-send-line" style={{ marginRight: 4 }}></i>
+                            {sendingTrustpilotAction === 'invite' ? 'Invio...' : 'Invia Email Invito'}
+                          </button>
+                          {trustpilotData?.latest?.trustpilot_link && (
+                            <button
+                              className="btn btn-outline-secondary btn-sm"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(trustpilotData.latest.trustpilot_link);
+                              }}
+                            >
+                              <i className="ri-clipboard-line" style={{ marginRight: 4 }}></i>Copia Link
+                            </button>
+                          )}
+                          <button className="btn btn-outline-secondary btn-sm" onClick={fetchTrustpilotStatus}>
+                            <i className="ri-refresh-line" style={{ marginRight: 4 }}></i>Aggiorna
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Warnings */}
+                      {!trustpilotData?.enabled && (
+                        <div style={{ padding: 14, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 10, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
+                          <i className="ri-error-warning-line" style={{ marginRight: 6 }}></i>
+                          Integrazione Trustpilot non abilitata. Configura le variabili <code>TRUSTPILOT_*</code> nel backend.
+                        </div>
+                      )}
+                      {trustpilotData?.enabled && !trustpilotData?.email_configured && (
+                        <div style={{ padding: 14, background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 10, fontSize: 13, color: '#1e40af', marginBottom: 16 }}>
+                          <i className="ri-information-line" style={{ marginRight: 6 }}></i>
+                          Template email non configurato. L'invio email non sara disponibile fino alla configurazione di <code>TRUSTPILOT_EMAIL_TEMPLATE_ID</code>.
+                        </div>
+                      )}
+
+                      {/* History */}
+                      <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Storico Inviti / Recensioni</h6>
+                      {!trustpilotData?.history?.length ? (
+                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                          <i className="ri-star-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
+                          Nessun invito Trustpilot ancora inviato per questo paziente
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13 }}>
+                            <thead>
+                              <tr>
+                                <th>Data</th>
+                                <th>Metodo</th>
+                                <th>Status</th>
+                                <th>Stelle</th>
+                                <th>Richiesto da</th>
+                                <th>Link</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {trustpilotData.history.map((item) => (
+                                <tr key={item.id}>
+                                  <td>{item.data_richiesta?.split('T')[0] || '—'}</td>
+                                  <td>
+                                    <span className={`badge bg-${item.invitation_method === 'email_invitation' ? 'primary' : 'secondary'}`} style={{ fontSize: 11 }}>
+                                      {item.invitation_method === 'email_invitation' ? 'Email' : 'Link'}
+                                    </span>
+                                  </td>
+                                  <td>{item.invitation_status || '—'}</td>
+                                  <td style={{ color: '#f59e0b' }}>{item.stelle ? '★'.repeat(item.stelle) : '—'}</td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>
+                                    {item.trustpilot_link ? (
+                                      <a href={item.trustpilot_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
+                                        <i className="ri-external-link-line"></i>
+                                      </a>
+                                    ) : '—'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {showMarketingContentModal && (
+                    <div
+                      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,.35)', zIndex: 1050, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      onClick={() => setShowMarketingContentModal(false)}
+                    >
+                      <div
+                        style={{ background: '#fff', borderRadius: 14, padding: 20, width: '100%', maxWidth: 560 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <h6 style={{ fontWeight: 700, marginBottom: 12 }}>
+                          {editingMarketingContent ? 'Modifica registrazione' : 'Nuova registrazione'}
+                        </h6>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Tipo contenuto</label>
+                          <select
+                            className="form-select"
+                            value={marketingContentForm.content_type}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, content_type: e.target.value }))}
+                            disabled={Boolean(editingMarketingContent)}
+                          >
+                            <option value="stories">Stories</option>
+                            <option value="carosello">Carosello</option>
+                            <option value="videofeedback">Videofeedback</option>
+                          </select>
+                        </div>
+                        <div className="mb-3 form-check form-switch">
+                          <input
+                            className="form-check-input"
+                            id="mk-content-checked"
+                            type="checkbox"
+                            checked={marketingContentForm.checked}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked: e.target.checked }))}
+                          />
+                          <label className="form-check-label" htmlFor="mk-content-checked">Editato</label>
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Data</label>
+                          <input
+                            type="date"
+                            className="form-control"
+                            value={marketingContentForm.checked_date || ''}
+                            onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked_date: e.target.value }))}
+                          />
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">Profili di condivisione</label>
+                          <div style={{ maxHeight: 180, overflow: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+                            {marketingInfluencers.map((inf) => (
+                              <div className="form-check" key={inf.influencer_id}>
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`mk-inf-${inf.influencer_id}`}
+                                  checked={marketingContentForm.influencer_ids.includes(inf.influencer_id)}
+                                  onChange={(e) => {
+                                    setMarketingContentForm((prev) => ({
+                                      ...prev,
+                                      influencer_ids: e.target.checked
+                                        ? [...prev.influencer_ids, inf.influencer_id]
+                                        : prev.influencer_ids.filter((x) => x !== inf.influencer_id),
+                                    }));
+                                  }}
+                                />
+                                <label className="form-check-label" htmlFor={`mk-inf-${inf.influencer_id}`}>
+                                  {inf.name}{inf.handle ? ` (${inf.handle})` : ''}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                          <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowMarketingContentModal(false)}>Annulla</button>
+                          <button className="btn btn-success btn-sm" onClick={handleSaveMarketingContent} disabled={savingMarketingConsents}>
+                            {savingMarketingConsents ? 'Salvataggio...' : 'Salva'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ==================== CALL BONUS TAB ==================== */}
+              {activeTab === 'call_bonus' && (
+                <div className="cal-coming-soon">
+                  <div className="cal-hero">
+                    <div className="cal-hero-icon">
+                      <i className="ri-phone-line"></i>
+                    </div>
+                    <h3 className="cal-hero-title">Call Bonus</h3>
+                    <p className="cal-hero-desc">
+                      Qui potrai richiedere call bonus per i tuoi pazienti,
+                      gestire le proposte AI e monitorare lo storico delle sessioni.
+                      <br />
+                      <strong>Disponibile con la versione 1.1 della Suite Clinica.</strong>
+                    </p>
+                    <div className="cal-soon-badge">
+                      <i className="ri-rocket-2-line"></i>
+                      In arrivo — v1.1
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -9108,14 +9001,9 @@ function ClientiDetail() {
                     <button
                       className="cd-btn-save"
                       style={{ background: '#22c55e', padding: '12px 20px' }}
-                      onClick={handleConfirmCallBonusInterest}
-                      disabled={confirmingBooking}
+                      onClick={() => setCallBonusInterestStep('book_hm')}
                     >
-                      {confirmingBooking ? (
-                        <><span className="spinner-border spinner-border-sm me-2"></span>Invio...</>
-                      ) : (
-                        <><i className="ri-thumb-up-line"></i>Sì, interessato</>
-                      )}
+                      <i className="ri-thumb-up-line"></i>Sì, interessato
                     </button>
                     <button
                       className="cd-btn-save"
@@ -9187,119 +9075,6 @@ function ClientiDetail() {
         </div>
       )}
 
-      {/* ========== CALL RINNOVO MODAL ========== */}
-      {showCallRinnovoModal && (
-        <div className="cd-modal-backdrop" onClick={() => setShowCallRinnovoModal(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' }}>
-              <h5>
-                <i className="ri-refresh-line text-white"></i>
-                <span style={{ color: 'white' }}>Nuova Richiesta Call Rinnovo</span>
-              </h5>
-              <button className="cd-modal-close" onClick={() => setShowCallRinnovoModal(false)}><i className="ri-close-line"></i></button>
-            </div>
-            <div className="cd-modal-body">
-              <p className="text-muted small" style={{ marginBottom: 12 }}>Seleziona il tipo di professionista per la call di rinnovo.</p>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Tipo Professionista *</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[
-                    { value: 'coach', label: 'Coaching', icon: 'ri-run-line', color: '#f59e0b' },
-                    { value: 'nutrizionista', label: 'Nutrizione', icon: 'ri-heart-pulse-line', color: '#10b981' },
-                    { value: 'psicologa', label: 'Psicologia', icon: 'ri-mental-health-line', color: '#ec4899' },
-                  ].map((t) => (
-                    <button
-                      key={t.value}
-                      className={`cd-cb-type-btn${callRinnovoForm.tipo_professionista === t.value ? ' selected' : ''}`}
-                      style={{
-                        background: callRinnovoForm.tipo_professionista === t.value ? `${t.color}20` : '#f9fafb',
-                        borderColor: callRinnovoForm.tipo_professionista === t.value ? t.color : '#e5e7eb',
-                        color: t.color,
-                      }}
-                      onClick={() => setCallRinnovoForm({ ...callRinnovoForm, tipo_professionista: t.value })}
-                    >
-                      <i className={t.icon}></i>
-                      <span className="small fw-semibold">{t.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Note</label>
-                <textarea
-                  className="cd-textarea"
-                  rows="3"
-                  placeholder="Descrivi il motivo della richiesta..."
-                  value={callRinnovoForm.note_richiesta}
-                  onChange={(e) => setCallRinnovoForm({ ...callRinnovoForm, note_richiesta: e.target.value })}
-                ></textarea>
-              </div>
-            </div>
-            <div className="cd-modal-footer">
-              <button className="cd-btn-back" onClick={() => setShowCallRinnovoModal(false)}>Annulla</button>
-              <button
-                className="cd-btn-save"
-                style={{ background: '#11998e' }}
-                onClick={handleCreateCallRinnovo}
-                disabled={!callRinnovoForm.tipo_professionista || savingCallRinnovo}
-              >
-                {savingCallRinnovo ? (
-                  <><span className="spinner-border spinner-border-sm me-2"></span>Creazione...</>
-                ) : (
-                  <><i className="ri-add-line"></i>Crea Richiesta</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========== CALL RINNOVO CONFIRM MODAL ========== */}
-      {showCallRinnovoConfirmModal && selectedCallRinnovo && (
-        <div className="cd-modal-backdrop" onClick={() => setShowCallRinnovoConfirmModal(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="cd-modal-header" style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)' }}>
-              <h5>
-                <i className="ri-check-line text-white"></i>
-                <span style={{ color: 'white' }}>Conferma Call Rinnovo</span>
-              </h5>
-              <button className="cd-modal-close" onClick={() => setShowCallRinnovoConfirmModal(false)}><i className="ri-close-line"></i></button>
-            </div>
-            <div className="cd-modal-body">
-              <p className="text-muted small" style={{ marginBottom: 12 }}>Conferma il completamento della call rinnovo.</p>
-
-              <div className="cd-field">
-                <label className="cd-field-label">Note HM</label>
-                <textarea
-                  className="cd-textarea"
-                  rows="3"
-                  placeholder="Aggiungi note sulla call..."
-                  value={callRinnovoConfirmForm.note_hm}
-                  onChange={(e) => setCallRinnovoConfirmForm({ ...callRinnovoConfirmForm, note_hm: e.target.value })}
-                ></textarea>
-              </div>
-            </div>
-            <div className="cd-modal-footer">
-              <button className="cd-btn-back" onClick={() => setShowCallRinnovoConfirmModal(false)}>Annulla</button>
-              <button
-                className="cd-btn-save"
-                style={{ background: '#11998e' }}
-                onClick={handleConfirmCallRinnovo}
-                disabled={savingCallRinnovo}
-              >
-                {savingCallRinnovo ? (
-                  <><span className="spinner-border spinner-border-sm me-2"></span>Conferma...</>
-                ) : (
-                  <><i className="ri-check-line"></i>Conferma Completamento</>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showVideoReviewBookingModal && (
         <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewBookingModal(false)}>
           <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
@@ -9311,35 +9086,16 @@ function ClientiDetail() {
               <button className="cd-modal-close" onClick={() => setShowVideoReviewBookingModal(false)}><i className="ri-close-line"></i></button>
             </div>
             <div className="cd-modal-body" style={{ textAlign: 'center' }}>
-              <div className="cd-field" style={{ marginBottom: 12, textAlign: 'left' }}>
-                <label className="cd-field-label">Data prenotazione *</label>
-                <DatePicker
-                  className="cd-input"
-                  value={videoReviewBookingDate}
-                  onChange={(e) => setVideoReviewBookingDate(e.target.value)}
-                />
-              </div>
-              <div className="cd-field" style={{ marginBottom: 12, textAlign: 'left' }}>
-                <label className="cd-field-label">Orario prenotazione *</label>
-                <input
-                  type="time"
-                  className="cd-input"
-                  value={videoReviewBookingTime}
-                  onChange={(e) => setVideoReviewBookingTime(e.target.value)}
-                />
+              <div className="cd-response-item" style={{ marginBottom: 12 }}>
+                <strong>QUI CI SARA IL LINK PER PRENOTARE</strong>
               </div>
               <p className="small text-muted" style={{ marginBottom: 0 }}>
                 Dopo la prenotazione clicca su "Ho prenotato" per inviare la richiesta all&apos;HM.
               </p>
-              {!cliente?.health_manager_id && (
-                <div className="alert alert-warning py-2" style={{ marginTop: 12, marginBottom: 0 }}>
-                  Nessun Health Manager assegnato al paziente.
-                </div>
-              )}
             </div>
             <div className="cd-modal-footer">
               <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Chiudi</button>
-              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction || !cliente?.health_manager_id}>
+              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction}>
                 {savingVideoReviewAction ? (
                   <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
                 ) : (
@@ -10881,14 +10637,13 @@ function ClientiDetail() {
       />}
 
       {/* Lightbox fullscreen photo */}
-      {lightboxUrl && createPortal(
+      {lightboxUrl && (
         <div className="cd-lightbox-backdrop" onClick={() => setLightboxUrl(null)}>
           <button className="cd-lightbox-close" onClick={() => setLightboxUrl(null)}>
             <i className="ri-close-line"></i>
           </button>
           <img src={lightboxUrl} alt="Foto" className="cd-lightbox-img" onClick={(e) => e.stopPropagation()} />
-        </div>,
-        document.body
+        </div>
       )}
 
       {/* Loom Preview Modal */}

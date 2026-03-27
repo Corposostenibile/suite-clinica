@@ -17,10 +17,10 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('sales_leads_version', sa.Column('source_system', sa.String(50), nullable=True))
-    op.add_column('sales_leads_version', sa.Column('old_suite_id', sa.Integer(), nullable=True))
-    op.add_column('sales_leads_version', sa.Column('ai_analysis', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.add_column('sales_leads_version', sa.Column('ai_analyzed_at', sa.DateTime(), nullable=True))
+    op.execute("ALTER TABLE sales_leads_version ADD COLUMN IF NOT EXISTS source_system VARCHAR(50);")
+    op.execute("ALTER TABLE sales_leads_version ADD COLUMN IF NOT EXISTS old_suite_id INTEGER;")
+    op.execute("ALTER TABLE sales_leads_version ADD COLUMN IF NOT EXISTS ai_analysis JSONB;")
+    op.execute("ALTER TABLE sales_leads_version ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP WITHOUT TIME ZONE;")
 
 
 def downgrade():

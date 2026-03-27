@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
 import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
+import DiarioModal from './DiarioModal';
 
 // Role colors for avatars
 const ROLE_COLORS = {
@@ -89,6 +90,8 @@ function ClientiListaPsicologia() {
       statoChatPsicologia: searchParams.get('stato_chat_psicologia') || '',
       reachOut: searchParams.get('reach_out_psicologia') || '',
       callInizialePsicologa: searchParams.get('call_iniziale_psicologa') || '',
+      senza_patologie_psicologiche: searchParams.get('senza_patologie_psicologiche') || '0',
+      patologie_non_indicate_psico: searchParams.get('patologie_non_indicate_psico') || '0',
     };
     // Init patologie from URL params
     PATOLOGIE_PSICO.forEach(p => { init[p.key] = searchParams.get(p.key) || '0'; });
@@ -98,7 +101,7 @@ function ClientiListaPsicologia() {
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showPatologieModal, setShowPatologieModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -141,6 +144,8 @@ function ClientiListaPsicologia() {
         stato_chat_psicologia: filters.statoChatPsicologia || undefined,
         reach_out_psicologia: filters.reachOut || undefined,
         call_iniziale_psicologa: filters.callInizialePsicologa || undefined,
+        senza_patologie_psicologiche: filters.senza_patologie_psicologiche === '1' ? '1' : undefined,
+        patologie_non_indicate_psico: filters.patologie_non_indicate_psico === '1' ? '1' : undefined,
       };
       // Add patologie filters
       PATOLOGIE_PSICO.forEach(p => {
@@ -193,6 +198,8 @@ function ClientiListaPsicologia() {
     statoChatPsicologia: 'stato_chat_psicologia',
     reachOut: 'reach_out_psicologia',
     callInizialePsicologa: 'call_iniziale_psicologa',
+    senza_patologie_psicologiche: 'senza_patologie_psicologiche',
+    patologie_non_indicate_psico: 'patologie_non_indicate_psico',
   };
 
   const handleSearchInput = (value) => {
@@ -242,6 +249,7 @@ function ClientiListaPsicologia() {
       stato: '', tipologia: '', psicologa: '',
       statoPsicologia: '', statoChatPsicologia: '', reachOut: '',
       callInizialePsicologa: '',
+      senza_patologie_psicologiche: '0', patologie_non_indicate_psico: '0',
     };
     PATOLOGIE_PSICO.forEach(p => { clean[p.key] = '0'; });
     setFilters(clean);
@@ -264,7 +272,6 @@ function ClientiListaPsicologia() {
       await clientiService.updateField(clienteId, field, value === '' ? null : value);
       fetchClienti();
       setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowReachOutModal(false);
@@ -285,10 +292,11 @@ function ClientiListaPsicologia() {
     setShowStoriaModal(true);
   };
 
-  const openNoteModal = (cliente) => {
+
+
+  const openDiarioModal = (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_psicologa || '');
-    setShowNoteModal(true);
+    setShowDiarioModal(true);
   };
 
   const openStatoModal = (cliente) => {
@@ -533,6 +541,7 @@ function ClientiListaPsicologia() {
                     <th style={{ minWidth: '80px', textAlign: 'center' }}>Comprate</th>
                     <th style={{ minWidth: '80px', textAlign: 'center' }}>Svolte</th>
                     <th style={{ minWidth: '80px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -675,6 +684,19 @@ function ClientiListaPsicologia() {
                             {!cliente.storia_psicologia && '+'}
                           </button>
                         </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="cl-action-btn"
+                            style={{
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600
+                            }}
+                            onClick={() => openDiarioModal(cliente)}
+                            title="Vedi Diario"
+                          >
+                            <i className="ri-book-2-line" style={{ marginRight: '4px' }}></i>Vedi
+                          </button>
+                        </td>
                         <td style={{ textAlign: 'right' }}>
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-action-btn" title="Dettaglio">
                             <i className="ri-eye-line"></i>
@@ -739,26 +761,15 @@ function ClientiListaPsicologia() {
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>Chiudi</button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_psicologa', modalValue)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salva'}
-          </button>
-        </>
-      )}
+
+
+      {/* Modal Diario */}
+      <DiarioModal 
+        show={showDiarioModal}
+        onClose={() => setShowDiarioModal(false)}
+        cliente={selectedCliente}
+        serviceType="psicologia"
+      />
 
       {/* Modal Stato Psicologia */}
       {renderModal(showStatoModal, () => setShowStatoModal(false), 'Stato Psicologia', 'ri-circle-fill',

@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
 import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
+import DiarioModal from './DiarioModal';
 
 // Luogo colors
 const LUOGO_COLORS = {
@@ -102,12 +103,16 @@ function ClientiListaCoach() {
     nuovo_allenamento_il_from: searchParams.get('nuovo_allenamento_il_from') || '',
     nuovo_allenamento_il_to: searchParams.get('nuovo_allenamento_il_to') || '',
     missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '0',
+    senza_patologie_nutrizionali: searchParams.get('senza_patologie_nutrizionali') || '0',
+    patologie_non_indicate_nutri: searchParams.get('patologie_non_indicate_nutri') || '0',
+    senza_patologie_psicologiche: searchParams.get('senza_patologie_psicologiche') || '0',
+    patologie_non_indicate_psico: searchParams.get('patologie_non_indicate_psico') || '0',
   });
   const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showCheckDayModal, setShowCheckDayModal] = useState(false);
@@ -143,7 +148,9 @@ function ClientiListaCoach() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        // Tipologia: __missing__ → missing_tipologia=1, altrimenti valore diretto
+        tipologia: (filters.tipologia && filters.tipologia !== '__missing__') ? filters.tipologia : undefined,
+        missing_tipologia: filters.tipologia === '__missing__' ? '1' : undefined,
         coach_id: filters.coach || undefined,
         stato_coach: filters.statoCoach || undefined,
         stato_chat_coaching: filters.statoChatCoaching || undefined,
@@ -156,6 +163,10 @@ function ClientiListaCoach() {
         nuovo_allenamento_il_from: filters.nuovo_allenamento_il_from || undefined,
         nuovo_allenamento_il_to: filters.nuovo_allenamento_il_to || undefined,
         missing_piano_allenamento: filters.missing_piano_allenamento === '1' ? '1' : undefined,
+        senza_patologie_nutrizionali: filters.senza_patologie_nutrizionali === '1' ? '1' : undefined,
+        patologie_non_indicate_nutri: filters.patologie_non_indicate_nutri === '1' ? '1' : undefined,
+        senza_patologie_psicologiche: filters.senza_patologie_psicologiche === '1' ? '1' : undefined,
+        patologie_non_indicate_psico: filters.patologie_non_indicate_psico === '1' ? '1' : undefined,
       };
 
       const data = await clientiService.getClientiCoach(params);
@@ -206,7 +217,12 @@ function ClientiListaCoach() {
     reachOut: 'reach_out_coaching',
     luogoDiAllenamento: 'luogo_di_allenamento',
     callInizialeCoach: 'call_iniziale_coach',
+    nuovo_allenamento_il_to: 'nuovo_allenamento_il_to',
     missing_piano_allenamento: 'missing_piano_allenamento',
+    senza_patologie_nutrizionali: 'senza_patologie_nutrizionali',
+    patologie_non_indicate_nutri: 'patologie_non_indicate_nutri',
+    senza_patologie_psicologiche: 'senza_patologie_psicologiche',
+    patologie_non_indicate_psico: 'patologie_non_indicate_psico',
   };
 
   const handleSearchInput = (value) => {
@@ -259,6 +275,8 @@ function ClientiListaCoach() {
       allenamento_dal_from: '', allenamento_dal_to: '',
       nuovo_allenamento_il_from: '', nuovo_allenamento_il_to: '',
       missing_piano_allenamento: '0',
+      senza_patologie_nutrizionali: '0', patologie_non_indicate_nutri: '0',
+      senza_patologie_psicologiche: '0', patologie_non_indicate_psico: '0',
     });
     setSearchParams(new URLSearchParams());
   };
@@ -274,7 +292,6 @@ function ClientiListaCoach() {
       await clientiService.updateField(clienteId, field, value || null);
       fetchClienti();
       setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowCheckDayModal(false);
@@ -295,10 +312,11 @@ function ClientiListaCoach() {
     setShowStoriaModal(true);
   };
 
-  const openNoteModal = (cliente) => {
+
+
+  const openDiarioModal = (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_coach || '');
-    setShowNoteModal(true);
+    setShowDiarioModal(true);
   };
 
   const openStatoModal = (cliente) => {
@@ -555,6 +573,7 @@ function ClientiListaCoach() {
                     <th style={{ minWidth: '100px' }}>Luogo</th>
                     <th style={{ minWidth: '100px', textAlign: 'center' }}>Piano</th>
                     <th style={{ minWidth: '100px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -686,6 +705,19 @@ function ClientiListaCoach() {
                             {!cliente.storia_coaching && '+'}
                           </button>
                         </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="cl-action-btn"
+                            style={{
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600
+                            }}
+                            onClick={() => openDiarioModal(cliente)}
+                            title="Vedi Diario"
+                          >
+                            <i className="ri-book-2-line" style={{ marginRight: '4px' }}></i>Vedi
+                          </button>
+                        </td>
                         <td style={{ textAlign: 'right' }}>
                           <Link to={`/clienti-dettaglio/${clienteId}`} className="cl-action-btn" title="Dettaglio">
                             <i className="ri-eye-line"></i>
@@ -750,26 +782,15 @@ function ClientiListaCoach() {
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>Chiudi</button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_coach', modalValue)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salva'}
-          </button>
-        </>
-      )}
+
+
+      {/* Modal Diario */}
+      <DiarioModal 
+        show={showDiarioModal}
+        onClose={() => setShowDiarioModal(false)}
+        cliente={selectedCliente}
+        serviceType="coaching"
+      />
 
       {/* Modal Stato Coach */}
       {renderModal(showStatoModal, () => setShowStatoModal(false), 'Stato Coach', 'ri-circle-fill',

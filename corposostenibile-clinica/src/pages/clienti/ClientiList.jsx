@@ -165,6 +165,12 @@ function ClientiList() {
     missing_stato_chat_psicologia: searchParams.get('missing_stato_chat_psicologia') || '',
     missing_piano_dieta: searchParams.get('missing_piano_dieta') || '',
     missing_piano_allenamento: searchParams.get('missing_piano_allenamento') || '',
+    // Nuovi filtri patologie e tipologia
+    senza_patologie_nutrizionali: searchParams.get('senza_patologie_nutrizionali') || '',
+    patologie_non_indicate_nutri: searchParams.get('patologie_non_indicate_nutri') || '',
+    senza_patologie_psicologiche: searchParams.get('senza_patologie_psicologiche') || '',
+    patologie_non_indicate_psico: searchParams.get('patologie_non_indicate_psico') || '',
+    missing_tipologia: searchParams.get('missing_tipologia') || '',
   });
 
   useEffect(() => {
@@ -208,7 +214,9 @@ function ClientiList() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        // Tipologia: __missing__ → missing_tipologia=1, altrimenti valore diretto
+        tipologia: (filters.tipologia && filters.tipologia !== '__missing__') ? filters.tipologia : undefined,
+        missing_tipologia: filters.tipologia === '__missing__' ? '1' : (filters.missing_tipologia || undefined),
         nutrizionista_id: filters.nutrizionista || undefined,
         coach_id: filters.coach || undefined,
         psicologa_id: filters.psicologa || undefined,
@@ -236,6 +244,11 @@ function ClientiList() {
         missing_stato_chat_psicologia: filters.missing_stato_chat_psicologia || undefined,
         missing_piano_dieta: filters.missing_piano_dieta || undefined,
         missing_piano_allenamento: filters.missing_piano_allenamento || undefined,
+        // Nuovi filtri patologie e tipologia
+        senza_patologie_nutrizionali: filters.senza_patologie_nutrizionali || undefined,
+        patologie_non_indicate_nutri: filters.patologie_non_indicate_nutri || undefined,
+        senza_patologie_psicologiche: filters.senza_patologie_psicologiche || undefined,
+        patologie_non_indicate_psico: filters.patologie_non_indicate_psico || undefined,
       };
 
       // For professionals/TL with a specialty, pass view param so backend returns KPI aggregates
@@ -323,7 +336,10 @@ function ClientiList() {
       missing_stato_nutrizione: '', missing_stato_chat_nutrizione: '',
       missing_stato_coach: '', missing_stato_chat_coaching: '',
       missing_stato_psicologia: '', missing_stato_chat_psicologia: '',
-      missing_piano_dieta: '', missing_piano_allenamento: ''
+      missing_piano_dieta: '', missing_piano_allenamento: '',
+      senza_patologie_nutrizionali: '', patologie_non_indicate_nutri: '',
+      senza_patologie_psicologiche: '', patologie_non_indicate_psico: '',
+      missing_tipologia: '',
     });
     setSearchParams(new URLSearchParams());
   };

@@ -300,6 +300,19 @@ class InfluencerFlagEnum(str, Enum):
     no = "no"
 
 
+class MarketingFlagTypeEnum(str, Enum):
+    usabile_marketing = "usabile_marketing"
+    stories_editata = "stories_editata"
+    carosello_editato = "carosello_editato"
+    videofeedback_editato = "videofeedback_editato"
+
+
+class MarketingContentTypeEnum(str, Enum):
+    stories = "stories"
+    carosello = "carosello"
+    videofeedback = "videofeedback"
+
+
 class CampaignPlatformEnum(str, Enum):
     """Canale da cui proviene il candidato / la campagna recruiting."""
     linkedin  = "linkedin"
@@ -1567,6 +1580,12 @@ class Influencer(TimestampMixin, db.Model):
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     ad_campaigns = relationship("AdCampaign", back_populates="influencer")
+    marketing_content_links = relationship(
+        "ClienteMarketingInfluencer",
+        back_populates="influencer",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 # ───────────────────── 1) SALES PERSON ─────────────────────────── #
 class SalesPerson(TimestampMixin, db.Model):
@@ -1860,6 +1879,12 @@ class Cliente(TimestampMixin, db.Model):
     alert                   = db.Column(db.Boolean)
     alert_storia            = db.Column(db.Text)
 
+    # Referral (Health Manager)
+    referral_bonus_scelto   = db.Column(db.String(255))
+    referral_bonus_utilizzato = db.Column(db.String(255))
+    referral_bonus_da_utilizzare = db.Column(db.String(255))
+    note_marketing          = db.Column(db.Text)
+
     # Rinnovi
     data_rinnovo            = db.Column(db.Date)
     # giorni_rimanenti rimosso - ora usiamo giorni_rimanenti_calcolati (property)
@@ -2068,6 +2093,18 @@ class Cliente(TimestampMixin, db.Model):
         "CartellaClinica",
         back_populates="cliente",
         cascade="all, delete-orphan",
+    )
+    marketing_flags       = relationship(
+        "ClienteMarketingFlag",
+        back_populates="cliente",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    marketing_contents    = relationship(
+        "ClienteMarketingContent",
+        back_populates="cliente",
+        cascade="all, delete-orphan",
+        lazy="selectin",
     )
 
 
@@ -2730,6 +2767,70 @@ class CheckInIntervention(TimestampMixin, db.Model):
         }
 
 
+# ───────────────── RINNOVO INTERVENTIONS ──────────────────────── #
+class RinnovoIntervention(TimestampMixin, db.Model):
+    """
+    Interventi di Call Rinnovo per un cliente.
+
+    Registra le call di rinnovo con il cliente con:
+    - Data dell'intervento
+    - Note testuali descrittive
+    - Link opzionale a video Loom
+    """
+    __tablename__ = "rinnovo_interventions"
+    id = db.Column(db.Integer, primary_key=True)
+
+    # ── Relazione con Cliente ────────────────────────────────────────
+    cliente_id = db.Column(
+        db.BigInteger,
+        db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True
+    )
+
+    # ── Dati intervento ──────────────────────────────────────────────
+    intervention_date = db.Column(
+        db.Date,
+        nullable=False,
+        index=True
+    )
+
+    notes = db.Column(db.Text, nullable=False)
+    loom_link = db.Column(db.String(500))
+
+    # ── Audit trail ──────────────────────────────────────────────────
+    created_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # ── Relationships ────────────────────────────────────────────────
+    cliente = db.relationship("Cliente", backref="rinnovo_interventions")
+    created_by = db.relationship("User", foreign_keys=[created_by_id])
+
+    def __repr__(self) -> str:
+        return (
+            f"<RinnovoIntervention #{self.id} "
+            f"cliente={self.cliente_id} date={self.intervention_date}>"
+        )
+
+    def to_dict(self) -> dict:
+        """Serializza per API JSON."""
+        return {
+            "id": self.id,
+            "cliente_id": self.cliente_id,
+            "intervention_date": self.intervention_date.isoformat() if self.intervention_date else None,
+            "notes": self.notes,
+            "loom_link": self.loom_link,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_by": {
+                "id": self.created_by.id,
+                "full_name": self.created_by.full_name or self.created_by.email,
+                "avatar_url": self.created_by.avatar_url
+            } if self.created_by else None
+        }
+
+
 # ───────────────── CONTINUITY CALL INTERVENTIONS ────────────────── #
 class ContinuityCallIntervention(TimestampMixin, db.Model):
     """
@@ -2854,6 +2955,68 @@ class TrustpilotReview(TimestampMixin, db.Model):
 
     def __repr__(self):
         return f"<TrustpilotReview client={self.cliente_id} richiedente={self.richiesta_da_professionista_id} pubblicata={self.pubblicata}>"
+
+
+class ClienteMarketingFlag(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_flags"
+    __table_args__ = (
+        db.UniqueConstraint("cliente_id", "flag_type", name="uq_cliente_marketing_flags_cliente_tipo"),
+        db.Index("ix_cliente_marketing_flags_cliente_id", "cliente_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False)
+    flag_type = db.Column(_def(MarketingFlagTypeEnum), nullable=False)
+    checked = db.Column(db.Boolean, nullable=False, default=False)
+    checked_date = db.Column(db.Date)
+
+    cliente = relationship("Cliente", back_populates="marketing_flags")
+
+
+class ClienteMarketingContent(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_content"
+    __table_args__ = (
+        db.Index("ix_cliente_marketing_content_cliente_id", "cliente_id"),
+        db.Index("ix_cliente_marketing_content_content_type", "content_type"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False)
+    content_type = db.Column(_def(MarketingContentTypeEnum), nullable=False)
+    checked = db.Column(db.Boolean, nullable=False, default=False)
+    checked_date = db.Column(db.Date)
+
+    cliente = relationship("Cliente", back_populates="marketing_contents")
+    influencer_links = relationship(
+        "ClienteMarketingInfluencer",
+        back_populates="marketing_content",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class ClienteMarketingInfluencer(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_influencers"
+    __table_args__ = (
+        db.UniqueConstraint("marketing_content_id", "influencer_id", name="uq_marketing_content_influencer"),
+        db.Index("ix_cliente_marketing_influencers_content_id", "marketing_content_id"),
+        db.Index("ix_cliente_marketing_influencers_influencer_id", "influencer_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    marketing_content_id = db.Column(
+        db.Integer,
+        db.ForeignKey("cliente_marketing_content.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    influencer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("influencers.influencer_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    marketing_content = relationship("ClienteMarketingContent", back_populates="influencer_links")
+    influencer = relationship("Influencer", back_populates="marketing_content_links")
 
 
 # ───────────────── 3) CARTELLA CLINICA & ALLEGATI ───────────────── #

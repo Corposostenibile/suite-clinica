@@ -398,22 +398,6 @@ const clientiService = {
     return response.data;
   },
 
-  async getHmCoordinatriciDashboard(params = {}) {
-    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, { params });
-    return response.data;
-  },
-
-  async getHmCoordinatriciClienteDetail(clienteId) {
-    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, {
-      params: {
-        cliente_id: clienteId,
-        page: 1,
-        per_page: 1,
-      },
-    });
-    return response.data;
-  },
-
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'
@@ -525,6 +509,28 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== RINNOVO INTERVENTIONS ====================
+
+  async getRinnovoInterventions(id) {
+    const response = await api.get(`${API_BASE}/${id}/rinnovo-interventions`);
+    return response.data;
+  },
+
+  async createRinnovoIntervention(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/rinnovo-interventions`, data);
+    return response.data;
+  },
+
+  async updateRinnovoIntervention(interventionId, data) {
+    const response = await api.put(`${API_BASE}/rinnovo-interventions/${interventionId}`, data);
+    return response.data;
+  },
+
+  async deleteRinnovoIntervention(interventionId) {
+    const response = await api.delete(`${API_BASE}/rinnovo-interventions/${interventionId}`);
+    return response.data;
+  },
+
   // ==================== TRUSTPILOT ====================
 
   async getTrustpilotOverview(params = {}) {
@@ -554,8 +560,8 @@ const clientiService = {
     return response.data;
   },
 
-  async createVideoReviewBooked(id, data = {}) {
-    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`, data);
+  async createVideoReviewBooked(id) {
+    const response = await api.post(`${API_BASE}/${id}/video-review-requests/booked`);
     return response.data;
   },
 
@@ -564,8 +570,36 @@ const clientiService = {
     return response.data;
   },
 
-  async exportClinicalFolderPdf(id) {
-    return api.get(`${API_BASE}/${id}/clinical-folder-export`, { responseType: 'blob' });
+  // ==================== MARKETING CONSENTS ====================
+
+  async getMarketingConsents(id) {
+    const response = await api.get(`${API_BASE}/${id}/marketing-consents`);
+    return response.data;
+  },
+
+  async saveMarketingConsents(id, data) {
+    const response = await api.put(`${API_BASE}/${id}/marketing-consents`, data);
+    return response.data;
+  },
+
+  async createMarketingContent(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/marketing-consents/content`, data);
+    return response.data;
+  },
+
+  async updateMarketingContent(contentId, data) {
+    const response = await api.put(`${API_BASE}/marketing-consents/content/${contentId}`, data);
+    return response.data;
+  },
+
+  async deleteMarketingContent(contentId) {
+    const response = await api.delete(`${API_BASE}/marketing-consents/content/${contentId}`);
+    return response.data;
+  },
+
+  async listMarketingInfluencers() {
+    const response = await api.get(`${API_BASE}/marketing-consents/influencers`);
+    return response.data;
   },
 
   // ==================== PROFESSIONAL ASSIGNMENT ====================
@@ -1052,60 +1086,6 @@ const clientiService = {
       interested,
       motivazione,
     });
-    return response.data;
-  },
-
-  // ==================== CALL RINNOVO ====================
-
-  /**
-   * Get call rinnovo history for a client
-   * @param {number} clienteId - Client ID
-   * @returns {Promise} - { data: [...] }
-   */
-  async getCallRinnovoHistory(clienteId) {
-    const response = await api.get(`${API_BASE}/${clienteId}/call-rinnovo-history`);
-    return response.data;
-  },
-
-  /**
-   * Create a call rinnovo request
-   * @param {number} clienteId - Client ID
-   * @param {Object} data - { tipo_professionista, note_richiesta }
-   * @returns {Promise} - { success, data }
-   */
-  async createCallRinnovoRequest(clienteId, data) {
-    const response = await api.post(`${API_BASE}/${clienteId}/call-rinnovo-request`, data);
-    return response.data;
-  },
-
-  /**
-   * Accept a call rinnovo
-   * @param {number} callRinnovoId - Call Rinnovo ID
-   * @returns {Promise} - { success, data }
-   */
-  async acceptCallRinnovo(callRinnovoId) {
-    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/accept`);
-    return response.data;
-  },
-
-  /**
-   * Decline a call rinnovo
-   * @param {number} callRinnovoId - Call Rinnovo ID
-   * @returns {Promise} - { success, data }
-   */
-  async declineCallRinnovo(callRinnovoId) {
-    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/decline`);
-    return response.data;
-  },
-
-  /**
-   * Confirm a call rinnovo as completed
-   * @param {number} callRinnovoId - Call Rinnovo ID
-   * @param {Object} data - { note_hm }
-   * @returns {Promise} - { success, data }
-   */
-  async confirmCallRinnovo(callRinnovoId, data = {}) {
-    const response = await api.post(`${API_BASE}/call-rinnovo/${callRinnovoId}/confirm`, data);
     return response.data;
   },
 };

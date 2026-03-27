@@ -62,6 +62,12 @@ from corposostenibile.models import (
     CheckInIntervention,
     TrustpilotReview,
     VideoReviewRequest,
+    Influencer,
+    ClienteMarketingFlag,
+    ClienteMarketingContent,
+    ClienteMarketingInfluencer,
+    MarketingFlagTypeEnum,
+    MarketingContentTypeEnum,
 )
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
@@ -4069,6 +4075,134 @@ def delete_check_in_intervention(intervention_id: int):
         return jsonify({
             "success": True,
             "message": "Check-in eliminato con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  RINNOVO INTERVENTIONS API                                                  #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_rinnovo_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di rinnovo per un cliente."""
+    from corposostenibile.models import RinnovoIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(RinnovoIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(RinnovoIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_rinnovo_intervention(cliente_id: int):
+    """Crea un nuovo intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        intervention = RinnovoIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo registrata con successo"
+        }), 201
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_rinnovo_intervention(intervention_id: int):
+    """Aggiorna un intervento di rinnovo esistente."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo aggiornata con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_rinnovo_intervention(intervention_id: int):
+    """Elimina un intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Call rinnovo eliminata con successo"
         })
 
     except Exception as e:
@@ -8291,6 +8425,23 @@ def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
         if isinstance(ai_notes, dict):
             hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
 
+#  Video Review (Marketing Tab)                                               #
+# --------------------------------------------------------------------------- #
+def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    hm_calendar_link = ""
+    hm_user = item.hm_user or None
+    if hm_user is not None:
+        import json as _json
+
+        ai_notes = hm_user.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = _json.loads(ai_notes)
+            except (ValueError, TypeError):
+                ai_notes = {}
+        if isinstance(ai_notes, dict):
+            hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
+
     return {
         "id": item.id,
         "cliente_id": item.cliente_id,
@@ -8382,7 +8533,6 @@ def api_video_review_booked(cliente_id: int):
             booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
         except ValueError:
             abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
-
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
         requested_by_user_id=current_user.id,
@@ -8444,6 +8594,250 @@ def api_video_review_hm_confirm(request_id: int):
 # --------------------------------------------------------------------------- #
 #  Trustpilot Integration                                                     #
 # --------------------------------------------------------------------------- #
+
+def _parse_iso_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _serialize_marketing_content(item: ClienteMarketingContent) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "content_type": item.content_type.value if hasattr(item.content_type, "value") else item.content_type,
+        "checked": bool(item.checked),
+        "checked_date": item.checked_date.isoformat() if item.checked_date else None,
+        "influencers": [
+            {
+                "influencer_id": link.influencer_id,
+                "name": getattr(link.influencer, "name", None),
+                "handle": getattr(link.influencer, "handle", None),
+            }
+            for link in (item.influencer_links or [])
+            if link.influencer
+        ],
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_get_marketing_consents(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    flag = (
+        db.session.query(ClienteMarketingFlag)
+        .filter(
+            ClienteMarketingFlag.cliente_id == cliente_id,
+            ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+        )
+        .first()
+    )
+    contents = (
+        db.session.query(ClienteMarketingContent)
+        .filter(ClienteMarketingContent.cliente_id == cliente_id)
+        .order_by(ClienteMarketingContent.created_at.desc(), ClienteMarketingContent.id.desc())
+        .all()
+    )
+    grouped: dict[str, list[dict[str, Any]]] = {"stories": [], "carosello": [], "videofeedback": []}
+    for item in contents:
+        key = item.content_type.value if hasattr(item.content_type, "value") else str(item.content_type)
+        grouped.setdefault(key, []).append(_serialize_marketing_content(item))
+
+    return jsonify(
+        {
+            "success": True,
+            "data": {
+                "note_marketing": cliente.note_marketing or "",
+                "usabile_marketing": {
+                    "checked": bool(flag.checked) if flag else False,
+                    "checked_date": flag.checked_date.isoformat() if flag and flag.checked_date else None,
+                },
+                "contents": grouped,
+            },
+        }
+    )
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def api_update_marketing_consents(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    payload = request.get_json(silent=True) or {}
+    note_marketing = payload.get("note_marketing")
+    usabile_marketing = payload.get("usabile_marketing")
+
+    if note_marketing is not None:
+        cliente.note_marketing = str(note_marketing).strip() or None
+
+    if isinstance(usabile_marketing, dict):
+        checked = bool(usabile_marketing.get("checked"))
+        checked_date = _parse_iso_date(usabile_marketing.get("checked_date")) or (date.today() if checked else None)
+        flag = (
+            db.session.query(ClienteMarketingFlag)
+            .filter(
+                ClienteMarketingFlag.cliente_id == cliente_id,
+                ClienteMarketingFlag.flag_type == MarketingFlagTypeEnum.usabile_marketing,
+            )
+            .first()
+        )
+        if not flag:
+            flag = ClienteMarketingFlag(
+                cliente_id=cliente_id,
+                flag_type=MarketingFlagTypeEnum.usabile_marketing,
+            )
+            db.session.add(flag)
+        flag.checked = checked
+        flag.checked_date = checked_date
+
+    db.session.commit()
+    return jsonify({"success": True, "message": "Consensi marketing aggiornati."}), HTTPStatus.OK
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents/content", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def api_create_marketing_content(cliente_id: int):
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+
+    payload = request.get_json(silent=True) or {}
+    content_type_raw = (payload.get("content_type") or "").strip().lower()
+    try:
+        content_type = MarketingContentTypeEnum(content_type_raw)
+    except ValueError:
+        abort(HTTPStatus.BAD_REQUEST, description="content_type non valido.")
+
+    item = ClienteMarketingContent(
+        cliente_id=cliente_id,
+        content_type=content_type,
+        checked=bool(payload.get("checked")),
+        checked_date=_parse_iso_date(payload.get("checked_date")),
+    )
+    if item.checked and item.checked_date is None:
+        item.checked_date = date.today()
+    db.session.add(item)
+    db.session.flush()
+
+    influencer_ids = payload.get("influencer_ids") or []
+    if isinstance(influencer_ids, list):
+        valid_ids = {int(i) for i in influencer_ids if str(i).isdigit()}
+        if valid_ids:
+            influencers = (
+                db.session.query(Influencer)
+                .filter(Influencer.active.is_(True), Influencer.influencer_id.in_(valid_ids))
+                .all()
+            )
+            for inf in influencers:
+                db.session.add(
+                    ClienteMarketingInfluencer(
+                        marketing_content_id=item.id,
+                        influencer_id=inf.influencer_id,
+                    )
+                )
+
+    db.session.commit()
+    item = db.session.get(ClienteMarketingContent, item.id)
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)}), HTTPStatus.CREATED
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def api_update_marketing_content(content_id: int):
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND, description="Contenuto marketing non trovato.")
+    cliente = db.session.get(Cliente, item.cliente_id)
+    if not cliente or not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Operazione non consentita.")
+
+    payload = request.get_json(silent=True) or {}
+    if "checked" in payload:
+        item.checked = bool(payload.get("checked"))
+        if item.checked and not item.checked_date:
+            item.checked_date = date.today()
+        if not item.checked:
+            item.checked_date = None
+    if "checked_date" in payload:
+        item.checked_date = _parse_iso_date(payload.get("checked_date"))
+
+    if "influencer_ids" in payload and isinstance(payload.get("influencer_ids"), list):
+        db.session.query(ClienteMarketingInfluencer).filter(
+            ClienteMarketingInfluencer.marketing_content_id == item.id
+        ).delete()
+        valid_ids = {int(i) for i in (payload.get("influencer_ids") or []) if str(i).isdigit()}
+        if valid_ids:
+            influencers = (
+                db.session.query(Influencer)
+                .filter(Influencer.active.is_(True), Influencer.influencer_id.in_(valid_ids))
+                .all()
+            )
+            for inf in influencers:
+                db.session.add(
+                    ClienteMarketingInfluencer(
+                        marketing_content_id=item.id,
+                        influencer_id=inf.influencer_id,
+                    )
+                )
+
+    db.session.commit()
+    item = db.session.get(ClienteMarketingContent, item.id)
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)}), HTTPStatus.OK
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def api_delete_marketing_content(content_id: int):
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND, description="Contenuto marketing non trovato.")
+    cliente = db.session.get(Cliente, item.cliente_id)
+    if not cliente or not _is_assigned_to_cliente(current_user, cliente):
+        abort(HTTPStatus.FORBIDDEN, description="Operazione non consentita.")
+
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"success": True, "message": "Contenuto marketing eliminato."}), HTTPStatus.OK
+
+
+@api_bp.route("/marketing-consents/influencers", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_list_marketing_influencers():
+    rows = (
+        db.session.query(Influencer)
+        .filter(Influencer.active.is_(True))
+        .order_by(Influencer.name.asc())
+        .all()
+    )
+    return jsonify(
+        {
+            "success": True,
+            "data": [
+                {
+                    "influencer_id": item.influencer_id,
+                    "name": item.name,
+                    "handle": item.handle,
+                }
+                for item in rows
+            ],
+        }
+    )
+
 
 def _can_manage_trustpilot(user) -> bool:
     if not getattr(user, "is_authenticated", False):

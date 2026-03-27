@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isProfessionistaStandard } from '../../utils/rbacScope';
 import ClientiFilters from './ClientiFilters';
 import './ClientiList.css';
+import DiarioModal from './DiarioModal';
 
 // Role colors for avatars
 const ROLE_COLORS = {
@@ -91,6 +92,8 @@ function ClientiListaNutrizione() {
       reachOut: searchParams.get('reach_out_nutrizione') || '',
       callInizialeNutrizionista: searchParams.get('call_iniziale_nutrizionista') || '',
       missing_piano_dieta: searchParams.get('missing_piano_dieta') || '0',
+      senza_patologie_nutrizionali: searchParams.get('senza_patologie_nutrizionali') || '0',
+      patologie_non_indicate_nutri: searchParams.get('patologie_non_indicate_nutri') || '0',
     };
     // Init patologie from URL params
     const patKeys = [
@@ -107,7 +110,7 @@ function ClientiListaNutrizione() {
 
   // Modal states
   const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showPatologieModal, setShowPatologieModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -151,6 +154,8 @@ function ClientiListaNutrizione() {
         reach_out_nutrizione: filters.reachOut || undefined,
         call_iniziale_nutrizionista: filters.callInizialeNutrizionista || undefined,
         missing_piano_dieta: filters.missing_piano_dieta === '1' ? '1' : undefined,
+        senza_patologie_nutrizionali: filters.senza_patologie_nutrizionali === '1' ? '1' : undefined,
+        patologie_non_indicate_nutri: filters.patologie_non_indicate_nutri === '1' ? '1' : undefined,
       };
       // Add patologie filters
       PATOLOGIE_NUTRI.forEach(p => {
@@ -206,6 +211,8 @@ function ClientiListaNutrizione() {
     reachOut: 'reach_out_nutrizione',
     callInizialeNutrizionista: 'call_iniziale_nutrizionista',
     missing_piano_dieta: 'missing_piano_dieta',
+    senza_patologie_nutrizionali: 'senza_patologie_nutrizionali',
+    patologie_non_indicate_nutri: 'patologie_non_indicate_nutri',
   };
 
   const handleSearchInput = (value) => {
@@ -255,6 +262,7 @@ function ClientiListaNutrizione() {
       stato: '', tipologia: '', nutrizionista: '',
       statoNutrizione: '', statoChatNutrizione: '', checkDay: '', reachOut: '',
       callInizialeNutrizionista: '', missing_piano_dieta: '0',
+      senza_patologie_nutrizionali: '0', patologie_non_indicate_nutri: '0',
     };
     PATOLOGIE_NUTRI.forEach(p => { clean[p.key] = '0'; });
     setFilters(clean);
@@ -279,7 +287,6 @@ function ClientiListaNutrizione() {
       fetchClienti();
       // Close modals
       setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowCheckDayModal(false);
@@ -299,10 +306,11 @@ function ClientiListaNutrizione() {
     setShowStoriaModal(true);
   };
 
-  const openNoteModal = (cliente) => {
+
+
+  const openDiarioModal = (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_nutrizionista || '');
-    setShowNoteModal(true);
+    setShowDiarioModal(true);
   };
 
   const openStatoModal = (cliente) => {
@@ -541,7 +549,7 @@ function ClientiListaNutrizione() {
                     <th style={{ textAlign: 'center', minWidth: '110px' }}>Patologie</th>
                     <th style={{ textAlign: 'center', minWidth: '100px' }}>Piano Dieta</th>
                     <th style={{ textAlign: 'center', minWidth: '80px' }}>Storia</th>
-                    <th style={{ textAlign: 'center', minWidth: '90px' }}>Note Extra</th>
+                    <th style={{ textAlign: 'center', minWidth: '90px' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '80px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -700,15 +708,13 @@ function ClientiListaNutrizione() {
                           <button
                             className="cl-action-btn"
                             style={{
-                              background: cliente.note_extra_nutrizionista
-                                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
-                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600
                             }}
-                            onClick={() => openNoteModal(cliente)}
+                            onClick={() => openDiarioModal(cliente)}
+                            title="Vedi Diario"
                           >
-                            <i className="ri-sticky-note-line" style={{ marginRight: '4px' }}></i>
-                            {cliente.note_extra_nutrizionista ? 'Vedi' : '+'}
+                            <i className="ri-book-2-line" style={{ marginRight: '4px' }}></i>Vedi
                           </button>
                         </td>
                         <td style={{ textAlign: 'right' }}>
@@ -774,28 +780,13 @@ function ClientiListaNutrizione() {
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>
-            <i className="ri-close-line"></i> Chiudi
-          </button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_nutrizionista', modalValue)}
-            disabled={saving}
-          >
-            {saving ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}
-          </button>
-        </>
-      )}
+      {/* Modal Diario */}
+      <DiarioModal 
+        show={showDiarioModal}
+        onClose={() => setShowDiarioModal(false)}
+        cliente={selectedCliente}
+        serviceType="nutrizione"
+      />
 
       {/* Modal Stato Nutrizione */}
       {renderModal(showStatoModal, () => setShowStatoModal(false), 'Stato Nutrizione', 'ri-circle-fill',

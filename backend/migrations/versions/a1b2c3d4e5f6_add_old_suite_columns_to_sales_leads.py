@@ -18,13 +18,13 @@ depends_on = None
 
 def upgrade():
     # Main table
-    op.add_column('sales_leads', sa.Column('source_system', sa.String(50), nullable=True))
-    op.add_column('sales_leads', sa.Column('old_suite_id', sa.Integer(), nullable=True))
-    op.add_column('sales_leads', sa.Column('ai_analysis', postgresql.JSONB(astext_type=sa.Text()), nullable=True))
-    op.add_column('sales_leads', sa.Column('ai_analyzed_at', sa.DateTime(), nullable=True))
-
-    op.create_index('idx_sales_leads_source_system', 'sales_leads', ['source_system'])
-    op.create_index('idx_sales_leads_old_suite_id', 'sales_leads', ['old_suite_id'])
+    op.execute("ALTER TABLE sales_leads ADD COLUMN IF NOT EXISTS source_system VARCHAR(50);")
+    op.execute("ALTER TABLE sales_leads ADD COLUMN IF NOT EXISTS old_suite_id INTEGER;")
+    op.execute("ALTER TABLE sales_leads ADD COLUMN IF NOT EXISTS ai_analysis JSONB;")
+    op.execute("ALTER TABLE sales_leads ADD COLUMN IF NOT EXISTS ai_analyzed_at TIMESTAMP WITHOUT TIME ZONE;")
+    
+    op.execute("CREATE INDEX IF NOT EXISTS idx_sales_leads_source_system ON sales_leads (source_system);")
+    op.execute("CREATE INDEX IF NOT EXISTS idx_sales_leads_old_suite_id ON sales_leads (old_suite_id);")
 
 
 
