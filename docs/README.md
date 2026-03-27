@@ -7,7 +7,7 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 ## Convenzioni struttura (decisione attuale)
 
 - Le aree restano organizzate con prefisso numerico (`00-`, `01-`, ...).
-- L'area `05-comunicazione` viene mantenuta come **contenitore di comunicazione + integrazioni esterne** (scelta deliberata, senza rinomina cartella in questa fase).
+- L'area `05-comunicazione` viene mantenuta come **contenitore di comunicazione + integrazioni esterne**.
 - Ogni nuovo file usa naming in `kebab-case.md`.
 - Documento guida di stile: [template-documento.md](./00-panoramica/template-documento.md).
 
@@ -57,6 +57,13 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 - [Refactor status report](./06-sviluppo-e-varie/refactor_status_report.md)
 - [Refining refactor plan](./06-sviluppo-e-varie/refining_refactor_plan.md)
 
+### 07 — Guide ruoli operativi
+- [Guida Nutrizionista](./07-guide-ruoli/guida-nutrizionista.md)
+- [Guida Coach](./07-guide-ruoli/guida-coach.md)
+- [Guida Psicologo](./07-guide-ruoli/guida-psicologo.md)
+- [Guida Health Manager](./07-guide-ruoli/guida-health-manager.md)
+- [Guida Team Leader](./07-guide-ruoli/guida-team-leader.md)
+
 ## Tracker stato documentazione
 
 | Documento | Owner | Stato | Ultimo aggiornamento | Prossima revisione |
@@ -66,21 +73,7 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 | `03-clienti-core/gestione-clienti.md` | Team IT | 🟢 Completo | 27/03/2026 | 05/2026 |
 | `04-strumenti-operativi/task-calendario.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
 | `05-comunicazione/integrazione-respond-io.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
-
-## Checklist qualità (prima del merge)
-
-### Verifica tecnica
-- Endpoint e metodi HTTP verificati su blueprint/backend.
-- Modelli dati e campi citati coerenti con `models.py`.
-- Regole RBAC allineate al comportamento reale.
-
-### Verifica funzionale
-- Sezione introduttiva comprensibile anche a non-tecnici.
-- Flusso utente scritto in passaggi sequenziali chiari.
-
-### Verifica navigazione
-- Link relativi funzionanti.
-- Documento indicizzato in questa pagina.
+| `07-guide-ruoli/guida-nutrizionista.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
 
 ---
 Ultimo aggiornamento: Marzo 2026
