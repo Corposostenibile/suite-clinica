@@ -2,7 +2,7 @@
 
 > **Categoria**: `comunicazione`
 > **Destinatari**: Appointment Setters, Sales, Health Managers
-> **Stato**: 🟢 Completo
+> **Stato**: 🟡 Da aggiornare (modulo parzialmente disattivato in bootstrap)
 > **Ultimo aggiornamento**: 27/03/2026
 
 ---
@@ -45,9 +45,11 @@ In particolare, permette di:
 
 | Layer | Componente | Ruolo |
 |-------|------------|-------|
-| Webhook | `/webhook/*` | Ricezione eventi real-time da Respond.io |
+| Webhook | `/respond-io/webhook/*` | Ricezione eventi real-time da Respond.io |
 | Client API | `RespondIOClient` | Chiamate outbound REST verso Respond.io |
 | Worker | Celery | Scheduling follow-up asincroni e gestione Code |
+
+> Nota implementativa: nel bootstrap del blueprint (`blueprints/respond_io/__init__.py`) l'import esplicito di `webhooks/routes/api_routes` e' commentato. Le route in `webhooks.py` esistono, ma senza import del modulo non vengono registrate automaticamente.
 
 ### Ciclo di Vita Webhook
 
@@ -69,10 +71,11 @@ sequenceDiagram
 
 | Endpoint | Metodo | Descrizione |
 |---|---|---|
-| `/webhook/new-contact` | POST | Registra la creazione di un nuovo contatto. |
-| `/webhook/lifecycle-update` | POST | Registra il passaggio di stato (es. Lead -> In Target). |
-| `/webhook/incoming-message` | POST | Messaggio ricevuto dal cliente (aggiunge tag "in_attesa"). |
-| `/webhook/outgoing-message` | POST | Messaggio inviato dall'agente (rimuove tag "in_attesa", arma follow-up). |
+| `/respond-io/webhook/new-contact` | POST | Nuovo contatto (tracking + metriche). |
+| `/respond-io/webhook/lifecycle-update` | POST | Cambio lifecycle con aggiornamento metriche e cancellazione follow-up non validi. |
+| `/respond-io/webhook/incoming-message` | POST | Messaggio inbound, update mapping canale e gestione tag/follow-up. |
+| `/respond-io/webhook/outgoing-message` | POST | Messaggio outbound, rimozione tag `in_attesa` e scheduling follow-up. |
+| `/respond-io/webhook/tag-updated` | POST | Aggiornamento tag con logica di cancel/schedule follow-up. |
 
 ---
 
@@ -88,16 +91,22 @@ sequenceDiagram
 
 | Variabile | Descrizione | Obbligatoria |
 |-----------|-------------|--------------|
-| `RESPOND_IO_API_KEY` | Chiave API per chiamate REST outbound | Sì |
-| `RESPOND_IO_WEBHOOK_SECRET` | Segreto per verifica firma HMAC webhook | Sì |
+| `RESPOND_IO_API_TOKEN` | Token API per chiamate REST outbound | Sì |
+| `RESPOND_IO_API_BASE_URL` | Base URL API Respond.io (default `https://api.respond.io/v2`) | No |
+| `RESPOND_IO_WEBHOOK_KEY_NEW_CONTACT` | Signing key webhook `new-contact` | Sì |
+| `RESPOND_IO_WEBHOOK_KEY_LIFECYCLE` | Signing key webhook `lifecycle-update` | Sì |
+| `RESPOND_IO_WEBHOOK_KEY_INCOMING_MESSAGE` | Signing key webhook `incoming-message` | Sì |
+| `RESPOND_IO_WEBHOOK_KEY_OUTGOING_MESSAGE` | Signing key webhook `outgoing-message` | Sì |
+| `RESPOND_IO_WEBHOOK_KEY_TAG_UPDATED` | Signing key webhook `tag-updated` | Sì |
 
 ---
 
 ## Note Operative e Casi Limite
 
-- **Firma Webhook**: Tutti i webhook verificano la firma HMAC-SHA256 (`X-Webhook-Signature`) per sicurezza.
+- **Firma Webhook**: verifica HMAC-SHA256 base64 tramite header `X-Webhook-Signature`, con chiavi distinte per evento.
 - **Risposta 200 OK**: Il sistema ritorna *sempre* 200 OK ai webhook (anche in caso di errore interno dopo il logging) per evitare che Respond.io disconnetta l'endpoint.
 - **Quiet Period**: Se il follow-up cade tra mezzanotte e le 7:00 del mattino, viene posticipato alle 7:00 per non disturbare il cliente.
+- **Stato bootstrap**: blueprint registrato ma import route commentato nel modulo `respond_io`; se non riattivato, i webhook non risultano effettivamente esposti.
 
 ---
 

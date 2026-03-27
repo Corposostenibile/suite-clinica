@@ -62,11 +62,13 @@ sequenceDiagram
 
 | Endpoint | Metodo | Descrizione |
 |---|---|---|
-| `/public-key` | GET | Ritorna la chiave pubblica VAPID per il frontend. |
-| `/subscriptions` | POST | Registra o aggiorna un dispositivo per le notifiche. |
-| `/notifications` | GET | Lista delle notifiche ricevute dall'utente (centro notifiche). |
-| `/notifications/<id>/read` | POST | Segna una notifica come letta. |
-| `/admin/send` | POST | (Admin) Invia una notifica push manuale a un utente. |
+| `/api/push/public-key` | GET | Ritorna la chiave pubblica VAPID per il frontend. |
+| `/api/push/subscriptions` | POST | Registra o aggiorna una sottoscrizione browser. |
+| `/api/push/subscriptions` | DELETE | Rimuove una o piu' sottoscrizioni dell'utente corrente. |
+| `/api/push/notifications` | GET | Lista notifiche utente + `unreadCount`. |
+| `/api/push/notifications/<id>/read` | POST | Segna una notifica come letta. |
+| `/api/push/admin/professionisti` | GET | Lista destinatari push per pannello admin. |
+| `/api/push/admin/send` | POST | (Admin) Invia una notifica push manuale a un utente. |
 
 ---
 
@@ -83,7 +85,7 @@ sequenceDiagram
 |-----------|-------------|--------------|
 | `VAPID_PUBLIC_KEY` | Chiave pubblica per la sottoscrizione frontend | Sì |
 | `VAPID_PRIVATE_KEY` | Chiave privata per la firma dei payload push | Sì |
-| `VAPID_CLAIM_EMAIL` | Email di contatto per il provider di push | Sì |
+| `VAPID_CLAIMS_SUB` | Subject VAPID (es. `mailto:it@...`) | Sì |
 
 ---
 
@@ -92,6 +94,7 @@ sequenceDiagram
 - **Sicurezza**: Richiede obbligatoriamente HTTPS per funzionare.
 - **Service Worker**: Se il service worker non è registrato o è bloccato, la notifica non verrà mai ricevuta.
 - **Gone (410)**: Se il browser risponde con 410, la sottoscrizione viene eliminata automaticamente dal database perché non più valida.
+- **RBAC admin**: le route `/api/push/admin/*` richiedono utente admin (`_require_admin`); le altre route richiedono solo login.
 
 ---
 

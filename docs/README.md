@@ -35,8 +35,8 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 - [Check periodici](./03-clienti-core/check-periodici.md)
 - [Modulo nutrizione](./03-clienti-core/modulo-nutrizione.md)
 - [Diario e progresso](./03-clienti-core/diario-progresso.md)
-- [Specifiche integrazione medica](./03-clienti-core/specifiche-integrazione-medica.md)
-- [Guida al test medico](./03-clienti-core/guida-test-medico.md)
+- [Piano medico nutrizione](./03-clienti-core/piano_medico_nutrizione.md)
+- [Guida al test medico](./03-clienti-core/test_medico_passo_passo.md)
 
 ### 04 — Strumenti operativi
 - [Task e calendario](./04-strumenti-operativi/task-calendario.md)
@@ -51,6 +51,9 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 - [Integrazione Respond.io](./05-comunicazione/integrazione-respond-io.md)
 - [Appointment Setting](./05-comunicazione/appointment-setting.md)
 - [Notifiche push](./05-comunicazione/notifiche-push.md)
+- [Integrazione GHL webhook](./05-comunicazione/integrazione-gohighlevel-webhook.md)
+- [SuiteMind AI e SOP chatbot](./05-comunicazione/suitemind-ai-sop-chatbot.md)
+- [Trustpilot e review automation](./05-comunicazione/trustpilot-review-automation.md)
 
 ### 06 — Sviluppo e varie
 - [Report completamento documentazione](./06-sviluppo-e-varie/report-completamento-documentazione.md)
@@ -73,6 +76,9 @@ Obiettivo: mantenere una documentazione utile sia al team tecnico sia ai ruoli o
 | `03-clienti-core/gestione-clienti.md` | Team IT | 🟢 Completo | 27/03/2026 | 05/2026 |
 | `04-strumenti-operativi/task-calendario.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
 | `05-comunicazione/integrazione-respond-io.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
+| `05-comunicazione/integrazione-gohighlevel-webhook.md` | Team IT | 🟡 Bozza avanzata | 27/03/2026 | 04/2026 |
+| `05-comunicazione/suitemind-ai-sop-chatbot.md` | Team IT | 🟡 Bozza avanzata | 27/03/2026 | 04/2026 |
+| `05-comunicazione/trustpilot-review-automation.md` | Team IT | 🟡 Bozza avanzata | 27/03/2026 | 04/2026 |
 | `07-guide-ruoli/guida-nutrizionista.md` | Team IT | 🟢 Completo | 27/03/2026 | 06/2026 |
 
 ---

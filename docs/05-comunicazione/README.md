@@ -12,11 +12,10 @@ Questa sezione documenta gli strumenti di comunicazione della Suite Clinica, inc
 - [Integrazione Respond.io](./integrazione-respond-io.md) — Gestione messaggistica WhatsApp, integrazione webhook e follow-up automatici.
 - [Appointment Setting](./appointment-setting.md) — Monitoraggio performance, messaggi inviati e tassi di conversione funnel.
 
-### 🔗 Integrazioni correlate (da consolidare)
-- GoHighLevel (GHL)
-- SuiteMind AI / SOP chatbot
-- Automazioni marketing
-- Trustpilot / review lifecycle
+### 🔗 Integrazioni avanzate (Sprint C)
+- [Integrazione GoHighLevel (GHL) Webhook](./integrazione-gohighlevel-webhook.md) — Sincronizzazione eventi funnel e lifecycle lead.
+- [SuiteMind AI e SOP Chatbot](./suitemind-ai-sop-chatbot.md) — Knowledge retrieval e supporto operativo conversazionale.
+- [Trustpilot e Review Automation](./trustpilot-review-automation.md) — Ciclo inviti recensione e monitoraggio conversioni.
 
 ---
 
