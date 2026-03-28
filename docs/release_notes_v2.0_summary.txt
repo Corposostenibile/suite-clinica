@@ -1,0 +1,66 @@
+Riassunto Versione 2.0
+
+---
+
+1. Call Bonus
+La tab era un placeholder "Coming soon". Ora e' un flusso operativo completo: l'HM crea una richiesta in 3 step (scelta professionista, proposta AI o selezione manuale, conferma), il professionista riceve un task con notifica Teams e risponde con interesse o meno, e l'HM procede alla prenotazione tramite Calendly. Tutto lo storico e' tracciato in una tabella con badge colorati per stato. Il professionista mantiene la visibilita' sul paziente per tutta la durata del flusso.
+
+2. Call Rinnovo
+Non esisteva. Ora ci sono due strumenti: le richieste di rinnovo (con ciclo proposta -> accettazione/rifiuto -> conferma, tracciamento conversione e collegamento al pagamento) e il registro degli interventi HM (data, note, link Loom). Nuova sub-tab "Call Rinnovo" nella sezione Health Manager con CRUD completo.
+
+3. Video Recensione
+Non esisteva. Nella tab Marketing si puo' prenotare una video recensione con HM selezionando data e ora. Il sistema verifica che il paziente abbia un HM assegnato. L'HM conferma inserendo obbligatoriamente un link Loom. Due stati: Prenotata -> Confermata HM. Il modello Video Feedback e' presente nel backend ma senza interfaccia attiva.
+
+4. Referral Health Manager
+Non esisteva. Nuova sub-tab "Call Referral" nella sezione HM con 3 campi: Bonus Scelto, Bonus Utilizzato, Bonus ancora da utilizzare.
+
+5. Consensi Marketing
+Non esisteva. Sistema completo con: flag "usabile per marketing" con data, contenuti prodotti per tipo (Stories, Carosello, VideoFeedback) associabili a influencer, e note marketing libere. CRUD completo nel dettaglio paziente.
+
+6. Export PDF Cartella Clinica
+Non esisteva. PDF scaricabile con 14 sezioni: copertina, anagrafica, team attuale e storico, interventi HM, nutrizione/coaching/psicologia (con patologie, anamnesi, diario), progresso peso e valutazioni, check e risposte, Loom/ticket, marketing, documentazione. Design con colori del brand, layout compatto.
+
+7. Pannello di Controllo Coordinatrici HM
+Non esisteva. Dashboard con tabella di tutti i pazienti con HM assegnato: 13 colonne (date, flag SI/NO per check-in, rinnovo, review), 5 filtri, ordinamento, paginazione. Visibile solo per admin, CCO e team leader HM. Disponibile anche come sotto-tab nel dettaglio paziente con layout a card. Alcuni flag usano al momento valori simulati deterministici.
+
+8. Filtri Avanzati Liste Pazienti
+I filtri patologie confondevano "nessuna patologia" con "non compilato". Ora sono distinti. Aggiunta opzione "Non indicato" per le tipologie. Aggiunti 4 filtri marketing (usabile, stories, carosello, videofeedback). Tutto integrato in tutte le liste operative.
+
+9. Diario dalle Liste Operative
+Il diario era accessibile solo dal dettaglio paziente. Ora si apre direttamente dalle liste Coach, Nutrizione e Psicologia con un pulsante "Vedi" nella colonna "Diario". Modale con lettura, aggiunta e cancellazione note.
+
+10. Stabilizzazione Card Paziente
+La card laterale poteva mostrare dati incoerenti. Riscritta la normalizzazione dei dati con fallback tipizzati, estratti i calcoli dal rendering, aggiunto flag "ha team assegnato".
+
+11. Calendario e GHL
+Non si potevano creare eventi dal frontend. Ora c'e' un pulsante "Nuovo evento" nel Calendario con modale completa (titolo, data, ora, durata, ricerca paziente con autocompletamento). In sviluppo le scritture GHL vengono simulate. Il contatto GHL viene risolto con fallback progressivo. Corretto il salvataggio dell'HM nell'opportunity bridge.
+
+12. Trustpilot
+Webhook hardenizzato: autenticazione, estrazione resiliente dei campi (cerca in piu' posizioni e formati), ricerca recensione con 3 fallback, gestione pubblicazione e cancellazione. Diagnostica migliorata con stato configurazione completo. 3 test dedicati.
+
+13. Marketing Automation
+Modulo completamente nuovo. Flusso: video approvato su Frame.io -> webhook -> recupero metadati e trascrizione (API v2/v4 con fallback) -> generazione caption con Claude -> invio ad Airtable. Supporta OAuth Adobe e Developer Token. Linee guida caption in italiano e personalizzabili.
+
+14. Board IT e Ticketing
+La board era solo "general". Aggiunta board IT dedicata con: priorita' bloccante/non bloccante, selettore sistema (Suite Clinica, GHL, Respondio, Teams, ManyChat), auto-assegnazione ai responsabili, stato "standby" (viola), notifica proattiva al canale Teams IT. I ticket IT non sono associati a pazienti.
+
+15. Notifiche Teams per Task
+I task non generavano notifiche strutturate. Ora 3 tipi di card adattive: task assegnato (blu, con categoria/priorita'/paziente/scadenza), sollecito check mancato (rosso), reminder scadenze (giallo, con icona contestuale e giorni rimasti). Integrate nella creazione manuale e nei generatori automatici di solleciti e reminder. Invio asincrono con retry.
+
+16. Patologie Coaching
+Non esistevano. 7 nuovi campi: nessuna patologia, infortuni, dolori cronici, limitazioni articolari, posturali, cardiovascolari, altro. Logica di esclusione reciproca con "nessuna patologia".
+
+17. Data Model
+7 nuove tabelle (call rinnovo, video feedback, interventi rinnovo, flag marketing, contenuti marketing, influencer marketing, video review). 12 migrazioni. Nuovi campi su paziente (patologie coaching, referral, note marketing) e ticket (board, sistema). 4 nuovi tipi enumerati, 3 modificati.
+
+18. Script di Manutenzione
+4 nuovi script: backfill tipologie da programma attuale, riparazione versione migrazioni, validazione capacita' professionisti, garanzia schema marketing senza migrazioni.
+
+19. Test Suite
+326 test organizzati per modulo: autenticazione (50), calendario (50), pazienti (21), integrazioni (31), qualita' (52), review (25), task (26), team (70). Database pulito tra ogni test, factory per dati di test, fixture con login automatico.
+
+20. CI/CD Pipeline
+Il deploy e' ora condizionato al passaggio dei test. Pipeline: build -> test su Postgres temporaneo -> push immagine (solo se test passano) -> deploy GKE -> migrazioni -> verifica schema -> dati iniziali -> sincronizzazione criteri. Flag per skip deploy. Pipeline standalone per soli test con report e copertura.
+
+21. Stabilizzazione Auth e API
+Corretti: errore di importazione che bloccava il login API, gestione accesso non autorizzato per tutti i percorsi API, doppia inizializzazione in ambiente test, body vuoto nel recupero password, ordine controlli impersonificazione, middleware di tracking resiliente, team leader inclusi tra i professionisti disponibili. Tutte le risposte di autenticazione ora in formato JSON.
