@@ -1,0 +1,525 @@
+Branch version-2.0-updated-tests-cicd
+Confronto completo rispetto a main
+88 commit, 116 file modificati, circa 18.000 righe aggiunte e 1.000 rimosse
+
+---
+
+1. Call Bonus - Flusso Operativo Completo
+
+Cosa cambia rispetto a main:
+La tab "Call Bonus" nel dettaglio paziente era un semplice placeholder con la scritta
+"Coming soon". Tutta la logica sottostante e' ora completamente implementata sia lato
+backend che frontend, anche se la tab continua a mostrare il placeholder in attesa
+dell'attivazione.
+
+Frontend:
+- Creazione richiesta in 3 step tramite modale:
+  - Step 1: Selezione del tipo di professionista tramite pulsanti con icone colorate.
+    L'HM puo' aggiungere note libere per contestualizzare la richiesta.
+  - Step 2: Analisi AI con SuiteMind AI. Il sistema calcola un punteggio di
+    compatibilita' per ogni professionista disponibile, visualizzato con barre
+    percentuali colorate (verde sopra il 70%, giallo tra 40% e 70%, rosso sotto il
+    40%). L'HM puo' anche selezionare manualmente un professionista saltando il
+    suggerimento AI.
+  - Step 3: Riepilogo con link al calendario del professionista selezionato e pulsante
+    "Ho prenotato la call" per confermare la prenotazione.
+- Modale di risposta del professionista con due fasi distinte:
+  - Fase "ask": il professionista indica se e' interessato (si/no).
+  - Fase "book_hm": viene mostrato il link al calendario dell'HM e il pulsante per
+    confermare la prenotazione avvenuta.
+- Tabella storico con badge colorati per ogni stato della richiesta.
+- Il professionista mantiene la visibilita' sul paziente per tutta la durata del flusso.
+
+Backend:
+- 7 stati del ciclo di vita della richiesta: proposta, accettata, interessato,
+  non interessato, rifiutata, confermata, non andata a buon fine.
+- Webhook verso GoHighLevel alla risposta "interessato" del professionista, con supporto
+  sia in modalita' simulata (sviluppo) che reale (produzione).
+- Campi di tracciamento conversione ARR (ricavi ricorrenti annuali) associati alla
+  richiesta.
+
+---
+
+2. Call Rinnovo
+
+Cosa cambia rispetto a main:
+Non esisteva alcun sistema di gestione dei rinnovi. Ora il rinnovo e' presente in due
+contesti distinti del dettaglio paziente.
+
+Contesto 1 - Interventi HM (sotto-tab nella sezione Health Manager):
+- Registro in stile diario degli interventi dell'HM relativi al rinnovo.
+- CRUD completo: creazione, lettura, modifica e cancellazione delle note.
+- Ogni intervento ha data, note testuali e link Loom opzionale.
+- Modale condivisa con gli altri tipi di intervento (Customer Care e Check-in),
+  con lo stesso layout e comportamento.
+
+Contesto 2 - Richieste Call (sotto-tab dedicata):
+- Flusso a stati: proposta, accettata o rifiutata, confermata.
+- Tracciamento della conversione e collegamento al pagamento.
+- Storico completo delle richieste con badge di stato.
+
+Dashboard Coordinatrici:
+- La tabella delle coordinatrici mostra la data dell'ultima call di rinnovo effettuata
+  per ogni paziente, permettendo un monitoraggio centralizzato.
+
+---
+
+3. Video Recensione
+
+Cosa cambia rispetto a main:
+Non esisteva alcun sistema di gestione delle video recensioni. Ora il flusso e' presente
+in due contesti.
+
+Tab "Richieste Call" nel dettaglio paziente:
+- L'HM puo' prenotare una video recensione selezionando data e ora.
+- Il pulsante di prenotazione e' disabilitato (grigio) se il paziente non ha un HM
+  assegnato, con un messaggio di avviso esplicito.
+- Protezione anti-duplicato: se esiste gia' una prenotazione aperta per lo stesso
+  paziente, il sistema restituisce quella esistente invece di crearne una nuova.
+- Due stati: Prenotata e Confermata HM.
+- La conferma dell'HM richiede obbligatoriamente l'inserimento di un link Loom.
+
+Tab "Marketing" nel dettaglio paziente:
+- Sezione di sola lettura che mostra le video recensioni completate.
+- Per ogni recensione confermata viene visualizzato il link Loom inserito dall'HM.
+
+---
+
+4. Referral Health Manager
+
+Cosa cambia rispetto a main:
+Non esisteva. Nuova sotto-tab "Call Referral" nella sezione Health Manager del dettaglio
+paziente.
+
+Frontend:
+- 3 campi di testo: Bonus Scelto, Bonus Utilizzato, Bonus ancora da utilizzare.
+- Salvataggio automatico alla perdita del focus (quando l'utente clicca fuori dal campo),
+  senza necessita' di premere un pulsante "Salva".
+- Testo segnaposto di esempio in ogni campo: "Es. Sconto 10%", "Es. 1 mese",
+  "Es. 2 mesi".
+
+---
+
+5. Consensi Marketing
+
+Cosa cambia rispetto a main:
+Non esisteva alcun sistema di gestione dei consensi marketing. Ora nel dettaglio paziente
+e' presente un modulo completo.
+
+Toggle "Usabile per Marketing":
+- Interruttore che attiva/disattiva il consenso del paziente all'utilizzo per materiale
+  di marketing.
+- Quando viene attivato, il sistema registra automaticamente la data di attivazione.
+- Pulsante "Salva Consensi" dedicato per salvare il toggle e le note marketing associate.
+
+Gestione Contenuti:
+- 3 tipologie di contenuto: Stories, Carosello, VideoFeedback.
+- Per ogni contenuto prodotto e' possibile selezionare uno o piu' influencer da una lista
+  scrollabile a selezione multipla.
+- Ogni contenuto viene salvato singolarmente tramite la propria modale, separatamente
+  dal salvataggio del toggle e delle note.
+
+Note Marketing:
+- Campo di testo libero per annotazioni generali sul consenso e sull'utilizzo marketing
+  del paziente.
+
+---
+
+6. Export PDF Cartella Clinica
+
+Cosa cambia rispetto a main:
+Non esisteva. Ora e' possibile scaricare un PDF completo della cartella clinica del
+paziente direttamente dal dettaglio paziente.
+
+Struttura del documento (14 sezioni):
+- Copertina con nome paziente e data di generazione.
+- Anagrafica completa del paziente.
+- Team attualmente assegnato (HM, nutrizionista, coach, psicologo).
+- Storico assegnazioni team precedenti.
+- Interventi HM (customer care, check-in, rinnovo) con date e note.
+- Sezione Nutrizione: patologie nutrizionali, anamnesi, diario delle visite.
+- Sezione Coaching: le 6 nuove patologie coaching (infortuni, dolori cronici,
+  limitazioni articolari, problemi posturali, problemi cardiovascolari, altro) con
+  il campo "nessuna patologia", anamnesi e diario.
+- Sezione Psicologia: patologie psicologiche, anamnesi, diario.
+- Progresso peso e valutazioni corporee.
+- Check settimanali con risposte dettagliate (fino a 29 campi per risposta).
+- Link Loom e ticket associati.
+- Sezione Marketing (consensi, contenuti, video recensioni).
+- Diario del paziente (massimo 15 note per sezione).
+- Documentazione e note aggiuntive.
+
+Design:
+- Colori del brand aziendale: verde primario, verde secondario, verde accento.
+- Font Helvetica su tutto il documento.
+- Intestazione con banda verde su ogni pagina.
+- Pie' di pagina con data di generazione e numero di pagina.
+- Layout compatto per minimizzare il numero di pagine.
+
+---
+
+7. Pannello di Controllo Coordinatrici HM
+
+Cosa cambia rispetto a main:
+Non esisteva. Nuova dashboard accessibile solo ad admin, coordinatrici (CCO) e team
+leader del dipartimento HM.
+
+Vista Tabellare (lista):
+- Tabella con tutti i pazienti che hanno un HM assegnato.
+- 13 colonne: dati anagrafici, date rilevanti (iscrizione, scadenza, ultimo check-in,
+  ultima call rinnovo), flag SI/NO per check-in effettuato, call rinnovo effettuata,
+  review effettuata, e altri indicatori operativi.
+- Alcuni flag utilizzano al momento valori simulati deterministici (circa il 66% dei
+  pazienti risulta "SI") in attesa dell'integrazione con i dati reali.
+- Doppia barra di scorrimento orizzontale (in alto e in basso alla tabella) con
+  navigazione tramite frecce per facilitare la consultazione su schermi stretti.
+- Filtro HM popolato dinamicamente dal dataset (mostra solo gli HM che hanno almeno
+  un paziente assegnato).
+- 5 filtri totali, ordinamento per colonna e paginazione.
+
+Vista Dettaglio (sotto-tab nel dettaglio paziente):
+- 7 card informative con i dati principali del paziente.
+- 5 card con flag operativi in griglia responsive.
+- Layout ottimizzato per una consultazione rapida delle informazioni chiave.
+
+---
+
+8. Filtri Avanzati Liste Pazienti
+
+Cosa cambia rispetto a main:
+I filtri sulle patologie confondevano "il paziente ha dichiarato di non avere patologie"
+con "il paziente non ha mai compilato la sezione". Ora i tre stati sono distinti.
+
+Semantica a 3 livelli per le patologie:
+- "Con patologia": il paziente ha dichiarato una o piu' patologie specifiche.
+- "Nessuna patologia": il paziente ha compilato la sezione e ha dichiarato esplicitamente
+  di non avere patologie.
+- "Non indicato": il paziente non ha mai compilato la sezione patologie.
+
+Patologie disponibili nei filtri:
+- 17 patologie nutrizionali.
+- 7 patologie psicologiche.
+- Le patologie coaching (6 tipologie) sono gestite separatamente nella sezione coaching.
+
+Nuovi filtri marketing:
+- 4 filtri aggiuntivi: usabile per marketing, stories, carosello, videofeedback.
+- Il filtro "usabile per marketing" controlla il flag del consenso.
+- I filtri stories, carosello e videofeedback controllano la presenza di contenuti
+  prodotti per quella tipologia.
+- Tutti i filtri marketing sono integrati in tutte le liste operative (Coach, Nutrizione,
+  Psicologia, HM).
+
+---
+
+9. Diario dalle Liste Operative
+
+Cosa cambia rispetto a main:
+Il diario del paziente era accessibile esclusivamente dalla pagina di dettaglio del
+paziente. Ora e' raggiungibile direttamente dalle liste operative.
+
+Frontend:
+- Nuova colonna "Diario" nelle liste Coach, Nutrizione e Psicologia.
+- Pulsante "Vedi" in ogni riga che apre una modale con il diario del paziente.
+- La modale ha un'altezza massima del 60% dell'area visibile con scorrimento interno
+  per i diari lunghi.
+- Campo di testo con segnaposto "Aggiungi una nuova nota al diario..." per la creazione
+  di nuove note.
+- Il pulsante di salvataggio cambia testo in "Salvando..." durante l'operazione.
+- La cancellazione di una nota richiede una conferma tramite finestra di dialogo del
+  browser.
+- Non e' prevista la modifica delle note esistenti: solo creazione e cancellazione.
+- Le note del diario sono incluse anche nell'export PDF (massimo 15 per sezione).
+
+---
+
+10. Stabilizzazione Card Paziente
+
+Cosa cambia rispetto a main:
+La card laterale del paziente (visibile nelle liste e nel dettaglio) poteva mostrare dati
+incoerenti o vuoti in diverse situazioni.
+
+Correzioni specifiche:
+- L'email veniva letta dal modulo di modifica anziche' dai dati del paziente, risultando
+  vuota in assenza di modifiche in corso.
+- L'eta' e la data di nascita avevano lo stesso problema: venivano calcolate dai campi
+  del form di modifica invece che dai dati caricati.
+- L'identificativo paziente mostrava valori non definiti quando il dato non era
+  disponibile.
+- I giorni rimanenti alla scadenza risultavano vuoti quando il valore non era fornito
+  dal backend, anche in presenza di una data di rinnovo valida.
+- Il calcolo dell'HM assegnato veniva rieseguito ad ogni aggiornamento del rendering
+  all'interno di una funzione anonima, causando potenziali rallentamenti. Ora il calcolo
+  e' estratto e memorizzato correttamente.
+- Aggiunto un flag esplicito "ha team assegnato" per gestire correttamente la
+  visualizzazione condizionale delle informazioni del team.
+- Tutti i campi hanno ora valori di fallback tipizzati per evitare errori di rendering.
+
+---
+
+11. Calendario e Integrazione GoHighLevel
+
+Cosa cambia rispetto a main:
+Non era possibile creare eventi dal frontend. La sezione Calendario era di sola lettura.
+
+Creazione eventi:
+- Nuovo pulsante "Nuovo evento" nella vista Calendario.
+- Modale completa con: titolo, data, ora di inizio, durata e ricerca paziente con
+  autocompletamento.
+- Arrotondamento intelligente dell'orario: se l'ora corrente e' prima della mezza
+  (es. 10:14), viene proposto il prossimo mezzo (10:30); se e' dopo (es. 10:42),
+  viene proposta l'ora successiva (11:00).
+- In ambiente di sviluppo (modalita' simulata), la creazione mostra un messaggio giallo
+  esplicito che indica la simulazione; in produzione il messaggio e' verde standard.
+- La modale si chiude automaticamente circa 700 millisecondi dopo il successo
+  dell'operazione.
+
+Risoluzione contatto GoHighLevel:
+- Catena di risoluzione a 3 livelli per trovare il contatto corrispondente su
+  GoHighLevel: prima per identificativo diretto, poi per email, infine per numero di
+  telefono.
+- Quando il contatto viene trovato, il suo identificativo GoHighLevel viene salvato
+  nel sistema per velocizzare le ricerche future.
+- Corretto il salvataggio dell'HM nell'opportunity bridge, che in precedenza poteva
+  associare il professionista sbagliato.
+
+---
+
+12. Trustpilot
+
+Cosa cambia rispetto a main:
+
+Backend - Webhook:
+- Aggiunta autenticazione sulle richieste webhook in ingresso.
+- Estrazione resiliente dei campi dalla richiesta: il sistema cerca le informazioni
+  in piu' posizioni e formati diversi all'interno del payload ricevuto, per gestire
+  le variazioni nel formato dei dati inviati da Trustpilot.
+- Ricerca della recensione con 3 livelli di fallback per massimizzare il tasso di
+  corrispondenza.
+- Gestione corretta sia della pubblicazione che della cancellazione delle recensioni.
+- Diagnostica migliorata con stato di configurazione completo consultabile.
+- 3 test dedicati per il flusso webhook.
+
+Frontend - Lista HM (tab "Recensioni"):
+- 3 nuovi banner contestuali basati sulla configurazione:
+  - Integrazione Trustpilot disabilitata: avviso che l'integrazione non e' attiva.
+  - Configurazione mancante: avviso con elenco degli elementi di configurazione
+    mancanti.
+  - Webhook non configurato: avviso specifico sulla mancata configurazione del webhook.
+- I messaggi di errore ora mostrano la descrizione reale dell'errore restituita dal
+  backend, invece di un messaggio generico. Il sistema estrae il miglior messaggio
+  disponibile dalla risposta, cercando in ordine: descrizione dettagliata, messaggio
+  principale, errore generico, e infine un testo di fallback.
+
+Frontend - Dettaglio paziente (tab Marketing, sezione Trustpilot):
+- Nessuna modifica rispetto a main in questa sezione.
+
+---
+
+13. Marketing Automation (Frame.io + Claude + Airtable)
+
+Cosa cambia rispetto a main:
+Modulo completamente nuovo per l'automazione del flusso di produzione contenuti marketing.
+
+Flusso operativo:
+- Un video viene approvato sulla piattaforma Frame.io.
+- Frame.io invia un webhook al sistema.
+- Il sistema recupera i metadati del video e la trascrizione associata, utilizzando
+  due versioni diverse delle API Frame.io (v2 e v4) con fallback automatico in caso
+  di errore sulla prima.
+- La trascrizione e i metadati vengono inviati a Claude (intelligenza artificiale) per
+  la generazione automatica di una caption in italiano, seguendo linee guida
+  personalizzabili.
+- La caption generata e i metadati vengono inviati ad Airtable per la gestione
+  editoriale.
+
+Autenticazione:
+- Supporto per due modalita' di autenticazione con Adobe/Frame.io: OAuth standard e
+  Developer Token.
+
+---
+
+14. Board IT e Ticketing
+
+Cosa cambia rispetto a main:
+Esisteva solo la board "generale" per i ticket. Ora sono presenti due board distinte con
+flussi diversi.
+
+Board Generale (esistente, migliorata):
+- 4 colonne di stato: Aperto, In Lavorazione, Risolto, Chiuso.
+- Ticket associabili a pazienti.
+
+Board IT (nuova):
+- 4 colonne di stato con flusso diverso: Aperto, In Lavorazione, Standby, Risolto.
+  Lo stato "Standby" e' visualizzato in viola ed e' specifico per i ticket IT che
+  attendono intervento esterno.
+- Selettore del sistema interessato: Suite Clinica, GoHighLevel, Respond.io, Teams,
+  ManyChat.
+- Priorita' specifica: bloccante o non bloccante.
+- Auto-assegnazione ai responsabili IT in base al sistema selezionato.
+- I ticket IT non sono associati a pazienti (a differenza della board generale).
+- Gli assegnatari non sono modificabili dopo la creazione del ticket IT.
+- Possibilita' di allegare file alla creazione del ticket.
+- Notifica proattiva al canale Teams IT alla creazione di ogni nuovo ticket.
+
+---
+
+15. Notifiche Teams per Task (Adaptive Cards)
+
+Cosa cambia rispetto a main:
+I task non generavano alcuna notifica strutturata. Ora vengono inviate card formattate
+al canale Teams appropriato.
+
+3 tipi di card:
+- Task assegnato (colore blu): mostra categoria, priorita', paziente associato e data
+  di scadenza. Inviata alla creazione manuale di un task.
+- Sollecito per check mancato (colore rosso): notifica che un check settimanale non e'
+  stato completato dal paziente.
+- Reminder scadenze (colore giallo): mostra un'icona contestuale in base al tipo di
+  scadenza e il numero di giorni rimanenti.
+
+Integrazione:
+- Le card vengono inviate sia alla creazione manuale di task sia dai generatori
+  automatici di solleciti e reminder.
+- Invio asincrono con meccanismo di retry automatico in caso di errore temporaneo.
+
+---
+
+16. Patologie Coaching
+
+Cosa cambia rispetto a main:
+Non esisteva alcuna gestione delle patologie specifiche per il coaching. I coach non
+avevano modo di registrare condizioni fisiche rilevanti del paziente.
+
+Nuovi campi:
+- 6 patologie specifiche selezionabili tramite checkbox: infortuni, dolori cronici,
+  limitazioni articolari, problemi posturali, problemi cardiovascolari, altro (con
+  campo di testo libero).
+- Toggle "Nessuna patologia" con logica di esclusione reciproca: attivandolo si
+  deselezionano tutte le patologie, e selezionando una patologia si disattiva
+  automaticamente il toggle.
+- Le patologie coaching sono incluse nella sezione coaching dell'export PDF.
+
+Rinomina sotto-tab HM:
+- Tutte le sotto-tab della sezione Health Manager sono state rinominate per maggiore
+  chiarezza: "Onboarding" diventa "Call Onboarding", e cosi' via per le altre sotto-tab.
+
+---
+
+17. Data Model
+
+Cosa cambia rispetto a main:
+Il modello dati e' stato esteso significativamente per supportare tutte le nuove
+funzionalita'.
+
+Nuove tabelle (7):
+- Richieste call rinnovo: gestisce il flusso proposta/accettazione/conferma dei rinnovi.
+- Video feedback: memorizza le video recensioni con link Loom e stati.
+- Interventi rinnovo: registro degli interventi HM relativi al rinnovo (stile diario).
+- Flag marketing: flag "usabile per marketing" con data di attivazione per ogni paziente.
+- Contenuti marketing: contenuti prodotti (stories, carosello, videofeedback) associati
+  ai pazienti.
+- Influencer marketing: anagrafica degli influencer selezionabili nei contenuti.
+- Video review: recensioni video con collegamento al flusso di approvazione.
+
+Modifiche a tabelle esistenti:
+- Tabella paziente: aggiunti campi per le 6 patologie coaching, i 3 campi referral e
+  le note marketing.
+- Tabella ticket: aggiunti campi per il tipo di board e il sistema IT interessato.
+
+Enumerazioni:
+- 4 nuovi tipi enumerati per gli stati e le tipologie delle nuove funzionalita'.
+- 3 tipi enumerati esistenti modificati per includere nuovi valori.
+- 12 migrazioni di database per applicare tutte le modifiche in modo incrementale.
+
+---
+
+18. Script di Manutenzione
+
+Cosa cambia rispetto a main:
+Aggiunti script di utilita' per la gestione e la manutenzione dei dati.
+
+Script disponibili:
+- Generazione dati demo: popola il sistema con dati di esempio per task, articoli e
+  dati di addestramento, utile per ambienti di sviluppo e dimostrazione.
+- Generazione check settimanali: crea 200 check settimanali di esempio per testare
+  le funzionalita' di monitoraggio e reporting.
+- Garanzia schema marketing: verifica e corregge lo schema delle tabelle marketing
+  senza eseguire migrazioni, utile per risolvere disallineamenti in produzione.
+
+---
+
+19. Test Suite
+
+Cosa cambia rispetto a main:
+Non esisteva una suite di test strutturata. Ora sono presenti 326 test organizzati per
+modulo funzionale.
+
+Copertura per area:
+- Autenticazione: 50 test che coprono login, logout, permessi, impersonificazione e
+  gestione sessioni.
+- Calendario: 50 test per creazione eventi, risoluzione contatti GoHighLevel, gestione
+  modalita' simulata.
+- Pazienti: 21 test per CRUD pazienti, filtri avanzati, patologie.
+- Integrazioni: 31 test per webhook Trustpilot, Frame.io, Airtable e GoHighLevel.
+- Qualita' e check: 52 test per check settimanali, criteri di qualita', punteggi.
+- Review e video: 25 test per il flusso recensioni e video feedback.
+- Task e ticket: 26 test per creazione task, board IT, notifiche.
+- Team e assegnazioni: 70 test per assegnazione professionisti, storico, capacita'.
+
+Infrastruttura di test:
+- Oltre 50 factory per la generazione di dati di test realistici.
+- Pulizia completa del database tra ogni test tramite cancellazione a cascata.
+- Autenticazione simulata senza sessioni browser reali.
+- Database PostgreSQL temporaneo dedicato all'esecuzione dei test.
+
+---
+
+20. CI/CD Pipeline
+
+Cosa cambia rispetto a main:
+Il deploy avveniva senza verifica automatica. Ora il deploy e' condizionato al
+superamento dei test.
+
+Pipeline principale (build + test + deploy):
+- Build dell'immagine con 3 tentativi automatici e 10 secondi di pausa tra un tentativo
+  e l'altro.
+- Attesa del database fino a 30 secondi prima di eseguire i test.
+- Push dell'immagine al registro solo se tutti i test passano.
+- Deploy su Google Kubernetes Engine con aggiornamento esplicito e forzato dell'immagine
+  per il backend e per i due processi Celery (worker e beat), ciascuno con un timeout
+  di rollout di 15 minuti.
+- Post-deploy: esecuzione delle migrazioni, verifica dello schema, inserimento dei dati
+  iniziali (check di default) e sincronizzazione dei criteri di valutazione da file
+  Excel.
+- Flag opzionale per saltare il deploy ed eseguire solo build e test.
+
+Pipeline standalone per soli test:
+- Eseguibile indipendentemente dal deploy.
+- Genera report e dati di copertura consultabili.
+
+---
+
+21. Stabilizzazione Autenticazione e API
+
+Cosa cambia rispetto a main:
+Diverse problematiche di autenticazione e gestione delle risposte API sono state corrette.
+
+Correzioni:
+- Errore di importazione che bloccava completamente il login tramite API: risolto.
+- Accesso non autorizzato che restituiva pagine HTML invece di risposte JSON: ora tutte
+  le risposte di autenticazione sono in formato JSON, inclusi i casi di errore.
+- Doppia inizializzazione del sistema di autenticazione in ambiente di test che causava
+  conflitti: eliminata.
+- Corpo della richiesta vuoto nel flusso di recupero password: corretto.
+- Ordine dei controlli nell'impersonificazione: corretto. Aggiunta protezione contro
+  l'annidamento (non e' possibile impersonare un utente mentre si sta gia' impersonando
+  un altro utente).
+- Middleware di tracciamento: reso resiliente agli errori, registrato tramite hook
+  prima e dopo ogni richiesta.
+- Il team leader del dipartimento HM viene ora incluso correttamente tra i professionisti
+  disponibili e la sua presenza e' segnalata nelle informazioni dell'utente corrente.
+
+---
+
+Fine documento.
+Generato il 28 marzo 2026.
