@@ -55,7 +55,10 @@ from corposostenibile.models import (
     CallBonusStatusEnum,
     TrustpilotReview,
     VideoReviewRequest,
+    CheckInIntervention,
+    RinnovoIntervention,
 )
+from sqlalchemy import case, or_, and_
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
 from .permissions import CustomerPerm, permission_required
@@ -1855,6 +1858,233 @@ def api_unsatisfied() -> Any:
     })
 
 
+@api_bp.route("/hm-coordinatrici-dashboard", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_hm_coordinatrici_dashboard() -> Any:
+    """
+    Dashboard coordinatrici HM:
+    - elenco pazienti associati a Health Manager
+    - ordinamento per HM e date principali
+    - flag operativi (parte mock finche' non disponibili dati persistenti)
+    """
+    specialty = getattr(current_user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+
+    is_admin_or_cco = bool(
+        getattr(current_user, "is_admin", False)
+        or current_user.role == UserRoleEnum.admin
+        or specialty_value.strip().lower() == "cco"
+    )
+
+    is_impersonated_by_admin_or_cco = False
+    if session.get("impersonating") and session.get("original_admin_id"):
+        original_admin = db.session.get(User, int(session.get("original_admin_id")))
+        if original_admin:
+            original_role = getattr(original_admin, "role", None)
+            original_role_value = original_role.value if hasattr(original_role, "value") else str(original_role or "")
+            original_specialty = getattr(original_admin, "specialty", None)
+            original_specialty_value = original_specialty.value if hasattr(original_specialty, "value") else str(original_specialty or "")
+            is_impersonated_by_admin_or_cco = bool(
+                getattr(original_admin, "is_admin", False)
+                or original_role_value == "admin"
+                or original_specialty_value.strip().lower() == "cco"
+            )
+
+    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
+    if not can_access:
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale coordinatrici HM.")
+
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
+    q = (request.args.get("q") or "").strip()
+    cliente_id_filter = request.args.get("cliente_id", type=int)
+    hm_filter = request.args.get("health_manager_id", type=int)
+    check_in_filter = (request.args.get("check_in_completed") or "").strip().lower()
+    contacted_renewal_filter = (request.args.get("contacted_for_renewal") or "").strip().lower()
+    renewal_filter = (request.args.get("renewal_completed") or "").strip().lower()
+    contacted_review_filter = (request.args.get("contacted_for_review") or "").strip().lower()
+    review_filter = (request.args.get("review_completed") or "").strip().lower()
+    sort_by = (request.args.get("sort_by") or "health_manager").strip().lower()
+    sort_dir = (request.args.get("sort_dir") or "asc").strip().lower()
+    if sort_dir not in ("asc", "desc"):
+        sort_dir = "asc"
+
+    checkin_subq = (
+        db.session.query(
+            CheckInIntervention.cliente_id.label("cliente_id"),
+            func.max(CheckInIntervention.intervention_date).label("last_check_in_call_date"),
+        )
+        .group_by(CheckInIntervention.cliente_id)
+        .subquery()
+    )
+
+    rinnovo_subq = (
+        db.session.query(
+            RinnovoIntervention.cliente_id.label("cliente_id"),
+            func.max(RinnovoIntervention.intervention_date).label("last_renewal_call_date"),
+        )
+        .group_by(RinnovoIntervention.cliente_id)
+        .subquery()
+    )
+
+    review_subq = (
+        db.session.query(
+            TrustpilotReview.cliente_id.label("cliente_id"),
+            func.max(case((TrustpilotReview.pubblicata.is_(True), 1), else_=0)).label("review_done_flag"),
+        )
+        .group_by(TrustpilotReview.cliente_id)
+        .subquery()
+    )
+
+    hm_name_sql = func.trim(
+        func.concat(
+            func.coalesce(User.first_name, ""),
+            " ",
+            func.coalesce(User.last_name, ""),
+        )
+    )
+    hm_name_expr = hm_name_sql.label("health_manager_name")
+
+    query = apply_role_filtering(
+        db.session.query(
+            Cliente,
+            checkin_subq.c.last_check_in_call_date,
+            rinnovo_subq.c.last_renewal_call_date,
+            review_subq.c.review_done_flag,
+            hm_name_expr,
+        )
+        .outerjoin(checkin_subq, checkin_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(rinnovo_subq, rinnovo_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(review_subq, review_subq.c.cliente_id == Cliente.cliente_id)
+        .outerjoin(User, User.id == Cliente.health_manager_id)
+        .filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.health_manager_id.isnot(None),
+        )
+    )
+
+    hm_options_rows = (
+        apply_role_filtering(
+            db.session.query(
+                Cliente.health_manager_id.label("id"),
+                hm_name_expr,
+            )
+            .outerjoin(User, User.id == Cliente.health_manager_id)
+            .filter(
+                Cliente.show_in_clienti_lista.is_(True),
+                Cliente.health_manager_id.isnot(None),
+            )
+        )
+        .group_by(Cliente.health_manager_id, hm_name_sql)
+        .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
+        .all()
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if cliente_id_filter:
+        query = query.filter(Cliente.cliente_id == cliente_id_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    if check_in_filter == "yes":
+        query = query.filter(checkin_subq.c.last_check_in_call_date.isnot(None))
+    elif check_in_filter == "no":
+        query = query.filter(checkin_subq.c.last_check_in_call_date.is_(None))
+
+    def _apply_mock_flag_filter(base_query: Any, raw_value: str, salt: int) -> Any:
+        if raw_value not in ("yes", "no"):
+            return base_query
+        expr = ((Cliente.cliente_id + salt) % 3) != 0
+        return base_query.filter(expr if raw_value == "yes" else ~expr)
+
+    query = _apply_mock_flag_filter(query, contacted_renewal_filter, 3)
+    query = _apply_mock_flag_filter(query, renewal_filter, 7)
+    query = _apply_mock_flag_filter(query, contacted_review_filter, 11)
+
+    if review_filter == "yes":
+        query = query.filter(
+            or_(
+                review_subq.c.review_done_flag == 1,
+                and_(review_subq.c.review_done_flag.is_(None), ((Cliente.cliente_id + 13) % 3) != 0),
+            )
+        )
+    elif review_filter == "no":
+        query = query.filter(
+            or_(
+                review_subq.c.review_done_flag == 0,
+                and_(review_subq.c.review_done_flag.is_(None), ((Cliente.cliente_id + 13) % 3) == 0),
+            )
+        )
+
+    sort_map = {
+        "health_manager": func.lower(func.coalesce(hm_name_sql, "")),
+        "onboarding_date": Cliente.onboarding_date,
+        "path_start_date": Cliente.data_inizio_abbonamento,
+        "path_end_date": Cliente.data_rinnovo,
+        "check_in_call_date": checkin_subq.c.last_check_in_call_date,
+        "renewal_call_date": rinnovo_subq.c.last_renewal_call_date,
+    }
+    sort_col = sort_map.get(sort_by, sort_map["health_manager"])
+    sort_expr = sort_col.desc() if sort_dir == "desc" else sort_col.asc()
+    query = query.order_by(sort_expr.nullslast(), Cliente.nome_cognome.asc())
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    def _mock_flag(cliente_id: int, salt: int) -> bool:
+        return ((int(cliente_id) + salt) % 3) != 0
+
+    rows = []
+    for cliente, last_check_in, last_renewal_call, review_done_flag, hm_name in pagination.items:
+        review_done = bool(review_done_flag) if review_done_flag is not None else _mock_flag(cliente.cliente_id, 13)
+        rows.append({
+            "cliente_id": cliente.cliente_id,
+            "nome_cognome": cliente.nome_cognome,
+            "health_manager_id": cliente.health_manager_id,
+            "health_manager_name": hm_name or (cliente.health_manager_user.full_name if cliente.health_manager_user else None),
+            "onboarding_date": cliente.onboarding_date.isoformat() if cliente.onboarding_date else None,
+            "path_start_date": cliente.data_inizio_abbonamento.isoformat() if cliente.data_inizio_abbonamento else None,
+            "path_end_date": cliente.data_rinnovo.isoformat() if cliente.data_rinnovo else None,
+            "check_in_call_date": last_check_in.isoformat() if last_check_in else None,
+            "renewal_call_date": last_renewal_call.isoformat() if last_renewal_call else None,
+            "flags": {
+                "check_in_completed": bool(last_check_in),
+                "contacted_for_renewal": _mock_flag(cliente.cliente_id, 3),
+                "renewal_completed": _mock_flag(cliente.cliente_id, 7),
+                "contacted_for_review": _mock_flag(cliente.cliente_id, 11),
+                "review_completed": review_done,
+            },
+            "flags_mocked": {
+                "check_in_completed": False,
+                "contacted_for_renewal": True,
+                "renewal_completed": True,
+                "contacted_for_review": True,
+                "review_completed": review_done_flag is None,
+            },
+        })
+
+    return jsonify({
+        "success": True,
+        "data": rows,
+        "health_managers": [
+            {
+                "id": hm_id,
+                "full_name": hm_name,
+            }
+            for hm_id, hm_name in hm_options_rows
+            if hm_id is not None
+        ],
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+            "per_page": per_page,
+        },
+    })
+
+
 def _require_cliente_scope_or_403(cliente_id: int) -> None:
     """
     Verifica che il cliente sia nel perimetro RBAC dell'utente corrente
@@ -2781,6 +3011,134 @@ def delete_check_in_intervention(intervention_id: int):
         return jsonify({
             "success": True,
             "message": "Check-in eliminato con successo"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# --------------------------------------------------------------------------- #
+#  RINNOVO INTERVENTIONS API                                                  #
+# --------------------------------------------------------------------------- #
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_rinnovo_interventions(cliente_id: int):
+    """Ottiene tutti gli interventi di rinnovo per un cliente."""
+    from corposostenibile.models import RinnovoIntervention
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    interventions = db.session.query(RinnovoIntervention).filter_by(
+        cliente_id=cliente_id
+    ).order_by(RinnovoIntervention.intervention_date.desc()).all()
+
+    return jsonify({
+        "success": True,
+        "data": [intervention.to_dict() for intervention in interventions]
+    })
+
+
+@api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_rinnovo_intervention(cliente_id: int):
+    """Crea un nuovo intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
+
+    data = request.get_json()
+
+    if not data.get('intervention_date'):
+        return jsonify({"success": False, "error": "Data intervento richiesta"}), 400
+    if not data.get('notes'):
+        return jsonify({"success": False, "error": "Note richieste"}), 400
+
+    try:
+        intervention_date = datetime.strptime(data['intervention_date'], '%Y-%m-%d').date()
+
+        intervention = RinnovoIntervention(
+            cliente_id=cliente_id,
+            intervention_date=intervention_date,
+            notes=data['notes'],
+            loom_link=data.get('loom_link'),
+            created_by_id=current_user.id
+        )
+
+        db.session.add(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo registrata con successo"
+        }), 201
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_rinnovo_intervention(intervention_id: int):
+    """Aggiorna un intervento di rinnovo esistente."""
+    from corposostenibile.models import RinnovoIntervention
+    from datetime import datetime
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    data = request.get_json()
+
+    try:
+        if 'intervention_date' in data:
+            intervention.intervention_date = datetime.strptime(
+                data['intervention_date'], '%Y-%m-%d'
+            ).date()
+
+        if 'notes' in data:
+            intervention.notes = data['notes']
+
+        if 'loom_link' in data:
+            intervention.loom_link = data['loom_link']
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "data": intervention.to_dict(),
+            "message": "Call rinnovo aggiornata con successo"
+        })
+
+    except ValueError:
+        return jsonify({"success": False, "error": "Formato data non valido"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_rinnovo_intervention(intervention_id: int):
+    """Elimina un intervento di rinnovo."""
+    from corposostenibile.models import RinnovoIntervention
+
+    intervention = db.session.query(RinnovoIntervention).filter_by(
+        id=intervention_id
+    ).first_or_404()
+
+    try:
+        db.session.delete(intervention)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Call rinnovo eliminata con successo"
         })
 
     except Exception as e:
@@ -6689,11 +7047,27 @@ def api_call_bonus_decline(call_bonus_id: int):
 #  Video Review (Marketing Tab)                                               #
 # --------------------------------------------------------------------------- #
 def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
+    hm_calendar_link = ""
+    hm_user = item.hm_user or None
+    if hm_user is not None:
+        import json as _json
+
+        ai_notes = hm_user.assignment_ai_notes or {}
+        if isinstance(ai_notes, str):
+            try:
+                ai_notes = _json.loads(ai_notes)
+            except (ValueError, TypeError):
+                ai_notes = {}
+        if isinstance(ai_notes, dict):
+            hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
+
     return {
         "id": item.id,
         "cliente_id": item.cliente_id,
         "status": item.status,
         "booking_confirmed_at": item.booking_confirmed_at.isoformat() if item.booking_confirmed_at else None,
+        "booking_date": item.booking_date.isoformat() if item.booking_date else None,
+        "booking_time": item.booking_time.isoformat() if item.booking_time else None,
         "hm_confirmed_at": item.hm_confirmed_at.isoformat() if item.hm_confirmed_at else None,
         "loom_link": item.loom_link,
         "hm_note": item.hm_note,
@@ -6701,6 +7075,7 @@ def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
         "requested_by_name": getattr(item.requested_by_user, "full_name", None),
         "hm_user_id": item.hm_user_id,
         "hm_name": getattr(item.hm_user, "full_name", None),
+        "hm_calendar_link": hm_calendar_link,
     }
 
 
@@ -6738,6 +7113,11 @@ def api_video_review_booked(cliente_id: int):
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
     if not _is_assigned_to_cliente(current_user, cliente):
         abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
+    if not getattr(cliente, "health_manager_id", None):
+        abort(
+            HTTPStatus.CONFLICT,
+            description="Nessun Health Manager assegnato al paziente: assegna HM prima della prenotazione video recensione.",
+        )
 
     existing_open = (
         db.session.query(VideoReviewRequest)
@@ -6755,12 +7135,32 @@ def api_video_review_booked(cliente_id: int):
             "message": "Esiste già una richiesta video recensione in stato prenotata.",
         }), HTTPStatus.OK
 
+    payload = request.get_json(silent=True) or {}
+    booking_date_str = (payload.get("booking_date") or "").strip()
+    booking_time_str = (payload.get("booking_time") or "").strip()
+
+    booking_date = None
+    if booking_date_str:
+        try:
+            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
+
+    booking_time = None
+    if booking_time_str:
+        try:
+            booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+        except ValueError:
+            abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
         requested_by_user_id=current_user.id,
         hm_user_id=cliente.health_manager_id,
         status="booked",
         booking_confirmed_at=datetime.utcnow(),
+        booking_date=booking_date,
+        booking_time=booking_time,
     )
     db.session.add(request_item)
     db.session.commit()

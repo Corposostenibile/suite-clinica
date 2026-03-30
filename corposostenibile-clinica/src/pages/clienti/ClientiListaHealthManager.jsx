@@ -18,6 +18,7 @@ const MAIN_TABS = [
   { key: 'ghost', label: 'Ghost', icon: 'ri-ghost-line' },
   { key: 'pausa', label: 'In Pausa', icon: 'ri-pause-circle-line' },
   { key: 'recensioni', label: 'Recensioni', icon: 'ri-star-line' },
+  { key: 'coordinatrici_hm', label: 'Pannello di controllo coordinatrici HM', icon: 'ri-dashboard-line' },
 ];
 
 const REVIEW_TABS = [
@@ -79,6 +80,11 @@ function ClientiListaHealthManager() {
   const [reviewPagination, setReviewPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [reviewLoading, setReviewLoading] = useState(false);
   const [sendingAction, setSendingAction] = useState(null);
+  const [trustpilotMeta, setTrustpilotMeta] = useState({
+    enabled: false,
+    missing_config: [],
+    webhook_configured: false,
+  });
 
   // Shared
   const [error, setError] = useState(null);
@@ -86,13 +92,59 @@ function ClientiListaHealthManager() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const searchTimerRef = useRef(null);
 
+  // Pannello coordinatrici HM
+  const [coordData, setCoordData] = useState([]);
+  const [coordHealthManagers, setCoordHealthManagers] = useState([]);
+  const [coordPagination, setCoordPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
+  const [coordLoading, setCoordLoading] = useState(false);
+  const [coordSortBy, setCoordSortBy] = useState('health_manager');
+  const [coordSortDir, setCoordSortDir] = useState('asc');
+  const [coordFlagFilters, setCoordFlagFilters] = useState({
+    check_in_completed: '',
+    contacted_for_renewal: '',
+    renewal_completed: '',
+    contacted_for_review: '',
+    review_completed: '',
+  });
+  const coordTableScrollRef = useRef(null);
+  const coordTopScrollRef = useRef(null);
+  const coordScrollSyncLockRef = useRef(false);
+  const [coordScroll, setCoordScroll] = useState({
+    canLeft: false,
+    canRight: false,
+    hasOverflow: false,
+    scrollWidth: 0,
+  });
+
+  const getApiErrorMessage = (err, fallback) => {
+    const description = err?.response?.data?.description;
+    const message = err?.response?.data?.message;
+    const errorText = err?.response?.data?.error;
+    return description || message || errorText || fallback;
+  };
+
   // Health Manager filter (admin/TL only)
-  const isAdmin = Boolean(user?.is_admin || user?.role === 'admin' || user?.specialty === 'cco');
-  const isHmTeamLeader = Boolean(user?.role === 'team_leader' && (
-    String(user?.specialty || '').toLowerCase() === 'health_manager' ||
-    String(user?.department?.name || '').toLowerCase().includes('health')
-  ));
-  const canFilterByHm = isAdmin || isHmTeamLeader;
+  const roleValue = user?.role?.value || user?.role;
+  const specialtyValue = user?.specialty?.value || user?.specialty;
+  const isAdmin = Boolean(
+    user?.is_admin ||
+    roleValue === 'admin' ||
+    String(specialtyValue || '').toLowerCase() === 'cco'
+  );
+  const isHmTeamLeader = Boolean(
+    roleValue === 'team_leader' && (
+      user?.is_health_manager_team_leader ||
+      String(specialtyValue || '').toLowerCase() === 'health_manager' ||
+      String(user?.department?.name || '').toLowerCase().includes('health') ||
+      String(user?.department?.name || '').toLowerCase().includes('customer success') ||
+      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
+        const teamType = team?.team_type?.value || team?.team_type;
+        return String(teamType || '').toLowerCase() === 'health_manager';
+      }))
+    )
+  );
+  const isImpersonatingSession = Boolean(user?.impersonating);
+  const canFilterByHm = isAdmin || isHmTeamLeader || isImpersonatingSession;
   const [healthManagers, setHealthManagers] = useState([]);
   const [selectedHmId, setSelectedHmId] = useState('');
 
@@ -208,9 +260,14 @@ function ClientiListaHealthManager() {
       setReviewData(data.data || []);
       setReviewCounts(data.counts || { totale_attivi: 0, con_recensione: 0, in_attesa: 0, mai_invitati: 0 });
       setReviewPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+      setTrustpilotMeta({
+        enabled: Boolean(data.enabled),
+        missing_config: Array.isArray(data.missing_config) ? data.missing_config : [],
+        webhook_configured: Boolean(data.webhook_configured),
+      });
     } catch (err) {
       console.error('Error fetching reviews:', err);
-      setError('Errore nel caricamento recensioni');
+      setError(getApiErrorMessage(err, 'Errore nel caricamento recensioni'));
     } finally {
       setReviewLoading(false);
     }
@@ -220,6 +277,34 @@ function ClientiListaHealthManager() {
     if (mainTab === 'recensioni') fetchReviews();
   }, [mainTab, fetchReviews]);
 
+  const fetchHmCoordinatriciDashboard = useCallback(async () => {
+    setCoordLoading(true);
+    setError(null);
+    try {
+      const data = await clientiService.getHmCoordinatriciDashboard({
+        page: coordPagination.page,
+        per_page: coordPagination.perPage,
+        q: debouncedSearch || undefined,
+        health_manager_id: selectedHmId || undefined,
+        sort_by: coordSortBy,
+        sort_dir: coordSortDir,
+        ...Object.fromEntries(Object.entries(coordFlagFilters).filter(([, value]) => Boolean(value))),
+      });
+      setCoordData(data.data || []);
+      setCoordHealthManagers(data.health_managers || []);
+      setCoordPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+    } catch (err) {
+      console.error('Error fetching coordinatrici HM dashboard:', err);
+      setError(getApiErrorMessage(err, 'Errore nel caricamento pannello coordinatrici HM'));
+    } finally {
+      setCoordLoading(false);
+    }
+  }, [coordPagination.page, coordPagination.perPage, debouncedSearch, selectedHmId, coordSortBy, coordSortDir, coordFlagFilters]);
+
+  useEffect(() => {
+    if (mainTab === 'coordinatrici_hm') fetchHmCoordinatriciDashboard();
+  }, [mainTab, fetchHmCoordinatriciDashboard]);
+
   const handleGenerateLink = async (clienteId) => {
     setSendingAction(`link-${clienteId}`);
     try {
@@ -227,7 +312,10 @@ function ClientiListaHealthManager() {
       const link = result?.data?.trustpilot_link;
       if (link) await navigator.clipboard.writeText(link);
       fetchReviews();
-    } catch (err) { console.error('Error generating link:', err); }
+    } catch (err) {
+      console.error('Error generating link:', err);
+      setError(getApiErrorMessage(err, 'Errore nella generazione del link Trustpilot'));
+    }
     finally { setSendingAction(null); }
   };
 
@@ -236,7 +324,10 @@ function ClientiListaHealthManager() {
     try {
       await clientiService.sendTrustpilotInvite(clienteId);
       fetchReviews();
-    } catch (err) { console.error('Error sending invite:', err); }
+    } catch (err) {
+      console.error('Error sending invite:', err);
+      setError(getApiErrorMessage(err, 'Errore nell\'invio invito Trustpilot'));
+    }
     finally { setSendingAction(null); }
   };
 
@@ -248,6 +339,7 @@ function ClientiListaHealthManager() {
       setDebouncedSearch(value);
       setExpiryPagination(prev => ({ ...prev, page: 1 }));
       setSatPagination(prev => ({ ...prev, page: 1 }));
+      setCoordPagination(prev => ({ ...prev, page: 1 }));
     }, 400);
   };
 
@@ -345,8 +437,93 @@ function ClientiListaHealthManager() {
 
   const isStatusTab = mainTab === 'ghost' || mainTab === 'pausa';
   const isReviewTab = mainTab === 'recensioni';
-  const loading = isReviewTab ? reviewLoading : mainTab === 'scadenze' ? expiryLoading : mainTab === 'insoddisfatti' ? satLoading : statusLoading;
+  const isCoordinatriciTab = mainTab === 'coordinatrici_hm';
+  const loading = isReviewTab
+    ? reviewLoading
+    : isCoordinatriciTab
+      ? coordLoading
+      : mainTab === 'scadenze'
+        ? expiryLoading
+        : mainTab === 'insoddisfatti'
+          ? satLoading
+          : statusLoading;
   const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
+
+  const canAccessCoordinatriciPanel = Boolean(isAdmin || isHmTeamLeader || isImpersonatingSession);
+  const visibleMainTabs = MAIN_TABS.filter((tab) => tab.key !== 'coordinatrici_hm' || canAccessCoordinatriciPanel);
+  const hmFilterOptions = isCoordinatriciTab && coordHealthManagers.length > 0 ? coordHealthManagers : healthManagers;
+
+  const formatDate = (value) => (value ? new Date(value).toLocaleDateString('it-IT') : '\u2014');
+
+  const toggleCoordSort = (field) => {
+    if (coordSortBy === field) {
+      setCoordSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setCoordSortBy(field);
+      setCoordSortDir('asc');
+    }
+    setCoordPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const renderSortableHeader = (label, field) => {
+    const isActive = coordSortBy === field;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleCoordSort(field)}
+        className="cl-th-sort"
+      >
+        <span>{label}</span>
+        <i className={isActive ? (coordSortDir === 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-expand-up-down-line'}></i>
+      </button>
+    );
+  };
+
+  const updateCoordScrollMetrics = useCallback(() => {
+    const el = coordTableScrollRef.current;
+    if (!el) return;
+    const hasOverflow = el.scrollWidth > el.clientWidth + 1;
+    setCoordScroll({
+      canLeft: el.scrollLeft > 0,
+      canRight: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+      hasOverflow,
+      scrollWidth: el.scrollWidth,
+    });
+  }, []);
+
+  const syncCoordTopFromTable = useCallback(() => {
+    const tableEl = coordTableScrollRef.current;
+    const topEl = coordTopScrollRef.current;
+    if (!tableEl || !topEl || coordScrollSyncLockRef.current) return;
+    coordScrollSyncLockRef.current = true;
+    topEl.scrollLeft = tableEl.scrollLeft;
+    coordScrollSyncLockRef.current = false;
+    updateCoordScrollMetrics();
+  }, [updateCoordScrollMetrics]);
+
+  const syncCoordTableFromTop = useCallback(() => {
+    const tableEl = coordTableScrollRef.current;
+    const topEl = coordTopScrollRef.current;
+    if (!tableEl || !topEl || coordScrollSyncLockRef.current) return;
+    coordScrollSyncLockRef.current = true;
+    tableEl.scrollLeft = topEl.scrollLeft;
+    coordScrollSyncLockRef.current = false;
+    updateCoordScrollMetrics();
+  }, [updateCoordScrollMetrics]);
+
+  const scrollCoordTable = (dir) => {
+    const el = coordTableScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 260, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (!isCoordinatriciTab) return;
+    updateCoordScrollMetrics();
+    const onResize = () => updateCoordScrollMetrics();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [isCoordinatriciTab, coordData, updateCoordScrollMetrics]);
 
   return (
     <div className="container-fluid p-0">
@@ -367,10 +544,17 @@ function ClientiListaHealthManager() {
 
       {/* Main tabs: Scadenze / Insoddisfatti */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
-        {MAIN_TABS.map((tab) => (
+        {visibleMainTabs.map((tab) => (
           <button
             key={tab.key}
-            onClick={() => { setMainTab(tab.key); setSearchInput(''); setDebouncedSearch(''); setStatusPagination(prev => ({ ...prev, page: 1 })); }}
+            onClick={() => {
+              setMainTab(tab.key);
+              setSearchInput('');
+              setDebouncedSearch('');
+              setStatusPagination(prev => ({ ...prev, page: 1 }));
+              setReviewPagination(prev => ({ ...prev, page: 1 }));
+              setCoordPagination(prev => ({ ...prev, page: 1 }));
+            }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               padding: '10px 20px', borderRadius: '12px', border: '1px solid',
@@ -482,7 +666,7 @@ function ClientiListaHealthManager() {
             onChange={(e) => handleSearchInput(e.target.value)}
           />
         </div>
-        {canFilterByHm && healthManagers.length > 0 && (
+        {canFilterByHm && hmFilterOptions.length > 0 && (
           <select
             className="cl-search-input"
             style={{ maxWidth: '240px', padding: '10px 14px', borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer' }}
@@ -491,15 +675,59 @@ function ClientiListaHealthManager() {
               setSelectedHmId(e.target.value);
               setExpiryPagination(prev => ({ ...prev, page: 1 }));
               setSatPagination(prev => ({ ...prev, page: 1 }));
+              setCoordPagination(prev => ({ ...prev, page: 1 }));
             }}
           >
             <option value="">Tutti gli Health Manager</option>
-            {healthManagers.map((hm) => (
-              <option key={hm.id} value={hm.id}>{hm.full_name}</option>
+            {hmFilterOptions.map((hm) => (
+              <option key={hm.id} value={hm.id}>{hm.full_name || hm.name || `HM #${hm.id}`}</option>
             ))}
           </select>
         )}
       </div>
+
+      {isCoordinatriciTab && (
+        <div className="cl-coord-filters-row">
+          {[
+            ['check_in_completed', 'Check-in'],
+            ['contacted_for_renewal', 'Contattato rinnovo'],
+            ['renewal_completed', 'Rinnovo'],
+            ['contacted_for_review', 'Contattato review'],
+            ['review_completed', 'Review'],
+          ].map(([key, label]) => (
+            <select
+              key={key}
+              className="cl-coord-filter-select"
+              value={coordFlagFilters[key]}
+              onChange={(e) => {
+                const value = e.target.value;
+                setCoordFlagFilters((prev) => ({ ...prev, [key]: value }));
+                setCoordPagination((prev) => ({ ...prev, page: 1 }));
+              }}
+            >
+              <option value="">{label}: tutti</option>
+              <option value="yes">{label}: SI</option>
+              <option value="no">{label}: NO</option>
+            </select>
+          ))}
+          <button
+            type="button"
+            className="cl-coord-filter-reset"
+            onClick={() => {
+              setCoordFlagFilters({
+                check_in_completed: '',
+                contacted_for_renewal: '',
+                renewal_completed: '',
+                contacted_for_review: '',
+                review_completed: '',
+              });
+              setCoordPagination((prev) => ({ ...prev, page: 1 }));
+            }}
+          >
+            <i className="ri-refresh-line"></i> Reset filtri
+          </button>
+        </div>
+      )}
 
       {/* ── Recensioni Content ── */}
       {isReviewTab && (
@@ -655,8 +883,124 @@ function ClientiListaHealthManager() {
         </>
       )}
 
+      {/* ── Pannello Coordinatrici HM ── */}
+      {isCoordinatriciTab && (
+        <>
+          {error && <div className="cl-error" style={{ marginBottom: 12 }}>{error}</div>}
+          {coordLoading ? (
+            <div className="cl-loading">
+              <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+              <p className="cl-loading-text">Caricamento...</p>
+            </div>
+          ) : coordData.length === 0 ? (
+            <div className="cl-empty-state">
+              <div className="cl-empty-icon"><i className="ri-dashboard-line"></i></div>
+              <h5 className="cl-empty-title">Nessun cliente trovato</h5>
+              <p className="cl-empty-desc">Nessun paziente associato al filtro Health Manager selezionato.</p>
+            </div>
+           ) : (
+             <>
+               <div className="cl-table-card">
+                 <div className="cl-top-scroll-wrap">
+                   <button
+                     type="button"
+                     className="cl-top-scroll-arrow cl-top-scroll-arrow-left"
+                     onClick={() => scrollCoordTable(-1)}
+                     disabled={!coordScroll.canLeft}
+                     aria-label="Scorri tabella a sinistra"
+                   >
+                     <i className="ri-arrow-left-s-line"></i>
+                   </button>
+                   <div
+                     className="cl-top-scroll"
+                     ref={coordTopScrollRef}
+                     onScroll={syncCoordTableFromTop}
+                   >
+                     <div className="cl-top-scroll-inner" style={{ width: `${Math.max(coordScroll.scrollWidth, 1)}px` }}></div>
+                   </div>
+                   <button
+                     type="button"
+                     className="cl-top-scroll-arrow cl-top-scroll-arrow-right"
+                     onClick={() => scrollCoordTable(1)}
+                     disabled={!coordScroll.canRight}
+                     aria-label="Scorri tabella a destra"
+                   >
+                     <i className="ri-arrow-right-s-line"></i>
+                   </button>
+                 </div>
+                 <div
+                   className="table-responsive"
+                   ref={coordTableScrollRef}
+                   onScroll={syncCoordTopFromTable}
+                 >
+                   <table className="cl-table">
+                     <thead>
+                       <tr>
+                         <th style={{ minWidth: 180 }}>Nome cliente</th>
+                         <th style={{ minWidth: 160 }}>{renderSortableHeader('HM', 'health_manager')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data onboarding', 'onboarding_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data inizio percorso', 'path_start_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data fine percorso', 'path_end_date')}</th>
+                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data check-in call', 'check_in_call_date')}</th>
+                         <th style={{ minWidth: 115, textAlign: 'center' }}>Check-in</th>
+                         <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
+                         <th style={{ minWidth: 170, textAlign: 'center' }}>Contattato per il rinnovo</th>
+                         <th style={{ minWidth: 110, textAlign: 'center' }}>Rinnovo</th>
+                         <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato per review</th>
+                         <th style={{ minWidth: 120, textAlign: 'center' }}>Review</th>
+                         <th style={{ textAlign: 'right', minWidth: 80 }}>Azioni</th>
+                       </tr>
+                     </thead>
+                    <tbody>
+                      {coordData.map((row) => {
+                        const yesNoBadge = (value, isMock) => (
+                          <span className="cl-badge" style={{
+                            background: value ? 'rgba(34,197,94,.12)' : 'rgba(148,163,184,.18)',
+                            color: value ? '#166534' : '#64748b',
+                            fontWeight: 700,
+                          }}>
+                            {value ? 'SI' : 'NO'}{isMock ? ' (mock)' : ''}
+                          </span>
+                        );
+                        return (
+                          <tr key={row.cliente_id}>
+                            <td>
+                              <Link to={`/clienti-dettaglio/${row.cliente_id}`} className="cl-name-link">
+                                {row.nome_cognome}
+                              </Link>
+                            </td>
+                            <td>{row.health_manager_name || <span className="cl-empty">{'\u2014'}</span>}</td>
+                            <td>{formatDate(row.onboarding_date)}</td>
+                            <td>{formatDate(row.path_start_date)}</td>
+                            <td>{formatDate(row.path_end_date)}</td>
+                            <td>{formatDate(row.check_in_call_date)}</td>
+                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.check_in_completed), Boolean(row.flags_mocked?.check_in_completed))}</td>
+                            <td>{formatDate(row.renewal_call_date)}</td>
+                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_renewal), Boolean(row.flags_mocked?.contacted_for_renewal))}</td>
+                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.renewal_completed), Boolean(row.flags_mocked?.renewal_completed))}</td>
+                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_review), Boolean(row.flags_mocked?.contacted_for_review))}</td>
+                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.review_completed), Boolean(row.flags_mocked?.review_completed))}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <Link to={`/clienti-dettaglio/${row.cliente_id}`} className="cl-action-btn" title="Dettaglio">
+                                <i className="ri-eye-line"></i>
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {renderPagination(coordPagination, (p) => setCoordPagination(prev => ({ ...prev, page: p })))}
+            </>
+          )}
+        </>
+      )}
+
       {/* Content (non-review tabs) */}
-      {!isReviewTab && (loading ? (
+      {!isReviewTab && !isCoordinatriciTab && (loading ? (
         <div className="cl-loading">
           <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
           <p className="cl-loading-text">Caricamento...</p>

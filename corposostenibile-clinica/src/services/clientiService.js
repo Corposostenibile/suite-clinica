@@ -509,6 +509,35 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== HM COORDINATRICI DASHBOARD ====================
+
+  async getHmCoordinatriciDashboard(params = {}) {
+    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, { params });
+    return response.data;
+  },
+
+  // ==================== RINNOVO INTERVENTIONS ====================
+
+  async getRinnovoInterventions(id) {
+    const response = await api.get(`${API_BASE}/${id}/rinnovo-interventions`);
+    return response.data;
+  },
+
+  async createRinnovoIntervention(id, data) {
+    const response = await api.post(`${API_BASE}/${id}/rinnovo-interventions`, data);
+    return response.data;
+  },
+
+  async updateRinnovoIntervention(interventionId, data) {
+    const response = await api.put(`${API_BASE}/rinnovo-interventions/${interventionId}`, data);
+    return response.data;
+  },
+
+  async deleteRinnovoIntervention(interventionId) {
+    const response = await api.delete(`${API_BASE}/rinnovo-interventions/${interventionId}`);
+    return response.data;
+  },
+
   // ==================== TRUSTPILOT ====================
 
   async getTrustpilotOverview(params = {}) {
