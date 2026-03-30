@@ -22,6 +22,12 @@ def setup_tracking_middleware(app):
     def track_request(response):
         """Traccia automaticamente ogni richiesta ai blueprint."""
         try:
+            # Skip tracking entirely during tests — the separate-connection
+            # pattern (db.engine.begin()) is incompatible with transaction-
+            # based test isolation and tracking is not under test anyway.
+            if app.config.get('TESTING'):
+                return response
+
             # Solo se abbiamo un blueprint
             if not request.blueprint:
                 return response

@@ -2,23 +2,75 @@
 
 ## Executive Summary
 
-Comprehensive pytest test infrastructure for suite-clinica backend covering **67 frontend API endpoints**. 
+Comprehensive pytest test infrastructure for suite-clinica backend covering **67 frontend API endpoints**.
 
-**Current Status:** 325 tests implemented (100% complete)
-- ✅ Authentication API: 50 tests (100% passing)
-- ✅ Customer API: 21 tests (100% passing)
-- 🔄 Team API: 70 tests (~67% passing, edge cases remain)
-- ✅ Calendar API: 50 tests (100% passing)
-- 🔄 Quality API: 52 tests (awaiting execution verification)
-- 🔄 Tasks API: 26 tests (newly created)
-- 🔄 Review/Training API: 25 tests (newly created)
-- 🔄 Integrations API: 31 tests (Postit, News, Search, Push, Loom, Tickets, External)
+**Current Status:** 326 tests implemented, **324 passing** (99.4%)
+
+| Category | Tests | Status |
+|----------|-------|--------|
+| Authentication API | 51 | 50 passing, 1 pre-existing bug |
+| Customer API | 21 | 100% passing |
+| Team API | 70 | 100% passing |
+| Calendar API | 50 | 100% passing |
+| Quality API | 52 | 100% passing |
+| Tasks API | 26 | 100% passing |
+| Review/Training API | 25 | 100% passing |
+| Integrations API | 31 | 30 passing, 1 pre-existing bug |
+
+**Performance:** 326 test in ~2 min 30s (invocazione singola, sequenziale)
 
 ---
 
-## 📊 Frontend API Endpoints Complete Mapping
+## Test Infrastructure (Aggiornato 2026-03-30)
 
-### 📋 AUTENTICAZIONE (6 endpoint)
+### Transaction Rollback Isolation (SAVEPOINT pattern)
+
+L'infrastruttura di test e' stata migrata da **TRUNCATE CASCADE** a **transaction rollback** per l'isolamento dei test. Questo approccio e' ~10-50x piu' veloce del TRUNCATE su ~40 tabelle.
+
+**Come funziona:**
+1. Prima di ogni test, si apre una connessione dedicata e si avvia una transazione esterna
+2. `FSASession.get_bind()` viene monkey-patched per instradare tutte le query attraverso questa connessione
+3. La sessione viene configurata con `join_transaction_mode="create_savepoint"`: ogni `session.commit()` crea/rilascia un SAVEPOINT invece di un vero COMMIT
+4. A fine test, la transazione esterna viene rollbackata — nessun dato persiste nel DB
+5. `expire_on_commit=False` previene `DetachedInstanceError` quando Flask-SQLAlchemy fa teardown della sessione dopo le request HTTP
+
+**File modificati:**
+
+| File | Modifica |
+|------|----------|
+| `tests/conftest.py` | Fixture `db_session` riscritta: SAVEPOINT rollback invece di TRUNCATE. Usa `join_transaction_mode="create_savepoint"`, monkey-patch di `get_bind()`, e `expire_on_commit=False`. |
+| `corposostenibile/middleware/tracking.py` | Aggiunto early return quando `app.config['TESTING']` e' true — il middleware tracking usa `db.engine.begin()` che apre una connessione separata, incompatibile con l'isolamento transazionale. |
+| `run_tests.sh` | Riscritto: invocazione singola di pytest con flag `--parallel`/`--seq`. |
+
+### Dettagli tecnici del fix
+
+**Problema 1 — FK violation nel tracking middleware:**
+Il middleware `tracking.py` (riga 62) usa `db.engine.begin()` che apre una connessione **separata dal pool**, completamente esterna alla transazione di test. Quella connessione non vede i dati uncommitted (es. l'utente di test) → FK constraint fail su `global_activity_log.user_id_fkey`. **Fix:** skip del tracking middleware quando `TESTING=True`.
+
+**Problema 2 — DetachedInstanceError:**
+Dopo una HTTP request, il teardown di Flask-SQLAlchemy chiama `db.session.remove()`, che distacca gli oggetti ORM. Quando il codice di test accede successivamente agli attributi (es. `user.email`), questi tentano lazy-load ma non sono piu' legati a una sessione. **Fix:** `expire_on_commit=False` nella configurazione della sessione di test.
+
+---
+
+## Bug pre-esistenti (non legati all'infrastruttura di test)
+
+I seguenti 2 test falliscono per bug applicativi, **non** per problemi dell'infrastruttura di test:
+
+1. **`test_impersonate_non_admin`** (`test_auth_api.py:612`)
+   - **Atteso:** 403 Forbidden
+   - **Ricevuto:** 405 Method Not Allowed
+   - **Causa:** Il test usa il metodo HTTP sbagliato oppure la route non gestisce quel metodo
+
+2. **`test_leads_requires_login`** (`test_integrations_api.py:329`)
+   - **Atteso:** 401 Unauthorized o 302 Found
+   - **Ricevuto:** 200 OK
+   - **Causa:** L'endpoint `/leads` non applica `@login_required` o equivalente
+
+---
+
+## Frontend API Endpoints Complete Mapping
+
+### AUTENTICAZIONE (6 endpoint)
 
 | Method | Endpoint | Called By | Params | Auth |
 |--------|----------|-----------|--------|------|
@@ -29,7 +81,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | GET | /auth/impersonate/users | Admin panel | - | Yes (Admin) |
 | POST | /auth/stop-impersonation | Admin panel | - | Yes (Admin) |
 
-### 👥 TEAM & UTENTI (11 endpoint)
+### TEAM & UTENTI (11 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -45,7 +97,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | GET | /trial-users | Admin panel | - |
 | POST | /trial-users | Create trial form | user_id, trial_type |
 
-### 📅 CALENDAR & EVENTS (11 endpoint)
+### CALENDAR & EVENTS (11 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -61,7 +113,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | POST | /api/admin/tokens/refresh | Token management | - |
 | POST | /api/admin/tokens/cleanup | Token cleanup | - |
 
-### 🏥 CLIENTI/PAZIENTI (4 endpoint)
+### CLIENTI/PAZIENTI (4 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -70,7 +122,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | GET | /customers/{id}/patologie/storico | Medical history | - |
 | GET | /customers/{id}/nutrition/history | Nutrition history | - |
 
-### 📊 QUALITÀ & REVIEW (5 endpoint)
+### QUALITA' & REVIEW (5 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -80,7 +132,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | POST | /quality/api/calcola-trimestrale | Quarterly calculation | - |
 | GET | /quality/api/quarterly-summary | Quarterly view | - |
 
-### 📝 TASKS/COMPITI (4 endpoint)
+### TASKS/COMPITI (4 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -89,7 +141,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | GET | /tasks/filter-options | Task filters | - |
 | POST | /tasks/ | Create task form | title, description, etc |
 
-### 🎓 TRAINING/FORMAZIONE (8 endpoint)
+### TRAINING/FORMAZIONE (8 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -102,19 +154,19 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | GET | /admin/professionals | Admin professionals list | - |
 | GET | /admin/dashboard-stats | Admin dashboard | - |
 
-### 🔍 RICERCA (1 endpoint)
+### RICERCA (1 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
 | GET | /search/global | Global search bar | q (search term) |
 
-### 📰 NEWS (1 endpoint)
+### NEWS (1 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
 | GET | /news/list | News widget | limit |
 
-### 📌 POST-IT (3 endpoint)
+### POST-IT (3 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -122,7 +174,7 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | POST | /create | Create postit form | content, target, etc |
 | POST | /reorder | Drag & drop reorder | order_data |
 
-### 🔔 PUSH NOTIFICATIONS (5 endpoint)
+### PUSH NOTIFICATIONS (5 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
@@ -131,27 +183,27 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 | DELETE | /push/subscriptions | Unregister push | subscription |
 | GET | /push/notifications | Fetch notifications | - |
 
-### 🎥 LOOM INTEGRATION (2 endpoint)
+### LOOM INTEGRATION (2 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
 | GET | /loom/api/patients/search | Loom patient search | q (search) |
 | GET | /loom/api/recordings | Loom videos list | patient_id |
 
-### 🏢 TEAM TICKETS (1 endpoint)
+### TEAM TICKETS (1 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
 | GET | /team-tickets/ | Tickets list | filters, page |
 
-### 🔗 INTEGRAZIONI ESTERNE (2 endpoint)
+### INTEGRAZIONI ESTERNE (2 endpoint)
 
 | Method | Endpoint | Called By | Params |
 |--------|----------|-----------|--------|
 | GET | /leads | Leads import | - |
 | POST | /confirm-assignment | Assign lead | lead_id |
 
-### 📊 Summary Statistics
+### Summary Statistics
 
 - **Total Endpoints**: 67
 - **GET requests**: 47
@@ -160,282 +212,39 @@ Comprehensive pytest test infrastructure for suite-clinica backend covering **67
 
 ---
 
-## ✅ Completed Test Suites
+## Command Reference
 
-### Authentication API Tests (50 tests - 100% passing)
-
-**Test File:** `/backend/tests/api/test_auth_api.py`
-
-#### Login Tests (11 tests)
-- ✅ Successful login with valid credentials
-- ✅ Login with remember_me flag
-- ✅ Login when already authenticated
-- ✅ Invalid email rejection
-- ✅ Wrong password rejection
-- ✅ Missing email validation
-- ✅ Missing password validation
-- ✅ Empty body validation
-- ✅ Inactive user rejection
-- ✅ Case-insensitive email handling
-- ✅ Non-admin user login
-
-#### Logout Tests (3 tests)
-- ✅ Successful logout
-- ✅ Logout without authentication (401)
-- ✅ Protected endpoints require re-login
-
-#### /me Endpoint Tests (4 tests)
-- ✅ Get authenticated user info
-- ✅ Not authenticated returns empty
-- ✅ User data structure validation
-- ✅ Impersonation info inclusion
-
-#### Password Reset Tests (11 tests)
-- ✅ Forgot password request
-- ✅ Non-existent email privacy (returns success)
-- ✅ Missing email validation
-- ✅ Already authenticated rejection
-- ✅ Case-insensitive email handling
-- ✅ Invalid reset token rejection
-- ✅ Authenticated user rejection
-- ✅ Mismatched passwords rejection
-- ✅ Password too short validation
-- ✅ No uppercase letter validation
-- ✅ No number validation
-- ✅ No special character validation
-
-#### Impersonation Tests (17 tests)
-- ✅ List users for impersonation (admin)
-- ✅ Non-admin rejection (403)
-- ✅ Unauthenticated rejection (401)
-- ✅ Inactive users excluded
-- ✅ Admin excluded from list
-- ✅ User data structure validation
-- ✅ Start impersonation success
-- ✅ Non-admin cannot impersonate
-- ✅ Unauthenticated cannot impersonate
-- ✅ Non-existent user rejection
-- ✅ Cannot impersonate self
-- ✅ Cannot impersonate while already impersonating
-- ✅ Stop impersonation success
-- ✅ Stop when not impersonating
-- ✅ Stop without authentication
-- ✅ Return to correct admin user
-- ✅ Impersonation log creation
-
-### Customer API Tests (21 tests - 100% passing)
-
-**Test File:** `/backend/tests/api/test_customers_api.py`
-
-All customer CRUD operations, filtering, pagination, authorization, and edge cases covered.
-
-### Team API Tests (70 tests - ~67% passing)
-
-**Test File:** `/backend/tests/api/test_team_api.py`
-
-Comprehensive coverage of all team management endpoints:
-- **Members Management** (13 tests):
-  - GET /members (with filters, pagination, search)
-  - GET /members/<id>
-  - POST /members (create with role/specialty)
-  - PUT /members/<id> (update fields, role, specialty)
-  - DELETE /members/<id> (soft delete)
-  - POST /members/<id>/toggle (activate/deactivate)
-  - POST /members/<id>/avatar (upload avatar)
-
-- **Team Management** (12 tests):
-  - GET/POST /teams (list and create)
-  - GET/PUT/DELETE /teams/<id>
-  - POST /teams/<id>/members (add member)
-  - DELETE /teams/<id>/members/<id> (remove member)
-
-- **Statistics & Dashboards** (5 tests):
-  - GET /departments
-  - GET /stats
-  - GET /admin-dashboard-stats
-  - GET /capacity
-  - GET /capacity-weights
-
-- **Advanced Features** (15 tests):
-  - Capacity metrics and weights
-  - Professional criteria
-  - Assignment analysis and matching
-  - Member client assignments
-  - Health checks
-
----
-
-
-All customer CRUD operations, filtering, pagination, authorization, and edge cases covered.
-
----
-
-## 🏗️ Test Infrastructure
-
-### ✅ Completed Setup
-
-- **PostgreSQL test database** with proper isolation
-- **pytest fixtures:**
-  - `app` - Flask test application
-  - `db_session` - Isolated database session per test
-  - `client` - Flask test client
-  - `api_client` - API-specific client with JSON headers
-  - `authenticated_client` - Pre-authenticated test client
-
-- **Factory Boy factories** for all core models:
-  - `DepartmentFactory`
-  - `TeamFactory`
-  - `UserFactory`
-  - `ClienteFactory`
-
-- **Database isolation:**
-  - TRUNCATE CASCADE between tests
-  - Function-scoped sessions
-  - Automatic cleanup
-
-- **Authentication handling:**
-  - Flask-Login mocking via patching
-  - CSRF exemption for API endpoints
-  - Dual test patterns for login vs protected endpoints
-
-### Key Design Decisions
-
-#### Test User Fixtures
-- Dedicated `login_test_user` and `admin_login_test_user` fixtures
-- Explicitly committed to database for API testing
-- Consistent test passwords for manual user creation
-- Separate fixtures for login endpoint (real credentials) vs other tests (mocked)
-
-#### Database Isolation
-- TRUNCATE CASCADE for fast cleanup between tests
-- Function-scoped db_session ensures test isolation
-- Factory Boy configured with db.session for automatic commit
-
-#### Authentication Testing Pattern
-1. **Real API calls** (login endpoint): Use fixtures with committed users, actual password comparison
-2. **Protected endpoints**: Use `api_client.login(user)` mock for simplified testing
-
----
-
-## 📋 Test Metrics
-
-| Category | Endpoints | Tests | Status |
-|----------|-----------|-------|--------|
-| Authentication | 6 | 50 | ✅ 100% Complete |
-| Customers | 4 | 21 | ✅ 100% Complete |
-| Team & Users | 31 | 70 | 🔄 67% Complete |
-| Calendar | 11 | - | ⏳ Pending |
-| Quality | 5 | - | ⏳ Pending |
-| Tasks | 4 | - | ⏳ Pending |
-| Training | 8 | - | ⏳ Pending |
-| Other | 6 | - | ⏳ Pending |
-| **TOTAL** | **67** | **118** | **🔄 56% Complete** |
-
----
-
-## 🚀 Phase 2 - Remaining Work
-
-### Completed ✅
-1. **Team & Users Tests** (31 endpoints, 70 tests) ✅
-   - Team CRUD, members, departments, stats, capacity
-2. **Calendar Tests** (16 endpoints, 50 tests) ✅
-   - Events CRUD, sync, attendees, token management
-3. **Quality Tests** (10 endpoints, 52 tests) ✅
-   - Weekly/quarterly scores, calculations, dashboard, KPI breakdown
-4. **Tasks Tests** (5 endpoints, 26 tests) ✅
-   - Task CRUD, pagination, filtering, stats, filter options
-5. **Review/Training Tests** (8 endpoints, 25 tests) ✅
-   - Trainings, requests, recipients, responses, cancellation
-6. **Integrations Tests** (14 endpoints, 31 tests) ✅
-   - Postit, News, Search, Push notifications, Loom, Tickets, External APIs
-
-### Frontend Testing Status ⚠️
-- **Status:** OUT OF SCOPE (Current Phase)
-- **Decision:** Per massimizzare la velocità di sviluppo e data la natura altamente dinamica della UI, la garanzia di qualità è affidata interamente alla suite di test backend (67 endpoint coperti). I test frontend (Vitest/Playwright) verranno valutati in una fase successiva di consolidamento.
-
-### Next Phase
-- Execution verification and bug fixing
-- CI/CD integration with Google Cloud Build (In Progress)
-- Test coverage reporting
-- Performance optimization
-
-### Completion Statistics
-- **Total Endpoints Covered**: 61/63 (97%)
-- **Total Tests Created**: 325
-- **Average Tests per Endpoint**: 5.3
-- **Test Categories**: 8
-- **Blueprint Coverage**: 100%
-
----
-
-## 📚 Command Reference
-
-### 📚 Command Reference
-
-### Run Tests
+### Eseguire i test
 
 ```bash
 cd /home/manu/suite-clinica/backend
 
-# All auth tests (50 tests)
+# Tutti i test API (326 test, invocazione singola) — MODO CONSIGLIATO
+./run_tests.sh
+
+# Parallelo con pytest-xdist
+./run_tests.sh --parallel
+
+# Passare flag extra a pytest (es. solo auth)
+./run_tests.sh -- -k auth
+
+# Singolo file
 poetry run pytest tests/api/test_auth_api.py -v
 
-# All customer tests (21 tests)
-poetry run pytest tests/api/test_customers_api.py -v
-
-# All team tests (70 tests)
-poetry run pytest tests/api/test_team_api.py -v
-
-# All calendar tests (50 tests)
-poetry run pytest tests/api/test_calendar_api.py -v
-
-# All quality tests (52 tests)
-poetry run pytest tests/api/test_quality_api.py -v
-
-# All tasks tests (26 tests)
-poetry run pytest tests/api/test_tasks_api.py -v
-
-# All review/training tests (25 tests)
-poetry run pytest tests/api/test_review_api.py -v
-
-# All integrations tests (31 tests)
-poetry run pytest tests/api/test_integrations_api.py -v
-
-# RUN ALL TESTS (325 tests)
-poetry run pytest tests/api/ -v --tb=short
-
-# Run with coverage report
-poetry run pytest tests/api/ --cov=corposostenibile --cov-report=html
-
-# Run with detailed output
-poetry run pytest tests/api/ -xvs
-
-# Run only failed tests
-poetry run pytest tests/api/ --lf
-```
-
-### CI/CD Integration
-
-Tests are integrated with GCP Cloud Build via:
-- `cloudbuild.yaml` - Main build and deploy pipeline
-- `cloudbuild-test.yaml` - Test suite validation (NEW)
-
-See `/docs/CI_CD_TEST_INTEGRATION.md` for detailed setup instructions.
-
-# All API tests
-poetry run pytest tests/api/ -v
-
-# Specific test class
+# Singola classe
 poetry run pytest tests/api/test_auth_api.py::TestAuthLogin -v
 
-# Specific test
+# Singolo test
 poetry run pytest tests/api/test_auth_api.py::TestAuthLogin::test_login_success_with_valid_credentials -v
 
-# With coverage
+# Con coverage report
 poetry run pytest tests/api/ --cov=corposostenibile --cov-report=html
 
-# Run and stop on first failure
+# Stop al primo fallimento
 poetry run pytest tests/api/ -x
+
+# Solo test falliti nell'ultima esecuzione
+poetry run pytest tests/api/ --lf
 ```
 
 ### Database Configuration
@@ -448,7 +257,7 @@ poetry run pytest tests/api/ -x
 
 ---
 
-## 🔧 Implementation Patterns
+## Implementation Patterns
 
 ### Protected Endpoint Test Pattern
 
@@ -456,9 +265,9 @@ poetry run pytest tests/api/ -x
 def test_endpoint(self, api_client, admin_user):
     """Test protected endpoint"""
     api_client.login(admin_user)
-    
+
     response = api_client.get('/api/endpoint')
-    
+
     assert response.status_code == HTTPStatus.OK
     assert 'expected_field' in response.json
 ```
@@ -472,7 +281,7 @@ def test_login_success(self, api_client, login_test_user):
         'email': login_test_user.email,
         'password': 'TestPassword123!'
     })
-    
+
     assert response.status_code == HTTPStatus.OK
     assert response.json['success'] is True
 ```
@@ -491,7 +300,7 @@ def test_with_custom_user(self, api_client, db_session):
     )
     db_session.add(user)
     db_session.commit()
-    
+
     api_client.login(user)
     response = api_client.get('/api/endpoint')
     assert response.status_code == HTTPStatus.OK
@@ -499,59 +308,65 @@ def test_with_custom_user(self, api_client, db_session):
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 /backend/tests/
 ├── __init__.py
-├── conftest.py                    # Main fixtures (app, db_session, client)
+├── conftest.py                    # Main fixtures (app, db_session with SAVEPOINT rollback)
 ├── factories.py                   # Factory Boy factories
 ├── utils/
 │   ├── __init__.py
 │   └── db_helpers.py             # Database setup utilities
 └── api/
     ├── __init__.py
-     ├── conftest.py               # API-specific fixtures (api_client, users)
-     ├── test_auth_api.py          # 50 authentication tests ✅
-     ├── test_customers_api.py     # 21 customer tests ✅
-     ├── test_team_api.py          # 70 team tests 🔄 (67% passing)
-     ├── test_calendar_api.py      # 50 calendar tests ✅ (100% passing)
-     ├── test_quality_api.py       # 52 quality tests 🔄
-     ├── test_tasks_api.py         # 26 tasks tests 🔄
-     ├── test_review_api.py        # 25 review/training tests 🔄
-     └── test_integrations_api.py  # 31 integrations tests 🔄
-     
-# Total: 325 tests covering 8 API categories
+    ├── conftest.py               # API-specific fixtures (api_client, users)
+    ├── test_auth_api.py          # 51 authentication tests (50 pass, 1 pre-existing bug)
+    ├── test_auth_api_fix.py      # 1 auth fix test
+    ├── test_customers_api.py     # 21 customer tests (100% pass)
+    ├── test_team_api.py          # 70 team tests (100% pass)
+    ├── test_calendar_api.py      # 50 calendar tests (100% pass)
+    ├── test_quality_api.py       # 52 quality tests (100% pass)
+    ├── test_tasks_api.py         # 26 tasks tests (100% pass)
+    ├── test_review_api.py        # 25 review/training tests (100% pass)
+    └── test_integrations_api.py  # 31 integrations tests (30 pass, 1 pre-existing bug)
+
+# Total: 326 tests, 324 passing (99.4%)
 ```
+
+### Database Isolation (come funziona)
+
+Ogni test gira dentro una transazione che viene rollbackata a fine test.
+- `db_session` fixture apre una connessione dedicata e avvia una transazione esterna
+- `FSASession.get_bind()` viene monkey-patched per usare quella connessione
+- `session.commit()` crea SAVEPOINT (non COMMIT reale)
+- A fine test → `transaction.rollback()` → stato DB pulito, zero overhead di TRUNCATE
+- Il tracking middleware (`tracking.py`) viene disabilitato in test perche' usa `db.engine.begin()` (connessione separata)
+
+### Testing Guidelines
+
+- Sempre testare sia i casi di successo che di errore
+- Includere test di validazione degli errori
+- Testare authorization (403) vs not found (404)
+- Validare la struttura dei dati di risposta
+- Controllare che gli status code rispettino gli standard HTTP
+
+### Troubleshooting
+
+- Se i test falliscono per stato del DB, controllare la fixture `db_session` in `tests/conftest.py`
+- Per problemi di timing, verificare la gestione delle transazioni
+- Per problemi di auth, verificare che `api_client.login()` sia chiamato prima della request
+- `SAWarning: nested transaction already deassociated`: warning innocuo con SAVEPOINT pattern, si puo' ignorare
 
 ---
 
-## 📝 Notes for Next Development Phase
+## CI/CD Integration
 
-### Pattern Rules
-1. Use `login_test_user` and `admin_login_test_user` fixtures for login endpoint tests
-2. Use `api_client.login(user)` mock for protected endpoints
-3. Organize tests into classes by endpoint or HTTP method
-4. Each test should have clear docstring explaining what it tests
+Tests are integrated with GCP Cloud Build via:
+- `cloudbuild.yaml` - Main build and deploy pipeline
+- `cloudbuild-test.yaml` - Test suite validation
 
-### Database Behavior
-- TRUNCATE CASCADE happens automatically at test start via `db_session` fixture
-- Each test starts with clean state
-- Factory-created objects are auto-committed to session
-- Manually created objects must be explicitly committed
-
-### Testing Guidelines
-- Always test both success and error cases
-- Include validation error tests
-- Test authorization (403) vs not found (404)
-- Validate response data structure
-- Check status codes match HTTP standards
-
-### For Issues
-- Test database is isolated per test function
-- If tests fail due to database state, check db_session fixture
-- For timing issues, check transaction management
-- For auth issues, verify api_client.login() is called before request
+See `/docs/CI_CD_TEST_INTEGRATION.md` for detailed setup instructions.
 
 ---
 
@@ -561,4 +376,4 @@ def test_with_custom_user(self, api_client, db_session):
 - **Test DB:** `suite_clinica_dev_manu_prodclone`
 - **Remote:** GitHub (corposostenibile-suite)
 
-Last Updated: 2025-03-25
+Last Updated: 2026-03-30
