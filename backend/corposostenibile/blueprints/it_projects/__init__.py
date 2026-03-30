@@ -8,7 +8,7 @@ bp = Blueprint(
     template_folder='templates'
 )
 
-from . import routes  # noqa
+# Routes removed - no HTML endpoints served by this blueprint
 
 
 def init_app(app):

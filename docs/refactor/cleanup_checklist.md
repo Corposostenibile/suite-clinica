@@ -18,6 +18,38 @@
 
 ---
 
+## Stato avanzamento (aggiornato al 30/03/2026)
+
+### Completato
+
+- FASE 1A completata: eliminate le cartelle `templates/` dei blueprint e i template globali legacy.
+- FASE 1B completata: eliminati gli static legacy dei blueprint (`customers`, `department`, `projects`, `recruiting`, `review`, `team`, `ticket`) con eccezioni rispettate (`documentation/static`, `pwa/static`).
+- FASE 1C completata: eliminati gli static globali legacy, mantenendo solo asset necessari (`uploads`, `privacy`, immagini ancora referenziate).
+- FASE 1D quasi completata: rimosse/disattivate le route HTML con `render_template` nei blueprint legacy e misti, preservando endpoint API/webhook.
+- Pulizia import completata sui file toccati (es. rimozione import `render_template` non usati).
+
+### Stato tecnico attuale
+
+- Uso residuo di `render_template` limitato a:
+  - `sales_form/public.py` (route pubbliche esterne)
+  - `client_checks/services.py` (template email)
+  - `communications/services.py` (template email)
+- `ticket/services.py` pulito dall'import `render_template` non piu necessario.
+- Registrazione blueprint corretta dopo rimozione route HTML (`suitemind` aggiornato a sole API route).
+- `welcome` ripristinato con `init_app` minimale per mantenere bootstrap applicazione senza route HTML.
+
+### Verifica test
+
+- Suite `auth` passata (50/50).
+- Suite `customers` passata (21/21).
+- Avanzamento suite estese in `run_tests.sh` avviato; esecuzione completa ancora da consolidare in un run unico senza timeout/interruzioni.
+
+### Nota operativa
+
+- Per i form pubblici (vendita/recruiting/ticket) la policy resta: non eliminare endpoint esterni senza migrazione esplicita e validazione end-to-end.
+
+---
+
 ## FASE 1 - Eliminazione template HTML e route associate (Ema)
 
 ### 1A. Eliminare le cartelle `templates/` dei 26 blueprint

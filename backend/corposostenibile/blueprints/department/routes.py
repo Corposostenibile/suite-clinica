@@ -22,7 +22,6 @@ from flask import (
     flash,
     jsonify,
     redirect,
-    render_template,
     request,
     send_file,
     url_for,
@@ -43,8 +42,7 @@ from corposostenibile.models import (
     TaskStatusEnum,
     User,
 )
-from . import dept_bp                       # <─ usa l'istanza già creata in __init__.py
-from .forms import DepartmentForm, TaskForm, CommentForm
+from . import dept_bp
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
@@ -165,159 +163,7 @@ def delete_department_file(file_path: str) -> bool:
         return False
 
 
-# ╔════════════════════════════════════════════════════════════════════════╗
-# ║ CRUD Department                                                       ║
-# ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/", methods=["GET"])
-@login_required
-def department_list() -> str:
-    """Lista dipartimenti con statistiche OKR."""
-    # Rimosso _require_admin() - ora tutti possono vedere la lista
 
-    page      = request.args.get("page", 1, type=int)
-    per_page  = request.args.get("per_page", 25, type=int)
-    q: str    = request.args.get("q", "", type=str).strip()
-
-    stmt = select(Department).order_by(Department.name.asc())
-    if q:
-        stmt = stmt.where(Department.name.ilike(f"%{q}%"))
-
-    pagination = db.paginate(stmt, page=page, per_page=per_page, error_out=False)
-    
-    # Aggiungi statistiche OKR per ogni dipartimento
-    dept_stats = {}
-    for dept in pagination.items:
-        # Use query on the relationship to filter
-        active_okrs = db.session.query(DepartmentObjective).filter(
-            DepartmentObjective.department_id == dept.id,
-            DepartmentObjective.status == OKRStatusEnum.active
-        ).count()
-        
-        total_okrs = db.session.query(DepartmentObjective).filter(
-            DepartmentObjective.department_id == dept.id
-        ).count()
-        
-        dept_stats[dept.id] = {
-            'active_okrs': active_okrs,
-            'total_okrs': total_okrs,
-            'has_documents': dept.has_any_documents
-        }
-
-    return render_template(
-        "department/list.html", 
-        pagination=pagination, 
-        q=q,
-        dept_stats=dept_stats
-    )
-
-@dept_bp.route("/new", methods=["GET", "POST"])
-@login_required
-def department_create():
-    """Crea nuovo dipartimento con documenti."""
-    _require_admin()
-
-    form = DepartmentForm()
-    if form.validate_on_submit():
-        dept = Department(
-            name=form.name.data.strip(),
-            head_id=form.head_id.data or None,
-            guidelines_text=form.guidelines_text.data.strip() if form.guidelines_text.data else None
-        )
-        
-        # Salva prima il dipartimento per ottenere l'ID
-        db.session.add(dept)
-        db.session.flush()
-        
-        # Gestione file upload
-        if form.guidelines_pdf.data:
-            dept.guidelines_pdf = save_department_file(
-                form.guidelines_pdf.data, dept.id, 'guidelines'
-            )
-            dept.update_document_timestamp('guidelines_pdf')
-        
-        if form.sop_members_pdf.data:
-            dept.sop_members_pdf = save_department_file(
-                form.sop_members_pdf.data, dept.id, 'sop_members'
-            )
-            dept.update_document_timestamp('sop_members_pdf')
-        
-        if form.sop_managers_pdf.data:
-            dept.sop_managers_pdf = save_department_file(
-                form.sop_managers_pdf.data, dept.id, 'sop_managers'
-            )
-            dept.update_document_timestamp('sop_managers_pdf')
-        
-        db.session.commit()
-        flash("Dipartimento creato correttamente.", "success")
-        return redirect(url_for("department.department_list"))
-    
-    return render_template("department/form.html", form=form, mode="create")
-
-
-@dept_bp.route("/<int:dept_id>/edit", methods=["GET", "POST"])
-@login_required
-def department_edit(dept_id: int):
-    """Modifica dipartimento esistente con gestione documenti."""
-    _require_admin()
-
-    dept = Department.query.get_or_404(dept_id)
-    form = DepartmentForm(obj=dept)
-    
-    if form.validate_on_submit():
-        dept.name = form.name.data.strip()
-        dept.head_id = form.head_id.data or None
-        
-        # Aggiorna linee guida testuali
-        if form.guidelines_text.data != dept.guidelines_text:
-            dept.guidelines_text = form.guidelines_text.data.strip() if form.guidelines_text.data else None
-            dept.update_document_timestamp('guidelines_text')
-        
-        # Gestione file PDF linee guida
-        if form.remove_guidelines_pdf.data == "true" and dept.guidelines_pdf:
-            delete_department_file(dept.guidelines_pdf)
-            dept.guidelines_pdf = None
-            dept.update_document_timestamp('guidelines_pdf')
-        elif form.guidelines_pdf.data:
-            # Elimina vecchio file se esiste
-            if dept.guidelines_pdf:
-                delete_department_file(dept.guidelines_pdf)
-            # Salva nuovo file
-            dept.guidelines_pdf = save_department_file(
-                form.guidelines_pdf.data, dept.id, 'guidelines'
-            )
-            dept.update_document_timestamp('guidelines_pdf')
-        
-        # Gestione SOP membri
-        if form.remove_sop_members_pdf.data == "true" and dept.sop_members_pdf:
-            delete_department_file(dept.sop_members_pdf)
-            dept.sop_members_pdf = None
-            dept.update_document_timestamp('sop_members_pdf')
-        elif form.sop_members_pdf.data:
-            if dept.sop_members_pdf:
-                delete_department_file(dept.sop_members_pdf)
-            dept.sop_members_pdf = save_department_file(
-                form.sop_members_pdf.data, dept.id, 'sop_members'
-            )
-            dept.update_document_timestamp('sop_members_pdf')
-        
-        # Gestione SOP manager
-        if form.remove_sop_managers_pdf.data == "true" and dept.sop_managers_pdf:
-            delete_department_file(dept.sop_managers_pdf)
-            dept.sop_managers_pdf = None
-            dept.update_document_timestamp('sop_managers_pdf')
-        elif form.sop_managers_pdf.data:
-            if dept.sop_managers_pdf:
-                delete_department_file(dept.sop_managers_pdf)
-            dept.sop_managers_pdf = save_department_file(
-                form.sop_managers_pdf.data, dept.id, 'sop_managers'
-            )
-            dept.update_document_timestamp('sop_managers_pdf')
-        
-        db.session.commit()
-        flash("Dipartimento aggiornato.", "success")
-        return redirect(url_for("department.department_list"))
-    
-    return render_template("department/form.html", form=form, mode="edit", dept=dept)
 
 
 @dept_bp.route("/<int:dept_id>/delete", methods=["POST"])
@@ -396,159 +242,10 @@ def download_document(dept_id: int, doc_type: str):
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ DETAIL + Kanban + OKR Integration                                     ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/<int:dept_id>", methods=["GET"])
-@login_required
-def department_detail(dept_id: int) -> str:
-    """Dettaglio dipartimento con Kanban e info OKR."""
-    dept = Department.query.options(
-        db.joinedload(Department.head),
-    ).get_or_404(dept_id)
-    
-    # Verifica permessi di visualizzazione
-    if not _can_view_dept(dept):
-        abort(HTTPStatus.FORBIDDEN)
-
-    # Raggruppa i task per colonna
-    tasks = (
-        Task.query
-        .filter(Task.department_id == dept.id)
-        .order_by(Task.status, Task.priority, Task.created_at)
-        .all()
-    )
-    grouped: dict[str, list[Task]] = {s.value: [] for s in TaskStatusEnum}
-    for t in tasks:
-        grouped[t.status.value].append(t)
-    
-    # Statistiche OKR del dipartimento - FIX: use query() instead of direct relationship access
-    okr_stats = {
-        'total': db.session.query(DepartmentObjective).filter_by(department_id=dept.id).count(),
-        'active': db.session.query(DepartmentObjective).filter_by(
-            department_id=dept.id, 
-            status=OKRStatusEnum.active
-        ).count(),
-        'completed': db.session.query(DepartmentObjective).filter_by(
-            department_id=dept.id, 
-            status=OKRStatusEnum.completed
-        ).count(),
-        'avg_progress': 0
-    }
-    
-    # Calcola progress medio degli obiettivi attivi
-    active_objectives = db.session.query(DepartmentObjective).filter_by(
-        department_id=dept.id,
-        status=OKRStatusEnum.active
-    ).all()
-    
-    if active_objectives:
-        # Nessun tracking progress nel modello semplificato
-        okr_stats['avg_progress'] = 0
-    
-    # Recupera obiettivi attivi del trimestre corrente
-    from datetime import date
-    current_month = date.today().month
-    current_quarter = f"q{((current_month - 1) // 3) + 1}"  # q1, q2, q3, q4
-    
-    current_quarter_objectives = []
-    for obj in active_objectives:
-        if obj.period and current_quarter in obj.period:
-            current_quarter_objectives.append(obj)
-    
-    # Membri con task assegnati - query corretta per PostgreSQL
-    members_task_counts = db.session.query(
-        Task.assignee_id,
-        db.func.count(Task.id).label('task_count')
-    ).filter(
-        Task.department_id == dept_id,
-        Task.assignee_id.isnot(None)
-    ).group_by(Task.assignee_id).all()
-    
-    # Converti in dizionario per facile accesso nel template
-    members_with_tasks = {user_id: count for user_id, count in members_task_counts}
-    
-    # Controlla se l'utente può modificare gli OKR
-    can_edit_okr = _can_manage_dept_okr(dept)
-
-    return render_template(
-        "department/detail.html",
-        dept=dept,
-        kanban_data=grouped,
-        okr_stats=okr_stats,
-        members_with_tasks=members_with_tasks,
-        can_edit_okr=can_edit_okr,
-        current_quarter_objectives=current_quarter_objectives,
-        current_quarter=current_quarter,
-    )
 
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║  ----  TASK Kanban  ----                                              ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/<int:dept_id>/tasks/new", methods=["GET", "POST"])
-@login_required
-def task_create(dept_id: int):
-    dept = Department.query.get_or_404(dept_id)
-    _require_dept_write(dept)
-
-    form = TaskForm(department=dept)
-    if form.validate_on_submit():
-        task = Task(
-            title=form.title.data.strip(),
-            description=form.description.data or None,
-            status=TaskStatusEnum(form.status.data),
-            priority=TaskPriorityEnum(form.priority.data),
-            due_date=form.due_date.data,
-            department_id=dept.id,
-            assignee_id=int(form.assignee_id.data) if form.assignee_id.data else None,
-            client_id=int(form.client_id.data) if form.client_id.data else None,
-        )
-        db.session.add(task)
-        db.session.commit()
-        flash("Task creato con successo.", "success")
-        return redirect(url_for("department.department_detail", dept_id=dept.id))
-
-    return render_template("task/form.html", form=form, mode="create", dept=dept)
-
-
-@dept_bp.route("/tasks/<int:task_id>/edit", methods=["GET", "POST"])
-@login_required
-def task_edit(task_id: int):
-    task = Task.query.get_or_404(task_id)
-    dept = task.department
-    _require_dept_write(dept)
-
-    form = TaskForm(obj=task, department=dept)
-    
-    # Precompila i campi search se ci sono valori esistenti
-    if task.assignee:
-        form.assignee_search.data = task.assignee.full_name
-    if task.client:
-        form.client_search.data = task.client.nome_cognome
-    
-    if form.validate_on_submit():
-        task.title       = form.title.data.strip()
-        task.description = form.description.data or None
-        task.status      = TaskStatusEnum(form.status.data)
-        task.priority    = TaskPriorityEnum(form.priority.data)
-        task.due_date    = form.due_date.data
-        task.assignee_id = int(form.assignee_id.data) if form.assignee_id.data else None
-        task.client_id   = int(form.client_id.data) if form.client_id.data else None
-        db.session.commit()
-        flash("Task aggiornato.", "success")
-        return redirect(url_for("department.department_detail", dept_id=dept.id))
-
-    return render_template("task/form.html", form=form, mode="edit", dept=dept, task=task)
-
-
-@dept_bp.route("/tasks/<int:task_id>/delete", methods=["POST"])
-@login_required
-def task_delete(task_id: int):
-    task = Task.query.get_or_404(task_id)
-    dept = task.department
-    _require_dept_write(dept)
-
-    db.session.delete(task)
-    db.session.commit()
-    flash("Task eliminato.", "info")
-    return redirect(url_for("department.department_detail", dept_id=dept.id))
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
@@ -700,12 +397,6 @@ def api_task_add_comment(task_id: int):
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║  ----  Organigramma Routes  ----                                      ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-
-@dept_bp.route("/organigramma", methods=["GET"])
-def organigramma():
-    """Vista organigramma aziendale interattivo - accessibile a tutti."""
-    return render_template("department/organigramma.html")
-
 
 @dept_bp.route("/api/organigramma/data", methods=["GET"])
 def api_organigramma_data():

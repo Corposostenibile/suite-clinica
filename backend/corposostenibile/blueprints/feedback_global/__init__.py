@@ -17,8 +17,7 @@ bp = Blueprint(
     static_folder='static'
 )
 
-# Import routes per registrarle
-from . import routes  # noqa
+# Routes removed - no HTML endpoints served by this blueprint
 
 
 def init_app(app):

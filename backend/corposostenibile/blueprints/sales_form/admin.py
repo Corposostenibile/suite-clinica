@@ -2,7 +2,7 @@
 Admin views for Form Sales management
 """
 
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 
 from corposostenibile.extensions import db
@@ -53,13 +53,7 @@ def admin_dashboard():
         for s in top_sales
     ]
 
-    return render_template(
-        'sales_form/admin/dashboard.html',
-        stats=stats,
-        form=form,
-        top_sales=top_sales
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/admin/form')
 @login_required
@@ -70,8 +64,7 @@ def admin_form_config():
     fields = SalesFormField.query.filter_by(config_id=form.id)\
         .order_by(SalesFormField.position).all()
 
-    return render_template('sales_form/admin/form_config.html', form=form, fields=fields)
-
+    abort(404)
 
 @sales_form_bp.route('/admin/form/update', methods=['POST'])
 @login_required
@@ -146,13 +139,7 @@ def admin_form_builder():
         {'value': 'divider', 'label': 'Divisore', 'icon': 'fas fa-minus'}
     ]
 
-    return render_template(
-        'sales_form/admin/form_builder.html',
-        form=form,
-        fields=fields,
-        field_types=field_types
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/admin/form/preview')
 @login_required
@@ -183,15 +170,7 @@ def admin_form_preview():
             }
         sections[section_name]['fields'].append(field)
 
-    return render_template(
-        'sales_form/public/form.html',
-        link=fake_link,
-        form_config=form,
-        sections=sections,
-        sales_user=current_user,
-        preview_mode=True
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/admin/links')
 @login_required
@@ -214,12 +193,7 @@ def admin_links():
     users_with_links = set(link[0].user_id for link in links)  # link[0] è SalesFormLink
     users_without_links = [u for u in sales_users if u.id not in users_with_links]
 
-    return render_template(
-        'sales_form/admin/links.html',
-        links=links,
-        users_without_links=users_without_links
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/admin/links/generate', methods=['POST'])
 @login_required
@@ -307,19 +281,7 @@ def admin_leads():
     sales_users = User.query.join(Department, User.department_id == Department.id)\
         .filter(Department.id.in_([5, 18])).all()
 
-    return render_template(
-        'sales_form/admin/leads.html',
-        leads=leads,
-        sales_users=sales_users,
-        current_filters={
-            'status': status,
-            'sales_user_id': sales_user_id,
-            'date_from': date_from,
-            'date_to': date_to,
-            'search': search
-        }
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/admin/stats')
 @login_required
@@ -390,16 +352,4 @@ def admin_stats():
         'converted': total_converted
     }
 
-    return render_template(
-        'sales_form/admin/stats.html',
-        total_leads=total_leads,
-        total_converted=total_converted,
-        total_revenue=float(total_revenue),
-        month_leads=month_leads,
-        month_converted=month_converted,
-        month_revenue=float(month_revenue),
-        prev_month_leads=prev_month_leads,
-        sales_performance=sales_performance,
-        funnel=funnel,
-        current_month=month_start.strftime('%B %Y')
-    )
+    abort(404)

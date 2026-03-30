@@ -4,7 +4,7 @@ from flask import Blueprint
 bp = Blueprint('database_registry', __name__, url_prefix='/database-registry',
                template_folder='templates', static_folder='static')
 
-from . import routes  # noqa
+# Routes removed - no HTML endpoints served by this blueprint
 
 
 def init_app(app):

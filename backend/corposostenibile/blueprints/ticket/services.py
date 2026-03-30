@@ -13,7 +13,7 @@ from typing import List, Optional, Dict, Any
 from werkzeug.utils import secure_filename
 from werkzeug.datastructures import FileStorage
 
-from flask import current_app, render_template, render_template_string
+from flask import current_app, render_template_string
 from flask_mail import Message
 from sqlalchemy import and_, or_, func, case, distinct
 from sqlalchemy.exc import SQLAlchemyError

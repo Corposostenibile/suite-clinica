@@ -12,6 +12,6 @@ bp = Blueprint('finance', __name__,
 
 def init_app(app):
     """Inizializza il blueprint finance."""
-    from . import routes
+    # Routes removed - no HTML endpoints served by this blueprint
     app.register_blueprint(bp)
     app.logger.info("[finance] Blueprint registrato con successo")

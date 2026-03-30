@@ -6,10 +6,9 @@ suitemind_bp = Blueprint('suitemind', __name__,
                       url_prefix='/suitemind')
 
 # Import and register routes
-from .routes import register_main_routes, register_api_routes
+from .routes import register_api_routes
 
-# Register all routes
-register_main_routes(suitemind_bp)
+# Register API routes
 register_api_routes(suitemind_bp)
 
 from flask import Flask

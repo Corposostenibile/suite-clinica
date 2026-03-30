@@ -32,7 +32,6 @@ from flask import (
     flash,
     jsonify,
     redirect,
-    render_template,
     request,
     url_for,
     abort,
@@ -63,15 +62,6 @@ from corposostenibile.models import (
     MinorCheck,
     MinorCheckResponse,
     UserRoleEnum,
-)
-from .forms import (
-    CheckFormForm,
-    CheckFormFieldForm,
-    ClientCheckAssignmentForm,
-    ClientCheckResponseForm,
-    AssignmentFilterForm,
-    BulkAssignmentForm,
-    DynamicCheckForm,
 )
 from .services import (
     CheckFormService,
@@ -239,225 +229,8 @@ csrf.exempt(api_bp)  # Exclude API from CSRF since it uses Tokens/Session with d
 
 
 # --------------------------------------------------------------------------- #
-#  Route Admin - Dashboard                                                    #
-# --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/")
-@login_required
-def dashboard():
-    """Dashboard principale con statistiche generali."""
-    try:
-        # Statistiche generali
-        total_forms = CheckForm.query.filter_by(is_active=True).count()
-        total_assignments = ClientCheckAssignment.query.filter_by(is_active=True).count()
-        total_responses = ClientCheckResponse.query.count()
-        
-        # Form recenti
-        recent_forms = (
-            CheckForm.query
-            .filter_by(is_active=True)
-            .order_by(desc(CheckForm.created_at))
-            .limit(5)
-            .all()
-        )
-        
-        # Risposte recenti
-        recent_responses = (
-            ClientCheckResponse.query
-            .options(
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.form)
-            )
-            .order_by(desc(ClientCheckResponse.created_at))
-            .limit(10)
-            .all()
-        )
-        
-        return render_template(
-            "client_checks/dashboard_modern.html",
-            total_forms=total_forms,
-            total_assignments=total_assignments,
-            total_responses=total_responses,
-            recent_forms=recent_forms,
-            recent_responses=recent_responses,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        current_app.logger.error(f"Errore dashboard client_checks: {e}")
-        flash("Errore nel caricamento della dashboard", "error")
-        return redirect(url_for("welcome.index"))
-
-
-# --------------------------------------------------------------------------- #
 #  Route Professionisti - Check da Leggere                                   #
 # --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/da-leggere")
-@login_required
-def da_leggere():
-    """
-    Pagina per professionisti: mostra tutti i check WeeklyCheck e DCACheck
-    dei loro clienti che devono ancora leggere (da oggi in poi).
-    """
-    from datetime import date
-    from corposostenibile.models import (
-        ClientCheckReadConfirmation,
-        WeeklyCheck,
-        WeeklyCheckResponse,
-        DCACheck,
-        DCACheckResponse
-    )
-
-    # Ottieni i clienti visibili in base al ruolo
-    query = db.session.query(Cliente)
-    
-    # 1. Admin: vede tutto (ma qui filtriamo solo chi ha check non letti dopo)
-    if current_user.role == UserRoleEnum.admin:
-        # Recupera TUTTI i clienti che hanno check
-        # In questo contesto "da_leggere" per admin potrebbe mostrare tutto, 
-        # ma per coerenza con la logica "Inbox" manteniamo il focus.
-        # Tuttavia, se l'admin vuole vedere tutto, non applichiamo filtri qui
-        # e lasciamo che la join successiva trovi i check non letti.
-        pass
-
-    # 2. Team Leader: vede i clienti assegnati ai membri del proprio team
-    elif current_user.role == UserRoleEnum.team_leader:
-        team_member_ids = set()
-        # Includi se stesso
-        team_member_ids.add(current_user.id)
-        # Includi membri dei team guidati
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        
-        member_ids_list = list(team_member_ids)
-        
-        query = query.filter(
-            db.or_(
-                # Relazioni singole (foreign keys) - controlla se assegnato a QUALSIASI membro del team
-                Cliente.nutrizionista_id.in_(member_ids_list),
-                Cliente.coach_id.in_(member_ids_list),
-                Cliente.psicologa_id.in_(member_ids_list),
-                Cliente.consulente_alimentare_id.in_(member_ids_list),
-                # Relazioni multiple - controlla se QUALSIASI membro del team è nelle liste
-                Cliente.nutrizionisti_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.consulenti_multipli.any(User.id.in_(member_ids_list)),
-                # Assegnazione tramite history (es. Medico nel team)
-                exists(
-                    select(ClienteProfessionistaHistory.cliente_id).where(
-                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                        ClienteProfessionistaHistory.user_id.in_(member_ids_list),
-                        ClienteProfessionistaHistory.is_active == True,
-                    )
-                ),
-            )
-        )
-
-    # 3. Professionista: vede solo i propri clienti (inclusi assegnazioni da history, es. Medico)
-    else:
-        query = query.filter(
-            db.or_(
-                # Relazioni singole (foreign keys)
-                Cliente.nutrizionista_id == current_user.id,
-                Cliente.coach_id == current_user.id,
-                Cliente.psicologa_id == current_user.id,
-                Cliente.consulente_alimentare_id == current_user.id,
-                # Relazioni multiple (many-to-many)
-                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                Cliente.coaches_multipli.any(User.id == current_user.id),
-                Cliente.psicologi_multipli.any(User.id == current_user.id),
-                Cliente.consulenti_multipli.any(User.id == current_user.id),
-                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
-                exists(
-                    select(ClienteProfessionistaHistory.cliente_id).where(
-                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                        ClienteProfessionistaHistory.user_id == current_user.id,
-                        ClienteProfessionistaHistory.is_active == True,
-                    )
-                ),
-            )
-        )
-
-    my_clienti = query.all()
-    my_clienti_ids = [c.cliente_id for c in my_clienti]
-
-    if not my_clienti_ids:
-        return render_template(
-            "client_checks/da_leggere.html",
-            responses_to_read=[],
-            total_to_read=0
-        )
-
-    all_responses = []
-
-    # 1. WeeklyCheckResponse non ancora letti
-    weekly_responses = (
-        WeeklyCheckResponse.query
-        .join(WeeklyCheck)
-        .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-        .outerjoin(
-            ClientCheckReadConfirmation,
-            and_(
-                ClientCheckReadConfirmation.response_type == 'weekly_check',
-                ClientCheckReadConfirmation.response_id == WeeklyCheckResponse.id,
-                ClientCheckReadConfirmation.user_id == current_user.id
-            )
-        )
-        .filter(
-            Cliente.cliente_id.in_(my_clienti_ids),
-            ClientCheckReadConfirmation.id.is_(None)
-        )
-        .options(
-            joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente)
-        )
-        .all()
-    )
-    for resp in weekly_responses:
-        resp.check_type = 'Weekly'
-        resp.response_type = 'weekly_check'
-    all_responses.extend(weekly_responses)
-
-    # 2. DCACheckResponse non ancora letti
-    dca_responses = (
-        DCACheckResponse.query
-        .join(DCACheck)
-        .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
-        .outerjoin(
-            ClientCheckReadConfirmation,
-            and_(
-                ClientCheckReadConfirmation.response_type == 'dca_check',
-                ClientCheckReadConfirmation.response_id == DCACheckResponse.id,
-                ClientCheckReadConfirmation.user_id == current_user.id
-            )
-        )
-        .filter(
-            Cliente.cliente_id.in_(my_clienti_ids),
-            ClientCheckReadConfirmation.id.is_(None)
-        )
-        .options(
-            joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente)
-        )
-        .all()
-    )
-    for resp in dca_responses:
-        resp.check_type = 'DCA'
-        resp.response_type = 'dca_check'
-    all_responses.extend(dca_responses)
-
-    # Ordina per data più recente
-    from datetime import datetime
-    all_responses.sort(key=lambda x: x.submit_date if x.submit_date else datetime.min, reverse=True)
-
-    return render_template(
-        "client_checks/da_leggere.html",
-        responses_to_read=all_responses,
-        total_to_read=len(all_responses)
-    )
 
 
 @client_checks_bp.route("/conferma-lettura/<string:response_type>/<int:response_id>", methods=["POST"])
@@ -544,137 +317,42 @@ def conferma_lettura(response_type, response_id):
 #  Route Admin - Gestione Form                                               #
 # --------------------------------------------------------------------------- #
 
-@client_checks_bp.route("/forms/")
-@login_required
-def forms_list():
-    """Lista di tutti i form check."""
-    try:
-        page = request.args.get("page", 1, type=int)
-        per_page = 20
-        
-        # Filtri
-        form_type = request.args.get("type")
-        search = request.args.get("search", "").strip()
-        
-        query = CheckForm.query
-        
-        if form_type and form_type in [e.value for e in CheckFormTypeEnum]:
-            query = query.filter(CheckForm.form_type == form_type)
-        
-        if search:
-            query = query.filter(CheckForm.name.ilike(f"%{search}%"))
-        
-        forms = (
-            query
-            .order_by(desc(CheckForm.created_at))
-            .paginate(
-                page=page,
-                per_page=per_page,
-                error_out=False
-            )
-        )
-        
-        return render_template(
-            "client_checks/form_list_modern.html",
-            forms=forms,
-            form_types=CheckFormTypeEnum,
-            current_type=form_type,
-            current_search=search,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        current_app.logger.error(f"Errore lista form: {e}")
-        flash("Errore nel caricamento dei form", "error")
-        return redirect(url_for("client_checks.dashboard"))
 
-
-@client_checks_bp.route("/forms/create", methods=["GET", "POST"])
+@client_checks_bp.route("/forms/create", methods=["POST"])
 @login_required
 def create_form():
-    """Crea un nuovo form check."""
-    if request.method == "POST":
-        # Gestisci richieste JSON dal frontend
-        if request.is_json:
-            try:
-                data = request.get_json()
-                
-                # Validazione base
-                if not data.get('name'):
-                    return jsonify({"success": False, "message": "Nome form richiesto"}), 400
-                
-                if not data.get('fields') or len(data.get('fields', [])) == 0:
-                    return jsonify({"success": False, "message": "Almeno un campo è richiesto"}), 400
-                
-                # Crea il form
-                check_form = CheckFormService.create_form(
-                    name=data['name'],
-                    description=data.get('description', ''),
-                    form_type=data.get('form_type', 'standard'),
-                    created_by_id=current_user.id,
-                    department_id=current_user.department_id,  # Usa il dipartimento dell'utente corrente
-                    fields_data=data['fields'],
-                )
-                
-                return jsonify({
-                    "success": True, 
-                    "message": f"Form '{check_form.name}' creato con successo!",
-                    "redirect": url_for("client_checks.edit_form", id=check_form.id)
-                })
-                
-            except Exception as e:
-                current_app.logger.error(f"Errore creazione form: {e}")
-                return jsonify({"success": False, "message": "Errore nella creazione del form"}), 500
-        
-        # Gestisci form HTML tradizionale (fallback)
-        else:
-            form = CheckFormForm()
-            if form.validate_on_submit():
-                try:
-                    check_form = CheckFormService.create_form(
-                        name=form.name.data,
-                        description=form.description.data,
-                        form_type=form.form_type.data,
-                        created_by_id=current_user.id,
-                        department_id=form.department_id.data,
-                        fields_data=form.fields.data,
-                    )
-                    
-                    flash(f"Form '{check_form.name}' creato con successo!", "success")
-                    return redirect(url_for("client_checks.edit_form", id=check_form.id))
-                    
-                except Exception as e:
-                    current_app.logger.error(f"Errore creazione form: {e}")
-                    flash("Errore nella creazione del form", "error")
-    
-    # GET request - mostra il form builder
-    form = CheckFormForm()
-    return render_template("client_checks/form_builder.html", form=form)
-
-
-@client_checks_bp.route("/forms/<int:id>/preview")
-@login_required
-def preview_form(id: int):
-    """Visualizza l'anteprima di un form check."""
+    """Crea un nuovo form check (JSON API)."""
     try:
-        form = CheckForm.query.options(
-            joinedload(CheckForm.fields)
-        ).filter_by(id=id).first()
-        
-        if not form:
-            flash("Form non trovato", "error")
-            return redirect(url_for("client_checks.forms_list"))
-        
-        return render_template(
-            "client_checks/form_preview.html",
-            form=form
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "message": "Richiesta JSON richiesta"}), 400
+
+        # Validazione base
+        if not data.get('name'):
+            return jsonify({"success": False, "message": "Nome form richiesto"}), 400
+
+        if not data.get('fields') or len(data.get('fields', [])) == 0:
+            return jsonify({"success": False, "message": "Almeno un campo è richiesto"}), 400
+
+        # Crea il form
+        check_form = CheckFormService.create_form(
+            name=data['name'],
+            description=data.get('description', ''),
+            form_type=data.get('form_type', 'standard'),
+            created_by_id=current_user.id,
+            department_id=current_user.department_id,
+            fields_data=data['fields'],
         )
-    except HTTPException:
-        raise
+
+        return jsonify({
+            "success": True,
+            "message": f"Form '{check_form.name}' creato con successo!",
+            "form_id": check_form.id
+        })
+
     except Exception as e:
-        current_app.logger.error(f"Errore anteprima form {id}: {e}")
-        flash("Errore nel caricamento dell'anteprima", "error")
-        return redirect(url_for("client_checks.forms_list"))
+        current_app.logger.error(f"Errore creazione form: {e}")
+        return jsonify({"success": False, "message": "Errore nella creazione del form"}), 500
 
 
 @client_checks_bp.route("/forms/<int:id>/edit", methods=["GET", "POST"])
@@ -682,74 +360,64 @@ def preview_form(id: int):
 def edit_form(id: int):
     """Modifica un form esistente."""
     check_form = CheckForm.query.get_or_404(id)
-    form = CheckFormForm(obj=check_form)
-    
-    if request.method == "POST":
-        # Gestisce richieste JSON dal JavaScript
-        if request.is_json:
-            try:
-                data = request.get_json()
-                updated_form = CheckFormService.update_form(
-                    form_id=id,
-                    name=data.get('name'),
-                    description=data.get('description'),
-                    form_type=data.get('form_type'),
-                    department_id=data.get('department_id'),
-                    fields_data=data.get('fields', []),
-                )
-                
-                return jsonify({
-                    'success': True,
-                    'message': f"Form '{updated_form.name}' aggiornato con successo!",
-                    'redirect': url_for("client_checks.forms_list")
-                })
-                
-            except Exception as e:
-                current_app.logger.error(f"Errore aggiornamento form: {e}")
-                return jsonify({
-                    'success': False,
-                    'message': f'Errore nell\'aggiornamento del form: {str(e)}'
-                }), 400
-        
-        # Gestisce form submission tradizionale
-        elif form.validate_on_submit():
-            try:
-                updated_form = CheckFormService.update_form(
-                    form_id=id,
-                    name=form.name.data,
-                    description=form.description.data,
-                    form_type=form.form_type.data,
-                    department_id=form.department_id.data,
-                    fields_data=form.fields.data,
-                )
-                
-                flash(f"Form '{updated_form.name}' aggiornato con successo!", "success")
-                return redirect(url_for("client_checks.forms_list"))
-                
-            except Exception as e:
-                current_app.logger.error(f"Errore aggiornamento form: {e}")
-                flash("Errore nell'aggiornamento del form", "error")
-    
-    # Prepara i dati dei campi esistenti per il JavaScript
-    fields_json = []
-    if check_form.fields:
-        for field in check_form.fields:
-            field_data = {
-                'id': field.id,
-                'label': field.label,
-                'field_type': field.field_type.value,
-                'is_required': field.is_required,
-                'position': field.position,
+
+    if request.method == "GET":
+        # Return form data as JSON for the React frontend
+        fields_json = []
+        if check_form.fields:
+            for field in check_form.fields:
+                field_data = {
+                    'id': field.id,
+                    'label': field.label,
+                    'field_type': field.field_type.value,
+                    'is_required': field.is_required,
+                    'position': field.position,
+                }
+                if field.options:
+                    field_data['options'] = field.options
+                if field.placeholder:
+                    field_data['placeholder'] = field.placeholder
+                if field.help_text:
+                    field_data['help_text'] = field.help_text
+                fields_json.append(field_data)
+
+        return jsonify({
+            'success': True,
+            'form': {
+                'id': check_form.id,
+                'name': check_form.name,
+                'description': check_form.description,
+                'form_type': check_form.form_type.value if check_form.form_type else None,
+                'fields': fields_json,
             }
-            if field.options:
-                field_data['options'] = field.options
-            if field.placeholder:
-                field_data['placeholder'] = field.placeholder
-            if field.help_text:
-                field_data['help_text'] = field.help_text
-            fields_json.append(field_data)
-    
-    return render_template("client_checks/form_builder.html", form=form, check_form=check_form, fields_json=fields_json)
+        })
+
+    # POST — update the form (JSON)
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Richiesta JSON richiesta'}), 400
+
+        updated_form = CheckFormService.update_form(
+            form_id=id,
+            name=data.get('name'),
+            description=data.get('description'),
+            form_type=data.get('form_type'),
+            department_id=data.get('department_id'),
+            fields_data=data.get('fields', []),
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f"Form '{updated_form.name}' aggiornato con successo!",
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Errore aggiornamento form: {e}")
+        return jsonify({
+            'success': False,
+            'message': f'Errore nell\'aggiornamento del form: {str(e)}'
+        }), 400
 
 
 @client_checks_bp.route("/forms/<int:id>/delete", methods=["POST"])
@@ -785,50 +453,6 @@ def delete_form_api(id: int):
 # --------------------------------------------------------------------------- #
 #  Route Admin - Assegnazioni                                                #
 # --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/assign", methods=["GET", "POST"])
-@login_required
-def assign_form():
-    """Assegna un form a uno o più clienti."""
-    form = ClientCheckAssignmentForm()
-
-    # Populate form choices
-    form.check_form_id.choices = [(0, '-- Seleziona un form --')] + [
-        (f.id, f.name)
-        for f in CheckForm.query.filter_by(is_active=True).order_by(CheckForm.name).all()
-    ]
-
-    if form.validate_on_submit():
-        try:
-            assignments = ClientCheckService.assign_form_to_clients(
-                form_id=form.check_form_id.data,
-                client_ids=form.client_ids.data,
-                assigned_by_id=current_user.id,
-                send_notifications=form.send_notification.data,
-            )
-
-            current_app.logger.info(f"--------------------------------------------Form assegnato a {len(assignments)} clienti!")
-            flash(f"Form assegnato a {len(assignments)} clienti!", "success")
-            return redirect(url_for("client_checks.assignments_list"))
-
-        except Exception as e:
-            current_app.logger.error(f"------------------------------------------Errore assegnazione form: {e}")
-            flash("Errore nell'assegnazione del form", "error")
-
-    # Get available clients for the template
-    page = request.args.get("page", 1, type=int)
-    # Filter active clients only
-    clients = Cliente.query.filter(
-        Cliente.stato_cliente.in_([StatoClienteEnum.attivo, StatoClienteEnum.pausa])
-    ).order_by(Cliente.nome_cognome).paginate(page=page, per_page=50)
-
-    # Packages list empty for now (no direct package field in Cliente)
-    packages = []
-
-    return render_template("client_checks/assign_form_modern.html",
-                         form=form,
-                         clients=clients,
-                         packages=packages)
 
 
 @client_checks_bp.route("/assign/<int:client_id>", methods=["POST"])
@@ -871,181 +495,9 @@ def assign_to_single_client(client_id: int):
         return redirect(url_for("customers.detail_view", cliente_id=client_id))
 
 
-@client_checks_bp.route("/assignments/")
-@login_required
-def assignments_list():
-    """Lista delle assegnazioni form-cliente."""
-    try:
-        page = request.args.get("page", 1, type=int)
-        per_page = 20
-        
-        # Filtri
-        form_id = request.args.get("form_id", type=int)
-        client_search = request.args.get("client_search", "").strip()
-        status = request.args.get("status")  # active, completed, pending
-        
-        query = (
-            ClientCheckAssignment.query
-            .options(
-                joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckAssignment.form),
-                joinedload(ClientCheckAssignment.assigned_by)
-            )
-        )
-        
-        if form_id:
-            query = query.filter(ClientCheckAssignment.form_id == form_id)
-        
-        if client_search:
-            query = query.join(Cliente).filter(
-                Cliente.nome.ilike(f"%{client_search}%") |
-                Cliente.cognome.ilike(f"%{client_search}%")
-            )
-        
-        if status == "completed":
-            query = query.filter(ClientCheckAssignment.response_count > 0)
-        elif status == "pending":
-            query = query.filter(ClientCheckAssignment.response_count == 0)
-        elif status == "active":
-            query = query.filter(ClientCheckAssignment.is_active == True)
-        
-        assignments = (
-            query
-            .order_by(desc(ClientCheckAssignment.created_at))
-            .paginate(
-                page=page,
-                per_page=per_page,
-                error_out=False
-            )
-        )
-        
-        # Form disponibili per filtro
-        available_forms = CheckForm.query.filter_by(is_active=True).all()
-        
-        return render_template(
-            "client_checks/assignments_list.html",
-            assignments=assignments,
-            available_forms=available_forms,
-            current_form_id=form_id,
-            current_client_search=client_search,
-            current_status=status,
-        )
-    except Exception as e:
-        current_app.logger.error(f"Errore lista assegnazioni: {e}")
-        flash("Errore nel caricamento delle assegnazioni", "error")
-        return redirect(url_for("client_checks.dashboard"))
-
-
 # --------------------------------------------------------------------------- #
 #  Route Admin - Risposte                                                    #
 # --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/responses/")
-@login_required
-def responses_list():
-    """Lista delle risposte ricevute."""
-    try:
-        page = request.args.get("page", 1, type=int)
-        per_page = 20
-        
-        # Filtri
-        form_id = request.args.get("form_id", type=int)
-        client_search = request.args.get("client_search", "").strip()
-        date_from = request.args.get("date_from")
-        date_to = request.args.get("date_to")
-        
-        query = (
-            ClientCheckResponse.query
-            .options(
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.form)
-            )
-        )
-        
-        if form_id:
-            query = query.join(ClientCheckAssignment).filter(
-                ClientCheckAssignment.form_id == form_id
-            )
-        
-        if client_search:
-            query = query.join(ClientCheckAssignment).join(Cliente).filter(
-                Cliente.nome.ilike(f"%{client_search}%") |
-                Cliente.cognome.ilike(f"%{client_search}%")
-            )
-        
-        if date_from:
-            try:
-                date_from_obj = datetime.strptime(date_from, "%Y-%m-%d")
-                query = query.filter(ClientCheckResponse.created_at >= date_from_obj)
-            except ValueError:
-                pass
-        
-        if date_to:
-            try:
-                date_to_obj = datetime.strptime(date_to, "%Y-%m-%d")
-                query = query.filter(ClientCheckResponse.created_at <= date_to_obj)
-            except ValueError:
-                pass
-        
-        responses = (
-            query
-            .order_by(desc(ClientCheckResponse.created_at))
-            .paginate(
-                page=page,
-                per_page=per_page,
-                error_out=False
-            )
-        )
-        
-        # Form disponibili per filtro
-        available_forms = CheckForm.query.filter_by(is_active=True).all()
-        
-        return render_template(
-            "client_checks/responses_view.html",
-            responses=responses,
-            available_forms=available_forms,
-            current_form_id=form_id,
-            current_client_search=client_search,
-            current_date_from=date_from,
-            current_date_to=date_to,
-        )
-    except Exception as e:
-        current_app.logger.error(f"Errore lista risposte: {e}")
-        flash("Errore nel caricamento delle risposte", "error")
-        return redirect(url_for("client_checks.dashboard"))
-
-
-@client_checks_bp.route("/responses/<int:id>")
-@login_required
-def response_detail(id: int):
-    """Dettaglio di una risposta specifica."""
-    try:
-        response = (
-            ClientCheckResponse.query
-            .options(
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckResponse.assignment)
-                .joinedload(ClientCheckAssignment.form)
-                .joinedload(CheckForm.fields)
-            )
-            .get_or_404(id)
-        )
-
-        # Formatta le risposte per la visualizzazione
-        formatted_responses = format_response_data(response)
-
-        return render_template(
-            "client_checks/response_detail.html",
-            response=response,
-            formatted_responses=formatted_responses,
-        )
-    except Exception as e:
-        current_app.logger.error(f"Errore dettaglio risposta: {e}")
-        flash("Errore nel caricamento della risposta", "error")
-        return redirect(url_for("client_checks.responses_list"))
 
 
 @client_checks_bp.route("/responses/<int:id>/data")
@@ -1090,101 +542,6 @@ def response_data(id: int):
     except Exception as e:
         current_app.logger.error(f"Errore nel recupero dati risposta: {e}")
         return jsonify({'error': f'Errore nel caricamento dei dati: {e}'}), 500
-
-
-# --------------------------------------------------------------------------- #
-#  Route Pubbliche - Compilazione Form                                       #
-# --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/public/<token>", methods=["GET", "POST"])
-@csrf.exempt
-def public_form(token: str):
-    """Compilazione pubblica di un form tramite token."""
-    current_app.logger.info(f"[PUBLIC_FORM] Richiesta ricevuta per token: {token}")
-    try:
-        # Trova l'assignment tramite token
-        current_app.logger.debug(f"[PUBLIC_FORM] Query database per token: {token}")
-        assignment = (
-            ClientCheckAssignment.query
-            .options(
-                joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckAssignment.form)
-                .joinedload(CheckForm.fields)
-            )
-            .filter_by(token=token, is_active=True)
-            .first_or_404()
-        )
-        current_app.logger.info(f"[PUBLIC_FORM] Assignment trovato: ID={assignment.id}")
-        
-        # Verifica che il form sia attivo
-        if not assignment.form.is_active:
-            abort(404)
-        
-        # Crea form dinamico basato sui campi
-        form_class = DynamicCheckForm.create_form_class(assignment.form.fields)
-        form = form_class()
-        
-        if request.method == "POST" and form.validate_on_submit():
-            try:
-                # Evita compilazioni multiple dello stesso check
-                if assignment.response_count > 0:
-                    flash("Questo check e' gia' stato compilato.", "info")
-                    return redirect(url_for("client_checks.public_success", token=token))
-
-                # Salva la risposta
-                response = ClientCheckService.save_response(
-                    assignment_id=assignment.id,
-                    form_data=form.data,
-                    ip_address=get_client_ip(),
-                    user_agent=get_user_agent(),
-                )
-                
-                # Invia notifiche se configurate
-                if assignment.form.department:
-                    NotificationService.send_response_notifications(response)
-                
-                flash("Grazie! La tua risposta è stata salvata con successo.", "success")
-                return redirect(url_for("client_checks.public_success", token=token))
-                
-            except Exception as e:
-                current_app.logger.error(f"Errore salvataggio risposta: {e}")
-                flash("Errore nel salvataggio. Riprova più tardi.", "error")
-        
-        return render_template(
-            "client_checks/public_form.html",
-            form=form,
-            assignment=assignment,
-            token=token,
-        )
-        
-    except Exception as e:
-        current_app.logger.error(f"[PUBLIC_FORM] Errore form pubblico: {e}", exc_info=True)
-        abort(404)
-
-
-@client_checks_bp.route("/public/<token>/success")
-@csrf.exempt
-def public_success(token: str):
-    """Pagina di conferma dopo invio form."""
-    try:
-        assignment = (
-            ClientCheckAssignment.query
-            .options(
-                joinedload(ClientCheckAssignment.cliente),
-                joinedload(ClientCheckAssignment.form)
-            )
-            .filter_by(token=token, is_active=True)
-            .first_or_404()
-        )
-        
-        return render_template(
-            "client_checks/public_success.html",
-            assignment=assignment,
-        )
-        
-    except Exception as e:
-        current_app.logger.error(f"Errore pagina successo: {e}")
-        abort(404)
 
 
 # --------------------------------------------------------------------------- #
@@ -1266,221 +623,6 @@ def api_form_preview(form_id: int):
 # --------------------------------------------------------------------------- #
 #  Weekly Check 2.0 Routes                                                    #
 # --------------------------------------------------------------------------- #
-
-@client_checks_bp.route("/weekly/<token>", methods=["GET", "POST"])
-@csrf.exempt
-def weekly_check_public(token: str):
-    """
-    Route pubblica per compilazione Check Settimanale 2.0 tramite token PERMANENTE.
-
-    Il cliente accede tramite link univoco del tipo:
-    https://suite.corposostenibile.com/client-checks/weekly/<TOKEN>
-
-    LINK PERMANENTE: il cliente può compilare più volte usando lo stesso link.
-    Ogni compilazione crea un nuovo record WeeklyCheckResponse.
-    """
-    from werkzeug.utils import secure_filename
-    from corposostenibile.models import WeeklyCheck, WeeklyCheckResponse
-    from .forms import WeeklyCheckForm
-    import secrets
-    import os
-
-    current_app.logger.info(f"[WEEKLY_CHECK] Richiesta ricevuta per token: {token}")
-
-    try:
-        # Trova l'assignment PERMANENTE tramite token
-        weekly_check = (
-            WeeklyCheck.query
-            .options(joinedload(WeeklyCheck.cliente))
-            .filter_by(token=token, is_active=True)
-            .first()
-        )
-
-        if not weekly_check:
-            current_app.logger.warning(f"[WEEKLY_CHECK] Token non valido o assignment disattivato: {token}")
-            abort(404, "Link non valido o disattivato.")
-
-        form = WeeklyCheckForm()
-
-        if request.method == "POST" and form.validate_on_submit():
-            try:
-                current_app.logger.info(
-                    f"[WEEKLY_CHECK] Inizio salvataggio compilazione per cliente_id={weekly_check.cliente_id} "
-                    f"(compilazione #{weekly_check.response_count + 1})"
-                )
-
-                # ─── CREA NUOVA RISPOSTA ────────────────────────────────────
-                response = WeeklyCheckResponse(
-                    weekly_check_id=weekly_check.id,
-                    submit_date=datetime.utcnow(),
-                    ip_address=get_client_ip(),
-                    user_agent=get_user_agent(),
-                )
-                snapshot = _get_weekly_professional_snapshot(weekly_check.cliente)
-                response.nutritionist_user_id = snapshot["nutritionist_user_id"]
-                response.psychologist_user_id = snapshot["psychologist_user_id"]
-                response.coach_user_id = snapshot["coach_user_id"]
-
-                # ─── UPLOAD FOTO ────────────────────────────────────────────
-                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-                photos_folder = os.path.join(upload_folder, 'weekly_checks', str(weekly_check.cliente_id))
-                os.makedirs(photos_folder, exist_ok=True)
-
-                # Foto frontale
-                if form.photo_front.data:
-                    file = form.photo_front.data
-                    filename = secure_filename(f"wc{weekly_check.id}_resp_front_{secrets.token_hex(8)}{os.path.splitext(file.filename)[1]}")
-                    filepath = os.path.join(photos_folder, filename)
-                    file.save(filepath)
-                    response.photo_front = filepath
-                    current_app.logger.debug(f"[WEEKLY_CHECK] Foto frontale salvata: {filepath}")
-
-                # Foto laterale
-                if form.photo_side.data:
-                    file = form.photo_side.data
-                    filename = secure_filename(f"wc{weekly_check.id}_resp_side_{secrets.token_hex(8)}{os.path.splitext(file.filename)[1]}")
-                    filepath = os.path.join(photos_folder, filename)
-                    file.save(filepath)
-                    response.photo_side = filepath
-                    current_app.logger.debug(f"[WEEKLY_CHECK] Foto laterale salvata: {filepath}")
-
-                # Foto posteriore
-                if form.photo_back.data:
-                    file = form.photo_back.data
-                    filename = secure_filename(f"wc{weekly_check.id}_resp_back_{secrets.token_hex(8)}{os.path.splitext(file.filename)[1]}")
-                    filepath = os.path.join(photos_folder, filename)
-                    file.save(filepath)
-                    response.photo_back = filepath
-                    current_app.logger.debug(f"[WEEKLY_CHECK] Foto posteriore salvata: {filepath}")
-
-                # ─── SALVA TUTTI I CAMPI NELLA RESPONSE ────────────────────
-                # Riflessioni settimanali
-                response.what_worked = form.what_worked.data
-                response.what_didnt_work = form.what_didnt_work.data
-                response.what_learned = form.what_learned.data
-                response.what_focus_next = form.what_focus_next.data
-                response.injuries_notes = form.injuries_notes.data
-
-                # Valutazioni benessere (0-10)
-                response.digestion_rating = form.digestion_rating.data
-                response.energy_rating = form.energy_rating.data
-                response.strength_rating = form.strength_rating.data
-                response.hunger_rating = form.hunger_rating.data
-                response.sleep_rating = form.sleep_rating.data
-                response.mood_rating = form.mood_rating.data
-                response.motivation_rating = form.motivation_rating.data
-
-                # Peso
-                response.weight = form.weight.data
-
-                # Aderenza ai programmi
-                response.nutrition_program_adherence = form.nutrition_program_adherence.data
-                response.training_program_adherence = form.training_program_adherence.data
-                response.exercise_modifications = form.exercise_modifications.data
-                response.daily_steps = form.daily_steps.data
-                response.completed_training_weeks = form.completed_training_weeks.data
-                response.planned_training_days = form.planned_training_days.data
-                response.live_session_topics = form.live_session_topics.data
-
-                # Valutazioni professionisti (1-10)
-                response.nutritionist_rating = form.nutritionist_rating.data
-                response.nutritionist_feedback = form.nutritionist_feedback.data
-                response.psychologist_rating = form.psychologist_rating.data
-                response.psychologist_feedback = form.psychologist_feedback.data
-                response.coach_rating = form.coach_rating.data
-                response.coach_feedback = form.coach_feedback.data
-
-                # Progresso e referral
-                response.progress_rating = form.progress_rating.data
-                response.referral = form.referral.data
-                response.extra_comments = form.extra_comments.data
-
-                db.session.add(response)
-                try:
-                    db.session.commit()
-                except Exception as commit_err:
-                    db.session.rollback()
-                    if "unique" in str(commit_err).lower():
-                        _fix_sequence("weekly_check_responses")
-                        db.session.add(response)
-                        db.session.commit()
-                    else:
-                        raise
-
-                current_app.logger.info(
-                    f"[WEEKLY_CHECK] Response salvata con successo: "
-                    f"response_id={response.id}, check_id={weekly_check.id}, "
-                    f"totale_compilazioni={weekly_check.response_count}"
-                )
-
-                # Invia notifiche ai professionisti associati
-                try:
-                    NotificationService.send_check_notification_to_professionals(
-                        cliente=weekly_check.cliente,
-                        check_type='weekly',
-                        check_id=response.id
-                    )
-                except Exception as e:
-                    current_app.logger.error(f"[WEEKLY_CHECK] Errore invio notifiche: {e}")
-                    # Non bloccare il flusso se l'invio email fallisce
-
-                try:
-                    NotificationService.send_weekly_check_summary_to_patient(
-                        cliente=weekly_check.cliente,
-                        weekly_response=response,
-                    )
-                except Exception as e:
-                    current_app.logger.error(f"[WEEKLY_CHECK] Errore invio riepilogo paziente: {e}")
-                    # Non bloccare il flusso se l'invio email fallisce
-
-                flash("Grazie! Il tuo check settimanale è stato salvato con successo.", "success")
-                return redirect(url_for("client_checks.weekly_check_success", token=token))
-
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.error(f"[WEEKLY_CHECK] Errore nel salvataggio: {e}", exc_info=True)
-                flash("Errore nel salvataggio. Riprova più tardi.", "error")
-
-        # Mostra il form con info sulle compilazioni precedenti
-        previous_responses_count = weekly_check.response_count
-        last_response_date = weekly_check.last_response_date
-
-        return render_template(
-            "client_checks/weekly_check_form.html",
-            form=form,
-            cliente=weekly_check.cliente,
-            token=token,
-            previous_responses_count=previous_responses_count,
-            last_response_date=last_response_date,
-        )
-
-    except Exception as e:
-        current_app.logger.error(f"[WEEKLY_CHECK] Errore form pubblico: {e}", exc_info=True)
-        abort(404)
-
-
-@client_checks_bp.route("/weekly/<token>/success")
-@csrf.exempt
-def weekly_check_success(token: str):
-    """Pagina di conferma dopo invio check settimanale."""
-    from corposostenibile.models import WeeklyCheck
-
-    try:
-        weekly_check = (
-            WeeklyCheck.query
-            .options(joinedload(WeeklyCheck.cliente))
-            .filter_by(token=token)
-            .first_or_404()
-        )
-
-        return render_template(
-            "client_checks/weekly_check_success.html",
-            cliente=weekly_check.cliente,
-        )
-
-    except Exception as e:
-        current_app.logger.error(f"[WEEKLY_CHECK] Errore pagina successo: {e}")
-        abort(404)
 
 
 @client_checks_bp.route("/weekly/generate/<int:cliente_id>", methods=["POST"])
@@ -1638,6 +780,7 @@ def deactivate_weekly_check(check_id: int):
 def weekly_check_response_view(response_id: int):
     """
     Visualizza il dettaglio di una singola compilazione (WeeklyCheckResponse).
+    Returns JSON.
     """
     from corposostenibile.models import WeeklyCheckResponse
 
@@ -1657,75 +800,66 @@ def weekly_check_response_view(response_id: int):
         ]:
             abort(403)
 
-        # Ritorna JSON se richiesto via AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                "success": True,
-                "response": {
-                    "id": response.id,
-                    "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M') if response.submit_date else None,
-                    "completion_percentage": response.completion_percentage,
+        return jsonify({
+            "success": True,
+            "response": {
+                "id": response.id,
+                "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M') if response.submit_date else None,
+                "completion_percentage": response.completion_percentage,
 
-                    # Foto (convertiti da path filesystem a URL web)
-                    "photo_front": _photo_path_to_url(response.photo_front),
-                    "photo_side": _photo_path_to_url(response.photo_side),
-                    "photo_back": _photo_path_to_url(response.photo_back),
+                # Foto (convertiti da path filesystem a URL web)
+                "photo_front": _photo_path_to_url(response.photo_front),
+                "photo_side": _photo_path_to_url(response.photo_side),
+                "photo_back": _photo_path_to_url(response.photo_back),
 
-                    # Riflessioni
-                    "what_worked": response.what_worked,
-                    "what_didnt_work": response.what_didnt_work,
-                    "what_learned": response.what_learned,
-                    "what_focus_next": response.what_focus_next,
-                    "injuries_notes": response.injuries_notes,
+                # Riflessioni
+                "what_worked": response.what_worked,
+                "what_didnt_work": response.what_didnt_work,
+                "what_learned": response.what_learned,
+                "what_focus_next": response.what_focus_next,
+                "injuries_notes": response.injuries_notes,
 
-                    # Valutazioni benessere
-                    "digestion_rating": response.digestion_rating,
-                    "energy_rating": response.energy_rating,
-                    "strength_rating": response.strength_rating,
-                    "hunger_rating": response.hunger_rating,
-                    "sleep_rating": response.sleep_rating,
-                    "mood_rating": response.mood_rating,
-                    "motivation_rating": response.motivation_rating,
+                # Valutazioni benessere
+                "digestion_rating": response.digestion_rating,
+                "energy_rating": response.energy_rating,
+                "strength_rating": response.strength_rating,
+                "hunger_rating": response.hunger_rating,
+                "sleep_rating": response.sleep_rating,
+                "mood_rating": response.mood_rating,
+                "motivation_rating": response.motivation_rating,
 
-                    # Peso
-                    "weight": response.weight,
+                # Peso
+                "weight": response.weight,
 
-                    # Aderenza programmi
-                    "nutrition_program_adherence": response.nutrition_program_adherence,
-                    "training_program_adherence": response.training_program_adherence,
-                    "exercise_modifications": response.exercise_modifications,
-                    "daily_steps": response.daily_steps,
-                    "completed_training_weeks": response.completed_training_weeks,
-                    "planned_training_days": response.planned_training_days,
-                    "live_session_topics": response.live_session_topics,
+                # Aderenza programmi
+                "nutrition_program_adherence": response.nutrition_program_adherence,
+                "training_program_adherence": response.training_program_adherence,
+                "exercise_modifications": response.exercise_modifications,
+                "daily_steps": response.daily_steps,
+                "completed_training_weeks": response.completed_training_weeks,
+                "planned_training_days": response.planned_training_days,
+                "live_session_topics": response.live_session_topics,
 
-                    # Valutazioni professionisti
-                    "nutritionist_rating": response.nutritionist_rating,
-                    "nutritionist_feedback": response.nutritionist_feedback,
-                    "psychologist_rating": response.psychologist_rating,
-                    "psychologist_feedback": response.psychologist_feedback,
-                    "coach_rating": response.coach_rating,
-                    "coach_feedback": response.coach_feedback,
+                # Valutazioni professionisti
+                "nutritionist_rating": response.nutritionist_rating,
+                "nutritionist_feedback": response.nutritionist_feedback,
+                "psychologist_rating": response.psychologist_rating,
+                "psychologist_feedback": response.psychologist_feedback,
+                "coach_rating": response.coach_rating,
+                "coach_feedback": response.coach_feedback,
 
-                    # Progresso
-                    "progress_rating": response.progress_rating,
-                    "referral": response.referral,
-                    "extra_comments": response.extra_comments,
-                }
-            })
+                # Progresso
+                "progress_rating": response.progress_rating,
+                "referral": response.referral,
+                "extra_comments": response.extra_comments,
+            }
+        })
 
-        # Altrimenti mostra template
-        return render_template(
-            "client_checks/weekly_check_response_detail.html",
-            response=response,
-            cliente=cliente,
-        )
-
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"[WEEKLY_CHECK] Errore visualizzazione response: {e}")
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({"success": False, "error": str(e)}), 500
-        abort(404)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1840,168 +974,6 @@ def generate_dca_check_link(cliente_id: int):
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
 
-@client_checks_bp.route("/dca/<token>", methods=["GET", "POST"])
-@csrf.exempt
-def dca_check_public(token: str):
-    """
-    Route pubblica per compilazione Check DCA tramite token PERMANENTE.
-
-    LINK PERMANENTE: il cliente può compilare più volte usando lo stesso link.
-    Ogni compilazione crea un nuovo record DCACheckResponse.
-    """
-    from corposostenibile.models import DCACheck, DCACheckResponse
-    from .forms import DCACheckForm
-
-    current_app.logger.info(f"[DCA_CHECK] Richiesta ricevuta per token: {token}")
-
-    try:
-        # Trova l'assignment PERMANENTE tramite token
-        dca_check = (
-            DCACheck.query
-            .options(joinedload(DCACheck.cliente))
-            .filter_by(token=token, is_active=True)
-            .first()
-        )
-
-        if not dca_check:
-            current_app.logger.warning(f"[DCA_CHECK] Token non valido o assignment disattivato: {token}")
-            abort(404, "Link non valido o disattivato.")
-
-        form = DCACheckForm()
-
-        if request.method == "POST" and form.validate_on_submit():
-            try:
-                current_app.logger.info(
-                    f"[DCA_CHECK] Inizio salvataggio compilazione per cliente_id={dca_check.cliente_id} "
-                    f"(compilazione #{dca_check.response_count + 1})"
-                )
-
-                # ─── CREA NUOVA RISPOSTA ────────────────────────────────────
-                response = DCACheckResponse(
-                    dca_check_id=dca_check.id,
-                    submit_date=datetime.utcnow(),
-                    ip_address=get_client_ip(),
-                    user_agent=get_user_agent(),
-                )
-
-                # ─── SALVA TUTTI I CAMPI NELLA RESPONSE ────────────────────
-                # Benessere emotivo (1-5)
-                response.mood_balance_rating = form.mood_balance_rating.data
-                response.food_plan_serenity = form.food_plan_serenity.data
-                response.food_weight_worry = form.food_weight_worry.data
-                response.emotional_eating = form.emotional_eating.data
-                response.body_comfort = form.body_comfort.data
-                response.body_respect = form.body_respect.data
-
-                # Allenamento (1-5)
-                response.exercise_wellness = form.exercise_wellness.data
-                response.exercise_guilt = form.exercise_guilt.data
-
-                # Riposo e relazioni (1-5)
-                response.sleep_satisfaction = form.sleep_satisfaction.data
-                response.relationship_time = form.relationship_time.data
-                response.personal_time = form.personal_time.data
-
-                # Interferenze e gestione (1-5)
-                response.life_interference = form.life_interference.data
-                response.unexpected_management = form.unexpected_management.data
-                response.self_compassion = form.self_compassion.data
-                response.inner_dialogue = form.inner_dialogue.data
-
-                # Sostenibilità e motivazione (1-5)
-                response.long_term_sustainability = form.long_term_sustainability.data
-                response.values_alignment = form.values_alignment.data
-                response.motivation_level = form.motivation_level.data
-
-                # Organizzazione pasti (1-5)
-                response.meal_organization = form.meal_organization.data
-                response.meal_stress = form.meal_stress.data
-                response.shopping_awareness = form.shopping_awareness.data
-                response.shopping_impact = form.shopping_impact.data
-                response.meal_clarity = form.meal_clarity.data
-
-                # Parametri fisici (1-10)
-                response.digestion_rating = form.digestion_rating.data
-                response.energy_rating = form.energy_rating.data
-                response.strength_rating = form.strength_rating.data
-                response.hunger_rating = form.hunger_rating.data
-                response.sleep_rating = form.sleep_rating.data
-                response.mood_rating = form.mood_rating.data
-                response.motivation_rating = form.motivation_rating.data
-
-                # Referral e commenti
-                response.referral = form.referral.data
-                response.extra_comments = form.extra_comments.data
-
-                db.session.add(response)
-                db.session.commit()
-
-                current_app.logger.info(
-                    f"[DCA_CHECK] Response salvata con successo: "
-                    f"response_id={response.id}, check_id={dca_check.id}, "
-                    f"totale_compilazioni={dca_check.response_count}"
-                )
-
-                # Invia notifiche ai professionisti associati
-                try:
-                    NotificationService.send_check_notification_to_professionals(
-                        cliente=dca_check.cliente,
-                        check_type='dca',
-                        check_id=response.id
-                    )
-                except Exception as e:
-                    current_app.logger.error(f"[DCA_CHECK] Errore invio notifiche: {e}")
-                    # Non bloccare il flusso se l'invio email fallisce
-
-                flash("Grazie! Il tuo check è stato salvato con successo.", "success")
-                return redirect(url_for("client_checks.dca_check_success", token=token))
-
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.error(f"[DCA_CHECK] Errore nel salvataggio: {e}", exc_info=True)
-                flash("Errore nel salvataggio. Riprova più tardi.", "error")
-
-        # Mostra il form con info sulle compilazioni precedenti
-        previous_responses_count = dca_check.response_count
-        last_response_date = dca_check.last_response_date
-
-        return render_template(
-            "client_checks/dca_check_form.html",
-            form=form,
-            cliente=dca_check.cliente,
-            token=token,
-            previous_responses_count=previous_responses_count,
-            last_response_date=last_response_date,
-        )
-
-    except Exception as e:
-        current_app.logger.error(f"[DCA_CHECK] Errore form pubblico: {e}", exc_info=True)
-        abort(404)
-
-
-@client_checks_bp.route("/dca/<token>/success")
-@csrf.exempt
-def dca_check_success(token: str):
-    """Pagina di conferma dopo compilazione DCA check."""
-    from corposostenibile.models import DCACheck
-
-    try:
-        dca_check = (
-            DCACheck.query
-            .options(joinedload(DCACheck.cliente))
-            .filter_by(token=token, is_active=True)
-            .first_or_404()
-        )
-
-        return render_template(
-            "client_checks/dca_check_success.html",
-            cliente=dca_check.cliente,
-        )
-    except Exception as e:
-        current_app.logger.error(f"[DCA_CHECK] Errore pagina successo: {e}")
-        abort(404)
-
-
 @client_checks_bp.route("/dca/<int:check_id>/deactivate", methods=["POST"])
 @login_required
 def deactivate_dca_check(check_id: int):
@@ -2046,6 +1018,7 @@ def deactivate_dca_check(check_id: int):
 def dca_check_response_view(response_id: int):
     """
     Visualizza il dettaglio di una singola compilazione DCA (DCACheckResponse).
+    Returns JSON.
     """
     from corposostenibile.models import DCACheckResponse
 
@@ -2065,84 +1038,75 @@ def dca_check_response_view(response_id: int):
         ]:
             abort(403)
 
-        # Ritorna JSON se richiesto via AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                "success": True,
-                "response": {
-                    "id": response.id,
-                    "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M'),
-                    "completion_percentage": response.completion_percentage,
+        return jsonify({
+            "success": True,
+            "response": {
+                "id": response.id,
+                "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M'),
+                "completion_percentage": response.completion_percentage,
 
-                    # Benessere emotivo
-                    "mood_balance_rating": response.mood_balance_rating,
-                    "food_plan_serenity": response.food_plan_serenity,
-                    "food_weight_worry": response.food_weight_worry,
-                    "emotional_eating": response.emotional_eating,
-                    "body_comfort": response.body_comfort,
-                    "body_respect": response.body_respect,
+                # Benessere emotivo
+                "mood_balance_rating": response.mood_balance_rating,
+                "food_plan_serenity": response.food_plan_serenity,
+                "food_weight_worry": response.food_weight_worry,
+                "emotional_eating": response.emotional_eating,
+                "body_comfort": response.body_comfort,
+                "body_respect": response.body_respect,
 
-                    # Allenamento
-                    "exercise_wellness": response.exercise_wellness,
-                    "exercise_guilt": response.exercise_guilt,
+                # Allenamento
+                "exercise_wellness": response.exercise_wellness,
+                "exercise_guilt": response.exercise_guilt,
 
-                    # Riposo e relazioni
-                    "sleep_satisfaction": response.sleep_satisfaction,
-                    "relationship_time": response.relationship_time,
-                    "personal_time": response.personal_time,
+                # Riposo e relazioni
+                "sleep_satisfaction": response.sleep_satisfaction,
+                "relationship_time": response.relationship_time,
+                "personal_time": response.personal_time,
 
-                    # Interferenze
-                    "life_interference": response.life_interference,
-                    "unexpected_management": response.unexpected_management,
-                    "self_compassion": response.self_compassion,
-                    "inner_dialogue": response.inner_dialogue,
+                # Interferenze
+                "life_interference": response.life_interference,
+                "unexpected_management": response.unexpected_management,
+                "self_compassion": response.self_compassion,
+                "inner_dialogue": response.inner_dialogue,
 
-                    # Sostenibilità
-                    "long_term_sustainability": response.long_term_sustainability,
-                    "values_alignment": response.values_alignment,
-                    "motivation_level": response.motivation_level,
+                # Sostenibilità
+                "long_term_sustainability": response.long_term_sustainability,
+                "values_alignment": response.values_alignment,
+                "motivation_level": response.motivation_level,
 
-                    # Organizzazione pasti
-                    "meal_organization": response.meal_organization,
-                    "meal_stress": response.meal_stress,
-                    "shopping_awareness": response.shopping_awareness,
-                    "shopping_impact": response.shopping_impact,
-                    "meal_clarity": response.meal_clarity,
+                # Organizzazione pasti
+                "meal_organization": response.meal_organization,
+                "meal_stress": response.meal_stress,
+                "shopping_awareness": response.shopping_awareness,
+                "shopping_impact": response.shopping_impact,
+                "meal_clarity": response.meal_clarity,
 
-                    # Parametri fisici
-                    "digestion_rating": response.digestion_rating,
-                    "energy_rating": response.energy_rating,
-                    "strength_rating": response.strength_rating,
-                    "hunger_rating": response.hunger_rating,
-                    "sleep_rating": response.sleep_rating,
-                    "mood_rating": response.mood_rating,
-                    "motivation_rating": response.motivation_rating,
+                # Parametri fisici
+                "digestion_rating": response.digestion_rating,
+                "energy_rating": response.energy_rating,
+                "strength_rating": response.strength_rating,
+                "hunger_rating": response.hunger_rating,
+                "sleep_rating": response.sleep_rating,
+                "mood_rating": response.mood_rating,
+                "motivation_rating": response.motivation_rating,
 
-                    # Referral e commenti
-                    "referral": response.referral,
-                    "extra_comments": response.extra_comments,
-                }
-            })
+                # Referral e commenti
+                "referral": response.referral,
+                "extra_comments": response.extra_comments,
+            }
+        })
 
-        # Altrimenti mostra template
-        return render_template(
-            "client_checks/dca_check_response_detail.html",
-            response=response,
-            cliente=cliente,
-        )
-
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"[DCA_CHECK] Errore visualizzazione response: {e}")
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({"success": False, "error": str(e)}), 500
-        abort(404)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @client_checks_bp.route("/weekly/list/<int:cliente_id>")
 @login_required
 def weekly_checks_list(cliente_id: int):
     """
-    Lista di tutti i check settimanali di un cliente (per visualizzazione nel dettaglio cliente).
+    Lista di tutti i check settimanali di un cliente. Returns JSON.
     """
     from corposostenibile.models import WeeklyCheck
 
@@ -2157,45 +1121,33 @@ def weekly_checks_list(cliente_id: int):
             .all()
         )
 
-        # Se richiesta AJAX, ritorna JSON
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                "success": True,
-                "checks": [
-                    {
-                        "id": check.id,
-                        "submit_date": check.submit_date.strftime('%d/%m/%Y %H:%M') if check.submit_date else None,
-                        "is_completed": check.is_completed,
-                        "completion_percentage": check.completion_percentage,
-                        "weight": check.weight,
-                        "progress_rating": check.progress_rating,
-                    }
-                    for check in checks
-                ]
-            })
+        return jsonify({
+            "success": True,
+            "checks": [
+                {
+                    "id": check.id,
+                    "submit_date": check.submit_date.strftime('%d/%m/%Y %H:%M') if check.submit_date else None,
+                    "is_completed": check.is_completed,
+                    "completion_percentage": check.completion_percentage,
+                    "weight": check.weight,
+                    "progress_rating": check.progress_rating,
+                }
+                for check in checks
+            ]
+        })
 
-        # Altrimenti template HTML
-        return render_template(
-            "client_checks/weekly_checks_list.html",
-            cliente=cliente,
-            checks=checks,
-        )
-
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"[WEEKLY_CHECK] Errore lista check: {e}")
-        flash("Errore nel caricamento dei check", "error")
-
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({"success": False, "error": str(e)}), 500
-
-        return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @client_checks_bp.route("/weekly/view/<int:check_id>")
 @login_required
 def weekly_check_view(check_id: int):
     """
-    Visualizza dettaglio di un check settimanale completato.
+    Visualizza dettaglio di un check settimanale completato. Returns JSON.
     """
     from corposostenibile.models import WeeklyCheck
 
@@ -2206,72 +1158,61 @@ def weekly_check_view(check_id: int):
             .get_or_404(check_id)
         )
 
-        # Se richiesta AJAX, ritorna JSON
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                "success": True,
-                "check": {
-                    "id": weekly_check.id,
-                    "cliente_nome": weekly_check.cliente.nome_cognome if weekly_check.cliente else None,
-                    "submit_date": weekly_check.submit_date.strftime('%d/%m/%Y %H:%M') if weekly_check.submit_date else None,
-                    "is_completed": weekly_check.is_completed,
-                    "completion_percentage": weekly_check.completion_percentage,
-                    # Foto (convertiti da path filesystem a URL web)
-                    "photo_front": _photo_path_to_url(weekly_check.photo_front),
-                    "photo_side": _photo_path_to_url(weekly_check.photo_side),
-                    "photo_back": _photo_path_to_url(weekly_check.photo_back),
-                    # Riflessioni
-                    "what_worked": weekly_check.what_worked,
-                    "what_didnt_work": weekly_check.what_didnt_work,
-                    "what_learned": weekly_check.what_learned,
-                    "what_focus_next": weekly_check.what_focus_next,
-                    "injuries_notes": weekly_check.injuries_notes,
-                    # Rating benessere
-                    "digestion_rating": weekly_check.digestion_rating,
-                    "energy_rating": weekly_check.energy_rating,
-                    "strength_rating": weekly_check.strength_rating,
-                    "hunger_rating": weekly_check.hunger_rating,
-                    "sleep_rating": weekly_check.sleep_rating,
-                    "mood_rating": weekly_check.mood_rating,
-                    "motivation_rating": weekly_check.motivation_rating,
-                    # Peso
-                    "weight": weekly_check.weight,
-                    # Aderenza
-                    "nutrition_program_adherence": weekly_check.nutrition_program_adherence,
-                    "training_program_adherence": weekly_check.training_program_adherence,
-                    "exercise_modifications": weekly_check.exercise_modifications,
-                    "daily_steps": weekly_check.daily_steps,
-                    "completed_training_weeks": weekly_check.completed_training_weeks,
-                    "planned_training_days": weekly_check.planned_training_days,
-                    "live_session_topics": weekly_check.live_session_topics,
-                    # Rating professionisti
-                    "nutritionist_rating": weekly_check.nutritionist_rating,
-                    "nutritionist_feedback": weekly_check.nutritionist_feedback,
-                    "psychologist_rating": weekly_check.psychologist_rating,
-                    "psychologist_feedback": weekly_check.psychologist_feedback,
-                    "coach_rating": weekly_check.coach_rating,
-                    "coach_feedback": weekly_check.coach_feedback,
-                    # Progresso
-                    "progress_rating": weekly_check.progress_rating,
-                    "referral": weekly_check.referral,
-                    "extra_comments": weekly_check.extra_comments,
-                }
-            })
+        return jsonify({
+            "success": True,
+            "check": {
+                "id": weekly_check.id,
+                "cliente_nome": weekly_check.cliente.nome_cognome if weekly_check.cliente else None,
+                "submit_date": weekly_check.submit_date.strftime('%d/%m/%Y %H:%M') if weekly_check.submit_date else None,
+                "is_completed": weekly_check.is_completed,
+                "completion_percentage": weekly_check.completion_percentage,
+                # Foto (convertiti da path filesystem a URL web)
+                "photo_front": _photo_path_to_url(weekly_check.photo_front),
+                "photo_side": _photo_path_to_url(weekly_check.photo_side),
+                "photo_back": _photo_path_to_url(weekly_check.photo_back),
+                # Riflessioni
+                "what_worked": weekly_check.what_worked,
+                "what_didnt_work": weekly_check.what_didnt_work,
+                "what_learned": weekly_check.what_learned,
+                "what_focus_next": weekly_check.what_focus_next,
+                "injuries_notes": weekly_check.injuries_notes,
+                # Rating benessere
+                "digestion_rating": weekly_check.digestion_rating,
+                "energy_rating": weekly_check.energy_rating,
+                "strength_rating": weekly_check.strength_rating,
+                "hunger_rating": weekly_check.hunger_rating,
+                "sleep_rating": weekly_check.sleep_rating,
+                "mood_rating": weekly_check.mood_rating,
+                "motivation_rating": weekly_check.motivation_rating,
+                # Peso
+                "weight": weekly_check.weight,
+                # Aderenza
+                "nutrition_program_adherence": weekly_check.nutrition_program_adherence,
+                "training_program_adherence": weekly_check.training_program_adherence,
+                "exercise_modifications": weekly_check.exercise_modifications,
+                "daily_steps": weekly_check.daily_steps,
+                "completed_training_weeks": weekly_check.completed_training_weeks,
+                "planned_training_days": weekly_check.planned_training_days,
+                "live_session_topics": weekly_check.live_session_topics,
+                # Rating professionisti
+                "nutritionist_rating": weekly_check.nutritionist_rating,
+                "nutritionist_feedback": weekly_check.nutritionist_feedback,
+                "psychologist_rating": weekly_check.psychologist_rating,
+                "psychologist_feedback": weekly_check.psychologist_feedback,
+                "coach_rating": weekly_check.coach_rating,
+                "coach_feedback": weekly_check.coach_feedback,
+                # Progresso
+                "progress_rating": weekly_check.progress_rating,
+                "referral": weekly_check.referral,
+                "extra_comments": weekly_check.extra_comments,
+            }
+        })
 
-        # Template HTML completo
-        return render_template(
-            "client_checks/weekly_check_detail.html",
-            check=weekly_check,
-        )
-
+    except HTTPException:
+        raise
     except Exception as e:
         current_app.logger.error(f"[WEEKLY_CHECK] Errore visualizzazione check: {e}")
-        flash("Errore nel caricamento del check", "error")
-
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({"success": False, "error": str(e)}), 500
-
-        return redirect(url_for("client_checks.dashboard"))
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2385,136 +1326,6 @@ def generate_minor_check_link(cliente_id: int):
         return redirect(url_for("customers.detail_view", cliente_id=cliente_id))
 
 
-@client_checks_bp.route("/minor/<token>", methods=["GET", "POST"])
-@csrf.exempt
-def minor_check_public(token: str):
-    """
-    Route pubblica per compilazione Check Minori tramite token PERMANENTE.
-
-    LINK PERMANENTE: il cliente può compilare più volte usando lo stesso link.
-    Ogni compilazione crea un nuovo record MinorCheckResponse.
-    """
-    current_app.logger.info(f"[MINOR_CHECK] Richiesta ricevuta per token: {token}")
-
-    try:
-        # Trova l'assignment PERMANENTE tramite token
-        minor_check = (
-            MinorCheck.query
-            .options(joinedload(MinorCheck.cliente))
-            .filter_by(token=token, is_active=True)
-            .first()
-        )
-
-        if not minor_check:
-            current_app.logger.warning(f"[MINOR_CHECK] Token non valido o assignment disattivato: {token}")
-            abort(404, "Link non valido o disattivato.")
-
-        if request.method == "POST":
-            try:
-                current_app.logger.info(
-                    f"[MINOR_CHECK] Inizio salvataggio compilazione per cliente_id={minor_check.cliente_id} "
-                    f"(compilazione #{minor_check.response_count + 1})"
-                )
-
-                # ─── CREA NUOVA RISPOSTA ────────────────────────────────────
-                response = MinorCheckResponse(
-                    minor_check_id=minor_check.id,
-                    submit_date=datetime.utcnow(),
-                    ip_address=get_client_ip(),
-                    user_agent=get_user_agent(),
-                )
-
-                # ─── ESTRAI DATI DAL FORM ────────────────────────────────────
-                # Peso e altezza
-                peso = request.form.get('peso_attuale', type=float)
-                altezza = request.form.get('altezza', type=float)
-
-                response.peso_attuale = peso
-                response.altezza = altezza
-
-                # Raccogli tutte le risposte in formato JSON
-                responses_data = {}
-                for i in range(1, 29):  # 28 domande
-                    key = f'q{i}'
-                    value = request.form.get(key)
-                    if value is not None and value != '':
-                        try:
-                            responses_data[key] = int(value)
-                        except ValueError:
-                            responses_data[key] = value
-
-                response.responses_data = responses_data
-
-                # Calcola i punteggi delle sottoscale
-                response.calculate_scores()
-
-                db.session.add(response)
-                db.session.commit()
-
-                current_app.logger.info(
-                    f"[MINOR_CHECK] Response salvata con successo: "
-                    f"response_id={response.id}, check_id={minor_check.id}, "
-                    f"totale_compilazioni={minor_check.response_count}, "
-                    f"score_global={response.score_global}"
-                )
-
-                # Invia notifiche ai professionisti associati
-                try:
-                    NotificationService.send_check_notification_to_professionals(
-                        cliente=minor_check.cliente,
-                        check_type='minor',
-                        check_id=response.id
-                    )
-                except Exception as e:
-                    current_app.logger.error(f"[MINOR_CHECK] Errore invio notifiche: {e}")
-                    # Non bloccare il flusso se l'invio email fallisce
-
-                flash("Grazie! Il questionario è stato salvato con successo.", "success")
-                return redirect(url_for("client_checks.minor_check_success", token=token))
-
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.error(f"[MINOR_CHECK] Errore nel salvataggio: {e}", exc_info=True)
-                flash("Errore nel salvataggio. Riprova più tardi.", "error")
-
-        # Mostra il form con info sulle compilazioni precedenti
-        previous_responses_count = minor_check.response_count
-        last_response_date = minor_check.last_response_date
-
-        return render_template(
-            "client_checks/public_minor_check.html",
-            cliente=minor_check.cliente,
-            token=token,
-            previous_responses_count=previous_responses_count,
-            last_response_date=last_response_date,
-        )
-
-    except Exception as e:
-        current_app.logger.error(f"[MINOR_CHECK] Errore form pubblico: {e}", exc_info=True)
-        abort(404)
-
-
-@client_checks_bp.route("/minor/<token>/success")
-@csrf.exempt
-def minor_check_success(token: str):
-    """Pagina di conferma dopo compilazione Check Minori."""
-    try:
-        minor_check = (
-            MinorCheck.query
-            .options(joinedload(MinorCheck.cliente))
-            .filter_by(token=token)
-            .first_or_404()
-        )
-
-        return render_template(
-            "client_checks/minor_check_success.html",
-            cliente=minor_check.cliente,
-        )
-    except Exception as e:
-        current_app.logger.error(f"[MINOR_CHECK] Errore pagina successo: {e}")
-        abort(404)
-
-
 @client_checks_bp.route("/minor/<int:check_id>/deactivate", methods=["POST"])
 @login_required
 def deactivate_minor_check(check_id: int):
@@ -2574,130 +1385,39 @@ def minor_check_response_view(response_id: int):
         ]:
             abort(403)
 
-        # Ritorna JSON se richiesto via AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                "success": True,
-                "response": {
-                    "id": response.id,
-                    "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M') if response.submit_date else None,
-                    "completion_percentage": response.completion_percentage,
+        return jsonify({
+            "success": True,
+            "response": {
+                "id": response.id,
+                "submit_date": response.submit_date.strftime('%d/%m/%Y %H:%M') if response.submit_date else None,
+                "completion_percentage": response.completion_percentage,
 
-                    # Peso e altezza
-                    "peso_attuale": response.peso_attuale,
-                    "altezza": response.altezza,
+                # Peso e altezza
+                "peso_attuale": response.peso_attuale,
+                "altezza": response.altezza,
 
-                    # Punteggi calcolati
-                    "score_restraint": round(response.score_restraint, 2) if response.score_restraint else None,
-                    "score_eating_concern": round(response.score_eating_concern, 2) if response.score_eating_concern else None,
-                    "score_shape_concern": round(response.score_shape_concern, 2) if response.score_shape_concern else None,
-                    "score_weight_concern": round(response.score_weight_concern, 2) if response.score_weight_concern else None,
-                    "score_global": round(response.score_global, 2) if response.score_global else None,
+                # Punteggi calcolati
+                "score_restraint": round(response.score_restraint, 2) if response.score_restraint else None,
+                "score_eating_concern": round(response.score_eating_concern, 2) if response.score_eating_concern else None,
+                "score_shape_concern": round(response.score_shape_concern, 2) if response.score_shape_concern else None,
+                "score_weight_concern": round(response.score_weight_concern, 2) if response.score_weight_concern else None,
+                "score_global": round(response.score_global, 2) if response.score_global else None,
 
-                    # Risposte raw
-                    "responses_data": response.responses_data,
-                }
-            })
-
-        # Altrimenti mostra template
-        return render_template(
-            "client_checks/minor_check_response_detail.html",
-            response=response,
-            cliente=cliente,
-        )
+                # Risposte raw
+                "responses_data": response.responses_data,
+            }
+        })
 
     except Exception as e:
         current_app.logger.error(f"[MINOR_CHECK] Errore visualizzazione response: {e}")
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({"success": False, "error": str(e)}), 500
-        abort(404)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ═══════════════════════════════════════════════════════════════════════════ #
 #  WEEKLY CHECK LINK ASSIGNMENTS - Dashboard e gestione invii                 #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
-@client_checks_bp.route("/link-assignments")
-@login_required
-def link_assignments_dashboard():
-    """
-    Dashboard per professionisti: mostra i clienti a cui devono inviare il link WeeklyCheck.
-    Include filtro per stato invio e statistiche.
-    """
-    try:
-        # Filtro per stato invio
-        status_filter = request.args.get('status', 'pending')
-
-        # Determina quale user_id usare per il filtro
-        if current_user.is_admin or current_user.id == 95 or current_user.id == 2:
-            professional_id = request.args.get('professional_id', type=int)
-            # Se admin, user 95 o user 2 non specifica un professionista, mostra tutti
-            filter_user_id = professional_id if professional_id else None
-
-            # Lista professionisti per filtro
-            professionals = User.query.join(
-                WeeklyCheckLinkAssignment,
-                User.id == WeeklyCheckLinkAssignment.assigned_to_user_id
-            ).distinct(User.id).all()
-        else:
-            # Utente normale: vede solo i suoi assignment
-            filter_user_id = current_user.id
-            professional_id = None
-            professionals = []
-
-        # Base query per assignments
-        assignments_query = WeeklyCheckLinkAssignment.query
-
-        # Applica filtro user se specificato
-        if filter_user_id:
-            assignments_query = assignments_query.filter_by(assigned_to_user_id=filter_user_id)
-
-        # Applica options per eager loading
-        assignments_query = assignments_query.options(
-            joinedload(WeeklyCheckLinkAssignment.cliente),
-            joinedload(WeeklyCheckLinkAssignment.weekly_check)
-        )
-
-        # Se admin, user 95 o user 2 visualizza tutti o un singolo prof, carica anche assigned_to
-        if current_user.is_admin or current_user.id == 95 or current_user.id == 2:
-            assignments_query = assignments_query.options(
-                joinedload(WeeklyCheckLinkAssignment.assigned_to)
-            )
-
-        # Applica filtro per stato
-        if status_filter == 'pending':
-            assignments_query = assignments_query.filter_by(sent_confirmed=False)
-        elif status_filter == 'sent':
-            assignments_query = assignments_query.filter_by(sent_confirmed=True)
-
-        assignments = assignments_query.order_by(
-            WeeklyCheckLinkAssignment.created_at.desc()
-        ).all()
-
-        # Statistiche basate sullo stesso filtro
-        stats_query = WeeklyCheckLinkAssignment.query
-        if filter_user_id:
-            stats_query = stats_query.filter_by(assigned_to_user_id=filter_user_id)
-
-        total_assignments = stats_query.count()
-        sent_count = stats_query.filter_by(sent_confirmed=True).count()
-        pending_count = total_assignments - sent_count
-
-        return render_template(
-            "client_checks/link_assignments_dashboard.html",
-            assignments=assignments,
-            total_assignments=total_assignments,
-            sent_count=sent_count,
-            pending_count=pending_count,
-            status_filter=status_filter,
-            professionals=professionals,
-            professional_id=professional_id
-        )
-
-    except Exception as e:
-        current_app.logger.error(f"[LINK_ASSIGNMENTS] Errore dashboard: {e}")
-        flash("Errore nel caricamento della dashboard", "error")
-        return redirect(url_for("welcome.index"))
+## link_assignments_dashboard DELETED — was template-only, replaced by API in api_bp
 
 
 @client_checks_bp.route("/link-assignments/<int:assignment_id>/confirm", methods=["POST"])

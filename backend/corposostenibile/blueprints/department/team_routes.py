@@ -21,7 +21,6 @@ from flask import (
     flash,
     jsonify,
     redirect,
-    render_template,
     request,
     url_for,
 )
@@ -31,7 +30,6 @@ from sqlalchemy.exc import IntegrityError
 from corposostenibile.extensions import db
 from corposostenibile.models import Department, Team, User
 from . import dept_bp
-from .forms import TeamForm
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
@@ -46,156 +44,16 @@ def _require_admin() -> None:
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ TEAM LIST                                                              ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/<int:dept_id>/teams", methods=["GET"])
-@login_required
-def teams_list(dept_id: int):
-    """
-    Lista team del dipartimento con statistiche.
-
-    Mostra:
-    - Tutti i team del dipartimento
-    - Numero membri per team
-    - Team leader
-    - Membri senza team assegnato
-    """
-    dept = Department.query.get_or_404(dept_id)
-
-    # Statistiche
-    stats = {
-        "total_members": len(dept.all_members),
-        "members_with_team": sum(1 for m in dept.all_members if m.team_id is not None),
-        "members_without_team": len(dept.get_members_without_team()),
-        "total_teams": dept.team_count,
-    }
-
-    return render_template(
-        "department/teams/list.html",
-        dept=dept,
-        teams=dept.teams,
-        members_without_team=dept.get_members_without_team(),
-        stats=stats,
-        can_manage=current_user.is_admin,
-    )
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ TEAM CREATE                                                            ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/<int:dept_id>/teams/new", methods=["GET", "POST"])
-@login_required
-def team_create(dept_id: int):
-    """Crea nuovo team nel dipartimento."""
-    _require_admin()
-
-    dept = Department.query.get_or_404(dept_id)
-    form = TeamForm(department=dept)
-
-    if form.validate_on_submit():
-        # Verifica unicità nome team nel dipartimento
-        existing = dept.get_team_by_name(form.name.data)
-        if existing:
-            flash(
-                f"Esiste già un team con nome '{form.name.data}' "
-                f"nel dipartimento {dept.name}.",
-                "warning",
-            )
-            return render_template(
-                "department/teams/form.html",
-                form=form,
-                dept=dept,
-                mode="create",
-            )
-
-        # Crea team
-        team = Team(
-            name=form.name.data.strip(),
-            description=form.description.data.strip() if form.description.data else None,
-            department_id=dept.id,
-            head_id=form.head_id.data if form.head_id.data != 0 else None,
-        )
-
-        try:
-            db.session.add(team)
-            db.session.commit()
-
-            flash(
-                f"Team '{team.name}' creato con successo nel dipartimento {dept.name}.",
-                "success",
-            )
-            current_app.logger.info(
-                f"[team] Team {team.id} '{team.name}' creato da user {current_user.id}"
-            )
-
-            return redirect(url_for("department.teams_list", dept_id=dept.id))
-
-        except IntegrityError as e:
-            db.session.rollback()
-            current_app.logger.error(f"[team] IntegrityError creating team: {e}")
-            flash(
-                "Errore: un team con questo nome esiste già nel dipartimento.",
-                "danger",
-            )
-
-    return render_template(
-        "department/teams/form.html", form=form, dept=dept, mode="create"
-    )
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ TEAM EDIT                                                              ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/teams/<int:team_id>/edit", methods=["GET", "POST"])
-@login_required
-def team_edit(team_id: int):
-    """Modifica team esistente."""
-    _require_admin()
-
-    team = Team.query.get_or_404(team_id)
-    form = TeamForm(obj=team, department=team.department)
-
-    if form.validate_on_submit():
-        # Verifica unicità nome (se cambiato)
-        if form.name.data.strip().lower() != team.name.lower():
-            existing = team.department.get_team_by_name(form.name.data)
-            if existing and existing.id != team.id:
-                flash(
-                    f"Esiste già un team con nome '{form.name.data}' "
-                    f"nel dipartimento {team.department.name}.",
-                    "warning",
-                )
-                return render_template(
-                    "department/teams/form.html",
-                    form=form,
-                    dept=team.department,
-                    team=team,
-                    mode="edit",
-                )
-
-        # Aggiorna team
-        team.name = form.name.data.strip()
-        team.description = form.description.data.strip() if form.description.data else None
-        team.head_id = form.head_id.data if form.head_id.data != 0 else None
-
-        try:
-            db.session.commit()
-
-            flash(f"Team '{team.name}' aggiornato con successo.", "success")
-            current_app.logger.info(
-                f"[team] Team {team.id} '{team.name}' aggiornato da user {current_user.id}"
-            )
-
-            return redirect(
-                url_for("department.teams_list", dept_id=team.department_id)
-            )
-
-        except IntegrityError as e:
-            db.session.rollback()
-            current_app.logger.error(f"[team] IntegrityError updating team: {e}")
-            flash("Errore durante l'aggiornamento del team.", "danger")
-
-    return render_template(
-        "department/teams/form.html", form=form, dept=team.department, team=team, mode="edit"
-    )
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗
@@ -240,25 +98,6 @@ def team_delete(team_id: int):
 # ╔════════════════════════════════════════════════════════════════════════╗
 # ║ TEAM DETAIL                                                            ║
 # ╚════════════════════════════════════════════════════════════════════════╝
-@dept_bp.route("/teams/<int:team_id>", methods=["GET"])
-@login_required
-def team_detail(team_id: int):
-    """Dettaglio team con lista membri e statistiche."""
-    team = Team.query.get_or_404(team_id)
-
-    # Statistiche
-    stats = {
-        "member_count": team.member_count,
-        "has_leader": team.head is not None,
-        "created_at": team.created_at,
-    }
-
-    return render_template(
-        "department/teams/detail.html",
-        team=team,
-        stats=stats,
-        can_manage=current_user.is_admin,
-    )
 
 
 # ╔════════════════════════════════════════════════════════════════════════╗

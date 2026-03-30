@@ -2,7 +2,7 @@
 Route per il sistema di Review
 """
 
-from flask import render_template, redirect, url_for, flash, request, abort, current_app, jsonify
+from flask import redirect, url_for, flash, request, abort, current_app, jsonify
 from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from sqlalchemy import or_, and_, desc
@@ -172,352 +172,28 @@ def index():
     - Head: vede i membri del suo dipartimento
     - Membro: redirect al proprio detail
     """
-    
-    # Se non è admin, HR né head, mostra solo le proprie review
-    if not (current_user.is_admin or current_user.department_id == 17) and not is_department_head(current_user):
-        return redirect(url_for('review.detail', user_id=current_user.id))
-    
-    # Query base per i membri
-    query = User.query.filter_by(is_active=True)
-    
-    # Filtro per dipartimento (solo per admin)
-    selected_department_id = request.args.get('department_id', type=int)
-    departments = []
-    
-    # Admin o HR possono filtrare per dipartimento
-    if current_user.is_admin or current_user.department_id == 17:
-        # Admin e HR possono filtrare per dipartimento
-        departments = Department.query.order_by(Department.name).all()
-        if selected_department_id:
-            query = query.filter_by(department_id=selected_department_id)
-    else:
-        # Head vede solo il suo dipartimento
-        department = Department.query.filter_by(head_id=current_user.id).first()
-        if department:
-            query = query.filter_by(department_id=department.id)
-        else:
-            # Non è head di nessun dipartimento, mostra solo se stesso
-            return redirect(url_for('review.detail', user_id=current_user.id))
-    
-    # Ordina per nome
-    members = query.order_by(User.first_name, User.last_name).all()
-    
-    # Conta le review per ogni membro
-    members_data = []
-    for member in members:
-        total_reviews = Review.query.filter_by(
-            reviewee_id=member.id,
-            deleted_at=None,
-            is_draft=False
-        ).count()
-        
-        unread_reviews = Review.query.filter_by(
-            reviewee_id=member.id,
-            deleted_at=None,
-            is_draft=False
-        ).outerjoin(ReviewAcknowledgment).filter(
-            ReviewAcknowledgment.id == None
-        ).count()
-        
-        # Conta i messaggi non letti nelle review dove current_user è coinvolto con questo membro
-        unread_messages = 0
-        
-        # Trova review dove current_user e member sono entrambi coinvolti
-        relevant_reviews = Review.query.filter(
-            or_(
-                # Review scritte da current_user per member
-                and_(Review.reviewer_id == current_user.id, Review.reviewee_id == member.id),
-                # Review scritte da member per current_user  
-                and_(Review.reviewer_id == member.id, Review.reviewee_id == current_user.id),
-                # Se current_user è admin o HR, vede anche le review tra member e altri
-                and_(or_(current_user.is_admin, current_user.department_id == 17),
-                     or_(Review.reviewer_id == member.id, Review.reviewee_id == member.id))
-            ),
-            Review.deleted_at == None
-        ).all()
-        
-        review_ids = [r.id for r in relevant_reviews]
-        
-        if review_ids:
-            # Conta messaggi non letti in queste review (non inviati da current_user)
-            unread_messages = ReviewMessage.query.filter(
-                ReviewMessage.review_id.in_(review_ids),
-                ReviewMessage.is_read == False,
-                ReviewMessage.sender_id != current_user.id,
-                ReviewMessage.deleted_at == None
-            ).count()
-        
-        members_data.append({
-            'member': member,
-            'total_reviews': total_reviews,
-            'unread_reviews': unread_reviews,
-            'unread_messages': unread_messages
-        })
-    
-    return render_template(
-        'review/index.html',
-        members_data=members_data,
-        is_admin=(current_user.is_admin or current_user.department_id == 17),
-        is_head=is_department_head(current_user),
-        departments=departments,
-        selected_department_id=selected_department_id
-    )
-
-
+    abort(404)
 @bp.route('/member/<int:user_id>')
 @login_required
-def detail(user_id):
+def detail():
     """
     Mostra il dettaglio delle review di un membro con paginazione.
     """
-    
-    member = User.query.get_or_404(user_id)
-    
-    # Verifica permessi
-    if not can_view_member_reviews(current_user, member):
-        flash('Non hai i permessi per visualizzare questi training.', 'danger')
-        abort(403)
-    
-    # Form per filtri
-    filter_form = ReviewFilterForm()
-    
-    # Query base per le review
-    query = Review.query.filter_by(
-        reviewee_id=member.id,
-        deleted_at=None
-    )
-    
-    # Se non è admin/HR e non è il reviewer, non mostra le bozze
-    if not (current_user.is_admin or current_user.department_id == 17):
-        query = query.filter(
-            or_(
-                Review.is_draft == False,
-                Review.reviewer_id == current_user.id
-            )
-        )
-    
-    # Le review private sono visibili SOLO al reviewer e agli admin
-    # NON al destinatario (reviewee)
-    if not (current_user.is_admin or current_user.department_id == 17):
-        query = query.filter(
-            or_(
-                Review.is_private == False,
-                Review.reviewer_id == current_user.id
-            )
-        )
-    
-    # Applica filtri dal form
-    if request.args.get('review_type') and request.args.get('review_type') != 'all':
-        query = query.filter_by(review_type=request.args.get('review_type'))
-    
-    if request.args.get('status'):
-        status = request.args.get('status')
-        if status == 'acknowledged':
-            query = query.join(ReviewAcknowledgment)
-        elif status == 'pending':
-            query = query.outerjoin(ReviewAcknowledgment).filter(ReviewAcknowledgment.id == None)
-        elif status == 'draft':
-            query = query.filter_by(is_draft=True)
-    
-    if request.args.get('period'):
-        period = request.args.get('period')
-        now = datetime.utcnow()
-        if period == 'today':
-            start_date = now.date()
-        elif period == 'week':
-            start_date = now - timedelta(days=7)
-        elif period == 'month':
-            start_date = now - timedelta(days=30)
-        elif period == 'quarter':
-            start_date = now - timedelta(days=90)
-        elif period == 'year':
-            start_date = now - timedelta(days=365)
-        else:
-            start_date = None
-        
-        if start_date:
-            query = query.filter(Review.created_at >= start_date)
-    
-    # Ordina per data decrescente
-    query = query.order_by(desc(Review.created_at))
-    
-    # Paginazione - 5 training per pagina
-    page = request.args.get('page', 1, type=int)
-    per_page = 5
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    reviews = pagination.items
-    
-    # Verifica se l'utente può scrivere review
-    can_write = can_write_review(current_user, member)
-    
-    # Se è il membro stesso, crea il form di acknowledgment (escludi review private)
-    ack_forms = {}
-    if current_user.id == member.id:
-        for review in reviews:
-            if not review.is_acknowledged and not review.is_draft and not review.is_private:
-                ack_forms[review.id] = AcknowledgmentForm()
-    
-    # Crea form per i messaggi per ogni review (se l'utente può partecipare alla chat)
-    message_forms = {}
-    messages_by_review = {}
-    unread_counts = {}
-    
-    for review in reviews:
-        # L'utente può chattare se è il reviewer, il reviewee o admin
-        can_chat = (
-            current_user.is_admin or
-            current_user.department_id == 17 or
-            current_user.id == review.reviewer_id or
-            current_user.id == review.reviewee_id
-        )
-        
-        if can_chat and not review.is_draft:
-            message_forms[review.id] = ReviewMessageForm()
-            
-            # Carica i messaggi per questa review
-            messages = ReviewMessage.query.filter_by(
-                review_id=review.id,
-                deleted_at=None
-            ).order_by(ReviewMessage.created_at).all()
-            messages_by_review[review.id] = messages
-            
-            # Conta messaggi non letti per questa review
-            unread_count = ReviewMessage.query.filter_by(
-                review_id=review.id,
-                is_read=False,
-                deleted_at=None
-            ).filter(
-                ReviewMessage.sender_id != current_user.id  # Non contare i propri messaggi
-            ).count()
-            unread_counts[review.id] = unread_count
-    
-    # Ottieni le richieste attive se è il profilo dell'utente corrente
-    active_requests = []
-    if current_user.id == member.id:
-        active_requests = ReviewRequest.query.filter(
-            ReviewRequest.requester_id == current_user.id,
-            ReviewRequest.status.in_(['pending', 'accepted'])
-        ).order_by(desc(ReviewRequest.created_at)).limit(3).all()
-    
-    return render_template(
-        'review/detail.html',
-        member=member,
-        reviews=reviews,
-        pagination=pagination,
-        filter_form=filter_form,
-        can_write=can_write,
-        ack_forms=ack_forms,
-        message_forms=message_forms,
-        messages_by_review=messages_by_review,
-        unread_counts=unread_counts,
-        is_own_profile=(current_user.id == member.id),
-        active_requests=active_requests
-    )
-
-
+    abort(404)
 @bp.route('/create/<int:user_id>', methods=['GET', 'POST'])
 @login_required
-def create(user_id):
+def create():
     """
     Crea una nuova review per un membro.
     """
-    
-    member = User.query.get_or_404(user_id)
-    
-    # Verifica permessi
-    if not can_write_review(current_user, member):
-        flash('Non hai i permessi per scrivere training a questo utente.', 'danger')
-        abort(403)
-    
-    # Non si può scrivere review a se stessi
-    if current_user.id == member.id:
-        flash('Non puoi scrivere un training a te stesso.', 'warning')
-        return redirect(url_for('review.detail', user_id=user_id))
-    
-    form = ReviewForm()
-    
-    if form.validate_on_submit():
-        review = Review(
-            reviewer_id=current_user.id,
-            reviewee_id=member.id,
-            title=form.title.data,
-            review_type=form.review_type.data,
-            content=form.content.data,
-            period_start=form.period_start.data,
-            period_end=form.period_end.data,
-            strengths=form.strengths.data,
-            improvements=form.improvements.data,
-            goals=form.goals.data,
-            is_draft=False,  # Sempre pubblicata
-            is_private=form.is_private.data
-        )
-        
-        db.session.add(review)
-        db.session.commit()
-        
-        # Invia notifica email al destinatario (solo se non è privata)
-        if review.is_private:
-            flash('Training privato creato con successo!', 'success')
-        elif send_review_notification(review):
-            flash('Training creato con successo! Una notifica è stata inviata al destinatario.', 'success')
-        else:
-            flash('Training creato con successo!', 'success')
-        
-        return redirect(url_for('review.detail', user_id=member.id))
-    
-    return render_template(
-        'review/create.html',
-        form=form,
-        member=member
-    )
-
-
+    abort(404)
 @bp.route('/edit/<int:review_id>', methods=['GET', 'POST'])
 @login_required
-def edit(review_id):
+def edit():
     """
     Modifica una review esistente.
     """
-    
-    review = Review.query.get_or_404(review_id)
-    
-    # Solo admin, HR o il reviewer possono modificare
-    if not (current_user.is_admin or current_user.department_id == 17) and review.reviewer_id != current_user.id:
-        flash('Non hai i permessi per modificare questo training.', 'danger')
-        abort(403)
-    
-    # Non si può modificare una review già confermata
-    if review.is_acknowledged:
-        flash('Non puoi modificare un training già confermato.', 'warning')
-        return redirect(url_for('review.detail', user_id=review.reviewee_id))
-    
-    form = ReviewForm(obj=review)
-    
-    if form.validate_on_submit():
-        review.title = form.title.data
-        review.review_type = form.review_type.data
-        review.content = form.content.data
-        review.period_start = form.period_start.data
-        review.period_end = form.period_end.data
-        review.strengths = form.strengths.data
-        review.improvements = form.improvements.data
-        review.goals = form.goals.data
-        review.is_private = form.is_private.data
-        review.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        
-        flash('Training aggiornato con successo!', 'success')
-        return redirect(url_for('review.detail', user_id=review.reviewee_id))
-    
-    return render_template(
-        'review/edit.html',
-        form=form,
-        review=review,
-        member=review.reviewee
-    )
-
-
+    abort(404)
 @bp.route('/acknowledge/<int:review_id>', methods=['POST'])
 @login_required
 def acknowledge(review_id):
@@ -714,51 +390,7 @@ def stats():
     """
     Mostra statistiche sulle review (solo per admin).
     """
-    
-    # Solo admin o HR possono accedere
-    if not (current_user.is_admin or current_user.department_id == 17):
-        abort(403)
-    
-    # Statistiche generali
-    total_reviews = Review.query.filter_by(deleted_at=None, is_draft=False).count()
-    total_acknowledged = ReviewAcknowledgment.query.count()
-    
-    # Review per tipo
-    reviews_by_type = db.session.query(
-        Review.review_type,
-        db.func.count(Review.id)
-    ).filter_by(deleted_at=None, is_draft=False).group_by(Review.review_type).all()
-    
-    # Top reviewers
-    top_reviewers = db.session.query(
-        User,
-        db.func.count(Review.id).label('count')
-    ).join(Review, Review.reviewer_id == User.id).filter(
-        Review.deleted_at == None,
-        Review.is_draft == False
-    ).group_by(User.id).order_by(desc('count')).limit(10).all()
-    
-    # Membri con più review
-    top_reviewees = db.session.query(
-        User,
-        db.func.count(Review.id).label('count')
-    ).join(Review, Review.reviewee_id == User.id).filter(
-        Review.deleted_at == None,
-        Review.is_draft == False
-    ).group_by(User.id).order_by(desc('count')).limit(10).all()
-    
-    return render_template(
-        'review/stats.html',
-        total_reviews=total_reviews,
-        total_acknowledged=total_acknowledged,
-        reviews_by_type=reviews_by_type,
-        top_reviewers=top_reviewers,
-        top_reviewees=top_reviewees
-    )
-
-
-# ===================== ROUTES PER RICHIESTE TRAINING =====================
-
+    abort(404)
 @bp.route('/request', methods=['GET', 'POST'])
 @login_required
 def request_training():
@@ -770,209 +402,28 @@ def request_training():
     - Team leader → SOLO CCO (head dept 23)
     - Admin → tutti gli utenti attivi
     """
-    # Usa helper centralizzato per i destinatari
-    api_recipients = _get_training_recipients(current_user)
-
-    # Converti formato API (id/name/role) → formato Jinja (user/label)
-    possible_recipients = []
-    for r in api_recipients:
-        user_obj = User.query.get(r['id'])
-        if user_obj:
-            possible_recipients.append({
-                'user': user_obj,
-                'label': f"{r['name']} ({r['role']})" if r.get('role') else r['name']
-            })
-
-    if not possible_recipients:
-        flash('Non è possibile inviare richieste di training al momento. Nessun responsabile configurato.', 'warning')
-        return redirect(url_for('review.index'))
-
-    form = ReviewRequestForm()
-
-    # Se ci sono più destinatari possibili, aggiungiamo un campo di selezione
-    if len(possible_recipients) > 1:
-        choices = [(str(r['user'].id), r['label']) for r in possible_recipients]
-        form.recipient_id.choices = choices
-    else:
-        form.recipient_id.choices = [(str(possible_recipients[0]['user'].id), possible_recipients[0]['label'])]
-        form.recipient_id.data = str(possible_recipients[0]['user'].id)
-
-    if form.validate_on_submit():
-        # Determina il destinatario in base alla selezione o al default
-        if len(possible_recipients) > 1:
-            recipient_id = int(form.recipient_id.data)
-        else:
-            recipient_id = possible_recipients[0]['user'].id
-
-        request = ReviewRequest(
-            requester_id=current_user.id,
-            requested_to_id=recipient_id,
-            subject=form.subject.data,
-            description=form.description.data,
-            priority=form.priority.data,
-            status='pending'
-        )
-
-        db.session.add(request)
-        db.session.commit()
-
-        # Trova il nome del destinatario per il messaggio flash
-        recipient = User.query.get(recipient_id)
-
-        # Invia notifica email
-        if send_review_request_notification(request):
-            flash(f'Richiesta di training inviata a {recipient.first_name} {recipient.last_name}!', 'success')
-        else:
-            flash('Richiesta inviata (notifica email non disponibile).', 'info')
-
-        return redirect(url_for('review.my_requests'))
-
-    return render_template(
-        'review/request_training.html',
-        form=form,
-        possible_recipients=possible_recipients,
-        multiple_recipients=(len(possible_recipients) > 1)
-    )
-
-
+    abort(404)
 @bp.route('/requests/my')
 @login_required
 def my_requests():
     """
     Mostra le richieste di training inviate dall'utente corrente.
     """
-    
-    requests = ReviewRequest.query.filter_by(
-        requester_id=current_user.id
-    ).order_by(desc(ReviewRequest.created_at)).all()
-    
-    return render_template(
-        'review/my_requests.html',
-        requests=requests
-    )
-
-
+    abort(404)
 @bp.route('/requests/received')
 @login_required
 def received_requests():
     """
     Mostra le richieste di training ricevute (per responsabili) con paginazione.
     """
-    
-    # Solo head, admin e HR possono vedere richieste ricevute
-    if not (current_user.is_admin or current_user.department_id == 17) and not is_department_head(current_user):
-        flash('Non hai i permessi per visualizzare questa pagina.', 'danger')
-        abort(403)
-    
-    # Query base
-    query = ReviewRequest.query.filter_by(requested_to_id=current_user.id)
-    
-    # Filtro per stato
-    status_filter = request.args.get('status', 'pending')
-    if status_filter != 'all':
-        query = query.filter_by(status=status_filter)
-    
-    # Ordina per data e priorità
-    query = query.order_by(
-        ReviewRequest.priority.desc(),  # Urgenti prima
-        desc(ReviewRequest.created_at)
-    )
-    
-    # Paginazione - 5 richieste per pagina
-    page = request.args.get('page', 1, type=int)
-    per_page = 5
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    requests = pagination.items
-    
-    # Conta richieste per stato (per i badge)
-    pending_count = ReviewRequest.query.filter_by(
-        requested_to_id=current_user.id,
-        status='pending'
-    ).count()
-    
-    accepted_count = ReviewRequest.query.filter_by(
-        requested_to_id=current_user.id,
-        status='accepted'
-    ).count()
-    
-    completed_count = ReviewRequest.query.filter_by(
-        requested_to_id=current_user.id,
-        status='completed'
-    ).count()
-    
-    rejected_count = ReviewRequest.query.filter_by(
-        requested_to_id=current_user.id,
-        status='rejected'
-    ).count()
-    
-    total_count = pending_count + accepted_count + completed_count + rejected_count
-    
-    return render_template(
-        'review/received_requests.html',
-        requests=requests,
-        pagination=pagination,
-        status_filter=status_filter,
-        pending_count=pending_count,
-        accepted_count=accepted_count,
-        completed_count=completed_count,
-        rejected_count=rejected_count,
-        total_count=total_count,
-        timedelta=timedelta
-    )
-
-
+    abort(404)
 @bp.route('/request/<int:request_id>/respond', methods=['GET', 'POST'])
 @login_required
-def respond_request(request_id):
+def respond_request():
     """
     Permette al responsabile di rispondere a una richiesta di training.
     """
-    
-    training_request = ReviewRequest.query.get_or_404(request_id)
-    
-    # Verifica permessi
-    if training_request.requested_to_id != current_user.id and not (current_user.is_admin or current_user.department_id == 17):
-        flash('Non hai i permessi per rispondere a questa richiesta.', 'danger')
-        abort(403)
-    
-    # Non si può rispondere a richieste già gestite
-    if training_request.status != 'pending':
-        flash('Questa richiesta è già stata gestita.', 'info')
-        return redirect(url_for('review.received_requests'))
-    
-    form = ReviewRequestResponseForm()
-    
-    if form.validate_on_submit():
-        action = form.action.data
-        training_request.response_notes = form.response_notes.data
-        training_request.responded_at = datetime.utcnow()
-        
-        if action == 'accept':
-            training_request.status = 'accepted'
-            db.session.commit()
-            
-            # Reindirizza alla creazione del training
-            flash('Richiesta accettata! Ora puoi scrivere il training.', 'success')
-            return redirect(url_for(
-                'review.create_from_request',
-                request_id=training_request.id
-            ))
-        else:  # reject
-            training_request.status = 'rejected'
-            db.session.commit()
-            
-            # Invia notifica di rifiuto
-            send_review_request_response_notification(training_request)
-            flash('Richiesta rifiutata.', 'info')
-            return redirect(url_for('review.received_requests'))
-    
-    return render_template(
-        'review/respond_request.html',
-        form=form,
-        request=training_request
-    )
-
-
+    abort(404)
 @bp.route('/request/<int:request_id>/create-training', methods=['GET', 'POST'])
 @login_required
 def create_from_request(request_id):
@@ -1031,13 +482,7 @@ def create_from_request(request_id):
         flash('Training creato con successo dalla richiesta!', 'success')
         return redirect(url_for('review.detail', user_id=training_request.requester_id))
     
-    return render_template(
-        'review/create_from_request.html',
-        form=form,
-        request=training_request,
-        member=training_request.requester
-    )
-
+    abort(404)
 
 @bp.route('/request/<int:request_id>/cancel', methods=['POST'])
 @login_required

@@ -11,7 +11,7 @@ bp = Blueprint(
     static_url_path='/static/projects'
 )
 
-from . import routes
+# Routes removed - no HTML endpoints served by this blueprint
 
 
 def init_app(app):

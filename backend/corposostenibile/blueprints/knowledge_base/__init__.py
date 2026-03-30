@@ -17,7 +17,7 @@ bp = Blueprint(
 
 def init_app(app):
     """Inizializza il blueprint Knowledge Base con l'app Flask."""
-    from . import routes
+    # Routes removed - no HTML endpoints served by this blueprint
     from . import api
     
     app.register_blueprint(bp)

@@ -15,8 +15,8 @@ bp = Blueprint(
     static_url_path='/nutrition/static'
 )
 
-# Import views e API dopo la creazione del blueprint per evitare circular imports
-from . import views, api
+# Views removed - no HTML endpoints served by this blueprint
+from . import api
 
 def init_app(app):
     """Registra il blueprint nutrition nell'app Flask."""

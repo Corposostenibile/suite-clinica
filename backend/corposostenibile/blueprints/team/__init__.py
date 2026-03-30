@@ -16,15 +16,12 @@ def init_app(app):  # noqa: D401
     Da invocare nella application-factory.
     """
     # 1️⃣ importa le view prima della registrazione
-    from . import routes, forms, okr_routes, trial_routes, trial_api, anonymous_survey_routes, team_payments_routes   # noqa: F401,E402
-    from .weekly_report_routes import weekly_report_bp   # noqa: F401,E402
+    # HTML routes removed - no HTML endpoints served by these modules
+    from . import routes, forms, trial_routes, trial_api   # noqa: F401,E402
     from .api import team_api_bp   # noqa: F401,E402
 
     # 2️⃣ registra il blueprint principale
     app.register_blueprint(team_bp, url_prefix="/team")
-
-    # 2️⃣.1 registra il sub-blueprint per i report settimanali
-    app.register_blueprint(weekly_report_bp)
 
     # 2️⃣.2 registra il sub-blueprint API per React frontend
     app.register_blueprint(team_api_bp)

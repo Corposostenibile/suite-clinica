@@ -20,9 +20,8 @@ def init_app(app):
     """
     Inizializza e registra il blueprint manual.
     """
-    # Import routes
-    from . import routes
-
+    # Routes removed - no HTML endpoints served by this blueprint
+    
     # Registra blueprint
     app.register_blueprint(manual_bp)
 

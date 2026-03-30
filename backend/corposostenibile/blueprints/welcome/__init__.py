@@ -8,9 +8,11 @@ Blueprint "welcome" - pagina di benvenuto personalizzata.
 
 from __future__ import annotations
 
-from flask import Flask
-from .routes import welcome_bp
+from flask import Blueprint, Flask
 
-def init_app(app: Flask) -> None:  # noqa: D401
-    """Registra il blueprint sull'app principale."""
-    app.register_blueprint(welcome_bp, url_prefix="/welcome")
+welcome_bp = Blueprint("welcome", __name__, url_prefix="/welcome")
+
+
+def init_app(app: Flask) -> None:
+    """Register welcome blueprint."""
+    app.register_blueprint(welcome_bp)

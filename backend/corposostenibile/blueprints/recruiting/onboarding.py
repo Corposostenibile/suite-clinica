@@ -2,7 +2,7 @@
 Onboarding module for new hires
 """
 
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -37,12 +37,7 @@ def onboarding_templates():
             by_department[dept_name] = []
         by_department[dept_name].append(template)
     
-    return render_template(
-        "recruiting/onboarding/templates.html",
-        templates=templates,
-        by_department=by_department
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/templates/new", methods=["GET", "POST"])
 @login_required
@@ -72,12 +67,7 @@ def onboarding_template_create():
         flash("Template onboarding creato con successo!", "success")
         return redirect(url_for('recruiting.onboarding_template_detail', template_id=template.id))
     
-    return render_template(
-        "recruiting/onboarding/template_form.html",
-        form=form,
-        action="create"
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/templates/<int:template_id>")
 @login_required
@@ -97,13 +87,7 @@ def onboarding_template_detail(template_id):
         template_id=template_id
     ).filter(OnboardingChecklist.actual_end_date.is_(None)).count()
     
-    return render_template(
-        "recruiting/onboarding/template_detail.html",
-        template=template,
-        tasks_by_type=tasks_by_type,
-        active_checklists=active_checklists
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/templates/<int:template_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -119,13 +103,7 @@ def onboarding_template_edit(template_id):
         flash("Template aggiornato con successo!", "success")
         return redirect(url_for('recruiting.onboarding_template_detail', template_id=template.id))
     
-    return render_template(
-        "recruiting/onboarding/template_form.html",
-        form=form,
-        template=template,
-        action="edit"
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/templates/<int:template_id>/tasks/add", methods=["GET", "POST"])
 @login_required
@@ -152,13 +130,7 @@ def onboarding_task_add(template_id):
         flash("Task aggiunto con successo!", "success")
         return redirect(url_for('recruiting.onboarding_template_detail', template_id=template_id))
     
-    return render_template(
-        "recruiting/onboarding/task_form.html",
-        form=form,
-        template=template,
-        action="add"
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/tasks/<int:task_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -174,13 +146,7 @@ def onboarding_task_edit(task_id):
         flash("Task aggiornato con successo!", "success")
         return redirect(url_for('recruiting.onboarding_template_detail', template_id=task.template_id))
     
-    return render_template(
-        "recruiting/onboarding/task_form.html",
-        form=form,
-        task=task,
-        action="edit"
-    )
-
+    abort(404)
 
 # ============================================================================
 # ONBOARDING CHECKLISTS
@@ -200,12 +166,7 @@ def onboarding_checklists():
         OnboardingChecklist.actual_end_date.isnot(None)
     ).order_by(OnboardingChecklist.actual_end_date.desc()).limit(30).all()
     
-    return render_template(
-        "recruiting/onboarding/checklists_modern.html",
-        active_checklists=active_checklists,
-        completed_checklists=completed_checklists
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/checklists/<int:checklist_id>")
 @login_required
@@ -236,13 +197,7 @@ def onboarding_checklist_detail(checklist_id):
         'progress_percent': checklist.progress_percentage
     }
     
-    return render_template(
-        "recruiting/onboarding/checklist_detail.html",
-        checklist=checklist,
-        progress_by_status=progress_by_status,
-        stats=stats
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/onboarding/start/<int:application_id>", methods=["GET", "POST"])
 @login_required
@@ -296,12 +251,7 @@ def onboarding_start(application_id):
     if not templates:
         templates = OnboardingTemplate.query.filter_by(is_active=True).all()
     
-    return render_template(
-        "recruiting/onboarding/start.html",
-        application=application,
-        templates=templates
-    )
-
+    abort(404)
 
 # ============================================================================
 # ONBOARDING PROGRESS API

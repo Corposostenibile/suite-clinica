@@ -3,7 +3,7 @@ Routes per calendario interattivo stile Google Calendar
 """
 
 from datetime import datetime, date, timedelta, time
-from flask import render_template, request, jsonify, flash, redirect, url_for, current_app
+from flask import request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import and_, or_ as db_or, func
 from corposostenibile.extensions import db
@@ -152,22 +152,6 @@ def generate_events_from_weekly_schedules(start_date, end_date, user_ids=None):
         current_date += timedelta(days=1)
     
     return events
-
-
-@bp.route('/calendar')
-@login_required
-def calendar_view():
-    """Vista principale del calendario interattivo"""
-    
-    # Ottieni tutti gli utenti Respond.io per il filtro
-    respond_io_users = RespondIOUser.query.filter_by(is_active=True).order_by(RespondIOUser.first_name).all()
-    
-    # Template di orari disponibili
-    schedule_templates = RespondIOScheduleTemplate.query.filter_by(is_active=True).all()
-    
-    return render_template('respond_io/calendar.html',
-                         respond_io_users=respond_io_users,
-                         schedule_templates=schedule_templates)
 
 
 @bp.route('/calendar/events')
@@ -656,27 +640,6 @@ def delete_calendar_break(break_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@bp.route('/calendar/associate-users')
-@login_required
-def associate_users_page():
-    """Pagina per associare utenti Respond.io a utenti del gestionale"""
-    
-    # Solo admin
-    if not current_user.is_admin:
-        flash('Accesso non autorizzato', 'danger')
-        return redirect(url_for('base.index'))
-    
-    # Ottieni tutti gli utenti Respond.io
-    respond_io_users = RespondIOUser.query.filter_by(is_active=True).order_by(RespondIOUser.first_name).all()
-    
-    # Ottieni tutti gli utenti del sistema
-    system_users = User.query.filter_by(is_active=True).order_by(User.first_name).all()
-    
-    return render_template('respond_io/associate_users.html',
-                         respond_io_users=respond_io_users,
-                         system_users=system_users)
-
-
 @bp.route('/calendar/associate-user', methods=['POST'])
 @login_required
 def associate_user():
@@ -728,62 +691,6 @@ def associate_user():
         db.session.rollback()
         current_app.logger.error(f"Errore associazione utente: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@bp.route('/calendar/associate-user-form', methods=['POST'])
-@login_required
-def associate_user_form():
-    """Route per gestire l'associazione utenti tramite form HTML tradizionale"""
-    
-    if not current_user.is_admin:
-        flash('Accesso non autorizzato', 'danger')
-        return redirect(url_for('respond_io.associate_users_page'))
-    
-    # Ottieni dati dal form
-    respond_io_user_id = request.form.get('respond_io_user_id')
-    system_user_id = request.form.get('system_user_id')
-    action = request.form.get('action')
-    
-    try:
-        respond_io_user = RespondIOUser.query.get_or_404(respond_io_user_id)
-        
-        # Se action è 'remove', rimuovi l'associazione
-        if action == 'remove':
-            respond_io_user.user_id = None
-            db.session.commit()
-            flash(f'Associazione rimossa per {respond_io_user.full_name}', 'success')
-        else:
-            # Altrimenti gestisci l'associazione normale
-            if system_user_id:
-                # Verifica che l'utente sistema esista
-                system_user = User.query.get_or_404(system_user_id)
-                
-                # Verifica che non sia già associato a un altro utente Respond.io
-                existing = RespondIOUser.query.filter(
-                    and_(
-                        RespondIOUser.user_id == system_user_id,
-                        RespondIOUser.id != respond_io_user_id
-                    )
-                ).first()
-                
-                if existing:
-                    flash(f'L\'utente {system_user.full_name} è già associato a {existing.full_name}', 'danger')
-                else:
-                    respond_io_user.user_id = system_user_id
-                    db.session.commit()
-                    flash(f'Associato {respond_io_user.full_name} a {system_user.full_name}', 'success')
-            else:
-                # Rimuovi associazione se nessun utente selezionato
-                respond_io_user.user_id = None
-                db.session.commit()
-                flash(f'Associazione rimossa per {respond_io_user.full_name}', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Errore associazione utente: {str(e)}")
-        flash(f'Errore durante l\'associazione: {str(e)}', 'danger')
-    
-    return redirect(url_for('respond_io.associate_users_page'))
 
 
 @bp.route('/calendar/stats')

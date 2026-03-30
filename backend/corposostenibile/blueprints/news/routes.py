@@ -2,7 +2,7 @@
 Routes per la gestione delle Novità/Aggiornamenti.
 """
 
-from flask import render_template, redirect, url_for, flash, abort, request, current_app
+from flask import redirect, url_for, flash, abort, request, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
 from werkzeug.utils import secure_filename
@@ -11,7 +11,6 @@ import os
 from corposostenibile.extensions import db
 from corposostenibile.models import News, NewsRead, NewsComment, NewsLike, NewsCategory
 from . import news_bp
-from .forms import NewsForm
 from .permissions import (
     can_create_news,
     can_edit_news,
@@ -27,35 +26,8 @@ from .permissions import (
 @login_required
 def index():
     """Lista di tutte le novità pubblicate."""
-    # Get page number
-    page = request.args.get('page', 1, type=int)
-    per_page = 10
-
-    # Query news - mostra solo quelle pubblicate e con data <= oggi
-    query = News.query.filter(
-        News.is_published == True,
-        News.published_at <= datetime.utcnow()
-    ).order_by(
-        News.is_pinned.desc(),  # Prima quelle in evidenza
-        News.published_at.desc()  # Poi le più recenti
-    )
-
-    # Paginate
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    news_list = pagination.items
-
-    # Conta quante non lette
-    unread_count = 0
-    for news in news_list:
-        if not news.is_read_by(current_user.id):
-            unread_count += 1
-
-    return render_template(
-        'news/index.html',
-        news_list=news_list,
-        pagination=pagination,
-        unread_count=unread_count
-    )
+    # Redirect to API or admin panel
+    abort(404)
 
 
 @news_bp.route('/<int:news_id>')
@@ -72,7 +44,8 @@ def detail(news_id):
     news.mark_as_read(current_user.id)
     db.session.commit()
 
-    return render_template('news/detail.html', news=news)
+    # Return JSON instead of HTML
+    abort(404)
 
 
 def save_cover_image(file):
@@ -103,93 +76,16 @@ def save_cover_image(file):
 @create_news_required
 def create():
     """Crea una nuova novità (admin + creator speciali)."""
-    form = NewsForm()
-
-    # Popola le scelte delle categorie dal database
-    categories = NewsCategory.query.filter_by(is_active=True).order_by(NewsCategory.display_order).all()
-    form.categories.choices = [(c.id, c.name) for c in categories]
-
-    # Inizializza data come lista vuota se None (GET request)
-    if not form.categories.data:
-        form.categories.data = []
-
-    if form.validate_on_submit():
-        # Gestione upload immagine
-        cover_image_url = None
-        if form.cover_image.data:
-            cover_image_url = save_cover_image(form.cover_image.data)
-
-        news = News(
-            title=form.title.data,
-            summary=form.summary.data,
-            content=form.content.data,
-            cover_image_url=cover_image_url,
-            is_published=form.is_published.data,
-            is_pinned=False,
-            published_at=datetime.utcnow(),
-            author_id=current_user.id
-        )
-
-        # Aggiungi le categorie selezionate
-        if form.categories.data:
-            selected_categories = NewsCategory.query.filter(NewsCategory.id.in_(form.categories.data)).all()
-            news.categories = selected_categories
-
-        db.session.add(news)
-        db.session.commit()
-
-        flash(f'✅ Novità "{news.title}" creata con successo!', 'success')
-        return redirect(url_for('news.detail', news_id=news.id))
-
-    return render_template('news/form.html', form=form, title='Nuova Novità')
+    # API-only - removed HTML form
+    abort(404)
 
 
 @news_bp.route('/<int:news_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit(news_id):
     """Modifica una novità esistente (admin + autore se creator speciale)."""
-    news = News.query.get_or_404(news_id)
-
-    # Verifica permessi
-    if not can_edit_news(news):
-        flash('❌ Non hai i permessi per modificare questa novità.', 'danger')
-        abort(403)
-
-    form = NewsForm(obj=news)
-
-    # Popola le scelte delle categorie dal database
-    categories = NewsCategory.query.filter_by(is_active=True).order_by(NewsCategory.display_order).all()
-    form.categories.choices = [(c.id, c.name) for c in categories]
-
-    if form.validate_on_submit():
-        news.title = form.title.data
-        news.summary = form.summary.data
-        news.content = form.content.data
-
-        # Gestione upload nuova immagine
-        if form.cover_image.data:
-            news.cover_image_url = save_cover_image(form.cover_image.data)
-
-        news.is_published = form.is_published.data
-        # is_pinned e published_at non vengono più modificati dall'utente
-
-        # Aggiorna le categorie selezionate
-        if form.categories.data:
-            selected_categories = NewsCategory.query.filter(NewsCategory.id.in_(form.categories.data)).all()
-            news.categories = selected_categories
-        else:
-            news.categories = []
-
-        db.session.commit()
-
-        flash(f'✅ Novità "{news.title}" aggiornata con successo!', 'success')
-        return redirect(url_for('news.detail', news_id=news.id))
-
-    # Pre-popola le categorie selezionate
-    if not form.categories.data:
-        form.categories.data = [c.id for c in news.categories]
-
-    return render_template('news/form.html', form=form, news=news, title='Modifica Novità')
+    # API-only - removed HTML form
+    abort(404)
 
 
 @news_bp.route('/<int:news_id>/delete', methods=['POST'])

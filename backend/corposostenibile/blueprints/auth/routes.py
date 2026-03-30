@@ -19,8 +19,8 @@ from flask import (
     Blueprint,
     current_app,
     flash,
+    jsonify,
     redirect,
-    render_template,
     request,
     url_for,
 )
@@ -31,11 +31,11 @@ from flask_login import (
     logout_user,
 )
 from itsdangerous import BadSignature, URLSafeTimedSerializer
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 
 from corposostenibile.extensions import db
 from corposostenibile.models import User, ImpersonationLog
-from .forms import ForgotPasswordForm, LoginForm, ResetPasswordForm
+from .forms import ForgotPasswordForm
 from .email_utils import send_mail
 from flask import session
 
@@ -46,8 +46,6 @@ from flask import session
 auth_bp = Blueprint(
     "auth",
     __name__,
-    template_folder="templates",
-    static_folder="static",
 )
 
 # --------------------------------------------------------------------------- #
@@ -68,13 +66,21 @@ def _send_password_changed_email(user: User, ip_address: str) -> None:
     now = datetime.now()
     change_date = now.strftime("%d/%m/%Y alle ore %H:%M")
     
+    # Costruisci URL login per il frontend React
+    frontend_base = (
+        current_app.config.get("FRONTEND_BASE_URL")
+        or current_app.config.get("FRONTEND_URL")
+        or request.host_url.rstrip("/")
+    )
+    login_url = f"{frontend_base}/auth/login"
+
     # Renderizza il template con i dati
     html_body = render_template_string(
         html_template,
         user_name=user.first_name or user.email,
         change_date=change_date,
         ip_address=ip_address or "Non disponibile",
-        login_url=url_for("auth.login", _external=True)
+        login_url=login_url
     )
     
     # Versione testo semplice
@@ -127,7 +133,14 @@ def _verify_reset_token(token: str, max_age: int = 3600) -> User | None:
 
 def _send_reset_email(user: User) -> None:
     token = _generate_reset_token(user)
-    reset_url = url_for("auth.reset_password", token=token, _external=True)
+
+    # Costruisci URL reset per il frontend React
+    frontend_base = (
+        current_app.config.get("FRONTEND_BASE_URL")
+        or current_app.config.get("FRONTEND_URL")
+        or request.host_url.rstrip("/")
+    )
+    reset_url = f"{frontend_base}/auth/reset-password/{token}"
     
     # Prepara il contesto per il template
     from flask import render_template_string
@@ -175,66 +188,31 @@ def _send_reset_email(user: User) -> None:
 # --------------------------------------------------------------------------- #
 
 
-@auth_bp.route("/login", methods=["GET", "POST"])
-def login():  # noqa: D401
-    """Form di login con redirect alla Welcome page se autenticato."""
-    if current_user.is_authenticated:
-        return redirect(url_for("welcome.index"))
-
-    form = LoginForm()
-    if form.validate_on_submit():
-        user: User | None = User.query.filter_by(
-            email=form.email.data.lower()
-        ).first()
-        if not user:
-            flash("Email non trovata. Verifica l'indirizzo inserito.", "danger")
-        elif not check_password_hash(user.password_hash, form.password.data):
-            flash("Password errata, riprova.", "danger")
-        else:
-            login_user(user, remember=form.remember_me.data)
-            flash("Benvenuto!", "success")
-            # priorità al parametro next, altrimenti Welcome
-            next_url = request.args.get("next") or url_for("welcome.index")
-            return redirect(next_url)
-
-    return render_template("auth/login.html", form=form)
-
 @auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     """Chiude la sessione utente."""
     logout_user()
-    flash("Sei uscito dall’account.", "info")
-    return redirect(url_for("auth.login"))
+    return jsonify({"success": True, "message": "Sei uscito dall'account."})
 
 
-@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+@auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
-    """Richiesta link di reset password."""
+    """Richiesta link di reset password (API JSON only)."""
     if current_user.is_authenticated:
-        return redirect(url_for("team.user_list"))
+        return {'success': False, 'error': 'Già autenticato.'}, 400
 
-    if request.is_json:
-        form = ForgotPasswordForm(data=request.get_json())
-    else:
-        form = ForgotPasswordForm()
+    form = ForgotPasswordForm(data=request.get_json())
 
     if form.validate_on_submit():
         user: User | None = User.query.filter_by(email=form.email.data.lower()).first()
         if user:
             _send_reset_email(user)
-            if request.is_json:
-                return {'success': True, 'message': 'Email inviata! Controlla la tua casella di posta.'}, 200
-            flash("Email inviata! Controlla la tua casella di posta.", "success")
-            return redirect(url_for("auth.login"))
+            return {'success': True, 'message': 'Email inviata! Controlla la tua casella di posta.'}, 200
         else:
-            if request.is_json:
-                return {'success': False, 'error': 'Questa email non esiste nel sistema.'}, 400
-            flash("Questa email non esiste nel sistema.", "danger")
-    elif request.is_json and (form.errors or not request.get_json()):
+            return {'success': False, 'error': 'Questa email non esiste nel sistema.'}, 400
+    else:
         return {'success': False, 'error': form.errors if form.errors else 'Missing email'}, 400
-
-    return render_template("auth/forgot_password.html", form=form)
 
 
 @auth_bp.route("/verify-reset-token/<token>", methods=["GET"])
@@ -246,71 +224,10 @@ def verify_reset_token(token: str):
     return {'valid': False, 'error': 'Token non valido o scaduto'}, 400
 
 
-@auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token: str):
-    """Imposta una nuova password usando il token ricevuto via e-mail."""
-    if current_user.is_authenticated:
-        return redirect(url_for("team.user_list"))
-
-    user = _verify_reset_token(token)
-    if not user:
-        flash("Link non valido o scaduto.", "danger")
-        return redirect(url_for("auth.forgot_password"))
-
-    form = ResetPasswordForm()
-    if form.validate_on_submit():
-        user.password_hash = generate_password_hash(form.password.data)
-        user.last_password_change_at = datetime.utcnow()
-        
-        # Ottieni IP dell'utente
-        user_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'Non disponibile')
-        
-        db.session.commit()
-        
-        # Invia email di conferma
-        try:
-            _send_password_changed_email(user, user_ip)
-        except Exception as e:
-            current_app.logger.error(f"Errore invio email conferma reset: {e}")
-        
-        flash("Password aggiornata, ora puoi accedere.", "success")
-        return redirect(url_for("auth.login"))
-
-    return render_template("auth/reset_password.html", form=form)
-
 
 # --------------------------------------------------------------------------- #
 #  Impersonation Routes (Admin Only)                                          #
 # --------------------------------------------------------------------------- #
-
-@auth_bp.route("/impersonate")
-@login_required
-def impersonate_list():
-    """Pagina admin con lista utenti per impersonation."""
-    if not current_user.is_admin:
-        flash("Accesso non autorizzato.", "danger")
-        return redirect(url_for("welcome.index"))
-
-    # Non permettere impersonation se già in modalità impersonation
-    if session.get('impersonating'):
-        flash("Sei già in modalità impersonazione. Torna al tuo account prima.", "warning")
-        return redirect(url_for("welcome.index"))
-
-    users = User.query.filter(
-        User.is_active == True,
-        User.id != current_user.id
-    ).order_by(User.first_name, User.last_name).all()
-
-    # Log recenti delle impersonazioni
-    recent_logs = ImpersonationLog.query.filter_by(
-        admin_id=current_user.id
-    ).order_by(ImpersonationLog.started_at.desc()).limit(10).all()
-
-    return render_template(
-        "auth/impersonate_list.html",
-        users=users,
-        recent_logs=recent_logs
-    )
 
 
 @auth_bp.route("/impersonate/<int:user_id>", methods=["POST"])
@@ -341,7 +258,7 @@ def impersonate_user(user_id: int):
         if request.is_json:
             return {'success': False, 'error': 'Non puoi impersonare te stesso.'}, 400
         flash("Non puoi impersonare te stesso.", "warning")
-        return redirect(url_for("auth.impersonate_list"))
+        return redirect(url_for("welcome.index"))
 
     # Salva l'ID dell'admin originale nella sessione
     session['impersonating'] = True
@@ -414,7 +331,7 @@ def stop_impersonation():
         session.pop('original_admin_id', None)
         session.pop('original_admin_name', None)
         session.pop('impersonation_log_id', None)
-        return redirect(url_for("auth.login"))
+        return redirect(url_for("welcome.index"))
 
     # Pulisci la sessione di impersonation
     session.pop('impersonating', None)

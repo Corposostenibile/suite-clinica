@@ -12,11 +12,10 @@ Endpoint:
 """
 
 from datetime import datetime, timedelta
-import os
 import requests
 from flask import (
-    Blueprint, render_template, request, jsonify,
-    redirect, url_for, flash, current_app
+    Blueprint, request, jsonify,
+    redirect, flash, current_app
 )
 from flask_login import login_required, current_user
 from flask_dance.contrib.google import google
@@ -24,7 +23,6 @@ from flask_dance.contrib.google import google
 from corposostenibile.extensions import db
 from corposostenibile.models import User, GoogleAuth, Meeting, Cliente
 from .services import GoogleCalendarService, MeetingService, GoogleTokenRefreshService, refresh_google_token_http
-from .forms import MeetingForm, MeetingDetailsForm, GoogleCalendarConnectForm
 from .tasks import refresh_google_tokens_task, cleanup_expired_tokens_task, monitor_token_health
 
 # Import del blueprint dal modulo __init__
@@ -74,19 +72,22 @@ def calendar_connect():
     # Questo è il callback dopo che l'utente ha autorizzato
     # Flask-Dance ha già salvato il token nella sessione
 
+    frontend_url = current_app.config.get('FRONTEND_URL', '')
+    calendar_redirect = f"{frontend_url}/calendar"
+
     try:
         # Verifica se abbiamo il token da Flask-Dance
         if not google.authorized:
             current_app.logger.warning("❌ Token non autorizzato dopo OAuth callback")
             flash('Errore: autorizzazione Google non completata', 'error')
-            return redirect(url_for('calendar.dashboard'))
+            return redirect(calendar_redirect)
 
         # Recupera il token PRIMA di fare chiamate API
         token = google.token
         if not token:
             current_app.logger.error("❌ google.authorized è True ma token è None")
             flash('Errore: token non disponibile', 'error')
-            return redirect(url_for('calendar.dashboard'))
+            return redirect(calendar_redirect)
 
         # Log dettagliato del token ricevuto
         current_app.logger.info(f"✅ Token OAuth ricevuto:")
@@ -157,41 +158,7 @@ def calendar_connect():
         current_app.logger.error(f"❌ Errore in calendar_connect: {str(e)}", exc_info=True)
         flash(f'Errore durante la connessione: {str(e)}', 'error')
 
-    return redirect(url_for('calendar.dashboard'))
-
-
-@calendar_bp.route('/dashboard')
-@login_required
-def dashboard():
-    """Dashboard principale del calendario."""
-    # Verifica se l'utente è connesso a Google Calendar E il token è valido
-    is_connected = False
-
-    if current_user.google_auth:
-        google_auth = current_user.google_auth
-
-        # Usa i nuovi metodi per verificare lo stato del token
-        if not google_auth.is_token_expired():
-            # Token ancora valido
-            is_connected = True
-        elif google_auth.can_auto_refresh():
-            # Token scaduto ma può essere rinnovato automaticamente
-            current_app.logger.info(f"Token scaduto per user {current_user.id} ma può essere rinnovato automaticamente")
-            is_connected = True  # Il servizio gestirà il refresh automaticamente
-        else:
-            # Token scaduto e non rinnovabile, rimuovi l'autenticazione
-            current_app.logger.warning(f"Token scaduto e non rinnovabile per user {current_user.id}, rimuovo GoogleAuth")
-            db.session.delete(google_auth)
-            db.session.commit()
-
-    # Recupera Loom Public App ID dalla configurazione
-    loom_public_app_id = os.getenv('LOOM_PUBLIC_APP_ID', '')
-
-    return render_template(
-        'calendar/dashboard.html',
-        is_connected=is_connected,
-        loom_public_app_id=loom_public_app_id
-    )
+    return redirect(calendar_redirect)
 
 
 @calendar_bp.route('/sync')
@@ -199,13 +166,11 @@ def dashboard():
 def sync_events():
     """Sincronizza gli eventi da Google Calendar."""
     if not current_user.google_auth:
-        flash('Devi prima connetterti a Google Calendar', 'warning')
-        return redirect(url_for('calendar.dashboard'))
+        return jsonify({'error': 'Devi prima connetterti a Google Calendar'}), 400
 
     # Verifica e refresha il token se necessario
     if not _ensure_valid_token():
-        flash('Token Google scaduto o non valido. Riconnetti il tuo account.', 'warning')
-        return redirect(url_for('calendar.dashboard'))
+        return jsonify({'error': 'Token Google scaduto o non valido. Riconnetti il tuo account.'}), 401
 
     try:
         # Ottieni il token aggiornato dal database
@@ -213,8 +178,7 @@ def sync_events():
         access_token = token_data.get('access_token')
 
         if not access_token:
-            flash('Token di accesso non disponibile. Riconnetti il tuo account.', 'warning')
-            return redirect(url_for('calendar.dashboard'))
+            return jsonify({'error': 'Token di accesso non disponibile. Riconnetti il tuo account.'}), 401
 
         # Recupera eventi da Google Calendar usando il token dal DB
         params = {
@@ -253,14 +217,11 @@ def sync_events():
                         timeout=30
                     )
                     if not resp.ok:
-                        flash('Errore nel recupero eventi da Google Calendar', 'error')
-                        return redirect(url_for('calendar.dashboard'))
+                        return jsonify({'error': 'Errore nel recupero eventi da Google Calendar'}), 502
                 else:
-                    flash('Token scaduto. Riconnetti il tuo account Google.', 'error')
-                    return redirect(url_for('calendar.dashboard'))
+                    return jsonify({'error': 'Token scaduto. Riconnetti il tuo account Google.'}), 401
             else:
-                flash('Errore nel recupero eventi da Google Calendar', 'error')
-                return redirect(url_for('calendar.dashboard'))
+                return jsonify({'error': 'Errore nel recupero eventi da Google Calendar'}), 502
 
         google_events = resp.json().get('items', [])
         synced_count = 0
@@ -369,63 +330,18 @@ def sync_events():
         db.session.commit()
 
         message = f'Sincronizzazione completata: {synced_count} nuovi eventi, {updated_count} aggiornati'
-        flash(message, 'success')
         current_app.logger.info(message)
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'synced': synced_count,
+            'updated': updated_count
+        })
 
     except Exception as e:
         current_app.logger.error(f"Errore sincronizzazione: {e}", exc_info=True)
-        flash(f'Errore nella sincronizzazione: {str(e)}', 'error')
-
-    return redirect(url_for('calendar.dashboard'))
-
-
-@calendar_bp.route('/meetings/<int:cliente_id>')
-@login_required
-def cliente_meetings(cliente_id):
-    """Mostra i meeting per un cliente specifico."""
-    cliente = Cliente.query.get_or_404(cliente_id)
-    meetings = MeetingService.get_meetings_for_cliente(cliente_id)
-    
-    return render_template(
-        'calendar/cliente_meetings.html',
-        cliente=cliente,
-        meetings=meetings
-    )
-
-
-@calendar_bp.route('/meeting/<int:meeting_id>/details', methods=['GET', 'POST'])
-@login_required
-def meeting_details(meeting_id):
-    """Gestisce i dettagli di un meeting (esito, note, Loom)."""
-    meeting = Meeting.query.get_or_404(meeting_id)
-    form = MeetingDetailsForm(obj=meeting)
-    
-    if form.validate_on_submit():
-        try:
-            MeetingService.update_meeting_details(
-                meeting_id=meeting_id,
-                outcome=form.meeting_outcome.data,
-                notes=form.meeting_notes.data,
-                loom_link=form.loom_link.data
-            )
-            
-            # Aggiorna anche lo status se modificato
-            if form.status.data != meeting.status:
-                meeting.status = form.status.data
-                db.session.commit()
-            
-            flash('Dettagli meeting aggiornati con successo!', 'success')
-            return redirect(url_for('calendar.meeting_details', meeting_id=meeting_id))
-            
-        except Exception as e:
-            current_app.logger.error(f"Errore aggiornamento meeting: {e}")
-            flash('Errore nell\'aggiornamento dei dettagli', 'error')
-    
-    return render_template(
-        'calendar/meeting_details.html',
-        meeting=meeting,
-        form=form
-    )
+        return jsonify({'error': f'Errore nella sincronizzazione: {str(e)}'}), 500
 
 
 # API Routes
@@ -800,15 +716,9 @@ def calendar_disconnect():
     if current_user.google_auth:
         db.session.delete(current_user.google_auth)
         db.session.commit()
-        flash('Google Calendar disconnesso con successo.', 'success')
+        return jsonify({'success': True, 'message': 'Google Calendar disconnesso con successo.'})
     else:
-        flash('Non eri connesso a Google Calendar.', 'info')
-
-    # Check if request wants JSON response
-    if request.headers.get('Accept') == 'application/json':
-        return jsonify({'success': True, 'message': 'Disconnesso'})
-
-    return redirect(url_for('calendar.dashboard'))
+        return jsonify({'success': True, 'message': 'Non eri connesso a Google Calendar.'})
 
 
 @calendar_bp.route('/api/events')
@@ -1287,105 +1197,3 @@ def api_admin_scheduler_status():
         current_app.logger.error(f"Errore recupero status scheduler: {e}")
         return jsonify({'error': str(e)}), 500
 
-
-# ============================================================================
-# LOOM LIBRARY - Pagina per visualizzare tutte le registrazioni Loom
-# ============================================================================
-
-@calendar_bp.route('/loom-library')
-@login_required
-def loom_library():
-    """
-    Libreria Loom - Mostra tutte le registrazioni Loom salvate.
-
-    Permessi:
-    - Admin: vede tutti i Loom di tutti gli utenti, può filtrare per utente
-    - Utente normale: vede solo i propri Loom
-    """
-    from datetime import datetime, timedelta
-
-    # Query base: solo meeting con loom_link
-    query = Meeting.query.filter(Meeting.loom_link.isnot(None), Meeting.loom_link != '')
-
-    # Se non admin, filtra solo i propri meeting
-    if not current_user.is_admin:
-        query = query.filter(Meeting.user_id == current_user.id)
-    else:
-        # Admin può filtrare per utente
-        user_id_filter = request.args.get('user_id', type=int)
-        if user_id_filter:
-            query = query.filter(Meeting.user_id == user_id_filter)
-
-    # Filtro per cliente (ricerca nel nome)
-    cliente_filter = request.args.get('cliente', '').strip()
-    if cliente_filter:
-        query = query.join(Cliente, Meeting.cliente_id == Cliente.cliente_id, isouter=True)
-        query = query.filter(Cliente.nome_cognome.ilike(f'%{cliente_filter}%'))
-
-    # Filtro per categoria/tipologia call
-    categoria_filter = request.args.get('categoria', '').strip()
-    if categoria_filter:
-        query = query.filter(Meeting.event_category == categoria_filter)
-
-    # Filtro per data
-    date_from = request.args.get('date_from')
-    date_to = request.args.get('date_to')
-
-    if date_from:
-        try:
-            from_date = datetime.strptime(date_from, '%Y-%m-%d')
-            query = query.filter(Meeting.start_time >= from_date)
-        except ValueError:
-            pass
-
-    if date_to:
-        try:
-            to_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(Meeting.start_time < to_date)
-        except ValueError:
-            pass
-
-    # Ordina per data decrescente
-    meetings = query.order_by(Meeting.start_time.desc()).all()
-
-    # Conta meeting di questo mese
-    now = datetime.utcnow()
-    first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    this_month_count = sum(1 for m in meetings if m.start_time >= first_of_month)
-
-    # Lista utenti per filtro (solo admin)
-    users = []
-    if current_user.is_admin:
-        users = User.query.filter(User.is_active == True).order_by(User.first_name, User.last_name).all()
-
-    # Colori e label categorie
-    category_colors = {
-        'call_iniziale': '#dc3545',
-        'call_periodica': '#fd7e14',
-        'call_1_sales': '#dc3545',
-        'call_2_sales': '#fd7e14',
-        'call_interna': '#198754',
-        'call_customer_care': '#dc3545',
-        'call_onboarding': '#fd7e14',
-        'call_followup': '#ffc107'
-    }
-
-    category_labels = {
-        'call_iniziale': 'Call Iniziale',
-        'call_periodica': 'Call Periodica',
-        'call_1_sales': 'Call 1 Sales',
-        'call_2_sales': 'Call 2 Sales',
-        'call_interna': 'Call Interna',
-        'call_customer_care': 'Call Customer Care',
-        'call_onboarding': 'Call Onboarding',
-        'call_followup': 'Call Follow-up'
-    }
-
-    return render_template(
-        'calendar/loom_library.html',
-        meetings=meetings,
-        users=users,
-        this_month_count=this_month_count,
-        category_colors=category_colors,
-        category_labels=category_labels
-    )

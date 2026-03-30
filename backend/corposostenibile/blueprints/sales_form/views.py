@@ -3,7 +3,7 @@ Views principali per Sales Form Blueprint
 """
 
 from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from sqlalchemy import and_, or_, func
 
@@ -98,15 +98,7 @@ def dashboard():
         status_key = lead.status.value if hasattr(lead.status, 'value') else str(lead.status)
         status_counts[status_key] = status_counts.get(status_key, 0) + 1
 
-    return render_template(
-        'sales_form/dashboard.html',
-        leads=leads,
-        my_link=my_link,
-        stats=stats,
-        status_counts=status_counts,
-        LeadStatusEnum=LeadStatusEnum
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>')
 @login_required
@@ -197,23 +189,7 @@ def lead_detail(lead_id):
         else:
             check_urls[check_key] = None
 
-    return render_template(
-        'sales_form/lead_detail.html',
-        lead=lead,
-        payments=payments,
-        activities=activities,
-        packages=packages,
-        health_managers=health_managers,
-        LeadStatusEnum=LeadStatusEnum,
-        LeadOriginEnum=LeadOriginEnum,
-        check_links=check_links,  # ← NUOVO: tutti e 3 i link
-        check_urls=check_urls,  # ← NUOVO: URLs completi per i link
-        check_configs=check_configs,  # ← Configurazioni form (dizionario field_name -> label)
-        check_fields_ordered=check_fields_ordered,  # ← NUOVO: Lista ordinata di campi per mostrare TUTTE le domande
-        needs_form_completion=needs_form_completion,
-        today=datetime.now().date()  # Per calcolare età dalla birth_date
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>/story', methods=['GET', 'POST'])
 @login_required
@@ -243,8 +219,7 @@ def add_story(lead_id):
             flash('Storia cliente aggiunta con successo', 'success')
         return redirect(url_for('sales_form.lead_detail', lead_id=lead_id))
 
-    return render_template('sales_form/add_story.html', lead=lead)
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>/gender', methods=['POST'])
 @login_required
@@ -372,12 +347,7 @@ def archived_leads():
         per_page=20
     )
 
-    return render_template(
-        'sales_form/archived_leads.html',
-        leads=archived_pagination,
-        current_search=search
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>/origin', methods=['POST'])
 @login_required
@@ -592,8 +562,7 @@ def add_payment(lead_id):
 
                     if file_ext not in allowed_extensions:
                         flash('Formato file non valido. Usa PDF, JPG o PNG', 'error')
-                        return render_template('sales_form/add_payment.html', lead=lead)
-
+                        abort(404)
                     # Valida dimensione (max 10MB)
                     receipt_file.seek(0, 2)  # Vai alla fine del file
                     file_size = receipt_file.tell()
@@ -601,8 +570,7 @@ def add_payment(lead_id):
 
                     if file_size > 10 * 1024 * 1024:
                         flash('File troppo grande (max 10MB)', 'error')
-                        return render_template('sales_form/add_payment.html', lead=lead)
-
+                        abort(404)
                     # Crea directory per ricevute
                     from flask import current_app
                     import os
@@ -650,8 +618,7 @@ def add_payment(lead_id):
 
         return redirect(url_for('sales_form.lead_detail', lead_id=lead_id))
 
-    return render_template('sales_form/add_payment.html', lead=lead)
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>/payment/<int:payment_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -704,8 +671,7 @@ def edit_payment(lead_id, payment_id):
         return redirect(url_for('sales_form.lead_detail', lead_id=lead_id))
 
     # GET - Mostra form di modifica
-    return render_template('sales_form/edit_payment.html', lead=lead, payment=payment)
-
+    abort(404)
 
 @sales_form_bp.route('/lead/<int:lead_id>/payment/<int:payment_id>/delete', methods=['POST'])
 @login_required
@@ -781,7 +747,7 @@ def download_receipt(lead_id, payment_id):
     # Verifica che il pagamento appartenga alla lead
     if payment.lead_id != lead_id:
         flash('Pagamento non trovato per questa lead', 'error')
-        abort(404)
+    abort(404)
 
     # Verifica che esista la ricevuta
     if not payment.receipt_url:
@@ -836,7 +802,7 @@ def download_attachment(lead_id, filename):
     # Verifica che il file esista
     if not os.path.exists(file_path):
         flash('File non trovato', 'error')
-        abort(404)
+    abort(404)
 
     # Verifica che il file appartenga davvero a questa lead (path traversal protection)
     try:
@@ -1273,16 +1239,7 @@ def finance_panel():
         User.is_active == True
     ).order_by(User.first_name, User.last_name).all()
 
-    return render_template(
-        'sales_form/finance_panel.html',
-        pending_leads=pending_leads,
-        total_pending=total_pending,
-        total_amount=total_amount,
-        sales_users=sales_users,
-        current_search=search,
-        current_sales_filter=sales_user_id
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/finance/approve/<int:lead_id>', methods=['POST'])
 @login_required
@@ -1416,18 +1373,7 @@ def finance_history():
         User.is_active == True
     ).order_by(User.first_name, User.last_name).all()
 
-    return render_template(
-        'sales_form/finance_history.html',
-        leads=leads_pagination,
-        total_approved=total_approved,
-        total_rejected=total_rejected,
-        sales_users=sales_users,
-        current_sales_filter=sales_user_id,
-        current_date_from=date_from_str,
-        current_date_to=date_to_str,
-        current_search=search
-    )
-
+    abort(404)
 
 # ===================== PANNELLO HEALTH MANAGER =====================
 
@@ -1493,22 +1439,7 @@ def health_manager_panel():
         is_active=True
     ).order_by(User.first_name, User.last_name).all()
 
-    return render_template(
-        'sales_form/health_manager_panel.html',
-        pending_leads=pending_leads,
-        professionals_needed=professionals_needed,
-        nutritionists=nutritionists,
-        coaches=coaches,
-        psychologists=psychologists,
-        health_managers=health_managers,
-        current_search=search,
-        current_hm_filter=health_manager_id,
-        onboarding_date_from=onboarding_date_from_str,
-        onboarding_date_to=onboarding_date_to_str,
-        current_presentation_filter=presentation_filter,
-        now=datetime.now()
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/health-manager/history')
 @login_required
@@ -1554,17 +1485,7 @@ def health_manager_history():
         is_active=True
     ).order_by(User.first_name, User.last_name).all()
 
-    return render_template(
-        'sales_form/health_manager_history.html',
-        leads=leads_pagination,
-        total_assigned=total_assigned,
-        health_managers=health_managers,
-        current_hm_filter=health_manager_id,
-        current_date_from=date_from_str,
-        current_date_to=date_to_str,
-        current_search=search
-    )
-
+    abort(404)
 
 @sales_form_bp.route('/health-manager/toggle-presentation-message/<int:lead_id>', methods=['POST'])
 @login_required
@@ -1761,14 +1682,7 @@ def stats():
             for stat in team_stats
         ]
 
-    return render_template(
-        'sales_form/stats.html',
-        my_stats=my_stats,
-        prev_stats=prev_stats,
-        team_ranking=team_ranking,
-        month=month_start.strftime('%B %Y')
-    )
-
+    abort(404)
 
 # ===================== ANALYTICS DASHBOARD =====================
 
@@ -1829,14 +1743,4 @@ def analytics():
     sales_ranking = AnalyticsService.get_sales_ranking(start_date, end_date, top_n=10)
     packages_ranking = AnalyticsService.get_packages_ranking(start_date, end_date, top_n=10)
 
-    return render_template(
-        'sales_form/analytics_dashboard.html',
-        filter_type=filter_type,
-        start_date=start_date,
-        end_date=end_date,
-        company_metrics=company_metrics,
-        leads_trend=leads_trend,
-        revenue_trend=revenue_trend,
-        sales_ranking=sales_ranking,
-        packages_ranking=packages_ranking
-    )
+    abort(404)

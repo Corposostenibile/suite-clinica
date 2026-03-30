@@ -17,7 +17,7 @@ kpi_bp = Blueprint(
     url_prefix='/kpi'
 )
 
-from . import routes  # noqa: F401, E402
+# Routes removed - no HTML endpoints served by this blueprint
 
 
 def init_app(app: Flask) -> None:

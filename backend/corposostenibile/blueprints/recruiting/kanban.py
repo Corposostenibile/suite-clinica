@@ -2,7 +2,7 @@
 Kanban management for recruiting pipeline
 """
 
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -26,11 +26,7 @@ def kanban_list():
     """Lista di tutti i kanban configurati."""
     kanbans = RecruitingKanban.query.filter_by(is_active=True).all()
     
-    return render_template(
-        "recruiting/kanban/list_modern.html",
-        kanbans=kanbans
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/new", methods=["GET", "POST"])
 @login_required
@@ -82,11 +78,7 @@ def kanban_create():
         flash("Kanban creato con successo!", "success")
         return redirect(url_for('recruiting.kanban_list'))
     
-    return render_template(
-        "recruiting/kanban/create_modern.html",
-        form=form
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/<int:kanban_id>")
 @login_required
@@ -162,17 +154,7 @@ def kanban_view(kanban_id):
     # Trova gli stage finali per il sistema semaforo (pulsante rosso)
     final_stages = [s for s in kanban.stages if s.is_final and s.is_active]
 
-    return render_template(
-        "recruiting/kanban/board.html",
-        kanban=kanban,
-        stages=stages,
-        job_offers=job_offers,
-        total_candidates=total_candidates,
-        in_review=in_review,
-        scheduled_interviews=scheduled_interviews,
-        final_stages=final_stages  # Stage finali per pulsante rosso
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/offers/<int:offer_id>/kanban")
 @login_required  
@@ -252,18 +234,7 @@ def offer_kanban_view(offer_id):
     # Trova gli stage finali per il sistema semaforo (pulsante rosso)
     final_stages = [s for s in kanban.stages if s.is_final and s.is_active]
 
-    return render_template(
-        "recruiting/kanban/board.html",
-        kanban=kanban,
-        stages=stages,
-        job_offers=[offer],  # Solo questa offerta
-        current_offer=offer,  # Per identificare che siamo in vista singola offerta
-        total_candidates=total_candidates,
-        in_review=in_review,
-        scheduled_interviews=scheduled_interviews,
-        final_stages=final_stages  # Stage finali per pulsante rosso
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/<int:kanban_id>/configure", methods=["GET", "POST"])
 @login_required
@@ -275,12 +246,7 @@ def kanban_configure(kanban_id):
         # Gestione stages via AJAX
         pass
     
-    return render_template(
-        "recruiting/kanban/configure_modern.html",
-        kanban=kanban,
-        stages=kanban.stages
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/<int:kanban_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -302,12 +268,7 @@ def kanban_edit(kanban_id):
         flash("Kanban aggiornato con successo!", "success")
         return redirect(url_for('recruiting.kanban_list'))
     
-    return render_template(
-        "recruiting/kanban/edit_modern.html",
-        form=form,
-        kanban=kanban
-    )
-
+    abort(404)
 
 # ============================================================================
 # KANBAN STAGE MANAGEMENT
@@ -346,13 +307,7 @@ def stage_add(kanban_id):
         flash("Stage aggiunto con successo!", "success")
         return redirect(url_for('recruiting.kanban_configure', kanban_id=kanban_id))
     
-    return render_template(
-        "recruiting/kanban/stage_form.html",
-        form=form,
-        kanban=kanban,
-        action="add"
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/stages/<int:stage_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -378,14 +333,7 @@ def stage_edit(stage_id):
         form.stage_type.data = stage.stage_type.value
         form.color.data = stage.color
     
-    return render_template(
-        "recruiting/kanban/stage_form.html",
-        form=form,
-        stage=stage,
-        kanban=stage.kanban,
-        action="edit"
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/kanban/stages/<int:stage_id>/delete", methods=["POST"])
 @login_required
@@ -681,13 +629,7 @@ def kanban_analytics(kanban_id):
     # Ottieni le spiegazioni dei calcoli
     explanations = metrics_service.get_kanban_calculation_explanations()
 
-    return render_template(
-        "recruiting/kanban/analytics.html",
-        kanban=kanban,
-        metrics=metrics,
-        explanations=explanations
-    )
-
+    abort(404)
 
 @recruiting_bp.route("/api/applications/<int:application_id>/timeline")
 @login_required
