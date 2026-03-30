@@ -41,8 +41,16 @@ def upgrade():
     op.add_column("clienti", sa.Column("referral_bonus_utilizzato", sa.String(length=255), nullable=True))
     op.add_column("clienti", sa.Column("referral_bonus_da_utilizzare", sa.String(length=255), nullable=True))
 
+    # Add same columns to clienti_version (versioning table)
+    op.add_column("clienti_version", sa.Column("referral_bonus_scelto", sa.String(length=255), nullable=True))
+    op.add_column("clienti_version", sa.Column("referral_bonus_utilizzato", sa.String(length=255), nullable=True))
+    op.add_column("clienti_version", sa.Column("referral_bonus_da_utilizzare", sa.String(length=255), nullable=True))
+
 
 def downgrade():
+    op.drop_column("clienti_version", "referral_bonus_da_utilizzare")
+    op.drop_column("clienti_version", "referral_bonus_utilizzato")
+    op.drop_column("clienti_version", "referral_bonus_scelto")
     op.drop_column("clienti", "referral_bonus_da_utilizzare")
     op.drop_column("clienti", "referral_bonus_utilizzato")
     op.drop_column("clienti", "referral_bonus_scelto")
