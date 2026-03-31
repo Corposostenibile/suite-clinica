@@ -70,6 +70,7 @@ import { useAuth } from './context/AuthContext';
 import {
   canAccessAiAssignments,
   canAccessCapacity,
+  canAccessCalendario,
   canAccessGlobalCheckPage,
   canAccessLoomLibrary,
   canAccessQualityPage,
@@ -238,7 +239,7 @@ function App() {
             <Route path="/check-da-leggere" element={<RoleProtectedRoute allowIf={canAccessGlobalCheckPage}><CheckDaLeggere /></RoleProtectedRoute>} />
 
             {/* Calendario */}
-            <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Calendario /></RoleProtectedRoute>} />
+            <Route path="/calendario" element={<RoleProtectedRoute allowIf={canAccessCalendario}><Calendario /></RoleProtectedRoute>} />
             <Route path="/loom-library" element={<RoleProtectedRoute allowIf={canAccessLoomLibrary}><LoomLibrary /></RoleProtectedRoute>} />
             <Route path="/comunicazioni" element={<div className="card p-4">Comunicazioni (coming soon)</div>} />
             <Route path="/profilo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Profilo /></RoleProtectedRoute>} />

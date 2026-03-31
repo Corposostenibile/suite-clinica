@@ -23,9 +23,21 @@ function Calendario() {
     return new Date(now.getFullYear(), now.getMonth(), diff);
   });
 
-  const isAdmin = user?.is_admin || user?.role === 'admin';
+  const isCco = String(user?.specialty || '').toLowerCase() === 'cco';
+  const isAdmin = user?.is_admin || user?.role === 'admin' || isCco;
   const isTeamLeader = user?.role === 'team_leader' && !isAdmin;
-  const canFilter = isAdmin || isTeamLeader;
+  const isHealthManager = user?.role === 'health_manager' && !isAdmin;
+  const isTeamLeaderHm = Boolean(
+    isTeamLeader && (
+      String(user?.specialty || '').toLowerCase() === 'health_manager' ||
+      String(user?.department?.name || '').toLowerCase().includes('health') ||
+      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
+        const tt = team?.team_type?.value || team?.team_type;
+        return String(tt || '').toLowerCase() === 'health_manager';
+      }))
+    )
+  );
+  const canFilter = isAdmin || isTeamLeader || isTeamLeaderHm;
 
   const formatDate = (d) => d.toISOString().split('T')[0];
 
@@ -74,14 +86,14 @@ function Calendario() {
       if (selectedMemberId) {
         // Viewing another member's calendar - skip own connection check
         setConnected(true);
-      } else if (canFilter) {
+      } else if (canFilter && !isHealthManager) {
         // Admin/TL without a member selected - show empty grid with filter
         setConnected(true);
         setEvents([]);
         setLoading(false);
         return;
       } else {
-        // Normal user - check own connection
+        // Normal user / HM - check own connection
         const isConnected = await checkConnection();
         if (!isConnected) {
           setLoading(false);

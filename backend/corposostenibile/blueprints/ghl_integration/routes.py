@@ -1096,13 +1096,17 @@ def api_get_calendar_team_members():
 
     - admin / cco: tutti gli utenti con ghl_user_id
     - team_leader: solo i membri dei propri team (+ se stesso)
+    - health_manager: nessun filtro (vede solo il suo)
     - professionista: solo se stesso (nessun filtro mostrato)
     """
-    is_admin = current_user.is_admin
+    specialty = getattr(current_user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    is_cco = specialty_value.strip().lower() == "cco"
+    is_admin = current_user.is_admin or is_cco
     is_tl = _is_team_leader_user(current_user)
 
     if not is_admin and not is_tl:
-        # Professionista normale: nessun membro da mostrare
+        # Professionista / HM: nessun membro da mostrare (HM vede il suo calendario)
         return jsonify({'success': True, 'members': []})
 
     if is_admin:
