@@ -160,15 +160,17 @@ class GHLCalendarService:
         """
         endpoint = f"/calendars/{calendar_id}/free-slots"
 
-        # Formatta le date
-        if isinstance(start_date, datetime):
-            start_date = start_date.strftime("%Y-%m-%d")
-        if isinstance(end_date, datetime):
-            end_date = end_date.strftime("%Y-%m-%d")
+        # GHL API richiede epoch milliseconds
+        def _to_epoch_ms(val):
+            if isinstance(val, (int, float)):
+                return int(val)
+            if isinstance(val, datetime):
+                return int(val.timestamp() * 1000)
+            return int(datetime.strptime(str(val), "%Y-%m-%d").timestamp() * 1000)
 
         params = {
-            "startDate": start_date,
-            "endDate": end_date,
+            "startDate": _to_epoch_ms(start_date),
+            "endDate": _to_epoch_ms(end_date),
             "timezone": timezone
         }
 
