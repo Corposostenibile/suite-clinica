@@ -18,6 +18,7 @@ import clientiService, {
   TIPO_PROFESSIONISTA_ICONS,
   TIPO_PROFESSIONISTA_COLORS,
   PATOLOGIE_PSICO,
+  PATOLOGIE_COACH,
 } from '../../services/clientiService';
 import teamService from '../../services/teamService';
 import checkService, { CHECK_TYPES } from '../../services/checkService';
@@ -744,6 +745,8 @@ function ClientiDetail() {
   const [editingInterventionId, setEditingInterventionId] = useState(null);
 
   // ==================== MARKETING / TRUSTPILOT STATE ====================
+  const [exportingClinicalPdf, setExportingClinicalPdf] = useState(false);
+  const [marketingPdfError, setMarketingPdfError] = useState('');
   const [trustpilotData, setTrustpilotData] = useState(null);
   const [loadingTrustpilot, setLoadingTrustpilot] = useState(false);
   const [sendingTrustpilotAction, setSendingTrustpilotAction] = useState(null);
@@ -956,6 +959,29 @@ function ClientiDetail() {
     reach_out_coaching: '',
     stato_cliente_chat_coaching: '',
     luogo_di_allenamento: '',
+    nessuna_patologia_coach: false,
+    patologia_coach_dca: false,
+    patologia_coach_ipertensione: false,
+    patologia_coach_pcos: false,
+    patologia_coach_sindrome_metabolica: false,
+    patologia_coach_endometriosi: false,
+    patologia_coach_osteoporosi: false,
+    patologia_coach_menopausa: false,
+    patologia_coach_artrosi: false,
+    patologia_coach_artrite: false,
+    patologia_coach_sclerosi_multipla: false,
+    patologia_coach_fibromialgia: false,
+    patologia_coach_lipedema: false,
+    patologia_coach_linfedema: false,
+    patologia_coach_gravidanza: false,
+    patologia_coach_riabilitazione_anca: false,
+    patologia_coach_riabilitazione_spalla: false,
+    patologia_coach_riabilitazione_ginocchio: false,
+    patologia_coach_lombalgia: false,
+    patologia_coach_spondilolistesi: false,
+    patologia_coach_spondilolisi: false,
+    patologia_coach_altro_check: false,
+    patologia_coach_altro: '',
     storia_coach: '',
     note_extra_coach: '',
     alert_coaching: '',
@@ -1300,6 +1326,31 @@ function ClientiDetail() {
       fetchVideoReviewRequests();
     }
   }, [activeTab, fetchVideoReviewRequests]);
+
+  const handleExportClinicalFolderPdf = async () => {
+    if (!id) return;
+    setExportingClinicalPdf(true);
+    setMarketingPdfError('');
+    try {
+      const response = await clientiService.exportClinicalFolderPdf(id);
+      const contentDisposition = response.headers?.['content-disposition'] || '';
+      const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      const filename = match ? match[1].replace(/['"]/g, '') : `cartella_clinica_${id}.pdf`;
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting clinical folder PDF:', err);
+      setMarketingPdfError('Errore durante la generazione del PDF. Riprova.');
+    } finally {
+      setExportingClinicalPdf(false);
+    }
+  };
 
   const handleGenerateTrustpilotLink = async () => {
     if (!id) return;
@@ -2779,6 +2830,29 @@ function ClientiDetail() {
       reach_out_coaching: c.reach_out_coaching || c.reachOutCoaching || '',
       stato_cliente_chat_coaching: c.stato_cliente_chat_coaching || c.statoClienteChatCoaching || '',
       luogo_di_allenamento: c.luogo_di_allenamento || c.luogoDiAllenamento || '',
+      nessuna_patologia_coach: c.nessuna_patologia_coach || false,
+      patologia_coach_dca: c.patologia_coach_dca || false,
+      patologia_coach_ipertensione: c.patologia_coach_ipertensione || false,
+      patologia_coach_pcos: c.patologia_coach_pcos || false,
+      patologia_coach_sindrome_metabolica: c.patologia_coach_sindrome_metabolica || false,
+      patologia_coach_endometriosi: c.patologia_coach_endometriosi || false,
+      patologia_coach_osteoporosi: c.patologia_coach_osteoporosi || false,
+      patologia_coach_menopausa: c.patologia_coach_menopausa || false,
+      patologia_coach_artrosi: c.patologia_coach_artrosi || false,
+      patologia_coach_artrite: c.patologia_coach_artrite || false,
+      patologia_coach_sclerosi_multipla: c.patologia_coach_sclerosi_multipla || false,
+      patologia_coach_fibromialgia: c.patologia_coach_fibromialgia || false,
+      patologia_coach_lipedema: c.patologia_coach_lipedema || false,
+      patologia_coach_linfedema: c.patologia_coach_linfedema || false,
+      patologia_coach_gravidanza: c.patologia_coach_gravidanza || false,
+      patologia_coach_riabilitazione_anca: c.patologia_coach_riabilitazione_anca || false,
+      patologia_coach_riabilitazione_spalla: c.patologia_coach_riabilitazione_spalla || false,
+      patologia_coach_riabilitazione_ginocchio: c.patologia_coach_riabilitazione_ginocchio || false,
+      patologia_coach_lombalgia: c.patologia_coach_lombalgia || false,
+      patologia_coach_spondilolistesi: c.patologia_coach_spondilolistesi || false,
+      patologia_coach_spondilolisi: c.patologia_coach_spondilolisi || false,
+      patologia_coach_altro_check: c.patologia_coach_altro_check || (!!c.patologia_coach_altro) || false,
+      patologia_coach_altro: c.patologia_coach_altro || '',
       storia_coach: c.storia_coach || c.storiaCoach || '',
       note_extra_coach: c.note_extra_coach || c.noteExtraCoach || '',
       alert_coaching: c.alert_coaching || c.alertCoaching || '',
@@ -5672,6 +5746,7 @@ function ClientiDetail() {
                           { key: 'setup', label: 'Setup', icon: 'ri-settings-3-line', color: 'blue' },
                           { key: 'piano', label: 'Piano Allenamento', icon: 'ri-run-line', color: 'orange' },
                           { key: 'luoghi', label: 'Luoghi', icon: 'ri-map-pin-line', color: 'green' },
+                          { key: 'patologie', label: 'Patologie', icon: 'ri-heart-pulse-line', color: 'red' },
                           { key: 'anamnesi', label: 'Anamnesi', icon: 'ri-file-list-3-line', color: 'red' },
                           { key: 'diario', label: 'Diario', icon: 'ri-book-2-line', color: 'pink' },
                           { key: 'alert', label: 'Alert', icon: 'ri-alarm-warning-line', color: 'red' },
@@ -6381,6 +6456,104 @@ function ClientiDetail() {
                             </div>
                           </div>
                         )}
+                      </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ===== PATOLOGIE SUB-TAB (Coaching) ===== */}
+                  {coachingSubTab === 'patologie' && (
+                    <div data-tour="coaching-patologie">
+                      <div className="cd-sections">
+                      <div>
+                        <div className="cd-section-title">
+                          Patologie del Cliente (Coaching)
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle warning">
+                                <i className="ri-heart-pulse-line"></i>
+                              </div>
+                              <span className="cd-inner-card-title">Patologie Coaching</span>
+                            </div>
+
+                            {/* Nessuna Patologia - in evidenza */}
+                            <div
+                              className={`cd-no-pathology-banner ${formData.nessuna_patologia_coach ? 'active' : ''}`}
+                            >
+                              <div className="form-check mb-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id="nessuna_patologia_coach"
+                                  checked={formData.nessuna_patologia_coach || false}
+                                  onChange={(e) => handleInputChange('nessuna_patologia_coach', e.target.checked)}
+                                />
+                                <label
+                                  className={`form-check-label small ${formData.nessuna_patologia_coach ? 'fw-semibold text-success' : ''}`}
+                                  htmlFor="nessuna_patologia_coach"
+                                >
+                                  Nessuna Patologia
+                                </label>
+                              </div>
+                            </div>
+
+                            {/* Lista patologie coaching */}
+                            <div className="cd-pathology-grid">
+                              {PATOLOGIE_COACH.map(({ key, label }) => (
+                                <div key={key}>
+                                  <div className="form-check">
+                                    <input
+                                      className="form-check-input"
+                                      type="checkbox"
+                                      id={key}
+                                      checked={formData[key] || false}
+                                      onChange={(e) => handleInputChange(key, e.target.checked)}
+                                    />
+                                    <label
+                                      className={`form-check-label small ${formData[key] ? 'fw-medium' : ''}`}
+                                      htmlFor={key}
+                                    >
+                                      {label}
+                                    </label>
+                                  </div>
+                                </div>
+                              ))}
+                              {/* Altro Checkbox */}
+                              <div>
+                                <div className="form-check">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id="patologia_coach_altro_check"
+                                    checked={formData.patologia_coach_altro_check || false}
+                                    onChange={(e) => handleInputChange('patologia_coach_altro_check', e.target.checked)}
+                                  />
+                                  <label
+                                    className={`form-check-label small ${formData.patologia_coach_altro_check ? 'fw-medium' : ''}`}
+                                    htmlFor="patologia_coach_altro_check"
+                                  >
+                                    Altro...
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Altro Input */}
+                            {formData.patologia_coach_altro_check && (
+                              <div className="mt-2">
+                                <input
+                                  type="text"
+                                  className="cd-input sm"
+                                  placeholder="Specifica altra patologia coaching..."
+                                  value={formData.patologia_coach_altro || ''}
+                                  onChange={(e) => handleInputChange('patologia_coach_altro', e.target.value)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       </div>
                     </div>
@@ -8104,6 +8277,35 @@ function ClientiDetail() {
               {/* ==================== MARKETING TAB ==================== */}
               {activeTab === 'marketing' && canViewMarketingTab && (
                 <div>
+                  {/* ── Export Cartella Clinica PDF ── */}
+                  <div style={{ marginBottom: 24, padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                          <i className="ri-file-pdf-2-line" style={{ marginRight: 6, color: '#dc2626' }}></i>
+                          Export Cartella Clinica PDF
+                        </div>
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          Il PDF include tutte le sezioni della cartella clinica: anagrafica, servizi, patologie, check, interventi, piani e metriche.
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        disabled={exportingClinicalPdf}
+                        onClick={handleExportClinicalFolderPdf}
+                      >
+                        {exportingClinicalPdf ? (
+                          <><span className="spinner-border spinner-border-sm me-1"></span>Generazione...</>
+                        ) : (
+                          <><i className="ri-download-2-line" style={{ marginRight: 4 }}></i>Scarica PDF</>
+                        )}
+                      </button>
+                    </div>
+                    {marketingPdfError && (
+                      <div className="text-danger small mt-2"><i className="ri-error-warning-line me-1"></i>{marketingPdfError}</div>
+                    )}
+                  </div>
+
                   <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
                     <i className="ri-video-line" style={{ marginRight: 8, color: '#0ea5e9' }}></i>
                     Video Review

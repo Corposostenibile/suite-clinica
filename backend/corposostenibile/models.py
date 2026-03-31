@@ -1717,6 +1717,51 @@ class PatologiaPsicoLog(TimestampMixin, db.Model):
         return (fine - self.data_inizio).days
 
 
+class PatologiaCoachLog(TimestampMixin, db.Model):
+    """
+    Log/Storico delle patologie coaching del cliente.
+    Traccia quando una patologia coaching viene aggiunta o rimossa per avere uno storico completo.
+    """
+    __tablename__ = "patologia_coach_log"
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('clienti.cliente_id', ondelete='CASCADE'), nullable=False, index=True)
+
+    # Nome della patologia coaching (es: 'dca', 'lombalgia', ecc.)
+    patologia = db.Column(db.String(100), nullable=False, index=True)
+
+    # Nome visualizzato della patologia (es: 'DCA', 'Lombalgia')
+    patologia_nome = db.Column(db.String(200), nullable=False)
+
+    # Azione: 'aggiunta' o 'rimossa'
+    azione = db.Column(db.String(20), nullable=False)
+
+    # Range temporale della patologia
+    data_inizio = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_fine = db.Column(db.DateTime, nullable=True)  # NULL = ancora presente
+
+    # Note opzionali
+    note = db.Column(db.Text, nullable=True)
+
+    # Relazione con il cliente
+    cliente = db.relationship('Cliente', backref=db.backref('storico_patologie_coach', lazy='dynamic', order_by='PatologiaCoachLog.data_inizio.desc()'))
+
+    def __repr__(self):
+        stato_str = "presente" if self.data_fine is None else f"rimossa il {self.data_fine.strftime('%d/%m/%Y')}"
+        return f"<PatologiaCoachLog {self.patologia_nome} {self.azione} il {self.data_inizio.strftime('%d/%m/%Y')} - {stato_str}>"
+
+    @property
+    def is_attiva(self):
+        """Ritorna True se questa patologia è ancora presente (data_fine è NULL)"""
+        return self.data_fine is None
+
+    @property
+    def durata_giorni(self):
+        """Calcola la durata in giorni della patologia"""
+        fine = self.data_fine or datetime.utcnow()
+        return (fine - self.data_inizio).days
+
+
 # ─────────────────────────  Cliente  ────────────────────────── #
 # ─────────────────────────  Cliente (VERSIONE RIDOTTA COMPLETA) ────────────────────────── #
 class Cliente(TimestampMixin, db.Model):
@@ -1820,9 +1865,33 @@ class Cliente(TimestampMixin, db.Model):
     patologia_psico_psicosomatiche             = db.Column(db.Boolean, default=False)
     patologia_psico_relazionali_altro          = db.Column(db.Boolean, default=False)
     
+    # Patologie Coaching
+    nessuna_patologia_coach                    = db.Column(db.Boolean, default=False)
+    patologia_coach_dca                        = db.Column(db.Boolean, default=False)
+    patologia_coach_ipertensione               = db.Column(db.Boolean, default=False)
+    patologia_coach_pcos                       = db.Column(db.Boolean, default=False)
+    patologia_coach_sindrome_metabolica        = db.Column(db.Boolean, default=False)
+    patologia_coach_endometriosi               = db.Column(db.Boolean, default=False)
+    patologia_coach_osteoporosi                = db.Column(db.Boolean, default=False)
+    patologia_coach_menopausa                  = db.Column(db.Boolean, default=False)
+    patologia_coach_artrosi                    = db.Column(db.Boolean, default=False)
+    patologia_coach_artrite                    = db.Column(db.Boolean, default=False)
+    patologia_coach_sclerosi_multipla          = db.Column(db.Boolean, default=False)
+    patologia_coach_fibromialgia               = db.Column(db.Boolean, default=False)
+    patologia_coach_lipedema                   = db.Column(db.Boolean, default=False)
+    patologia_coach_linfedema                  = db.Column(db.Boolean, default=False)
+    patologia_coach_gravidanza                 = db.Column(db.Boolean, default=False)
+    patologia_coach_riabilitazione_anca        = db.Column(db.Boolean, default=False)
+    patologia_coach_riabilitazione_spalla      = db.Column(db.Boolean, default=False)
+    patologia_coach_riabilitazione_ginocchio   = db.Column(db.Boolean, default=False)
+    patologia_coach_lombalgia                  = db.Column(db.Boolean, default=False)
+    patologia_coach_spondilolistesi            = db.Column(db.Boolean, default=False)
+    patologia_coach_spondilolisi               = db.Column(db.Boolean, default=False)
+
     # Campi testuali per "Altro"
     patologia_altro                     = db.Column(db.Text)  # Campo testuale per "Altro" nutrizione
     patologia_psico_altro               = db.Column(db.Text)  # Campo testuale per "Altro" psicologia
+    patologia_coach_altro               = db.Column(db.Text)  # Campo testuale per "Altro" coaching
 
     # Bonus & Alert
     bonus                   = db.Column(db.Boolean)

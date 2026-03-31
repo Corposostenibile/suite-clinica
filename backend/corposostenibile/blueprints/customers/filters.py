@@ -291,6 +291,30 @@ class CustomerFilterParams:
     con_almeno_una_patologia_nutrizionale: bool = False
     senza_patologie_nutrizionali: bool = False
 
+    # Patologie Coaching
+    patologia_coach_dca: Optional[bool] = None
+    patologia_coach_ipertensione: Optional[bool] = None
+    patologia_coach_pcos: Optional[bool] = None
+    patologia_coach_sindrome_metabolica: Optional[bool] = None
+    patologia_coach_endometriosi: Optional[bool] = None
+    patologia_coach_osteoporosi: Optional[bool] = None
+    patologia_coach_menopausa: Optional[bool] = None
+    patologia_coach_artrosi: Optional[bool] = None
+    patologia_coach_artrite: Optional[bool] = None
+    patologia_coach_sclerosi_multipla: Optional[bool] = None
+    patologia_coach_fibromialgia: Optional[bool] = None
+    patologia_coach_lipedema: Optional[bool] = None
+    patologia_coach_linfedema: Optional[bool] = None
+    patologia_coach_gravidanza: Optional[bool] = None
+    patologia_coach_riabilitazione_anca: Optional[bool] = None
+    patologia_coach_riabilitazione_spalla: Optional[bool] = None
+    patologia_coach_riabilitazione_ginocchio: Optional[bool] = None
+    patologia_coach_lombalgia: Optional[bool] = None
+    patologia_coach_spondilolistesi: Optional[bool] = None
+    patologia_coach_spondilolisi: Optional[bool] = None
+    con_almeno_una_patologia_coaching: bool = False
+    senza_patologie_coaching: bool = False
+
     # ─────────────────── TAB 9: COACHING ─────────────────── #
     stato_coach: List[StatoClienteEnum] = field(default_factory=list)
     stato_chat_coaching: List[StatoClienteEnum] = field(default_factory=list)
@@ -1165,6 +1189,43 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     
     if p.senza_patologie_nutrizionali:
         conditions = [pat_field != True for _, pat_field in patologie_nutrizionali]
+        qry = qry.filter(and_(*conditions))
+
+    # Patologie Coaching
+    patologie_coaching = [
+        ('patologia_coach_dca', Cliente.patologia_coach_dca),
+        ('patologia_coach_ipertensione', Cliente.patologia_coach_ipertensione),
+        ('patologia_coach_pcos', Cliente.patologia_coach_pcos),
+        ('patologia_coach_sindrome_metabolica', Cliente.patologia_coach_sindrome_metabolica),
+        ('patologia_coach_endometriosi', Cliente.patologia_coach_endometriosi),
+        ('patologia_coach_osteoporosi', Cliente.patologia_coach_osteoporosi),
+        ('patologia_coach_menopausa', Cliente.patologia_coach_menopausa),
+        ('patologia_coach_artrosi', Cliente.patologia_coach_artrosi),
+        ('patologia_coach_artrite', Cliente.patologia_coach_artrite),
+        ('patologia_coach_sclerosi_multipla', Cliente.patologia_coach_sclerosi_multipla),
+        ('patologia_coach_fibromialgia', Cliente.patologia_coach_fibromialgia),
+        ('patologia_coach_lipedema', Cliente.patologia_coach_lipedema),
+        ('patologia_coach_linfedema', Cliente.patologia_coach_linfedema),
+        ('patologia_coach_gravidanza', Cliente.patologia_coach_gravidanza),
+        ('patologia_coach_riabilitazione_anca', Cliente.patologia_coach_riabilitazione_anca),
+        ('patologia_coach_riabilitazione_spalla', Cliente.patologia_coach_riabilitazione_spalla),
+        ('patologia_coach_riabilitazione_ginocchio', Cliente.patologia_coach_riabilitazione_ginocchio),
+        ('patologia_coach_lombalgia', Cliente.patologia_coach_lombalgia),
+        ('patologia_coach_spondilolistesi', Cliente.patologia_coach_spondilolistesi),
+        ('patologia_coach_spondilolisi', Cliente.patologia_coach_spondilolisi),
+    ]
+
+    for pat_name, pat_field in patologie_coaching:
+        pat_value = getattr(p, pat_name, None)
+        if pat_value is not None:
+            qry = qry.filter(pat_field == pat_value)
+
+    if p.con_almeno_una_patologia_coaching:
+        conditions = [pat_field == True for _, pat_field in patologie_coaching]
+        qry = qry.filter(or_(*conditions))
+
+    if p.senza_patologie_coaching:
+        conditions = [pat_field != True for _, pat_field in patologie_coaching]
         qry = qry.filter(and_(*conditions))
 
     # ─────────────────── TAB 9: COACHING ─────────────────── #

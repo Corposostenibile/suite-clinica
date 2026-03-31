@@ -831,6 +831,100 @@ def _track_patologie_psico_changes(cliente: Cliente, data: Mapping[str, Any]) ->
             db.session.add(nuovo_log)
 
 
+def _track_patologie_coach_changes(cliente: Cliente, data: Mapping[str, Any]) -> None:
+    """
+    Traccia i cambiamenti delle patologie coaching nel log.
+    Registra quando una patologia coaching viene aggiunta o rimossa.
+    """
+    from corposostenibile.models import PatologiaCoachLog
+    from datetime import datetime
+
+    # Mappa dei campi patologia coaching -> nome visualizzato
+    patologie_coach_map = {
+        'patologia_coach_dca': 'DCA',
+        'patologia_coach_ipertensione': 'Ipertensione',
+        'patologia_coach_pcos': 'PCOS',
+        'patologia_coach_sindrome_metabolica': 'Sindrome metabolica - Obesità',
+        'patologia_coach_endometriosi': 'Endometriosi',
+        'patologia_coach_osteoporosi': 'Osteoporosi',
+        'patologia_coach_menopausa': 'Menopausa',
+        'patologia_coach_artrosi': 'Artrosi',
+        'patologia_coach_artrite': 'Artrite',
+        'patologia_coach_sclerosi_multipla': 'Sclerosi Multipla',
+        'patologia_coach_fibromialgia': 'Fibromialgia',
+        'patologia_coach_lipedema': 'Lipedema',
+        'patologia_coach_linfedema': 'Linfedema',
+        'patologia_coach_gravidanza': 'Gravidanza',
+        'patologia_coach_riabilitazione_anca': 'Riabilitazione anca',
+        'patologia_coach_riabilitazione_spalla': 'Riabilitazione spalla',
+        'patologia_coach_riabilitazione_ginocchio': 'Riabilitazione ginocchio',
+        'patologia_coach_lombalgia': 'Lombalgia',
+        'patologia_coach_spondilolistesi': 'Spondilolistesi',
+        'patologia_coach_spondilolisi': 'Spondilolisi',
+    }
+
+    now = datetime.utcnow()
+
+    for field_name, display_name in patologie_coach_map.items():
+        if field_name not in data:
+            continue
+
+        old_value = getattr(cliente, field_name, False)
+        new_value = data[field_name]
+
+        # Converti None a False per confronto
+        old_value = bool(old_value)
+        new_value = bool(new_value)
+
+        if old_value == new_value:
+            continue  # Nessun cambiamento
+
+        if new_value and not old_value:
+            # Patologia AGGIUNTA
+            # Chiudi eventuali log precedenti di questa patologia
+            logs_aperti = PatologiaCoachLog.query.filter_by(
+                cliente_id=cliente.cliente_id,
+                patologia=field_name,
+                data_fine=None
+            ).all()
+            for log in logs_aperti:
+                log.data_fine = now
+
+            # Crea nuovo log di aggiunta
+            nuovo_log = PatologiaCoachLog(
+                cliente_id=cliente.cliente_id,
+                patologia=field_name,
+                patologia_nome=display_name,
+                azione='aggiunta',
+                data_inizio=now,
+                data_fine=None
+            )
+            db.session.add(nuovo_log)
+
+        elif old_value and not new_value:
+            # Patologia RIMOSSA
+            # Trova il log aperto (con data_fine=NULL) e chiudilo
+            log_aperto = PatologiaCoachLog.query.filter_by(
+                cliente_id=cliente.cliente_id,
+                patologia=field_name,
+                data_fine=None
+            ).order_by(PatologiaCoachLog.data_inizio.desc()).first()
+
+            if log_aperto:
+                log_aperto.data_fine = now
+
+            # Crea nuovo log di rimozione
+            nuovo_log = PatologiaCoachLog(
+                cliente_id=cliente.cliente_id,
+                patologia=field_name,
+                patologia_nome=display_name,
+                azione='rimossa',
+                data_inizio=now,
+                data_fine=None
+            )
+            db.session.add(nuovo_log)
+
+
 def update_cliente(
     cliente: Cliente,
     data: Mapping[str, Any],
@@ -847,6 +941,7 @@ def update_cliente(
         # Traccia i cambiamenti delle patologie PRIMA di modificare i valori
         _track_patologie_changes(cliente, data)
         _track_patologie_psico_changes(cliente, data)
+        _track_patologie_coach_changes(cliente, data)
 
         # Evita race tra stato globale e stati servizi + scadenze ricalcolate
         _servizi_stato_keys = {"stato_nutrizione", "stato_coach", "stato_psicologia"}

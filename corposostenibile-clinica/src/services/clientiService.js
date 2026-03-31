@@ -184,6 +184,30 @@ export const TIPO_PROFESSIONISTA_COLORS = {
   consulente: { bg: 'purple', icon: 'text-purple', bgSubtle: 'bg-purple-subtle' },
 };
 
+// Patologie coaching
+export const PATOLOGIE_COACH = [
+  { key: 'patologia_coach_dca', label: 'DCA' },
+  { key: 'patologia_coach_ipertensione', label: 'Ipertensione' },
+  { key: 'patologia_coach_pcos', label: 'PCOS' },
+  { key: 'patologia_coach_sindrome_metabolica', label: 'Sindrome Metabolica - Obesità' },
+  { key: 'patologia_coach_endometriosi', label: 'Endometriosi' },
+  { key: 'patologia_coach_osteoporosi', label: 'Osteoporosi' },
+  { key: 'patologia_coach_menopausa', label: 'Menopausa' },
+  { key: 'patologia_coach_artrosi', label: 'Artrosi' },
+  { key: 'patologia_coach_artrite', label: 'Artrite' },
+  { key: 'patologia_coach_sclerosi_multipla', label: 'Sclerosi Multipla' },
+  { key: 'patologia_coach_fibromialgia', label: 'Fibromialgia' },
+  { key: 'patologia_coach_lipedema', label: 'Lipedema' },
+  { key: 'patologia_coach_linfedema', label: 'Linfedema' },
+  { key: 'patologia_coach_gravidanza', label: 'Gravidanza' },
+  { key: 'patologia_coach_riabilitazione_anca', label: 'Riabilitazione Anca' },
+  { key: 'patologia_coach_riabilitazione_spalla', label: 'Riabilitazione Spalla' },
+  { key: 'patologia_coach_riabilitazione_ginocchio', label: 'Riabilitazione Ginocchio' },
+  { key: 'patologia_coach_lombalgia', label: 'Lombalgia' },
+  { key: 'patologia_coach_spondilolistesi', label: 'Spondilolistesi' },
+  { key: 'patologia_coach_spondilolisi', label: 'Spondilolisi' },
+];
+
 // Patologie nutrizionali
 export const PATOLOGIE_NUTRI = [
   { key: 'patologia_ibs', label: 'IBS' },
@@ -792,6 +816,15 @@ const clientiService = {
    */
   getMealPlanDownloadUrl(clienteId, planId) {
     return `/customers/${clienteId}/nutrition/${planId}/download`;
+  },
+
+  /**
+   * Export clinical folder as PDF
+   * @param {number} id - Client ID
+   * @returns {Promise} - Blob response with PDF data
+   */
+  async exportClinicalFolderPdf(id) {
+    return api.get(`/customers/${id}/clinical-folder-export`, { responseType: 'blob' });
   },
 
   /**
