@@ -296,11 +296,175 @@ Endpoint API che esistono nel backend ma il frontend non chiama:
 
 I ~240 endpoint usati dal frontend vanno documentati con docstring standard.
 
+es: 
+```python
+@customers_bp.route("/<int:cliente_id>/evaluations/<string:service_type>", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_service_evaluations(cliente_id: int, service_type: str):
+    """
+    Recupera l'andamento delle valutazioni del cliente per un servizio specifico.
+    Include dati da Check Settimanali (vecchi) e Check 2.0 (WeeklyCheckResponse).
+
+    Args:
+        cliente_id: ID del cliente
+        service_type: Tipo servizio ('nutrizione', 'coaching', 'psicologia')
+
+    Returns:
+        JSON con lista valutazioni ordinate per data
+    """
+```
+
+
+---
+
+## Frontend API Endpoints Complete Mapping
+
+### AUTENTICAZIONE (6 endpoint)
+
+| Method | Endpoint | Called By | Params | Auth |
+|--------|----------|-----------|--------|------|
+| POST | /auth/login | Login form | email, password | No |
+| POST | /auth/logout | Logout button | - | Yes |
+| POST | /auth/forgot-password | Forgot password form | email | No |
+| GET | /auth/me | App init, Profile | - | Yes |
+| GET | /auth/impersonate/users | Admin panel | - | Yes (Admin) |
+| POST | /auth/stop-impersonation | Admin panel | - | Yes (Admin) |
+
+### TEAM & UTENTI (11 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /team/members | Team page | - |
+| POST | /team/members | Add member form | name, email, role |
+| GET | /team/departments | Team page | - |
+| GET | /team/stats | Dashboard | - |
+| GET | /team/admin-dashboard-stats | Admin dashboard | - |
+| GET | /team/teams | Team management | - |
+| POST | /team/teams | Create team form | name, description |
+| GET | /team/capacity | Dashboard | - |
+| GET | /team/api/assegnazioni | Assignment page | - |
+| GET | /trial-users | Admin panel | - |
+| POST | /trial-users | Create trial form | user_id, trial_type |
+
+### CALENDAR & EVENTS (11 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /api/connection-status | Calendar page init | - |
+| GET | /disconnect | Calendar page | - |
+| GET | /api/events | Calendar grid | start, end, filters |
+| POST | /api/events | Create event form | title, start, end, etc |
+| POST | /api/sync-single-event | Event update | event_id, data |
+| GET | /api/team/users | Event attendees | - |
+| GET | /api/customers/search | Event customer link | q (search) |
+| GET | /api/customers/list | Event dropdown | - |
+| GET | /api/admin/tokens/status | Admin panel | - |
+| POST | /api/admin/tokens/refresh | Token management | - |
+| POST | /api/admin/tokens/cleanup | Token cleanup | - |
+
+### CLIENTI/PAZIENTI (4 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /customers/api/search | Client list search | q (search term) |
+| GET | /customers/{id}/stati/{servizio}/storico | Client detail | - |
+| GET | /customers/{id}/patologie/storico | Medical history | - |
+| GET | /customers/{id}/nutrition/history | Nutrition history | - |
+
+### QUALITA' & REVIEW (5 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /quality/api/weekly-scores | Quality dashboard | - |
+| POST | /quality/api/calculate | Calculate quality | - |
+| GET | /quality/api/dashboard/stats | Quality dashboard | - |
+| POST | /quality/api/calcola-trimestrale | Quarterly calculation | - |
+| GET | /quality/api/quarterly-summary | Quarterly view | - |
+
+### TASKS/COMPITI (4 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /tasks/ | Tasks list | filters, page |
+| GET | /tasks/stats | Tasks stats widget | - |
+| GET | /tasks/filter-options | Task filters | - |
+| POST | /tasks/ | Create task form | title, description, etc |
+
+### TRAINING/FORMAZIONE (8 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /my-trainings | Training page | - |
+| GET | /my-requests | Training requests | - |
+| GET | /received-requests | Received requests | - |
+| GET | /given-trainings | Given trainings | - |
+| GET | /request-recipients | Recipients dropdown | - |
+| POST | /request | Create request form | recipient_id, title, etc |
+| GET | /admin/professionals | Admin professionals list | - |
+| GET | /admin/dashboard-stats | Admin dashboard | - |
+
+### RICERCA (1 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /search/global | Global search bar | q (search term) |
+
+### NEWS (1 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /news/list | News widget | limit |
+
+### POST-IT (3 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /list | Postit list | - |
+| POST | /create | Create postit form | content, target, etc |
+| POST | /reorder | Drag & drop reorder | order_data |
+
+### PUSH NOTIFICATIONS (5 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| POST | /push/subscriptions | Register push | subscription |
+| GET | /push/public-key | Init push | - |
+| DELETE | /push/subscriptions | Unregister push | subscription |
+| GET | /push/notifications | Fetch notifications | - |
+
+### LOOM INTEGRATION (2 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /loom/api/patients/search | Loom patient search | q (search) |
+| GET | /loom/api/recordings | Loom videos list | patient_id |
+
+### TEAM TICKETS (1 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /team-tickets/ | Tickets list | filters, page |
+
+### INTEGRAZIONI ESTERNE (2 endpoint)
+
+| Method | Endpoint | Called By | Params |
+|--------|----------|-----------|--------|
+| GET | /leads | Leads import | - |
+| POST | /confirm-assignment | Assign lead | lead_id |
+
+### Summary Statistics
+
+- **Total Endpoints**: 67
+- **GET requests**: 47
+- **POST requests**: 16
+- **DELETE requests**: 2
+
+---
+
 ### 3B. Pulire commenti obsoleti
 
 - Cercare e rimuovere `# TODO` / `# FIXME` / `# HACK` obsoleti
 - Rimuovere codice commentato out
-- Rimuovere riferimenti a template/route eliminate
 
 ### 3C. Creare README.md
 
