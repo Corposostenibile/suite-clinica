@@ -170,7 +170,7 @@ function ClientiDetail() {
     return new Set([
       'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
       'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
-      ...(canViewMarketingTab ? ['marketing'] : [])
+      ...(canViewMarketingTab ? ['video_review', 'marketing'] : [])
     ]);
   }, []);
 
@@ -1304,7 +1304,7 @@ function ClientiDetail() {
   }, [id, canViewMarketingTab]);
 
   useEffect(() => {
-    if (activeTab === 'marketing') fetchTrustpilotStatus();
+    if (activeTab === 'video_review') fetchTrustpilotStatus();
   }, [activeTab, fetchTrustpilotStatus]);
 
   const fetchVideoReviewRequests = useCallback(async () => {
@@ -1322,7 +1322,7 @@ function ClientiDetail() {
   }, [id, canUseVideoReviewFlow]);
 
   useEffect(() => {
-    if (activeTab === 'marketing') {
+    if (activeTab === 'video_review') {
       fetchVideoReviewRequests();
     }
   }, [activeTab, fetchVideoReviewRequests]);
@@ -3030,7 +3030,8 @@ function ClientiDetail() {
     // { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-    ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Video Review', icon: 'ri-video-line' }] : []),
+    ...(canViewMarketingTab ? [{ id: 'video_review', label: 'Video Review', icon: 'ri-video-line' }] : []),
+    ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
     if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
     return getAllowedMainTabsForUser().has(tab.id);
@@ -8274,38 +8275,9 @@ function ClientiDetail() {
                 </div>
               )}
 
-              {/* ==================== MARKETING TAB ==================== */}
-              {activeTab === 'marketing' && canViewMarketingTab && (
+              {/* ==================== VIDEO REVIEW TAB ==================== */}
+              {activeTab === 'video_review' && canViewMarketingTab && (
                 <div>
-                  {/* ── Export Cartella Clinica PDF ── */}
-                  <div style={{ marginBottom: 24, padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                          <i className="ri-file-pdf-2-line" style={{ marginRight: 6, color: '#dc2626' }}></i>
-                          Export Cartella Clinica PDF
-                        </div>
-                        <div style={{ fontSize: 13, color: '#64748b' }}>
-                          Il PDF include tutte le sezioni della cartella clinica: anagrafica, servizi, patologie, check, interventi, piani e metriche.
-                        </div>
-                      </div>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        disabled={exportingClinicalPdf}
-                        onClick={handleExportClinicalFolderPdf}
-                      >
-                        {exportingClinicalPdf ? (
-                          <><span className="spinner-border spinner-border-sm me-1"></span>Generazione...</>
-                        ) : (
-                          <><i className="ri-download-2-line" style={{ marginRight: 4 }}></i>Scarica PDF</>
-                        )}
-                      </button>
-                    </div>
-                    {marketingPdfError && (
-                      <div className="text-danger small mt-2"><i className="ri-error-warning-line me-1"></i>{marketingPdfError}</div>
-                    )}
-                  </div>
-
                   <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
                     <i className="ri-video-line" style={{ marginRight: 8, color: '#0ea5e9' }}></i>
                     Video Review
@@ -8409,6 +8381,45 @@ function ClientiDetail() {
           </div>
         </div>
       </div>
+
+              {/* ==================== MARKETING TAB ==================== */}
+              {activeTab === 'marketing' && canViewMarketingTab && (
+                <div>
+                  <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
+                    <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#8b5cf6' }}></i>
+                    Marketing
+                  </h5>
+
+                  {/* ── Export Cartella Clinica PDF ── */}
+                  <div style={{ marginBottom: 24, padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                          <i className="ri-file-pdf-2-line" style={{ marginRight: 6, color: '#dc2626' }}></i>
+                          Export Cartella Clinica PDF
+                        </div>
+                        <div style={{ fontSize: 13, color: '#64748b' }}>
+                          Il PDF include tutte le sezioni della cartella clinica: anagrafica, servizi, patologie, check, interventi, piani e metriche.
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-danger btn-sm"
+                        disabled={exportingClinicalPdf}
+                        onClick={handleExportClinicalFolderPdf}
+                      >
+                        {exportingClinicalPdf ? (
+                          <><span className="spinner-border spinner-border-sm me-1"></span>Generazione...</>
+                        ) : (
+                          <><i className="ri-download-2-line" style={{ marginRight: 4 }}></i>Scarica PDF</>
+                        )}
+                      </button>
+                    </div>
+                    {marketingPdfError && (
+                      <div className="text-danger small mt-2"><i className="ri-error-warning-line me-1"></i>{marketingPdfError}</div>
+                    )}
+                  </div>
+                </div>
+              )}
 
       {/* ========== TICKET DETAIL MODAL ========== */}
       {(ticketDetailModal || loadingTicketDetail) && (

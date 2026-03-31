@@ -824,7 +824,7 @@ const clientiService = {
    * @returns {Promise} - Blob response with PDF data
    */
   async exportClinicalFolderPdf(id) {
-    return api.get(`/customers/${id}/clinical-folder-export`, { responseType: 'blob' });
+    return axios.get(`/customers/${id}/clinical-folder-export`, { responseType: 'blob' });
   },
 
   /**
