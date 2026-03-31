@@ -1364,7 +1364,7 @@ function ClientiDetail() {
     setLoadingCustomerCare(true);
     try {
       const data = await clientiService.getCustomerCareInterventions(id);
-      setCustomerCareInterventions(Array.isArray(data) ? data : data.items || []);
+      setCustomerCareInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching customer care interventions', err); }
     finally { setLoadingCustomerCare(false); }
   }, [id]);
@@ -1374,7 +1374,7 @@ function ClientiDetail() {
     setLoadingCheckIn(true);
     try {
       const data = await clientiService.getCheckInInterventions(id);
-      setCheckInInterventions(Array.isArray(data) ? data : data.items || []);
+      setCheckInInterventions(Array.isArray(data) ? data : data?.data || data?.items || []);
     } catch (err) { console.error('Error fetching check-in interventions', err); }
     finally { setLoadingCheckIn(false); }
   }, [id]);
