@@ -8,7 +8,7 @@ Application-factory principale.
   nutrition, ticket, …)
 - Integrazione Google OAuth2 (blueprint Flask-Dance) – registrata prima di Calendar
 - Imposta ACL minimale in-memory
-- Registra CLI custom, filtri Jinja "date", "datetime", "time_ago" …
+- Registra CLI custom e bootstrap applicazione
 - Opzionale: lint di tutti i template in DEBUG per intercettare errori Jinja
 
 ================================================================================
@@ -26,21 +26,6 @@ INDICE DI NAVIGAZIONE RAPIDA - __INIT__.PY
 
 🔧 FUNZIONI HELPER
     L65  - _lint_templates()             # Verifica sintassi template Jinja in debug
-    L91  - _register_jinja_filters()     # Registra tutti i filtri Jinja personalizzati
-
-📋 FILTRI JINJA REGISTRATI
-    L95  - date                          # Formatta date (|date)
-    L104 - datetime                      # Formatta datetime (|datetime)
-    L105 - nl2br                         # Newline to <br> (|nl2br)
-    L106 - file_size                     # Formatta dimensioni file (|file_size)
-    L110 - format_calories               # Formatta calorie nutrizione (|format_calories)
-    L114 - format_macros                 # Formatta macro nutrienti (|format_macros)
-    L119 - whatsapp_phone                # Formatta numero WhatsApp (|whatsapp_phone)
-    L130 - time_ago/timeago              # Tempo relativo "x fa" (|time_ago)
-    L178 - truncate_message              # Tronca messaggi lunghi (|truncate_message)
-    L185 - ticket_status_label           # Label stato ticket (|ticket_status_label)
-    L194 - ticket_urgency_icon           # Icona urgenza ticket (|ticket_urgency_icon)
-    L206 - update_query_params           # Aggiorna parametri query (|update_query_params)
 
 🔌 BLUEPRINT REGISTRATI
     L250-262 - Import blueprint          # Import di tutti i blueprint
@@ -76,13 +61,12 @@ INDICE DI NAVIGAZIONE RAPIDA - __INIT__.PY
 from __future__ import annotations
 
 import os
-from datetime import date, datetime, timezone
+from datetime import timedelta
 from http import HTTPStatus
 from pathlib import Path
 from types import MappingProxyType
 from typing import Dict, List, Set, Union
 
-from dateutil import parser
 from flask import Flask, jsonify, redirect, url_for, request
 
 
@@ -154,137 +138,6 @@ def _lint_templates(app: Flask) -> None:
         )
 
 
-# ───────────────────── Filtri Jinja globali ────────────────────────────
-def _register_jinja_filters(app: Flask) -> None:
-    """Registra filtri |date, |datetime, |nl2br, |file_size, nutrition e ticket."""
-    
-    # ——— base |date
-    @app.template_filter("date")
-    def _fmt_date(value: Union[date, datetime, str, None], fmt: str = "%d/%m/%Y") -> str:
-        if value in (None, ""):
-            return ""
-        if isinstance(value, (date, datetime)):
-            return value.strftime(fmt)
-        return str(value)
-    
-    # filtri comuni definiti altrove
-    from .filters import datetime_filter, nl2br, file_size, rome_datetime, linkify
-    app.jinja_env.filters["datetime"] = datetime_filter
-    app.jinja_env.filters["nl2br"] = nl2br
-    app.jinja_env.filters["file_size"] = file_size
-    app.jinja_env.filters["rome_datetime"] = rome_datetime
-    app.jinja_env.filters["linkify"] = linkify
-    
-    # ——— nutrition specific
-    @app.template_filter("format_calories")
-    def format_calories(value):
-        return "0 kcal" if value is None else f"{int(value)} kcal"
-    
-    @app.template_filter("format_macros")
-    def format_macros(value):
-        return "0.0" if value is None else f"{value:.1f}"
-    
-    # ——— whatsapp phone prettify
-    @app.template_filter("whatsapp_phone")
-    def whatsapp_phone(value):
-        if not value:
-            return ""
-        clean = "".join(filter(str.isdigit, str(value)))
-        if len(clean) > 10:
-            return f"+{clean[:2]} {clean[2:5]} {clean[5:8]} {clean[8:]}"
-        return value
-    
-    # ——— time_ago (FIX offset-naive vs aware)
-    @app.template_filter("time_ago")
-    @app.template_filter("timeago")  # Alias per compatibilità con i template
-    def time_ago(value):
-        """
-        Converte una data/ora in stringa "x minuti/ore/giorni fa" o DD/MM/YYYY
-        se più vecchia di 7 giorni.
-        • Accetta datetime naive o timezone-aware.
-        • Accetta stringhe ISO 8601 (o formati compatibili con dateutil).
-        • Non solleva eccezioni; input non gestibile → restituito com'è.
-        """
-        if not value:
-            return ""
-        
-        # stringa → datetime
-        if isinstance(value, str):
-            try:
-                value = parser.isoparse(value)
-            except Exception:
-                try:
-                    value = parser.parse(value)
-                except Exception:
-                    return str(value)
-        
-        if not isinstance(value, datetime):
-            return str(value)
-        
-        if value.tzinfo is not None:  # aware → UTC naive
-            value = value.astimezone(timezone.utc).replace(tzinfo=None)
-        
-        now = datetime.utcnow()
-        try:
-            diff = now - value
-        except TypeError:
-            value = value.replace(tzinfo=None)
-            diff = now - value
-        
-        seconds = int(diff.total_seconds())
-        
-        if diff.days > 7:
-            return value.strftime("%d/%m/%Y")
-        if diff.days >= 1:
-            return f"{diff.days} giorni fa"
-        if seconds >= 3600:
-            return f"{seconds // 3600} ore fa"
-        if seconds >= 60:
-            return f"{seconds // 60} minuti fa"
-        return "ora"
-    
-    # ——— truncate_message
-    @app.template_filter("truncate_message")
-    def truncate_message(value, length: int = 50):
-        if not value:
-            return ""
-        return value if len(value) <= length else value[:length] + "..."
-    
-    # ——— ticket specific filters
-    @app.template_filter("ticket_status_label")
-    def ticket_status_label(status):
-        """Converte enum status in label leggibile."""
-        if not status:
-            return ""
-        if hasattr(status, 'value'):
-            return status.value.replace('_', ' ').title()
-        return str(status).replace('_', ' ').title()
-    
-    @app.template_filter("ticket_urgency_icon")
-    def ticket_urgency_icon(urgency):
-        """Ritorna icona per urgenza."""
-        icons = {
-            '1': '🔴',  # alta
-            '2': '🟡',  # media
-            '3': '🟢',  # bassa
-        }
-        if hasattr(urgency, 'value'):
-            return icons.get(urgency.value, '')
-        return icons.get(str(urgency), '')
-    
-    @app.template_filter("update_query_params")
-    def update_query_params(args_dict, **kwargs):
-        """Helper per aggiornare parametri query string."""
-        updated = args_dict.copy() if isinstance(args_dict, dict) else {}
-        for key, value in kwargs.items():
-            if value is not None:
-                updated[key] = value
-            elif key in updated:
-                del updated[key]
-        return updated
-
-
-
 # ───────────────────────────── Factory ─────────────────────────────────
 def create_app(config_name: str | None = None) -> Flask:
     """Restituisce un'istanza Flask completamente configurata."""
@@ -315,9 +168,6 @@ def create_app(config_name: str | None = None) -> Flask:
     
     # ACL "semplice" in-memory
     app.acl = SimpleACL()  # type: ignore[attr-defined]
-    
-    # Filtri Jinja2
-    _register_jinja_filters(app)
     
     # Route per servire i file caricati (avatars, etc.)
     @app.route('/uploads/<path:filename>')

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuovo questionario</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f0f4f8; margin: 0; padding: 0; }
+        .wrapper { max-width: 600px; margin: 24px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #fff; padding: 28px 24px; text-align: center; }
+        .content { padding: 28px 24px; }
+        .cta-block { background: #eff6ff; border-radius: 8px; padding: 24px; margin: 24px 0; text-align: center; }
+        .cta-link { display: inline-block; background: #2563eb; color: #fff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px; }
+        .footer { background: #f8fafc; padding: 20px 24px; text-align: center; color: #6b7280; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="header">
+            <h1>{{ form.name }}</h1>
+            <p>{% if form.description %}{{ form.description }}{% else %}Questionario da compilare{% endif %}</p>
+        </div>
+        <div class="content">
+            <p>Ciao {{ cliente.nome_cognome }},</p>
+            <p>Ti è stato assegnato un nuovo questionario da compilare. Clicca il pulsante qui sotto per accedere al modulo e inviare le tue risposte.</p>
+            <div class="cta-block">
+                <a href="{{ public_url }}" class="cta-link">Compila il questionario</a>
+                <p>Se il pulsante non funziona, copia questo link nel browser:<br>{{ public_url }}</p>
+            </div>
+        </div>
+        <div class="footer">Questa email è stata inviata automaticamente da Corpo Sostenibile.<br>— Corpo Sostenibile Suite</div>
+    </div>
+</body>
+</html>

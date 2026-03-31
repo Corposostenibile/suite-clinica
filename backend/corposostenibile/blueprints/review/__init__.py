@@ -15,15 +15,11 @@ from flask import Blueprint
 bp = Blueprint(
     'review',
     __name__,
-    template_folder='templates',
-    static_folder='static',
     url_prefix='/review'
 )
 
 from corposostenibile.blueprints.review import routes
-from corposostenibile.blueprints.review.filters import register_filters
 
 def init_app(app):
     """Inizializza il blueprint review."""
     app.register_blueprint(bp)
-    register_filters(app)

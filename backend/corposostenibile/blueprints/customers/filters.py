@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
-from flask import Flask, Request
+from flask import Request
 from sqlalchemy import Numeric, cast, func, or_, and_
 from sqlalchemy.orm import Query
 from sqlalchemy.orm.dynamic import AppenderQuery  # patch __len__
@@ -42,8 +42,6 @@ __all__ = [
     "CustomerFilterParams",
     "parse_filter_args",
     "apply_customer_filters",
-    "safe_len",
-    "init_app",
 ]
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -1362,22 +1360,3 @@ def _sort_column_map():
         "data_rinnovo":      Cliente.data_rinnovo,  # Sostituisce giorni_rimanenti
     }
 
-
-# ────────────────────────────────────────────────────────────────────────────
-# FILTRI JINJA – utilità UI
-# ────────────────────────────────────────────────────────────────────────────
-def safe_len(obj) -> int:
-    """
-    Restituisce la lunghezza di *obj* (liste, tuple, query, AppenderQuery…).
-    """
-    try:
-        return len(obj)  # type: ignore[arg-type]
-    except TypeError:
-        if hasattr(obj, "count"):
-            return obj.count()
-        return len(list(obj))
-
-
-def init_app(app: Flask) -> None:
-    """Registra i filtri Jinja di questo modulo sull'app Flask."""
-    app.jinja_env.filters.setdefault("safe_len", safe_len)

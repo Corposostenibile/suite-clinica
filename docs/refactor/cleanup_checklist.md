@@ -5,6 +5,47 @@
 
 ---
 
+## Checklist consolidata
+
+Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia documentata in questo file.
+
+### Fase 1 - Template / static / route HTML
+
+- [x] 1A. Rimossi i template HTML legacy dei blueprint e i template globali legacy.
+- [x] 1A. Mantenuti solo i template backend ancora necessari a comportamento attivo:
+  - `sales_form/templates/sales_form/public/*`
+  - `client_checks/templates/client_checks/emails/*`
+  - `communications/templates/communications/email/new_communication.html`
+- [x] 1B. Rimossi gli static legacy dei blueprint previsti.
+- [x] 1C. Puliti gli static globali legacy, mantenendo solo asset ancora necessari (`uploads`, `privacy`, immagini ancora referenziate).
+- [x] 1D. Rimosse/disattivate le route HTML legacy con `render_template`.
+- [x] 1D. Mantenuti solo i casi ancora ammessi:
+  - `sales_form/public.py` per form pubblici esterni
+  - `client_checks/services.py` per email backend
+  - `communications/services.py` per email backend
+  - `auth/routes.py`, `ticket/services.py`, `knowledge_base/api.py` per `render_template_string()` ammessi
+- [x] 1E. Rimossi filtri/import Jinja legacy non piu usati (`backend/corposostenibile/filters.py`, `blueprints/review/filters.py`, registrazioni residue, import inutili).
+- [x] 1E. Preservato `blueprints/customers/filters.py` perche' contiene logica applicativa/API ancora in uso, non un semplice modulo Jinja legacy.
+
+### Fase 2 - Blueprint ed endpoint inutilizzati
+
+- [ ] 2A. Eliminazione blueprint interi non usati dal frontend React.
+- [ ] 2B. Eliminazione route singole HTML in blueprint ancora usati.
+- [ ] 2C. Eliminazione API non usate nei blueprint ancora attivi.
+
+### Fase 3 - Documentazione e commenti
+
+- [ ] 3A. Aggiungere docstring standard alle API route attive.
+- [ ] 3B. Rimuovere commenti obsoleti e riferimenti a codice/template eliminati.
+- [ ] 3C. Creare `README.md` complessivo del progetto.
+
+### Controlli documentazione collegata
+
+- [x] Verificato `ci_cd_analysis.md`: nessun riferimento da aggiornare su template/static legacy della Fase 1.
+- [x] Verificata `docs/vps/duckdns_local_dev_vps.md`: i riferimenti a `/static/clinica/*` restano validi come compatibilita' legacy di routing Nginx e non richiedono modifica per questa pulizia.
+
+---
+
 ## Numeri chiave
 
 | Metrica | Valore |
@@ -22,11 +63,11 @@
 
 ### Completato
 
-- FASE 1A completata: eliminate le cartelle `templates/` dei blueprint e i template globali legacy.
+- FASE 1A completata con eccezioni: eliminati i template legacy dei blueprint e i template globali legacy, mantenendo solo i template ancora necessari per form pubblici ed email backend.
 - FASE 1B completata: eliminati gli static legacy dei blueprint (`customers`, `department`, `projects`, `recruiting`, `review`, `team`, `ticket`) con eccezioni rispettate (`documentation/static`, `pwa/static`).
 - FASE 1C completata: eliminati gli static globali legacy, mantenendo solo asset necessari (`uploads`, `privacy`, immagini ancora referenziate).
-- FASE 1D quasi completata: rimosse/disattivate le route HTML con `render_template` nei blueprint legacy e misti, preservando endpoint API/webhook.
-- Pulizia import completata sui file toccati (es. rimozione import `render_template` non usati).
+- FASE 1D completata con eccezioni: rimosse/disattivate le route HTML legacy con `render_template`, preservando endpoint API/webhook e casi ancora necessari per form pubblici, email e preview controllate.
+- FASE 1E completata: rimossi import/dipendenze Jinja legacy non piu usati (`filters.py` globali/review, registrazioni residue, import `render_template` inutili).
 
 ### Stato tecnico attuale
 
@@ -34,7 +75,14 @@
   - `sales_form/public.py` (route pubbliche esterne)
   - `client_checks/services.py` (template email)
   - `communications/services.py` (template email)
-- `ticket/services.py` pulito dall'import `render_template` non piu necessario.
+- Uso residuo di `render_template_string()` limitato a:
+  - `auth/routes.py` (email password reset/change)
+  - `ticket/services.py` (email notifiche ticket)
+  - `knowledge_base/api.py` (preview articoli)
+- Ripristinati solo i template backend ancora necessari al comportamento attivo:
+  - `sales_form/templates/sales_form/public/*`
+  - `client_checks/templates/client_checks/emails/*`
+  - `communications/templates/communications/email/new_communication.html`
 - Registrazione blueprint corretta dopo rimozione route HTML (`suitemind` aggiornato a sole API route).
 - `welcome` ripristinato con `init_app` minimale per mantenere bootstrap applicazione senza route HTML.
 
@@ -53,6 +101,8 @@
 ## FASE 1 - Eliminazione template HTML e route associate (Ema)
 
 ### 1A. Eliminare le cartelle `templates/` dei 26 blueprint
+
+Nota aggiornata: l'obiettivo e' rimuovere i template HTML legacy usati dalle vecchie route Flask server-rendered. Non vanno invece eliminati i pochi template ancora necessari a endpoint pubblici esterni o a email backend ancora attive.
 
 Sono 230+ file `.html` distribuiti nei seguenti blueprint:
 
@@ -114,6 +164,12 @@ CSS/JS legacy che servivano i template Flask:
 
 ### 1D. Rimuovere le funzioni Python che usano `render_template`
 
+Nota aggiornata: questa fase e' da considerare completata quando vengono rimossi i `render_template()` legacy legati alle route HTML interne. Restano ammessi solo i casi necessari a:
+
+- form pubblici esterni ancora attivi
+- template email backend
+- preview controllate lato backend
+
 ~350 chiamate a `render_template()` distribuite in 44 file Python. I piu grossi:
 
 | File | Chiamate `render_template` |
@@ -156,6 +212,8 @@ CSS/JS legacy che servivano i template Flask:
 - Rimuovere `from flask import render_template` dove non serve piu
 - Rimuovere `filters.py` (template filters Jinja2)
 - Pulire `__init__.py` se registra template folders/static folders per blueprint eliminati
+
+Nota aggiornata: `filters.py` da rimuovere si riferisce ai moduli Jinja legacy non piu usati. Non include moduli omonimi che contengono logica applicativa/API ancora in uso, come `blueprints/customers/filters.py`.
 
 ---
 
