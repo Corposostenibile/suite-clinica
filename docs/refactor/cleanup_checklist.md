@@ -31,7 +31,6 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 
 - [ ] 2A. Eliminazione blueprint interi non usati dal frontend React.
 - [ ] 2B. Eliminazione route singole HTML in blueprint ancora usati.
-- [ ] 2C. Eliminazione API non usate nei blueprint ancora attivi.
 
 ### Fase 3 - Documentazione e commenti
 
