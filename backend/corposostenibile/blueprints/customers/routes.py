@@ -7170,7 +7170,6 @@ def api_video_review_calendar_slots(cliente_id: int):
             hm_user.ghl_calendar_id,
             start,
             end,
-            user_id=hm_user.ghl_user_id,
         )
         return jsonify({
             "success": True,
@@ -7240,28 +7239,57 @@ def api_video_review_booked(cliente_id: int):
             except ValueError:
                 abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
 
-    # Crea appuntamento GHL se possibile
+    # Crea appuntamento GHL — obbligatorio se slot selezionato
     ghl_appointment_id = None
     hm_user = db.session.get(User, cliente.health_manager_id)
-    if selected_slot and hm_user and hm_user.ghl_calendar_id and getattr(cliente, "ghl_contact_id", None):
+    if selected_slot:
+        if not hm_user or not hm_user.ghl_calendar_id:
+            abort(HTTPStatus.CONFLICT, description="Calendario GHL non configurato per l'Health Manager.")
+
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            abort(HTTPStatus.SERVICE_UNAVAILABLE, description="Integrazione GHL non configurata.")
+
+        # Cerca il contatto GHL del paziente tramite email o telefono
+        ghl_contact_id = None
         try:
-            from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
-            service = get_ghl_calendar_service()
-            if service.is_configured():
-                start_time = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
-                end_time = start_time + timedelta(minutes=30)
-                title = f"{cliente.nome_cognome} | Video Review"
-                result = service.create_appointment(
-                    calendar_id=hm_user.ghl_calendar_id,
-                    contact_id=cliente.ghl_contact_id,
-                    start_time=start_time.isoformat(),
-                    end_time=end_time.isoformat(),
-                    title=title,
-                )
-                ghl_appointment_id = result.get("id") or result.get("event", {}).get("id")
-                logger.info(f"[VideoReview] GHL appointment created: {ghl_appointment_id} for cliente {cliente_id}")
+            if cliente.mail:
+                contacts = service.search_contacts(email=cliente.mail)
+                if contacts:
+                    ghl_contact_id = contacts[0].get("id")
+            if not ghl_contact_id and cliente.numero_telefono:
+                contacts = service.search_contacts(phone=cliente.numero_telefono)
+                if contacts:
+                    ghl_contact_id = contacts[0].get("id")
         except Exception as e:
-            logger.warning(f"[VideoReview] GHL appointment creation failed (non-blocking): {e}")
+            logger.error(f"[VideoReview] GHL contact search failed: {e}")
+
+        if not ghl_contact_id:
+            return jsonify({
+                "success": False,
+                "message": "Contatto non trovato su GHL. Verificare che il paziente abbia email o telefono corrispondente su GoHighLevel. Contattare il team IT per assistenza.",
+            }), HTTPStatus.CONFLICT
+
+        try:
+            start_time = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
+            end_time = start_time + timedelta(minutes=30)
+            title = f"{cliente.nome_cognome} | Video Review"
+            result = service.create_appointment(
+                calendar_id=hm_user.ghl_calendar_id,
+                contact_id=ghl_contact_id,
+                start_time=start_time.isoformat(),
+                end_time=end_time.isoformat(),
+                title=title,
+            )
+            ghl_appointment_id = result.get("id") or result.get("event", {}).get("id")
+            logger.info(f"[VideoReview] GHL appointment created: {ghl_appointment_id} for cliente {cliente_id}")
+        except Exception as e:
+            logger.error(f"[VideoReview] GHL appointment creation FAILED: {e}")
+            return jsonify({
+                "success": False,
+                "message": f"Errore nella creazione dell'appuntamento sul calendario GHL: {str(e)}",
+            }), HTTPStatus.INTERNAL_SERVER_ERROR
 
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
