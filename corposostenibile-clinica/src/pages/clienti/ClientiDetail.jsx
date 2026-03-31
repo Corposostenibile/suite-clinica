@@ -750,6 +750,11 @@ function ClientiDetail() {
   const [videoReviewRequests, setVideoReviewRequests] = useState([]);
   const [loadingVideoReviewRequests, setLoadingVideoReviewRequests] = useState(false);
   const [showVideoReviewBookingModal, setShowVideoReviewBookingModal] = useState(false);
+  const [videoReviewSlots, setVideoReviewSlots] = useState({});
+  const [videoReviewSlotsLoading, setVideoReviewSlotsLoading] = useState(false);
+  const [videoReviewSelectedDate, setVideoReviewSelectedDate] = useState('');
+  const [videoReviewSelectedSlot, setVideoReviewSelectedSlot] = useState('');
+  const [videoReviewHmName, setVideoReviewHmName] = useState('');
   const [showVideoReviewConfirmModal, setShowVideoReviewConfirmModal] = useState(false);
   const [selectedVideoReviewRequest, setSelectedVideoReviewRequest] = useState(null);
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
@@ -1320,12 +1325,39 @@ function ClientiDetail() {
     } finally { setSendingTrustpilotAction(null); }
   };
 
-  const handleVideoReviewBooked = async () => {
+  const fetchVideoReviewSlots = async () => {
     if (!id) return;
+    setVideoReviewSlotsLoading(true);
+    setVideoReviewSlots({});
+    setVideoReviewSelectedDate('');
+    setVideoReviewSelectedSlot('');
+    try {
+      const res = await clientiService.getVideoReviewCalendarSlots(id);
+      const slotsData = res?.slots || {};
+      // slotsData can be { "2026-04-01": { slots: ["2026-04-01T09:00:00+02:00", ...] }, ... }
+      // or { "2026-04-01": ["...", ...] } depending on GHL response
+      const normalized = {};
+      for (const [dateKey, value] of Object.entries(slotsData)) {
+        const arr = Array.isArray(value) ? value : (value?.slots || []);
+        if (arr.length > 0) normalized[dateKey] = arr;
+      }
+      setVideoReviewSlots(normalized);
+      setVideoReviewHmName(res?.hm_name || '');
+    } catch (err) {
+      console.error('Error fetching video review slots:', err);
+    } finally {
+      setVideoReviewSlotsLoading(false);
+    }
+  };
+
+  const handleVideoReviewBooked = async () => {
+    if (!id || !videoReviewSelectedSlot) return;
     setSavingVideoReviewAction(true);
     try {
-      await clientiService.createVideoReviewBooked(id);
+      await clientiService.createVideoReviewBooked(id, { selected_slot: videoReviewSelectedSlot });
       setShowVideoReviewBookingModal(false);
+      setVideoReviewSelectedSlot('');
+      setVideoReviewSelectedDate('');
       await fetchVideoReviewRequests();
     } catch (err) {
       console.error('Error creating video review booking:', err);
@@ -8091,7 +8123,7 @@ function ClientiDetail() {
                         </div>
                         <button
                           className="btn btn-primary btn-sm"
-                          onClick={() => setShowVideoReviewBookingModal(true)}
+                          onClick={() => { setShowVideoReviewBookingModal(true); fetchVideoReviewSlots(); }}
                         >
                           <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
                           Prenota video recensione con HM
@@ -8637,29 +8669,94 @@ function ClientiDetail() {
 
       {showVideoReviewBookingModal && (
         <div className="cd-modal-backdrop" onClick={() => setShowVideoReviewBookingModal(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
             <div className="cd-modal-header purple-bg">
               <h5>
                 <i className="ri-video-line text-primary"></i>
-                Prenota video recensione con HM
+                Prenota Video Review
               </h5>
               <button className="cd-modal-close" onClick={() => setShowVideoReviewBookingModal(false)}><i className="ri-close-line"></i></button>
             </div>
-            <div className="cd-modal-body" style={{ textAlign: 'center' }}>
-              <div className="cd-response-item" style={{ marginBottom: 12 }}>
-                <strong>QUI CI SARA IL LINK PER PRENOTARE</strong>
-              </div>
-              <p className="small text-muted" style={{ marginBottom: 0 }}>
-                Dopo la prenotazione clicca su "Ho prenotato" per inviare la richiesta all&apos;HM.
-              </p>
+            <div className="cd-modal-body">
+              {videoReviewHmName && (
+                <div style={{ fontSize: 13, color: '#64748b', marginBottom: 16 }}>
+                  <i className="ri-user-heart-line" style={{ marginRight: 4 }}></i>
+                  Calendario di <strong>{videoReviewHmName}</strong>
+                </div>
+              )}
+              {videoReviewSlotsLoading ? (
+                <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-primary"></div><p className="mt-2 small text-muted">Caricamento slot disponibili...</p></div>
+              ) : Object.keys(videoReviewSlots).length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
+                  <i className="ri-calendar-close-line" style={{ fontSize: 28, display: 'block', marginBottom: 8 }}></i>
+                  Nessuno slot disponibile nei prossimi 30 giorni.
+                </div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Seleziona una data</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {Object.keys(videoReviewSlots).sort().map((dateKey) => {
+                        const d = new Date(dateKey + 'T00:00:00');
+                        const label = d.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+                        return (
+                          <button
+                            key={dateKey}
+                            type="button"
+                            onClick={() => { setVideoReviewSelectedDate(dateKey); setVideoReviewSelectedSlot(''); }}
+                            style={{
+                              padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                              border: videoReviewSelectedDate === dateKey ? '2px solid #25B36A' : '1px solid #e2e8f0',
+                              background: videoReviewSelectedDate === dateKey ? 'rgba(37,179,106,.08)' : '#fff',
+                              color: videoReviewSelectedDate === dateKey ? '#166534' : '#334155',
+                            }}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {videoReviewSelectedDate && videoReviewSlots[videoReviewSelectedDate] && (
+                    <div>
+                      <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Seleziona un orario</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 200, overflowY: 'auto' }}>
+                        {videoReviewSlots[videoReviewSelectedDate].map((slot) => {
+                          const slotDate = new Date(slot);
+                          const timeLabel = slotDate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                          return (
+                            <button
+                              key={slot}
+                              type="button"
+                              onClick={() => setVideoReviewSelectedSlot(slot)}
+                              style={{
+                                padding: '8px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                                border: videoReviewSelectedSlot === slot ? '2px solid #25B36A' : '1px solid #e2e8f0',
+                                background: videoReviewSelectedSlot === slot ? '#25B36A' : '#fff',
+                                color: videoReviewSelectedSlot === slot ? '#fff' : '#334155',
+                              }}
+                            >
+                              {timeLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div className="cd-modal-footer">
-              <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Chiudi</button>
-              <button className="cd-btn-save" onClick={handleVideoReviewBooked} disabled={savingVideoReviewAction}>
+              <button className="cd-btn-back" onClick={() => setShowVideoReviewBookingModal(false)}>Annulla</button>
+              <button
+                className="cd-btn-save"
+                onClick={handleVideoReviewBooked}
+                disabled={savingVideoReviewAction || !videoReviewSelectedSlot}
+              >
                 {savingVideoReviewAction ? (
-                  <><span className="spinner-border spinner-border-sm me-2"></span>Salvataggio...</>
+                  <><span className="spinner-border spinner-border-sm me-2"></span>Prenotazione...</>
                 ) : (
-                  <><i className="ri-check-line"></i>Ho prenotato</>
+                  <><i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>Prenota</>
                 )}
               </button>
             </div>

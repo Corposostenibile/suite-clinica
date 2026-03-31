@@ -7139,6 +7139,50 @@ def api_video_review_requests(cliente_id: int):
     return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
 
 
+@api_bp.route("/<int:cliente_id>/video-review-calendar-slots", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_review_calendar_slots(cliente_id: int):
+    """Restituisce gli slot liberi del calendario GHL dell'HM assegnato al paziente."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+    if not getattr(cliente, "health_manager_id", None):
+        abort(HTTPStatus.CONFLICT, description="Nessun Health Manager assegnato al paziente.")
+
+    hm_user = db.session.get(User, cliente.health_manager_id)
+    if not hm_user or not hm_user.ghl_calendar_id:
+        abort(HTTPStatus.CONFLICT, description="Calendario GHL non configurato per l'Health Manager.")
+
+    start = request.args.get("start")
+    end = request.args.get("end")
+    if not start or not end:
+        today = datetime.utcnow()
+        start = today.strftime("%Y-%m-%d")
+        end = (today + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    try:
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            return jsonify({"success": False, "message": "GHL non configurato"}), 503
+
+        slots = service.get_free_slots(
+            hm_user.ghl_calendar_id,
+            start,
+            end,
+            user_id=hm_user.ghl_user_id,
+        )
+        return jsonify({
+            "success": True,
+            "slots": slots,
+            "hm_name": hm_user.full_name,
+            "calendar_id": hm_user.ghl_calendar_id,
+        })
+    except Exception as e:
+        logger.error(f"[VideoReview] Error fetching HM calendar slots: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_review_booked(cliente_id: int):
@@ -7170,22 +7214,54 @@ def api_video_review_booked(cliente_id: int):
         }), HTTPStatus.OK
 
     payload = request.get_json(silent=True) or {}
+    selected_slot = (payload.get("selected_slot") or "").strip()  # ISO datetime
     booking_date_str = (payload.get("booking_date") or "").strip()
     booking_time_str = (payload.get("booking_time") or "").strip()
 
     booking_date = None
-    if booking_date_str:
-        try:
-            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
-
     booking_time = None
-    if booking_time_str:
+
+    if selected_slot:
         try:
-            booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+            slot_dt = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
+            booking_date = slot_dt.date()
+            booking_time = slot_dt.time()
         except ValueError:
-            abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+            abort(HTTPStatus.BAD_REQUEST, description="Formato slot non valido.")
+    else:
+        if booking_date_str:
+            try:
+                booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
+        if booking_time_str:
+            try:
+                booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+            except ValueError:
+                abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+
+    # Crea appuntamento GHL se possibile
+    ghl_appointment_id = None
+    hm_user = db.session.get(User, cliente.health_manager_id)
+    if selected_slot and hm_user and hm_user.ghl_calendar_id and getattr(cliente, "ghl_contact_id", None):
+        try:
+            from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+            service = get_ghl_calendar_service()
+            if service.is_configured():
+                start_time = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
+                end_time = start_time + timedelta(minutes=30)
+                title = f"{cliente.nome_cognome} | Video Review"
+                result = service.create_appointment(
+                    calendar_id=hm_user.ghl_calendar_id,
+                    contact_id=cliente.ghl_contact_id,
+                    start_time=start_time.isoformat(),
+                    end_time=end_time.isoformat(),
+                    title=title,
+                )
+                ghl_appointment_id = result.get("id") or result.get("event", {}).get("id")
+                logger.info(f"[VideoReview] GHL appointment created: {ghl_appointment_id} for cliente {cliente_id}")
+        except Exception as e:
+            logger.warning(f"[VideoReview] GHL appointment creation failed (non-blocking): {e}")
 
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
@@ -7201,6 +7277,7 @@ def api_video_review_booked(cliente_id: int):
     return jsonify({
         "success": True,
         "data": _serialize_video_review_request(request_item),
+        "ghl_appointment_id": ghl_appointment_id,
         "message": "Prenotazione video recensione registrata.",
     }), HTTPStatus.CREATED
 
