@@ -1,0 +1,9 @@
+CHECK DI ESEMPIO SEZIONE A:
+#,First name,Last name,Note,Submit Date (UTC),Network ID,Response Type
+resp_alpha_001,Mario,Rossi,Nota di prova sezione A,2025-01-15 10:00:00,net_alpha,completed
+
+=====
+
+CHECK DI ESEMPIO SEZIONE B:
+#,Nome e cognome,Peso,Submit Date (UTC),Response Type
+resp_beta_001,Luigi Verdi,75,2025-02-01 12:00:00,completed

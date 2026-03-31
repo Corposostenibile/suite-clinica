@@ -195,6 +195,78 @@ SELECT setval(
 - **Rigenerare sempre lo schema target prima della migrazione dati**: lo script ora supporta refresh automatico del file `NEW_SUITE_BACKUP` via `pg_dump --schema-only` (env `MIGRATION_REFRESH_NEW_SCHEMA=1`, `MIGRATION_SCHEMA_REFRESH_STRICT=1`).
 - **Fail-fast su parità schema**: dopo le migration Alembic, eseguire un check di parità schema/model (tabelle + colonne + enum attesi) e bloccare il deploy in caso di mismatch.
 
+## Alembic: database vuoto, `create-db` e collisioni schema
+
+- **Non eseguire `flask db upgrade` su un database PostgreSQL completamente vuoto** aspettandoti che ricostruisca tutto lo schema: la revisione radice (`67ae7d09f7ec`) applica molti `ALTER TABLE` su tabelle che in quel contesto non esistono ancora, quindi la catena fallisce (es. `relation "ad_campaigns" does not exist`).
+- **Sviluppo locale tipico**: creare schema ed enum con `poetry run flask create-db`, poi allineare la versione Alembic agli head con `poetry run python scripts/local_db_ops/stamp_heads.py` (oppure `poetry run flask db stamp heads`). Le revisioni successive si applicano con `flask db upgrade` quando aggiungi nuove migrazioni.
+- **Produzione**: il database nasce già dallo schema reale; lì `flask db upgrade` deve solo avanzare le revisioni mancanti.
+- Alcune migrazioni sono state rese **idempotenti** dove capitava spesso il disallineamento (es. colonne `sales_leads` già presenti dopo `create-db` o import SQL; tabelle archivio `example_check_*` già create da `create-db`).
+
+## Import archivio check di esempio (CSV)
+
+Per archiviare i dati storici presenti in `esempi_check.csv` nel nuovo archivio raw:
+
+1. Applicare le migration DB (su DB già inizializzato, vedi sopra):
+
+```bash
+cd backend
+poetry run flask db upgrade
+```
+
+Per provare in locale da zero: dopo `flask create-db` e `stamp heads`, `upgrade` applica solo le revisioni più recenti non ancora registrate (o no-op se già allineato).
+
+2. Eseguire import in dry-run (consigliato prima esecuzione). Per un file minimo di prova usare `scripts/fixtures/esempi_check_minimo.csv`:
+
+```bash
+poetry run python scripts/import_example_checks.py \
+  --file scripts/fixtures/esempi_check_minimo.csv \
+  --dry-run
+```
+
+3. Eseguire import reale:
+
+```bash
+poetry run python scripts/import_example_checks.py \
+  --file ../esempi_check.csv \
+  --batch-label "import-iniziale-esempi-check"
+```
+
+Produzione (pod backend):
+
+```bash
+kubectl exec deploy/suite-clinica-backend -c backend -- bash -lc '
+  set -euo pipefail
+  cd /app/backend
+  poetry run flask db upgrade
+  poetry run python scripts/import_example_checks.py \
+    --file /app/esempi_check.csv \
+    --batch-label "import-prod-esempi-check"
+'
+```
+
+Verifiche post-import consigliate:
+
+```sql
+-- Conteggi per sezione
+SELECT section_name, COUNT(*) AS total
+FROM example_check_entries
+GROUP BY section_name
+ORDER BY section_name;
+
+-- Percentuale match con clienti
+SELECT
+  COUNT(*) AS total_rows,
+  COUNT(matched_cliente_id) AS matched_rows,
+  ROUND((COUNT(matched_cliente_id)::numeric / NULLIF(COUNT(*), 0)) * 100, 2) AS matched_pct
+FROM example_check_entries;
+
+-- Duplicati logici (deve risultare 0 righe)
+SELECT section_name, external_response_id, COUNT(*) AS c
+FROM example_check_entries
+GROUP BY section_name, external_response_id
+HAVING COUNT(*) > 1;
+```
+
 ## Caso PVC Zonal Bloccato (GKE Autopilot)
 
 Sintomo tipico:

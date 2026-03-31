@@ -11885,6 +11885,76 @@ class VideoReviewRequest(TimestampMixin, db.Model):
         return f"<VideoReviewRequest cliente={self.cliente_id} status={self.status}>"
 
 
+class ExampleCheckImportBatch(TimestampMixin, db.Model):
+    """Batch di import per l'archivio dei check di esempio."""
+    __tablename__ = "example_check_import_batches"
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_file = db.Column(db.String(512), nullable=False, comment="Percorso file sorgente")
+    batch_label = db.Column(db.String(255), comment="Etichetta libera del batch")
+    file_hash = db.Column(db.String(64), nullable=False, index=True, comment="SHA256 del file importato")
+    status = db.Column(db.String(32), nullable=False, default="started", index=True)
+    started_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    stats_json = db.Column(JSONB, nullable=False, default=dict)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    created_by_user = db.relationship("User", foreign_keys=[created_by_user_id])
+    entries = db.relationship(
+        "ExampleCheckEntry",
+        back_populates="batch",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+        order_by="desc(ExampleCheckEntry.submitted_at)",
+    )
+
+    def __repr__(self):
+        return f"<ExampleCheckImportBatch id={self.id} status={self.status}>"
+
+
+class ExampleCheckEntry(TimestampMixin, db.Model):
+    """Record archivio raw dei check di esempio importati da CSV."""
+    __tablename__ = "example_check_entries"
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    batch_id = db.Column(
+        db.Integer,
+        db.ForeignKey("example_check_import_batches.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    section_name = db.Column(db.String(255), nullable=False, index=True)
+    external_response_id = db.Column(db.String(255), nullable=False, comment="Valore colonna #")
+    first_name = db.Column(db.String(255), index=True)
+    last_name = db.Column(db.String(255), index=True)
+    birth_date_raw = db.Column(db.String(128))
+    matched_cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id"), nullable=True, index=True)
+    response_payload = db.Column(JSONB, nullable=False, default=dict)
+    submitted_at = db.Column(db.DateTime, index=True)
+    network_id = db.Column(db.String(255), index=True)
+    response_type = db.Column(db.String(64), index=True)
+    raw_row_hash = db.Column(db.String(64), nullable=False, index=True)
+
+    batch = db.relationship("ExampleCheckImportBatch", back_populates="entries")
+    matched_cliente = db.relationship("Cliente")
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "section_name",
+            "external_response_id",
+            name="uq_example_check_entries_section_external_response",
+        ),
+        Index(
+            "ix_example_check_entries_cliente_submitted",
+            "matched_cliente_id",
+            "submitted_at",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<ExampleCheckEntry id={self.id} section={self.section_name}>"
+
+
 # Indice per ricerca risposte per data
 Index(
     'ix_client_check_responses_created_at',
