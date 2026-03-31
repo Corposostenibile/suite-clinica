@@ -37,6 +37,8 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 
 - [ ] 3A. Aggiungere docstring standard alle API route attive.
 - [ ] 3B. Rimuovere commenti obsoleti e riferimenti a codice/template eliminati.
+- [x] 3A (scope `customers` + `team`): completata aggiunta docstring standard alle API route attive nei blueprint in scope.
+- [x] 3B (scope `customers` + `team`): completata pulizia commenti obsoleti/legacy nei file backend in scope.
 - [ ] 3C. Creare `README.md` complessivo del progetto.
 
 ### Controlli documentazione collegata

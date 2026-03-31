@@ -30,7 +30,15 @@ def _frontend_only(*_args, **_kwargs):
 @bp.route('/service-dashboard')
 @login_required
 def service_dashboard():
-    """Dashboard principale servizio clienti per assegnazioni"""
+    """
+    Dashboard principale servizio clienti per assegnazioni.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `metodo configurato in route` su `/service-dashboard` in formato JSON/response Flask.
+    """
 
     # Filtri
     search_query = request.args.get('search', '')
@@ -148,7 +156,15 @@ def service_dashboard():
 @bp.route('/service-dashboard/assign/<int:assignment_id>')
 @login_required
 def assign_professionals(assignment_id):
-    """Pagina dettaglio per assegnazione professionisti"""
+    """
+    Pagina dettaglio per assegnazione professionisti.
+
+    Args:
+        assignment_id: Parametro `assignment_id` della route
+
+    Returns:
+        Risposta HTTP per `metodo configurato in route` su `/service-dashboard/assign/<int:assignment_id>` in formato JSON/response Flask.
+    """
 
     assignment = ServiceClienteAssignment.query.get_or_404(assignment_id)
     cliente = assignment.cliente
@@ -173,7 +189,15 @@ def assign_professionals(assignment_id):
 @bp.route('/service-dashboard/assign/<int:assignment_id>/save', methods=['POST'])
 @login_required
 def save_assignment(assignment_id):
-    """Salva assegnazione professionisti"""
+    """
+    Salva assegnazione professionisti.
+
+    Args:
+        assignment_id: Parametro `assignment_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/service-dashboard/assign/<int:assignment_id>/save` in formato JSON/response Flask.
+    """
 
     assignment = ServiceClienteAssignment.query.get_or_404(assignment_id)
 
@@ -342,7 +366,15 @@ def save_assignment(assignment_id):
 @bp.route('/service-dashboard/checkup/<int:assignment_id>', methods=['POST'])
 @login_required
 def update_checkup_status(assignment_id):
-    """Aggiorna stato checkup iniziale"""
+    """
+    Aggiorna stato checkup iniziale.
+
+    Args:
+        assignment_id: Parametro `assignment_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/service-dashboard/checkup/<int:assignment_id>` in formato JSON/response Flask.
+    """
 
     assignment = ServiceClienteAssignment.query.get_or_404(assignment_id)
 
@@ -385,7 +417,15 @@ def update_checkup_status(assignment_id):
 @bp.route('/service-dashboard/note/<int:assignment_id>', methods=['POST'])
 @login_required
 def add_service_note(assignment_id):
-    """Aggiungi nota di servizio"""
+    """
+    Aggiungi nota di servizio.
+
+    Args:
+        assignment_id: Parametro `assignment_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/service-dashboard/note/<int:assignment_id>` in formato JSON/response Flask.
+    """
 
     assignment = ServiceClienteAssignment.query.get_or_404(assignment_id)
 
@@ -418,7 +458,15 @@ def add_service_note(assignment_id):
 @bp.route('/service-dashboard/urgent/<int:assignment_id>', methods=['POST'])
 @login_required
 def toggle_urgent(assignment_id):
-    """Toggle flag urgente"""
+    """
+    Toggle flag urgente.
+
+    Args:
+        assignment_id: Parametro `assignment_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/service-dashboard/urgent/<int:assignment_id>` in formato JSON/response Flask.
+    """
 
     assignment = ServiceClienteAssignment.query.get_or_404(assignment_id)
 

@@ -152,8 +152,13 @@ def _serialize_trial_user(user, include_clients=False):
 @login_required
 def api_trial_users_list():
     """
-    GET /team/api/trial-users
-    Lista tutti i trial users (filtrati per permessi)
+    GET /team/api/trial-users.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/api/trial-users, /trial-users` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -195,8 +200,13 @@ def api_trial_users_list():
 @login_required
 def api_trial_user_detail(user_id):
     """
-    GET /team/api/trial-users/<id>
-    Dettaglio singolo trial user con clienti assegnati
+    GET /team/api/trial-users/<id>.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `GET` su `/api/trial-users/<int:user_id>, /trial-users/<int:user_id>` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -226,14 +236,13 @@ def api_trial_user_detail(user_id):
 @login_required
 def api_trial_user_create():
     """
-    POST /team/api/trial-users
-    Crea nuovo trial user
+    POST /team/api/trial-users.
 
-    Body: {
-        email, first_name, last_name, password,
-        job_title?, specialty?, department_id?,
-        trial_stage?, trial_supervisor_id?
-    }
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/trial-users, /trial-users` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -305,8 +314,13 @@ def api_trial_user_create():
 @login_required
 def api_trial_user_update(user_id):
     """
-    PUT /team/api/trial-users/<id>
-    Aggiorna trial user
+    PUT /team/api/trial-users/<id>.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/api/trial-users/<int:user_id>, /trial-users/<int:user_id>` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -391,8 +405,13 @@ def api_trial_user_update(user_id):
 @login_required
 def api_trial_user_promote(user_id):
     """
-    POST /team/api/trial-users/<id>/promote
-    Promuovi trial user allo stage successivo
+    POST /team/api/trial-users/<id>/promote.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/trial-users/<int:user_id>/promote, /trial-users/<int:user_id>/promote` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -431,10 +450,13 @@ def api_trial_user_promote(user_id):
 @login_required
 def api_trial_user_assign_clients(user_id):
     """
-    POST /team/api/trial-users/<id>/assign-clients
-    Assegna clienti a trial user
+    POST /team/api/trial-users/<id>/assign-clients.
 
-    Body: { cliente_ids: [1, 2, 3], notes?: "..." }
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/trial-users/<int:user_id>/assign-clients, /trial-users/<int:user_id>/assign-clients` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -501,8 +523,14 @@ def api_trial_user_assign_clients(user_id):
 @login_required
 def api_trial_user_remove_client(user_id, cliente_id):
     """
-    DELETE /team/api/trial-users/<id>/remove-client/<cliente_id>
-    Rimuovi cliente da trial user
+    DELETE /team/api/trial-users/<id>/remove-client/<cliente_id>.
+
+    Args:
+        user_id: ID utente
+        cliente_id: ID del cliente
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/api/trial-users/<int:user_id>/remove-client/<int:cliente_id>, /trial-users/<int:user_id>/remove-client/<int:cliente_id>` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -538,8 +566,13 @@ def api_trial_user_remove_client(user_id, cliente_id):
 @login_required
 def api_trial_user_delete(user_id):
     """
-    DELETE /team/api/trial-users/<id>
-    Elimina trial user
+    DELETE /team/api/trial-users/<id>.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/api/trial-users/<int:user_id>, /trial-users/<int:user_id>` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -581,8 +614,13 @@ def api_trial_user_delete(user_id):
 @login_required
 def api_trial_users_available_clients():
     """
-    GET /team/api/trial-users/available-clients?user_id=X
-    Lista clienti disponibili per assegnazione (non ancora assegnati)
+    GET /team/api/trial-users/available-clients?user_id=X.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/api/trial-users/available-clients, /trial-users/available-clients` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:
@@ -643,8 +681,13 @@ def api_trial_users_available_clients():
 @login_required
 def api_trial_users_supervisors():
     """
-    GET /team/api/trial-users/supervisors?specialty=nutrizione
-    Lista potenziali supervisori (admin e team_leader) filtrabili per specialty
+    GET /team/api/trial-users/supervisors?specialty=nutrizione.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/api/trial-users/supervisors, /trial-users/supervisors` in formato JSON/response Flask.
     """
     allowed, error_code = _check_trial_permission()
     if not allowed:

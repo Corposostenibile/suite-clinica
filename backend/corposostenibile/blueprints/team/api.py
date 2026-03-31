@@ -689,14 +689,11 @@ def get_members():
     """
     Get paginated list of team members.
 
-    Query params:
-        - page: Page number (default 1)
-        - per_page: Items per page (default 25, max 10000)
-        - q: Search query (searches name, email)
-        - role: Filter by role (admin, team_leader, professionista, team_esterno, health_manager)
-        - specialty: Filter by specialty
-        - active: Filter by active status ('1' or '0')
-        - department_id: Filter by department
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/members` in formato JSON/response Flask.
     """
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 25, type=int), 10000)
@@ -826,7 +823,15 @@ def get_members():
 @team_api_bp.route("/members/<int:user_id>", methods=["GET"])
 @login_required
 def get_member(user_id):
-    """Get single team member details."""
+    """
+    Get single team member details.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `GET` su `/members/<int:user_id>` in formato JSON/response Flask.
+    """
     user = User.query.get_or_404(user_id)
 
     if not _can_view_all_team_module_data(current_user):
@@ -848,7 +853,15 @@ def get_member(user_id):
 @team_api_bp.route("/members", methods=["POST"])
 @login_required
 def create_member():
-    """Create new team member."""
+    """
+    Create new team member.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/members` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -940,7 +953,15 @@ def create_member():
 @team_api_bp.route("/members/<int:user_id>", methods=["PUT"])
 @login_required
 def update_member(user_id):
-    """Update team member."""
+    """
+    Update team member.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/members/<int:user_id>` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -1028,7 +1049,15 @@ def update_member(user_id):
 @team_api_bp.route("/members/<int:user_id>", methods=["DELETE"])
 @login_required
 def delete_member(user_id):
-    """Delete team member (soft delete by deactivating)."""
+    """
+    Delete team member (soft delete by deactivating).
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/members/<int:user_id>` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -1065,7 +1094,15 @@ def delete_member(user_id):
 @team_api_bp.route("/members/<int:user_id>/toggle", methods=["POST"])
 @login_required
 def toggle_member_status(user_id):
-    """Toggle team member active status."""
+    """
+    Toggle team member active status.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/members/<int:user_id>/toggle` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -1103,7 +1140,15 @@ def toggle_member_status(user_id):
 @team_api_bp.route("/members/<int:user_id>/avatar", methods=["POST"])
 @login_required
 def upload_avatar(user_id):
-    """Upload avatar for team member."""
+    """
+    Upload avatar for team member.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/members/<int:user_id>/avatar` in formato JSON/response Flask.
+    """
     # Check admin permission or self
     if not (current_user.is_admin or current_user.id == user_id):
         return jsonify({
@@ -1175,7 +1220,15 @@ def upload_avatar(user_id):
 @team_api_bp.route("/departments", methods=["GET"])
 @login_required
 def get_departments():
-    """Get list of departments."""
+    """
+    Get list of departments.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/departments` in formato JSON/response Flask.
+    """
     departments = Department.query.order_by(Department.name).all()
 
     return jsonify({
@@ -1195,7 +1248,15 @@ def get_departments():
 @team_api_bp.route("/stats", methods=["GET"])
 @login_required
 def get_team_stats():
-    """Get team statistics."""
+    """
+    Get team statistics.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/stats` in formato JSON/response Flask.
+    """
     visible_users = User.query.filter(User.role.isnot(None))
 
     # Total counts
@@ -1244,7 +1305,15 @@ def get_team_stats():
 @team_api_bp.route("/professionals/criteria", methods=["GET"])
 @login_required
 def api_get_professionals_criteria():
-    """Restituisce lista professionisti con i loro criteri di assegnazione."""
+    """
+    Restituisce lista professionisti con i loro criteri di assegnazione.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/professionals/criteria` in formato JSON/response Flask.
+    """
     current_app.logger.info(f"Fetching professionals criteria for user {current_user.id}")
     
     # Target specialties using Enum instances for robustness
@@ -1331,7 +1400,15 @@ def api_get_professionals_criteria():
 @login_required
 # @csrf.exempt # Already exempt at blueprint level
 def api_update_professional_criteria(user_id: int):
-    """Aggiorna i criteri di assegnazione per un professionista."""
+    """
+    Aggiorna i criteri di assegnazione per un professionista.
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/professionals/<int:user_id>/criteria` in formato JSON/response Flask.
+    """
     # Check permissions
     if not current_user.is_admin and not (current_user.role.value in ['team_leader']):
          return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
@@ -1373,7 +1450,15 @@ def api_update_professional_criteria(user_id: int):
 @team_api_bp.route("/professionals/<int:user_id>/toggle-available", methods=["PUT"])
 @login_required
 def api_toggle_professional_available(user_id: int):
-    """Toggle disponibilità assegnazioni per un professionista."""
+    """
+    Toggle disponibilità assegnazioni per un professionista.
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/professionals/<int:user_id>/toggle-available` in formato JSON/response Flask.
+    """
     if not current_user.is_admin and not (current_user.role.value in ['team_leader']):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
 
@@ -1416,7 +1501,15 @@ def api_toggle_professional_available(user_id: int):
 @team_api_bp.route("/criteria/schema", methods=["GET"])
 @login_required
 def api_get_criteria_schema():
-    """Restituisce lo schema dei criteri disponibili."""
+    """
+    Restituisce lo schema dei criteri disponibili.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/criteria/schema` in formato JSON/response Flask.
+    """
     from .criteria_service import CriteriaService
     return jsonify({
         'success': True,
@@ -1432,7 +1525,12 @@ def api_get_criteria_schema():
 def api_analyze_lead_story():
     """
     Analizza la storia del lead con l'AI per estrarre i criteri.
-    Supporta la persistenza se viene passato opportunity_id o assignment_id.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/assignments/analyze-lead` in formato JSON/response Flask.
     """
     data = request.get_json()
     if not data:
@@ -1539,8 +1637,12 @@ def api_analyze_lead_story():
 def api_match_professionals():
     """
     Trova i professionisti migliori in base ai criteri estratti.
-    Input: { "criteria": ["TAG1", "TAG2"] }
-    Output: { "success": true, "matches": { "nutrizione": [...], ... } }
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/assignments/match` in formato JSON/response Flask.
     """
     data = request.get_json()
     criteria = data.get('criteria', [])
@@ -1576,14 +1678,12 @@ def api_match_professionals():
 def api_confirm_assignment():
     """
     Conferma l'assegnazione dei professionisti per un cliente.
-    Input: {
-        "assignment_id": 123,
-        "nutritionist_id": 456,
-        "coach_id": 789,
-        "psychologist_id": 101,
-        "notes": "Note opzionali"
-    }
-    Output: { "success": true, "message": "Assegnazione confermata" }
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/assignments/confirm` in formato JSON/response Flask.
     """
     data = request.get_json()
     if not data:
@@ -1781,8 +1881,13 @@ def api_confirm_assignment():
 @login_required
 def get_admin_dashboard_stats():
     """
-    Dashboard statistics for professionals; data filtered by role
-    (admin=all, TL=team members, professionista=own).
+    Dashboard statistics for professionals; data filtered by role.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/admin-dashboard-stats` in formato JSON/response Flask.
     """
     perm_error = _require_admin()
     if perm_error:
@@ -2173,13 +2278,11 @@ def get_teams():
     """
     Get list of teams with server-side pagination.
 
-    Query params:
-        - page: Page number (default 1)
-        - per_page: Items per page (default 12, max 100)
-        - team_type: Filter by team type (nutrizione, coach, psicologia)
-        - active: Filter by active status ('1' or '0')
-        - q: Search query (searches team name)
-        - include_members: Include team members in response ('1' to include)
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/teams` in formato JSON/response Flask.
     """
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 12, type=int), 100)
@@ -2236,7 +2339,15 @@ def get_teams():
 @team_api_bp.route("/teams/<int:team_id>", methods=["GET"])
 @login_required
 def get_team(team_id):
-    """Get single team details with members."""
+    """
+    Get single team details with members.
+
+    Args:
+        team_id: ID team
+
+    Returns:
+        Risposta HTTP per `GET` su `/teams/<int:team_id>` in formato JSON/response Flask.
+    """
     team = Team.query.get_or_404(team_id)
 
     if not _can_view_all_team_module_data(current_user):
@@ -2255,7 +2366,15 @@ def get_team(team_id):
 @team_api_bp.route("/teams", methods=["POST"])
 @login_required
 def create_team():
-    """Create new team."""
+    """
+    Create new team.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/teams` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -2337,7 +2456,15 @@ def create_team():
 @team_api_bp.route("/teams/<int:team_id>", methods=["PUT"])
 @login_required
 def update_team(team_id):
-    """Update team."""
+    """
+    Update team.
+
+    Args:
+        team_id: ID team
+
+    Returns:
+        Risposta HTTP per `PUT` su `/teams/<int:team_id>` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -2406,7 +2533,15 @@ def update_team(team_id):
 @team_api_bp.route("/teams/<int:team_id>", methods=["DELETE"])
 @login_required
 def delete_team(team_id):
-    """Delete team (soft delete by deactivating)."""
+    """
+    Delete team (soft delete by deactivating).
+
+    Args:
+        team_id: ID team
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/teams/<int:team_id>` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -2436,7 +2571,15 @@ def delete_team(team_id):
 @team_api_bp.route("/teams/<int:team_id>/members", methods=["POST"])
 @login_required
 def add_team_member(team_id):
-    """Add member to team."""
+    """
+    Add member to team.
+
+    Args:
+        team_id: ID team
+
+    Returns:
+        Risposta HTTP per `POST` su `/teams/<int:team_id>/members` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -2482,7 +2625,16 @@ def add_team_member(team_id):
 @team_api_bp.route("/teams/<int:team_id>/members/<int:user_id>", methods=["DELETE"])
 @login_required
 def remove_team_member(team_id, user_id):
-    """Remove member from team."""
+    """
+    Remove member from team.
+
+    Args:
+        team_id: ID team
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/teams/<int:team_id>/members/<int:user_id>` in formato JSON/response Flask.
+    """
     # Check admin permission
     perm_error = _require_admin()
     if perm_error:
@@ -2523,9 +2675,11 @@ def get_available_leaders(team_type):
     """
     Get available team leaders for a specific team type.
 
-    Team leaders must have:
-    - role = team_leader
-    - specialty compatible with team_type
+    Args:
+        team_type: Parametro `team_type` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/available-leaders/<team_type>` in formato JSON/response Flask.
     """
     team_type = (team_type or "").strip().lower()
     if team_type not in [e.value for e in TeamTypeEnum]:
@@ -2575,9 +2729,11 @@ def get_available_professionals(team_type):
     """
     Get available professionals for a specific team type.
 
-    For nutrizione/coach/psicologia: role in (professionista, team_leader) and compatible specialty.
-    For medico: role in (professionista, team_leader) and specialty = medico.
-    For health_manager: role = health_manager (or department_id = 13 if present).
+    Args:
+        team_type: Parametro `team_type` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/available-professionals/<team_type>` in formato JSON/response Flask.
     """
     team_type = (team_type or "").strip().lower()
     team_type_aliases = {
@@ -2657,10 +2813,11 @@ def get_professionals_capacity():
     """
     Tabella capienza professionisti.
 
-    ACL visualizzazione:
-    - admin/CCO: tutti i professionisti
-    - team_leader: solo i propri membri
-    - altri ruoli: nessun accesso
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/capacity` in formato JSON/response Flask.
     """
     if not _can_view_professional_capacity(current_user):
         return jsonify({
@@ -2818,7 +2975,15 @@ def get_professionals_capacity():
 @team_api_bp.route("/capacity-weights", methods=["GET"])
 @login_required
 def get_capacity_weights():
-    """Get capacity type weights (admin only)."""
+    """
+    Get capacity type weights (admin only).
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/capacity-weights` in formato JSON/response Flask.
+    """
     if not (current_user.is_admin or _is_cco_user(current_user)):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
 
@@ -2847,7 +3012,15 @@ def get_capacity_weights():
 @team_api_bp.route("/capacity-weights", methods=["PUT"])
 @login_required
 def update_capacity_weights():
-    """Update capacity type weights (admin only)."""
+    """
+    Update capacity type weights (admin only).
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `PUT` su `/capacity-weights` in formato JSON/response Flask.
+    """
     if not (current_user.is_admin or _is_cco_user(current_user)):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
 
@@ -2879,7 +3052,15 @@ def update_capacity_weights():
 @team_api_bp.route("/capacity/<int:user_id>", methods=["PUT"])
 @login_required
 def update_professional_capacity(user_id: int):
-    """Aggiorna capienza contrattuale (admin/CCO/Team Leader)."""
+    """
+    Aggiorna capienza contrattuale (admin/CCO/Team Leader).
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/capacity/<int:user_id>` in formato JSON/response Flask.
+    """
     if not _can_edit_professional_capacity(current_user):
         return jsonify({
             'success': False,
@@ -2997,15 +3178,11 @@ def get_member_clients(user_id):
     """
     Get paginated list of clients associated with a professional.
 
-    Query params:
-        - page: Page number (default 1)
-        - per_page: Items per page (default 5, max 50)
-        - q: Search query (searches client name)
-        - stato: Filter by stato_cliente
+    Args:
+        user_id: ID utente
 
-    Returns clients where the professional is assigned via:
-    - Single FK (nutrizionista_id, coach_id, psicologa_id)
-    - Many-to-many relationships (nutrizionisti_multipli, coaches_multipli, psicologi_multipli)
+    Returns:
+        Risposta HTTP per `GET` su `/members/<int:user_id>/clients` in formato JSON/response Flask.
     """
     from corposostenibile.models import Cliente, cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti
     from sqlalchemy import select, exists
@@ -3165,16 +3342,11 @@ def get_member_client_checks(user_id):
     """
     Get check responses for clients associated with a professional.
 
-    Query params:
-        - period: 'week', 'month', 'trimester', 'year', or 'custom' (default 'month')
-        - start_date: Start date for custom period (YYYY-MM-DD)
-        - end_date: End date for custom period (YYYY-MM-DD)
-        - check_type: 'all', 'weekly', 'dca' (default 'all')
-        - q: Search query on client name
-        - page: Page number (default 1)
-        - per_page: Items per page (default 25, max 50)
+    Args:
+        user_id: ID utente
 
-    Returns check responses from clients where the professional is assigned.
+    Returns:
+        Risposta HTTP per `GET` su `/members/<int:user_id>/checks` in formato JSON/response Flask.
     """
     from corposostenibile.models import (
         Cliente, WeeklyCheck, WeeklyCheckResponse, DCACheck, DCACheckResponse,

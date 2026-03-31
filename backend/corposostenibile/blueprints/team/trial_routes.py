@@ -62,7 +62,16 @@ def require_admin_or_supervisor():
 @team_bp.route('/trial-users/<int:user_id>/remove-client/<int:cliente_id>', methods=['POST'])
 @login_required
 def trial_user_remove_client(user_id, cliente_id):
-    """Rimuovi cliente assegnato a trial user"""
+    """
+    Rimuovi cliente assegnato a trial user.
+
+    Args:
+        user_id: ID utente
+        cliente_id: ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/trial-users/<int:user_id>/remove-client/<int:cliente_id>` in formato JSON/response Flask.
+    """
     require_admin_or_supervisor()
 
     user = User.query.get_or_404(user_id)
@@ -94,7 +103,15 @@ def trial_user_remove_client(user_id, cliente_id):
 @login_required
 @csrf.exempt
 def trial_user_delete(user_id):
-    """Elimina un trial user"""
+    """
+    Elimina un trial user.
+
+    Args:
+        user_id: ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/trial-users/<int:user_id>/delete` in formato JSON/response Flask.
+    """
     import logging
     logging.info(f"DELETE TRIAL USER chiamato per user_id: {user_id}")
 

@@ -53,8 +53,11 @@ def _customers_ws(ws: SockServer) -> None:  # pragma: no cover
     """
     Mantiene aperto il canale WebSocket “fire-hose” per gli eventi clienti.
 
-    Il server *non* si aspetta messaggi in ingresso: eventuali frame ricevuti
-    vengono ignorati (può essere usato come ping dal browser).
+    Args:
+        ws (SockServer): Parametro `ws` della route
+
+    Returns:
+        Risposta HTTP per `metodo configurato in route` su `/ws/customers` in formato JSON/response Flask.
     """
     with _lock:
         _clients.add(ws)

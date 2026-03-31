@@ -111,7 +111,15 @@ def _require_assignment_permission() -> None:
 @team_bp.route("/api/assegnazioni/<int:user_id>", methods=["GET"])
 @login_required
 def api_get_assignment_notes(user_id: int):
-    """API per ottenere le note di assegnazione AI di un utente."""
+    """
+    API per ottenere le note di assegnazione AI di un utente.
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `GET` su `/api/assegnazioni/<int:user_id>` in formato JSON/response Flask.
+    """
     _require_assignment_permission()
 
     user = User.query.get_or_404(user_id)
@@ -145,7 +153,15 @@ def api_get_assignment_notes(user_id: int):
 @login_required
 @csrf.exempt
 def api_update_assignment_notes(user_id: int):
-    """API per aggiornare le note di assegnazione AI di un utente."""
+    """
+    API per aggiornare le note di assegnazione AI di un utente.
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/assegnazioni/<int:user_id>` in formato JSON/response Flask.
+    """
     _require_assignment_permission()
 
     user = User.query.get_or_404(user_id)
@@ -203,7 +219,15 @@ def api_update_assignment_notes(user_id: int):
 @login_required
 @csrf.exempt
 def api_toggle_assignment_available(user_id: int):
-    """API per toggle rapido disponibilità assegnazioni."""
+    """
+    API per toggle rapido disponibilità assegnazioni.
+
+    Args:
+        user_id (int): ID utente
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/assegnazioni/<int:user_id>/toggle-disponibile` in formato JSON/response Flask.
+    """
     _require_assignment_permission()
 
     user = User.query.get_or_404(user_id)

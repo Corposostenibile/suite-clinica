@@ -251,7 +251,15 @@ def _load_cliente(_endpoint, values):  # noqa: D401
 @customers_bp.route("/dashboard/data", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
 def dashboard_data():
-    """API endpoint per aggiornare i dati della dashboard con filtri."""
+    """
+    API endpoint per aggiornare i dati della dashboard con filtri.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/dashboard/data` in formato JSON/response Flask.
+    """
     filters = request.json
     
     # Applica filtri e ricalcola KPI
@@ -310,7 +318,15 @@ def dashboard_data():
 @customers_bp.route("/<int:cliente_id>/history/json", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
 def history_json(cliente_id: int):
-    """Restituisce lo storico versioni in formato JSON per AJAX."""
+    """
+    Restituisce lo storico versioni in formato JSON per AJAX.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/history/json` in formato JSON/response Flask.
+    """
     try:
         # Start fresh session to avoid transaction issues
         db.session.rollback()
@@ -444,7 +460,16 @@ def history_json(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/history/<int:tx_id>/restore", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def history_restore_view(cliente_id: int, tx_id: int):
-    """Ripristina lo stato alla transazione *tx_id*."""
+    """
+    Ripristina lo stato alla transazione *tx_id*.
+
+    Args:
+        cliente_id (int): ID del cliente
+        tx_id (int): Parametro `tx_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/history/<int:tx_id>/restore` in formato JSON/response Flask.
+    """
     logger.info(f"Restore request - Cliente: {cliente_id}, TX: {tx_id}, User: {current_user}")
     
     # Verifica che l'utente sia autenticato
@@ -473,7 +498,15 @@ def history_restore_view(cliente_id: int, tx_id: int):
 @customers_bp.route("/<int:cliente_id>/delete", methods=["POST"])
 @permission_required(CustomerPerm.DELETE)
 def delete_view(cliente_id: int):
-    """Hard-delete di un cliente (solo admin)."""
+    """
+    Hard-delete di un cliente (solo admin).
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/delete` in formato JSON/response Flask.
+    """
     # Verifica che l'utente sia admin (trial users non possono cancellare)
     if not current_user.is_admin or current_user.is_trial:
         abort(403, "Solo gli amministratori possono eliminare i clienti")
@@ -489,8 +522,13 @@ def delete_view(cliente_id: int):
 @permission_required(CustomerPerm.EDIT)
 def update_single_field(cliente_id: int):
     """
-    Aggiorna un singolo campo del cliente via JSON:
-        {\"field\": \"nome_cognome\", \"value\": \"Mario Rossi\"}
+    Aggiorna un singolo campo del cliente via JSON:.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `PATCH` su `/<int:cliente_id>/field` in formato JSON/response Flask.
     """
     payload: Dict[str, Any] = request.get_json(force=True, silent=False) or {}
 
@@ -523,7 +561,12 @@ def update_single_field(cliente_id: int):
 def update_multiple_fields(cliente_id: int):
     """
     Aggiorna più campi del cliente via JSON (per form editabili).
-    Accetta un oggetto JSON con i campi da aggiornare.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST, OPTIONS` su `/<int:cliente_id>/update` in formato JSON/response Flask.
     """
     # Handle OPTIONS request for CORS
     if request.method == "OPTIONS":
@@ -793,7 +836,12 @@ def update_multiple_fields(cliente_id: int):
 def freeze_cliente_route(cliente_id: int):
     """
     Mette un cliente in stato FREEZE.
-    Solo Health Manager (dept_id=13) o admin possono eseguire questa azione.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/freeze` in formato JSON/response Flask.
     """
     from corposostenibile.blueprints.customers.services import freeze_cliente
 
@@ -816,7 +864,12 @@ def freeze_cliente_route(cliente_id: int):
 def unfreeze_cliente_route(cliente_id: int):
     """
     Rimuove un cliente dallo stato FREEZE.
-    Solo Health Manager (dept_id=13) o admin possono eseguire questa azione.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/unfreeze` in formato JSON/response Flask.
     """
     from corposostenibile.blueprints.customers.services import unfreeze_cliente
 
@@ -839,6 +892,12 @@ def unfreeze_cliente_route(cliente_id: int):
 def get_freeze_history(cliente_id: int):
     """
     Restituisce lo storico freeze del cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/freeze-history` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteFreezeHistory
 
@@ -871,6 +930,12 @@ def get_freeze_history(cliente_id: int):
 def assign_professionista(cliente_id: int):
     """
     Assegna un professionista al cliente e registra l'azione nello storico.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/assign` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory
     from datetime import datetime as dt
@@ -938,6 +1003,13 @@ def assign_professionista(cliente_id: int):
 def interrupt_professionista(cliente_id: int, history_id: int):
     """
     Interrompe un'assegnazione di professionista e registra la motivazione.
+
+    Args:
+        cliente_id (int): ID del cliente
+        history_id (int): Parametro `history_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/<int:history_id>/interrupt` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory
     from datetime import datetime as dt, date
@@ -1021,6 +1093,12 @@ def interrupt_professionista(cliente_id: int, history_id: int):
 def interrupt_professionista_legacy(cliente_id: int):
     """
     Interrompe un professionista legacy (senza storico) creando prima il record storico.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/legacy/interrupt` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory
     from datetime import datetime as dt, date
@@ -1107,7 +1185,12 @@ def interrupt_professionista_legacy(cliente_id: int):
 def get_professionisti_history(cliente_id: int):
     """
     Restituisce lo storico completo delle assegnazioni professionisti per un cliente.
-    Include sia le assegnazioni con storico che quelle legacy (senza storico).
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/professionisti/history` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory
 
@@ -1303,8 +1386,7 @@ def get_service_evaluations(cliente_id: int, service_type: str):
                 'notes': feedback if feedback else None
             })
 
-    # TODO: Aggiungi anche valutazioni da ClientCheckResponse (check vecchi) se necessario
-    # Per ora includiamo solo i Check 2.0
+    # Al momento includiamo solo valutazioni provenienti da Check 2.0.
 
     return jsonify({
         'evaluations': evaluations,
@@ -1321,12 +1403,12 @@ def get_service_evaluations(cliente_id: int, service_type: str):
 def create_lead_for_checks(cliente_id: int):
     """
     Crea una SalesLead retroattiva per un cliente esistente che non ha una lead associata.
-    Questo permette al cliente di compilare i Check 1, 2, 3 anche se non proviene dal flusso lead standard.
 
-    La lead viene creata con:
-    - Dati anagrafici copiati dal cliente
-    - Status 'CONVERTED' (già convertito)
-    - Link ai check 1, 2, 3 generati automaticamente
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/create-lead-for-checks` in formato JSON/response Flask.
     """
     import secrets
     from corposostenibile.models import SalesLead, SalesFormLink, SalesFormConfig
@@ -1438,6 +1520,15 @@ def _json_error(err):  # type: ignore[override]
 @api_bp.route("/origins", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_origins_list():
+    """
+    Restituisce l'elenco delle origini cliente configurate.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/origins` in formato JSON/response Flask.
+    """
     origins = Origine.query.all()
     # Manual serialization since no schema yet
     return jsonify([{"id": o.id, "name": o.name, "active": o.active} for o in origins])
@@ -1445,6 +1536,15 @@ def api_origins_list():
 @api_bp.route("/origins", methods=["POST"])
 @permission_required(CustomerPerm.MANAGE)
 def api_origins_create():
+    """
+    Crea una nuova origine cliente validando unicita' del nome.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/origins` in formato JSON/response Flask.
+    """
     data = request.json
     if not data or not data.get("name"):
         return jsonify({"error": "Name required"}), 400
@@ -1462,6 +1562,15 @@ def api_origins_create():
 @api_bp.route("/origins/<int:origin_id>", methods=["PUT"])
 @permission_required(CustomerPerm.MANAGE)
 def api_origins_update(origin_id):
+    """
+    Aggiorna nome/stato attivo di un'origine cliente esistente.
+
+    Args:
+        origin_id: ID origine
+
+    Returns:
+        Risposta HTTP per `PUT` su `/origins/<int:origin_id>` in formato JSON/response Flask.
+    """
     origin = Origine.query.get_or_404(origin_id)
     data = request.json
     if "name" in data:
@@ -1474,6 +1583,15 @@ def api_origins_update(origin_id):
 @api_bp.route("/origins/<int:origin_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.MANAGE)
 def api_origins_delete(origin_id):
+    """
+    Elimina un'origine cliente dal catalogo.
+
+    Args:
+        origin_id: ID origine
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/origins/<int:origin_id>` in formato JSON/response Flask.
+    """
     origin = Origine.query.get_or_404(origin_id)
     db.session.delete(origin)
     db.session.commit()
@@ -1483,7 +1601,15 @@ def api_origins_delete(origin_id):
 @api_bp.route("/", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_list() -> Any:
-    """Get list of customers with trial user access control."""
+    """
+    Get list of customers with trial user access control.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/` in formato JSON/response Flask.
+    """
     # Trial user access check
     if current_user.is_authenticated and current_user.is_trial:
         if current_user.trial_stage < 2:
@@ -1591,7 +1717,15 @@ def api_list() -> Any:
 @api_bp.route("/expiring", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_expiring() -> Any:
-    """Clienti in scadenza filtrati per fascia temporale (30/60/90 giorni)."""
+    """
+    Clienti in scadenza filtrati per fascia temporale (30/60/90 giorni).
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/expiring` in formato JSON/response Flask.
+    """
     from datetime import date, timedelta
 
     days = request.args.get("days", 30, type=int)
@@ -1694,7 +1828,15 @@ def api_expiring() -> Any:
 @api_bp.route("/unsatisfied", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_unsatisfied() -> Any:
-    """Clienti insoddisfatti in base alla media voti weekly check."""
+    """
+    Clienti insoddisfatti in base alla media voti weekly check.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/unsatisfied` in formato JSON/response Flask.
+    """
     from sqlalchemy import func as sa_func
 
     threshold = request.args.get("threshold", 8, type=int)
@@ -1872,10 +2014,13 @@ def api_unsatisfied() -> Any:
 @permission_required(CustomerPerm.VIEW)
 def api_hm_coordinatrici_dashboard() -> Any:
     """
-    Dashboard coordinatrici HM:
-    - elenco pazienti associati a Health Manager
-    - ordinamento per HM e date principali
-    - flag operativi (parte mock finche' non disponibili dati persistenti)
+    Dashboard coordinatrici HM:.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/hm-coordinatrici-dashboard` in formato JSON/response Flask.
     """
     specialty = getattr(current_user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
@@ -2170,6 +2315,15 @@ def _append_export_section(story: list[Any], styles: Any, title: str, rows: list
 @api_bp.route("/<int:cliente_id>/clinical-folder-export", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_clinical_folder_export_pdf(cliente_id: int):
+    """
+    Genera ed esporta in PDF la cartella clinica completa del cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/clinical-folder-export` in formato JSON/response Flask.
+    """
     from io import BytesIO
 
     from reportlab.lib import colors
@@ -3161,7 +3315,15 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 @api_bp.route("/<int:cliente_id>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_detail(cliente_id: int) -> Any:
-    """Get customer detail with trial user access control."""
+    """
+    Get customer detail with trial user access control.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>` in formato JSON/response Flask.
+    """
     # Trial user access check
     if current_user.is_authenticated and current_user.is_trial:
         if current_user.trial_stage < 2:
@@ -3213,6 +3375,15 @@ def api_detail(cliente_id: int) -> Any:
 @api_bp.route("/", methods=["POST"])
 @permission_required(CustomerPerm.CREATE)
 def api_create() -> Any:
+    """
+    Crea un nuovo cliente validando il payload con schema applicativo.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/` in formato JSON/response Flask.
+    """
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
     
     # Use schema with session for validation (required for unique checks)
@@ -3227,6 +3398,15 @@ def api_create() -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["PATCH"])
 @permission_required(CustomerPerm.EDIT)
 def api_update(cliente_id: int) -> Any:
+    """
+    Aggiorna in modo parziale i dati anagrafici e gestionali del cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `PATCH` su `/<int:cliente_id>` in formato JSON/response Flask.
+    """
     _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     data: Dict[str, Any] = request.get_json(force=True, silent=False)
@@ -3241,6 +3421,15 @@ def api_update(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.DELETE)
 def api_delete(cliente_id: int) -> Any:
+    """
+    Elimina un cliente applicando i controlli di autorizzazione previsti.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/<int:cliente_id>` in formato JSON/response Flask.
+    """
     _require_cliente_scope_or_403(cliente_id)
     cliente = customers_repo.get_one(cliente_id)
     delete_cliente(cliente, current_user)
@@ -3250,6 +3439,15 @@ def api_delete(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW_HISTORY)
 def api_history(cliente_id: int) -> Any:
+    """
+    Recupera lo storico versionato del cliente con relativo changelog.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/history` in formato JSON/response Flask.
+    """
     _require_cliente_scope_or_403(cliente_id)
     limit = request.args.get("limit", 100, type=int)
     versions = customers_repo.history_for_cliente(cliente_id, limit=limit)
@@ -3273,7 +3471,15 @@ def api_history(cliente_id: int) -> Any:
 @api_bp.route("/stats", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_stats() -> Any:
-    """Espone le metriche di dashboard in JSON."""
+    """
+    Espone le metriche di dashboard in JSON.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/stats` in formato JSON/response Flask.
+    """
     return jsonify(_compute_dashboard_metrics())
 
 # – ADMIN DASHBOARD STATS -------------------------------------------------- #
@@ -3285,7 +3491,15 @@ def _admin_dashboard_base_query():
 @api_bp.route("/admin-dashboard-stats", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_admin_dashboard_stats() -> Any:
-    """Comprehensive patient dashboard stats; data filtered by role (admin=all, TL=team, member=own)."""
+    """
+    Comprehensive patient dashboard stats; data filtered by role (admin=all, TL=team, member=own).
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/admin-dashboard-stats` in formato JSON/response Flask.
+    """
     today = date.today()
     first_day_month = today.replace(day=1)
     threshold_scadenza = today + timedelta(days=30)
@@ -3477,7 +3691,12 @@ def api_admin_dashboard_stats() -> Any:
 def api_feedback_metrics(cliente_id: int) -> Any:
     """
     Restituisce le metriche dei feedback per un cliente specifico.
-    Dati organizzati per grafici Chart.js.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/feedback-metrics` in formato JSON/response Flask.
     """
     from corposostenibile.models import TypeFormResponse
     _require_cliente_scope_or_403(cliente_id)
@@ -3559,7 +3778,12 @@ def api_feedback_metrics(cliente_id: int) -> Any:
 def api_weekly_checks_metrics(cliente_id: int) -> Any:
     """
     Restituisce le metriche dei Weekly Checks per un cliente specifico.
-    Dati organizzati per grafici Chart.js (stesso formato di TypeForm).
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/weekly-checks-metrics` in formato JSON/response Flask.
     """
     from corposostenibile.models import WeeklyCheckResponse, WeeklyCheck
     _require_cliente_scope_or_403(cliente_id)
@@ -3631,8 +3855,12 @@ def api_weekly_checks_metrics(cliente_id: int) -> Any:
 def api_initial_checks(cliente_id: int) -> Any:
     """
     Restituisce i dati dei Check 1, 2 e 3 (Iniziali).
-    Priorità: dati compilati dal Lead originale (se presenti), altrimenti
-    fallback su ClientCheckAssignment con link pubblico da inviare.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/initial-checks` in formato JSON/response Flask.
     """
     from corposostenibile.models import CheckForm, CheckFormTypeEnum
     _require_cliente_scope_or_403(cliente_id)
@@ -3773,7 +4001,17 @@ def api_initial_checks(cliente_id: int) -> Any:
 @api_bp.route("/<int:cliente_id>/initial-checks/attachment/<int:lead_id>/<path:filename>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -> Any:
-    """Scarica un allegato (foto/file) dai check iniziali di un cliente."""
+    """
+    Scarica un allegato (foto/file) dai check iniziali di un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+        lead_id (int): ID lead
+        filename (str): Nome file
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/initial-checks/attachment/<int:lead_id>/<path:filename>` in formato JSON/response Flask.
+    """
     from flask import send_file
     import os
 
@@ -3829,7 +4067,15 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
 @api_bp.route("/<int:cliente_id>/customer-care-interventions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_customer_care_interventions(cliente_id: int):
-    """Ottiene tutti gli interventi di customer care per un cliente."""
+    """
+    Ottiene tutti gli interventi di customer care per un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/customer-care-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CustomerCareIntervention
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
@@ -3847,7 +4093,15 @@ def get_customer_care_interventions(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/customer-care-interventions", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_customer_care_intervention(cliente_id: int):
-    """Crea un nuovo intervento di customer care."""
+    """
+    Crea un nuovo intervento di customer care.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/customer-care-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CustomerCareIntervention
     from datetime import datetime
 
@@ -3893,7 +4147,15 @@ def create_customer_care_intervention(cliente_id: int):
 @api_bp.route("/customer-care-interventions/<int:intervention_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def update_customer_care_intervention(intervention_id: int):
-    """Aggiorna un intervento di customer care esistente."""
+    """
+    Aggiorna un intervento di customer care esistente.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `PUT` su `/customer-care-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CustomerCareIntervention
     from datetime import datetime
 
@@ -3933,7 +4195,15 @@ def update_customer_care_intervention(intervention_id: int):
 @api_bp.route("/customer-care-interventions/<int:intervention_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def delete_customer_care_intervention(intervention_id: int):
-    """Elimina un intervento di customer care."""
+    """
+    Elimina un intervento di customer care.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/customer-care-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CustomerCareIntervention
 
     intervention = db.session.query(CustomerCareIntervention).filter_by(
@@ -3960,7 +4230,15 @@ def delete_customer_care_intervention(intervention_id: int):
 @api_bp.route("/<int:cliente_id>/check-in-interventions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_check_in_interventions(cliente_id: int):
-    """Ottiene tutti gli interventi di check-in per un cliente."""
+    """
+    Ottiene tutti gli interventi di check-in per un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/check-in-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CheckInIntervention
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
@@ -3978,7 +4256,15 @@ def get_check_in_interventions(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/check-in-interventions", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_check_in_intervention(cliente_id: int):
-    """Crea un nuovo intervento di check-in."""
+    """
+    Crea un nuovo intervento di check-in.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/check-in-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CheckInIntervention
     from datetime import datetime
 
@@ -4021,7 +4307,15 @@ def create_check_in_intervention(cliente_id: int):
 @api_bp.route("/check-in-interventions/<int:intervention_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def update_check_in_intervention(intervention_id: int):
-    """Aggiorna un intervento di check-in esistente."""
+    """
+    Aggiorna un intervento di check-in esistente.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `PUT` su `/check-in-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CheckInIntervention
     from datetime import datetime
 
@@ -4061,7 +4355,15 @@ def update_check_in_intervention(intervention_id: int):
 @api_bp.route("/check-in-interventions/<int:intervention_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def delete_check_in_intervention(intervention_id: int):
-    """Elimina un intervento di check-in."""
+    """
+    Elimina un intervento di check-in.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/check-in-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CheckInIntervention
 
     intervention = db.session.query(CheckInIntervention).filter_by(
@@ -4088,7 +4390,15 @@ def delete_check_in_intervention(intervention_id: int):
 @api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_rinnovo_interventions(cliente_id: int):
-    """Ottiene tutti gli interventi di rinnovo per un cliente."""
+    """
+    Ottiene tutti gli interventi di rinnovo per un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/rinnovo-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import RinnovoIntervention
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
@@ -4106,7 +4416,15 @@ def get_rinnovo_interventions(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/rinnovo-interventions", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_rinnovo_intervention(cliente_id: int):
-    """Crea un nuovo intervento di rinnovo."""
+    """
+    Crea un nuovo intervento di rinnovo.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/rinnovo-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import RinnovoIntervention
     from datetime import datetime
 
@@ -4149,7 +4467,15 @@ def create_rinnovo_intervention(cliente_id: int):
 @api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def update_rinnovo_intervention(intervention_id: int):
-    """Aggiorna un intervento di rinnovo esistente."""
+    """
+    Aggiorna un intervento di rinnovo esistente.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `PUT` su `/rinnovo-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import RinnovoIntervention
     from datetime import datetime
 
@@ -4189,7 +4515,15 @@ def update_rinnovo_intervention(intervention_id: int):
 @api_bp.route("/rinnovo-interventions/<int:intervention_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def delete_rinnovo_intervention(intervention_id: int):
-    """Elimina un intervento di rinnovo."""
+    """
+    Elimina un intervento di rinnovo.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/rinnovo-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import RinnovoIntervention
 
     intervention = db.session.query(RinnovoIntervention).filter_by(
@@ -4216,7 +4550,15 @@ def delete_rinnovo_intervention(intervention_id: int):
 @api_bp.route("/<int:cliente_id>/continuity-call-interventions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_continuity_call_interventions(cliente_id: int):
-    """Ottiene tutti gli interventi di continuity call per un cliente."""
+    """
+    Ottiene tutti gli interventi di continuity call per un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/continuity-call-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ContinuityCallIntervention
 
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).first_or_404()
@@ -4234,7 +4576,15 @@ def get_continuity_call_interventions(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/continuity-call-interventions", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_continuity_call_intervention(cliente_id: int):
-    """Crea un nuovo intervento di continuity call."""
+    """
+    Crea un nuovo intervento di continuity call.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/continuity-call-interventions` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ContinuityCallIntervention
     from datetime import datetime
 
@@ -4277,7 +4627,15 @@ def create_continuity_call_intervention(cliente_id: int):
 @api_bp.route("/continuity-call-interventions/<int:intervention_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def update_continuity_call_intervention(intervention_id: int):
-    """Aggiorna un intervento di continuity call esistente."""
+    """
+    Aggiorna un intervento di continuity call esistente.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `PUT` su `/continuity-call-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ContinuityCallIntervention
     from datetime import datetime
 
@@ -4317,7 +4675,15 @@ def update_continuity_call_intervention(intervention_id: int):
 @api_bp.route("/continuity-call-interventions/<int:intervention_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def delete_continuity_call_intervention(intervention_id: int):
-    """Elimina un intervento di continuity call."""
+    """
+    Elimina un intervento di continuity call.
+
+    Args:
+        intervention_id (int): ID intervento
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/continuity-call-interventions/<int:intervention_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ContinuityCallIntervention
 
     intervention = db.session.query(ContinuityCallIntervention).filter_by(
@@ -4347,7 +4713,12 @@ def delete_continuity_call_intervention(intervention_id: int):
 def get_professionisti_history(cliente_id: int):
     """
     Ottiene lo storico completo delle assegnazioni professionisti per un cliente.
-    Include sia le assegnazioni tracciate che quelle legacy (senza history).
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/professionisti/history` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
 
@@ -4499,7 +4870,12 @@ def get_professionisti_history(cliente_id: int):
 def assign_professionista(cliente_id: int):
     """
     Assegna un professionista a un cliente.
-    Crea un record in ClienteProfessionistaHistory e aggiunge alla relazione many-to-many.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/assign` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
@@ -4589,6 +4965,13 @@ def assign_professionista(cliente_id: int):
 def interrupt_professionista(cliente_id: int, history_id: int):
     """
     Interrompe un'assegnazione professionista tracciata.
+
+    Args:
+        cliente_id (int): ID del cliente
+        history_id (int): Parametro `history_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/<int:history_id>/interrupt` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
@@ -4659,7 +5042,12 @@ def interrupt_professionista(cliente_id: int, history_id: int):
 def interrupt_legacy_professionista(cliente_id: int):
     """
     Interrompe un'assegnazione legacy (senza record history).
-    Crea un record history con data_dal = oggi e lo marca come interrotto.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/professionisti/legacy/interrupt` in formato JSON/response Flask.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
@@ -4872,7 +5260,15 @@ def _apply_dashboard_filters(query, filters):
 @customers_bp.route("/<int:cliente_id>/call-bonus", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_call_bonus_route(cliente_id: int):
-    """Crea una nuova richiesta di call bonus per un cliente."""
+    """
+    Crea una nuova richiesta di call bonus per un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/call-bonus` in formato JSON/response Flask.
+    """
     from .services import create_call_bonus
     from flask_login import current_user
 
@@ -4919,7 +5315,15 @@ def create_call_bonus_route(cliente_id: int):
 @customers_bp.route("/call-bonus/<int:call_bonus_id>/response", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def update_call_bonus_response_route(call_bonus_id: int):
-    """Aggiorna la risposta del cliente (accettata/rifiutata)."""
+    """
+    Aggiorna la risposta del cliente (accettata/rifiutata).
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus/<int:call_bonus_id>/response` in formato JSON/response Flask.
+    """
     from .forms import CallBonusResponseForm
     from .services import update_call_bonus_response
 
@@ -4948,7 +5352,15 @@ def update_call_bonus_response_route(call_bonus_id: int):
 @customers_bp.route("/call-bonus/<int:call_bonus_id>/hm-confirm", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def update_call_bonus_hm_confirm_route(call_bonus_id: int):
-    """Conferma/gestione health manager della call bonus."""
+    """
+    Conferma/gestione health manager della call bonus.
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus/<int:call_bonus_id>/hm-confirm` in formato JSON/response Flask.
+    """
     from .forms import CallBonusHMConfirmForm
     from .services import update_call_bonus_hm_confirm
     from flask_login import current_user
@@ -5002,10 +5414,14 @@ def _can_manage_meal_plans(cliente: Cliente) -> bool:
 @customers_bp.route("/<int:cliente_id>/diet/add", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_diet_add(cliente_id: int):
-    """Aggiunge una nuova dieta (continuazione normale del periodo).
+    """
+    Aggiunge una nuova dieta (continuazione normale del periodo).
 
-    Chiude il piano attivo (se necessario), crea nuovo MealPlan con start_date
-    default (end_date precedente + 1 giorno), is_active=True.
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/diet/add` in formato JSON/response Flask.
     """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     if not _can_manage_meal_plans(cliente):
@@ -5096,10 +5512,14 @@ def api_diet_add(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/diet/change", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_diet_change(cliente_id: int):
-    """Cambia dieta esistente (modifica/chiusura con flessibilità date).
+    """
+    Cambia dieta esistente (modifica/chiusura con flessibilità date).
 
-    Permette modificare date (soprattutto end_date), tipo, piano.
-    Valida che non ci siano sovrapposizioni.
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/diet/change` in formato JSON/response Flask.
     """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     if not _can_manage_meal_plans(cliente):
@@ -5174,7 +5594,15 @@ def api_diet_change(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/diet/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_diet_history(cliente_id: int):
-    """Restituisce lo storico completo delle diete per il cliente."""
+    """
+    Restituisce lo storico completo delle diete per il cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/diet/history` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
 
     plans = (
@@ -5245,7 +5673,15 @@ def _can_manage_training_plans(cliente: Cliente) -> bool:
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_training_add(cliente_id: int):
-    """Aggiunge un nuovo piano allenamento con upload PDF."""
+    """
+    Aggiunge un nuovo piano allenamento con upload PDF.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/training/add` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -5350,7 +5786,15 @@ def api_training_add(cliente_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_training_change(cliente_id: int):
-    """Cambia piano allenamento esistente."""
+    """
+    Cambia piano allenamento esistente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/training/change` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -5460,7 +5904,15 @@ def api_training_change(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/training/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_training_history(cliente_id: int):
-    """Restituisce lo storico completo dei piani allenamento."""
+    """
+    Restituisce lo storico completo dei piani allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/training/history` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     _require_service_scope_or_403(cliente_id, "coaching")
     plans = db.session.query(TrainingPlan).filter_by(cliente_id=cliente_id).order_by(TrainingPlan.start_date.desc()).all()
@@ -5515,7 +5967,16 @@ def api_training_history(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/versions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_training_versions(cliente_id: int, plan_id: int):
-    """Restituisce lo storico delle versioni di un piano allenamento specifico."""
+    """
+    Restituisce lo storico delle versioni di un piano allenamento specifico.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/training/<int:plan_id>/versions` in formato JSON/response Flask.
+    """
     _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(TrainingPlan).filter_by(
@@ -5601,7 +6062,16 @@ def api_training_versions(cliente_id: int, plan_id: int):
 @customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/download", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_training_download(cliente_id: int, plan_id: int):
-    """Download del PDF del piano allenamento."""
+    """
+    Download del PDF del piano allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/training/<int:plan_id>/download` in formato JSON/response Flask.
+    """
     import os
     from flask import current_app, send_from_directory
 
@@ -5640,7 +6110,16 @@ def api_training_download(cliente_id: int, plan_id: int):
 @customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/add", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_training_extra_file_add(cliente_id: int, plan_id: int):
-    """Aggiunge un file extra a un piano allenamento."""
+    """
+    Aggiunge un file extra a un piano allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/training/<int:plan_id>/extra-files/add` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -5729,7 +6208,17 @@ def api_training_extra_file_add(cliente_id: int, plan_id: int):
 @customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
-    """Rimuove un file extra da un piano allenamento."""
+    """
+    Rimuove un file extra da un piano allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+        file_id (int): Parametro `file_id` della route
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>` in formato JSON/response Flask.
+    """
     import os
     from flask import current_app
 
@@ -5768,7 +6257,17 @@ def api_training_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
 @customers_bp.route("/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>/download", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_training_extra_file_download(cliente_id: int, plan_id: int, file_id: int):
-    """Scarica un file extra di un piano allenamento."""
+    """
+    Scarica un file extra di un piano allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+        file_id (int): Parametro `file_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/training/<int:plan_id>/extra-files/<int:file_id>/download` in formato JSON/response Flask.
+    """
     from flask import send_file, current_app
     import os
 
@@ -5812,8 +6311,12 @@ def api_storico_stati(cliente_id: int, servizio: str):
     """
     Recupera lo storico degli stati per un servizio specifico.
 
-    servizio può essere: 'coach', 'nutrizione', 'psicologia',
-                         'chat_coaching', 'chat_nutrizione', 'chat_psicologia'
+    Args:
+        cliente_id (int): ID del cliente
+        servizio (str): Parametro `servizio` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/stati/<servizio>/storico` in formato JSON/response Flask.
     """
     from corposostenibile.models import StatoServizioLog
 
@@ -5864,7 +6367,12 @@ def api_storico_stati(cliente_id: int, servizio: str):
 def api_storico_patologie(cliente_id: int):
     """
     Recupera lo storico completo delle patologie del cliente.
-    Mostra quando ogni patologia è stata aggiunta o rimossa.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/patologie/storico` in formato JSON/response Flask.
     """
     from corposostenibile.models import PatologiaLog
 
@@ -5903,7 +6411,12 @@ def api_storico_patologie(cliente_id: int):
 def api_storico_patologie_psico(cliente_id: int):
     """
     Recupera lo storico completo delle patologie psicologiche del cliente.
-    Mostra quando ogni patologia psicologica è stata aggiunta o rimossa.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/patologie_psico/storico` in formato JSON/response Flask.
     """
     from corposostenibile.models import PatologiaPsicoLog
 
@@ -5945,7 +6458,15 @@ def api_storico_patologie_psico(cliente_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_location_add(cliente_id: int):
-    """Aggiunge un nuovo storico luogo allenamento."""
+    """
+    Aggiunge un nuovo storico luogo allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/location/add` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
@@ -6019,7 +6540,16 @@ def api_location_add(cliente_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_location_change(cliente_id: int, loc_id: int):
-    """Cambia storico luogo allenamento esistente."""
+    """
+    Cambia storico luogo allenamento esistente.
+
+    Args:
+        cliente_id (int): ID del cliente
+        loc_id (int): Parametro `loc_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/location/change/<int:loc_id>` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     _require_service_scope_or_403(cliente_id, "coaching")
     if not _can_manage_training_plans(cliente):
@@ -6077,7 +6607,15 @@ def api_location_change(cliente_id: int, loc_id: int):
 @customers_bp.route("/<int:cliente_id>/location/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_location_history(cliente_id: int):
-    """Restituisce lo storico completo dei luoghi allenamento."""
+    """
+    Restituisce lo storico completo dei luoghi allenamento.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/location/history` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     _require_service_scope_or_403(cliente_id, "coaching")
     locations = db.session.query(TrainingLocation).filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
@@ -6119,7 +6657,16 @@ def api_location_history(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/location/<int:location_id>/versions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_location_versions(cliente_id: int, location_id: int):
-    """Restituisce lo storico delle versioni di un luogo allenamento specifico."""
+    """
+    Restituisce lo storico delle versioni di un luogo allenamento specifico.
+
+    Args:
+        cliente_id (int): ID del cliente
+        location_id (int): Parametro `location_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/location/<int:location_id>/versions` in formato JSON/response Flask.
+    """
     _require_service_scope_or_403(cliente_id, "coaching")
     # Verifica che il luogo appartenga al cliente
     location = db.session.query(TrainingLocation).filter_by(
@@ -6205,7 +6752,15 @@ def api_location_versions(cliente_id: int, location_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_nutrition_add(cliente_id: int):
-    """Aggiunge un nuovo piano alimentare con upload PDF."""
+    """
+    Aggiunge un nuovo piano alimentare con upload PDF.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/nutrition/add` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -6310,7 +6865,15 @@ def api_nutrition_add(cliente_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_nutrition_change(cliente_id: int):
-    """Cambia piano alimentare esistente."""
+    """
+    Cambia piano alimentare esistente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/nutrition/change` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -6420,7 +6983,15 @@ def api_nutrition_change(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/nutrition/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_history(cliente_id: int):
-    """Restituisce lo storico completo dei piani alimentari."""
+    """
+    Restituisce lo storico completo dei piani alimentari.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/nutrition/history` in formato JSON/response Flask.
+    """
     cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
     _require_service_scope_or_403(cliente_id, "nutrizione")
     plans = db.session.query(MealPlan).filter_by(cliente_id=cliente_id).order_by(MealPlan.start_date.desc()).all()
@@ -6475,7 +7046,16 @@ def api_nutrition_history(cliente_id: int):
 @customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/versions", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_versions(cliente_id: int, plan_id: int):
-    """Restituisce lo storico delle versioni di un piano alimentare specifico."""
+    """
+    Restituisce lo storico delle versioni di un piano alimentare specifico.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/nutrition/<int:plan_id>/versions` in formato JSON/response Flask.
+    """
     _require_service_scope_or_403(cliente_id, "nutrizione")
     # Verifica che il piano appartenga al cliente
     plan = db.session.query(MealPlan).filter_by(
@@ -6559,7 +7139,16 @@ def api_nutrition_versions(cliente_id: int, plan_id: int):
 @customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/download", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_download(cliente_id: int, plan_id: int):
-    """Scarica il PDF del piano alimentare."""
+    """
+    Scarica il PDF del piano alimentare.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/nutrition/<int:plan_id>/download` in formato JSON/response Flask.
+    """
     from flask import send_file, current_app
     import os
 
@@ -6596,7 +7185,16 @@ def api_nutrition_download(cliente_id: int, plan_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
-    """Aggiunge un file extra a un piano alimentare."""
+    """
+    Aggiunge un file extra a un piano alimentare.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/add` in formato JSON/response Flask.
+    """
     from werkzeug.utils import secure_filename
     import os
     from flask import current_app
@@ -6686,7 +7284,17 @@ def api_nutrition_extra_file_add(cliente_id: int, plan_id: int):
 @csrf.exempt
 @permission_required(CustomerPerm.EDIT)
 def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int):
-    """Rimuove un file extra da un piano alimentare."""
+    """
+    Rimuove un file extra da un piano alimentare.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+        file_id (int): Parametro `file_id` della route
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/<int:file_id>` in formato JSON/response Flask.
+    """
     import os
     from flask import current_app
 
@@ -6725,7 +7333,17 @@ def api_nutrition_extra_file_delete(cliente_id: int, plan_id: int, file_id: int)
 @customers_bp.route("/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/<int:file_id>/download", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: int):
-    """Scarica un file extra di un piano alimentare."""
+    """
+    Scarica un file extra di un piano alimentare.
+
+    Args:
+        cliente_id (int): ID del cliente
+        plan_id (int): Parametro `plan_id` della route
+        file_id (int): Parametro `file_id` della route
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/nutrition/<int:plan_id>/extra-files/<int:file_id>/download` in formato JSON/response Flask.
+    """
     from flask import send_file, current_app
     import os
 
@@ -6766,7 +7384,15 @@ def api_nutrition_extra_file_download(cliente_id: int, plan_id: int, file_id: in
 @customers_bp.route("/<int:cliente_id>/pagamenti/interni", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_pagamenti_interni_list(cliente_id: int):
-    """Lista pagamenti interni di un cliente."""
+    """
+    Lista pagamenti interni di un cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/pagamenti/interni` in formato JSON/response Flask.
+    """
     cliente = customers_repo.get_one(cliente_id)
     if not cliente:
         return jsonify({"success": False, "message": "Cliente non trovato"}), HTTPStatus.NOT_FOUND
@@ -6800,7 +7426,15 @@ def api_pagamenti_interni_list(cliente_id: int):
 @customers_bp.route("/pagamenti/interni", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_pagamento_interno():
-    """Crea un nuovo pagamento interno."""
+    """
+    Crea un nuovo pagamento interno.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/pagamenti/interni` in formato JSON/response Flask.
+    """
     try:
         data = request.get_json()
         if not data:
@@ -6942,7 +7576,15 @@ def create_pagamento_interno():
 @customers_bp.route("/api/pagamenti-interni/<int:pagamento_id>/approva", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def approva_pagamento_interno(pagamento_id: int):
-    """Approva un pagamento interno."""
+    """
+    Approva un pagamento interno.
+
+    Args:
+        pagamento_id (int): Parametro `pagamento_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/pagamenti-interni/<int:pagamento_id>/approva` in formato JSON/response Flask.
+    """
     try:
         data = request.get_json()
         if not data:
@@ -6997,7 +7639,15 @@ def approva_pagamento_interno(pagamento_id: int):
 @customers_bp.route("/api/pagamenti-interni/<int:pagamento_id>/rifiuta", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def rifiuta_pagamento_interno(pagamento_id: int):
-    """Rifiuta un pagamento interno."""
+    """
+    Rifiuta un pagamento interno.
+
+    Args:
+        pagamento_id (int): Parametro `pagamento_id` della route
+
+    Returns:
+        Risposta HTTP per `POST` su `/api/pagamenti-interni/<int:pagamento_id>/rifiuta` in formato JSON/response Flask.
+    """
     try:
         data = request.get_json()
         if not data:
@@ -7043,14 +7693,14 @@ def rifiuta_pagamento_interno(pagamento_id: int):
 @customers_bp.route("/api/search", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_search_clienti():
-    """Ricerca clienti per autocomplete.
+    """
+    Ricerca clienti per autocomplete.
 
-    Query params:
-        q: stringa di ricerca (min 2 caratteri)
-        limit: numero massimo risultati (default 15)
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
 
     Returns:
-        JSON con lista clienti trovati (id, nome, email)
+        Risposta HTTP per `GET` su `/api/search` in formato JSON/response Flask.
     """
     q = request.args.get("q", "").strip()
     limit = request.args.get("limit", 15, type=int)
@@ -7091,12 +7741,11 @@ def generate_progress_collage(cliente_id: int):
     """
     Genera un collage confrontando le PRIME foto disponibili con le ULTIME.
 
-    Cerca foto in ordine cronologico tra:
-    - Check iniziali della Lead (Check 1, 2, 3) tramite form_attachments
-    - TypeFormResponse (vecchio sistema)
-    - WeeklyCheckResponse (nuovo sistema)
+    Args:
+        cliente_id (int): ID del cliente
 
-    Trova la PRIMA e l'ULTIMA foto disponibile per creare il confronto.
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/generate-progress-collage` in formato JSON/response Flask.
     """
     from corposostenibile.models import (
         WeeklyCheck,
@@ -7322,7 +7971,16 @@ def generate_progress_collage(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/anamnesi/<service_type>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_anamnesi(cliente_id: int, service_type: str):
-    """Recupera l'anamnesi per un servizio specifico."""
+    """
+    Recupera l'anamnesi per un servizio specifico.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/anamnesi/<service_type>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceAnamnesi
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7353,7 +8011,16 @@ def get_anamnesi(cliente_id: int, service_type: str):
 @api_bp.route("/<int:cliente_id>/anamnesi/<service_type>", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def save_anamnesi(cliente_id: int, service_type: str):
-    """Crea o aggiorna l'anamnesi per un servizio (sempre modificabile)."""
+    """
+    Crea o aggiorna l'anamnesi per un servizio (sempre modificabile).
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/anamnesi/<service_type>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceAnamnesi
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7405,7 +8072,16 @@ def save_anamnesi(cliente_id: int, service_type: str):
 @api_bp.route("/<int:cliente_id>/diary/<service_type>", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_diary_entries(cliente_id: int, service_type: str):
-    """Recupera tutte le voci del diario per un servizio."""
+    """
+    Recupera tutte le voci del diario per un servizio.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/diary/<service_type>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceDiaryEntry
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7434,7 +8110,16 @@ def get_diary_entries(cliente_id: int, service_type: str):
 @api_bp.route("/<int:cliente_id>/diary/<service_type>", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def create_diary_entry(cliente_id: int, service_type: str):
-    """Crea una nuova voce del diario."""
+    """
+    Crea una nuova voce del diario.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/diary/<service_type>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceDiaryEntry
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7487,7 +8172,17 @@ def create_diary_entry(cliente_id: int, service_type: str):
 @api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
-    """Aggiorna una voce del diario esistente."""
+    """
+    Aggiorna una voce del diario esistente.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+        entry_id (int): ID voce diario
+
+    Returns:
+        Risposta HTTP per `PUT` su `/<int:cliente_id>/diary/<service_type>/<int:entry_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceDiaryEntry
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7539,7 +8234,17 @@ def update_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 @api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
-    """Elimina una voce del diario."""
+    """
+    Elimina una voce del diario.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+        entry_id (int): ID voce diario
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/<int:cliente_id>/diary/<service_type>/<int:entry_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceDiaryEntry
 
     if service_type not in ['nutrizione', 'coaching', 'psicologia']:
@@ -7577,7 +8282,17 @@ def delete_diary_entry(cliente_id: int, service_type: str, entry_id: int):
 @api_bp.route("/<int:cliente_id>/diary/<service_type>/<int:entry_id>/history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
-    """Recupera lo storico delle modifiche per una voce del diario."""
+    """
+    Recupera lo storico delle modifiche per una voce del diario.
+
+    Args:
+        cliente_id (int): ID del cliente
+        service_type (str): Tipo di servizio
+        entry_id (int): ID voce diario
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/diary/<service_type>/<int:entry_id>/history` in formato JSON/response Flask.
+    """
     from corposostenibile.models import ServiceDiaryEntry, User
     from sqlalchemy_continuum import version_class
     
@@ -7797,7 +8512,15 @@ def _require_service_scope_or_403(cliente_id: int, service_type: str) -> "Client
 @api_bp.route("/<int:cliente_id>/call-bonus-history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_call_bonus_history(cliente_id: int):
-    """Storico call bonus del paziente."""
+    """
+    Storico call bonus del paziente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/call-bonus-history` in formato JSON/response Flask.
+    """
     from .services import get_cliente_call_bonus_history
 
     cliente = db.session.get(Cliente, cliente_id)
@@ -7852,7 +8575,15 @@ def api_call_bonus_history(cliente_id: int):
 @api_bp.route("/call-bonus-interest/<int:call_bonus_id>", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
 def api_call_bonus_interest(call_bonus_id: int):
-    """Professionista assegnato risponde sull'interesse del paziente."""
+    """
+    Professionista assegnato risponde sull'interesse del paziente.
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus-interest/<int:call_bonus_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallBonus
     from .call_bonus_webhooks import dispatch_call_bonus_webhook
 
@@ -7898,7 +8629,15 @@ def api_call_bonus_interest(call_bonus_id: int):
 @api_bp.route("/<int:cliente_id>/call-bonus-request", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_bonus_request(cliente_id: int):
-    """Crea richiesta call bonus + analisi AI + matching professionisti."""
+    """
+    Crea richiesta call bonus + analisi AI + matching professionisti.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/call-bonus-request` in formato JSON/response Flask.
+    """
     from corposostenibile.blueprints.team.ai_matching_service import AIMatchingService
     from corposostenibile.models import CallBonus, CallBonusStatusEnum
     import json as _json
@@ -8008,7 +8747,15 @@ def api_call_bonus_request(cliente_id: int):
 @api_bp.route("/call-bonus-select/<int:call_bonus_id>", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_bonus_select_professional(call_bonus_id: int):
-    """Seleziona professionista per la call bonus → ritorna link_call_bonus."""
+    """
+    Seleziona professionista per la call bonus → ritorna link_call_bonus.
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus-select/<int:call_bonus_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallBonus
     import json as _json
 
@@ -8108,7 +8855,15 @@ def api_call_bonus_select_professional(call_bonus_id: int):
 @api_bp.route("/call-bonus-confirm/<int:call_bonus_id>", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_bonus_confirm_booking(call_bonus_id: int):
-    """Conferma prenotazione call bonus."""
+    """
+    Conferma prenotazione call bonus.
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus-confirm/<int:call_bonus_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallBonus
 
     call_bonus = db.session.get(CallBonus, call_bonus_id)
@@ -8143,7 +8898,15 @@ def api_call_bonus_confirm_booking(call_bonus_id: int):
 @api_bp.route("/call-bonus-decline/<int:call_bonus_id>", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
 def api_call_bonus_decline(call_bonus_id: int):
-    """Professionista rifiuta la call bonus assegnata."""
+    """
+    Professionista rifiuta la call bonus assegnata.
+
+    Args:
+        call_bonus_id (int): ID call bonus
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-bonus-decline/<int:call_bonus_id>` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallBonus
 
     call_bonus = db.session.get(CallBonus, call_bonus_id)
@@ -8189,7 +8952,15 @@ def _serialize_call_rinnovo(item) -> dict[str, Any]:
 @api_bp.route("/<int:cliente_id>/call-rinnovo-history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_call_rinnovo_history(cliente_id: int):
-    """Storico call rinnovo del paziente."""
+    """
+    Storico call rinnovo del paziente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/call-rinnovo-history` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8206,7 +8977,15 @@ def api_call_rinnovo_history(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/call-rinnovo-request", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_rinnovo_request(cliente_id: int):
-    """Crea richiesta call rinnovo."""
+    """
+    Crea richiesta call rinnovo.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/call-rinnovo-request` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
     
     cliente = db.session.get(Cliente, cliente_id)
@@ -8236,7 +9015,15 @@ def api_call_rinnovo_request(cliente_id: int):
 @api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/accept", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_rinnovo_accept(call_rinnovo_id: int):
-    """Accetta call rinnovo."""
+    """
+    Accetta call rinnovo.
+
+    Args:
+        call_rinnovo_id (int): ID call rinnovo
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-rinnovo/<int:call_rinnovo_id>/accept` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
     
     call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
@@ -8256,7 +9043,15 @@ def api_call_rinnovo_accept(call_rinnovo_id: int):
 @api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/decline", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_rinnovo_decline(call_rinnovo_id: int):
-    """Rifiuta call rinnovo."""
+    """
+    Rifiuta call rinnovo.
+
+    Args:
+        call_rinnovo_id (int): ID call rinnovo
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-rinnovo/<int:call_rinnovo_id>/decline` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
     
     call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
@@ -8276,7 +9071,15 @@ def api_call_rinnovo_decline(call_rinnovo_id: int):
 @api_bp.route("/call-rinnovo/<int:call_rinnovo_id>/confirm", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_call_rinnovo_confirm(call_rinnovo_id: int):
-    """Conferma call rinnovo completata."""
+    """
+    Conferma call rinnovo completata.
+
+    Args:
+        call_rinnovo_id (int): ID call rinnovo
+
+    Returns:
+        Risposta HTTP per `POST` su `/call-rinnovo/<int:call_rinnovo_id>/confirm` in formato JSON/response Flask.
+    """
     from corposostenibile.models import CallRinnovo, CallRinnovoStatusEnum
     
     call_rinnovo = db.session.get(CallRinnovo, call_rinnovo_id)
@@ -8320,7 +9123,15 @@ def _serialize_video_feedback(item) -> dict[str, Any]:
 @api_bp.route("/<int:cliente_id>/video-feedback-history", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_video_feedback_history(cliente_id: int):
-    """Storico video feedback del paziente."""
+    """
+    Storico video feedback del paziente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/video-feedback-history` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8337,7 +9148,15 @@ def api_video_feedback_history(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/video-feedback-request", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_feedback_request(cliente_id: int):
-    """Crea richiesta video feedback."""
+    """
+    Crea richiesta video feedback.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/video-feedback-request` in formato JSON/response Flask.
+    """
     from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
     
     cliente = db.session.get(Cliente, cliente_id)
@@ -8367,7 +9186,15 @@ def api_video_feedback_request(cliente_id: int):
 @api_bp.route("/video-feedback/<int:video_feedback_id>/accept", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_feedback_accept(video_feedback_id: int):
-    """Accetta video feedback."""
+    """
+    Accetta video feedback.
+
+    Args:
+        video_feedback_id (int): ID video feedback
+
+    Returns:
+        Risposta HTTP per `POST` su `/video-feedback/<int:video_feedback_id>/accept` in formato JSON/response Flask.
+    """
     from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
     
     video_feedback = db.session.get(VideoFeedback, video_feedback_id)
@@ -8387,7 +9214,15 @@ def api_video_feedback_accept(video_feedback_id: int):
 @api_bp.route("/video-feedback/<int:video_feedback_id>/complete", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_feedback_complete(video_feedback_id: int):
-    """Completa video feedback con link loom."""
+    """
+    Completa video feedback con link loom.
+
+    Args:
+        video_feedback_id (int): ID video feedback
+
+    Returns:
+        Risposta HTTP per `POST` su `/video-feedback/<int:video_feedback_id>/complete` in formato JSON/response Flask.
+    """
     from corposostenibile.models import VideoFeedback, VideoFeedbackStatusEnum
     
     video_feedback = db.session.get(VideoFeedback, video_feedback_id)
@@ -8471,6 +9306,15 @@ def _is_valid_absolute_url(url_value: str) -> bool:
 @api_bp.route("/<int:cliente_id>/video-review-requests", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_video_review_requests(cliente_id: int):
+    """
+    Elenca le richieste di video review del cliente ordinate per creazione.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/video-review-requests` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8489,6 +9333,15 @@ def api_video_review_requests(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_review_booked(cliente_id: int):
+    """
+    Registra una nuova prenotazione video review per il cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/video-review-requests/booked` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8554,6 +9407,15 @@ def api_video_review_booked(cliente_id: int):
 @api_bp.route("/video-review-requests/<int:request_id>/hm-confirm", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_review_hm_confirm(request_id: int):
+    """
+    Conferma lato HM una video review impostando link Loom e metadati.
+
+    Args:
+        request_id (int): ID richiesta
+
+    Returns:
+        Risposta HTTP per `POST` su `/video-review-requests/<int:request_id>/hm-confirm` in formato JSON/response Flask.
+    """
     item = db.session.get(VideoReviewRequest, request_id)
     if not item:
         abort(HTTPStatus.NOT_FOUND, description="Richiesta video recensione non trovata.")
@@ -8627,6 +9489,15 @@ def _serialize_marketing_content(item: ClienteMarketingContent) -> dict[str, Any
 @api_bp.route("/<int:cliente_id>/marketing-consents", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_get_marketing_consents(cliente_id: int):
+    """
+    Recupera flag, note e contenuti marketing associati al cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/marketing-consents` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8670,6 +9541,15 @@ def api_get_marketing_consents(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/marketing-consents", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def api_update_marketing_consents(cliente_id: int):
+    """
+    Aggiorna note marketing e consenso usabile_marketing del cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `PUT` su `/<int:cliente_id>/marketing-consents` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8710,6 +9590,15 @@ def api_update_marketing_consents(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/marketing-consents/content", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_create_marketing_content(cliente_id: int):
+    """
+    Crea una voce di contenuto marketing e collega eventuali influencer.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/marketing-consents/content` in formato JSON/response Flask.
+    """
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
@@ -8759,6 +9648,15 @@ def api_create_marketing_content(cliente_id: int):
 @api_bp.route("/marketing-consents/content/<int:content_id>", methods=["PUT"])
 @permission_required(CustomerPerm.EDIT)
 def api_update_marketing_content(content_id: int):
+    """
+    Aggiorna stato/data e associazioni influencer di un contenuto marketing.
+
+    Args:
+        content_id (int): ID contenuto marketing
+
+    Returns:
+        Risposta HTTP per `PUT` su `/marketing-consents/content/<int:content_id>` in formato JSON/response Flask.
+    """
     item = db.session.get(ClienteMarketingContent, content_id)
     if not item:
         abort(HTTPStatus.NOT_FOUND, description="Contenuto marketing non trovato.")
@@ -8803,6 +9701,15 @@ def api_update_marketing_content(content_id: int):
 @api_bp.route("/marketing-consents/content/<int:content_id>", methods=["DELETE"])
 @permission_required(CustomerPerm.EDIT)
 def api_delete_marketing_content(content_id: int):
+    """
+    Elimina un contenuto marketing del cliente.
+
+    Args:
+        content_id (int): ID contenuto marketing
+
+    Returns:
+        Risposta HTTP per `DELETE` su `/marketing-consents/content/<int:content_id>` in formato JSON/response Flask.
+    """
     item = db.session.get(ClienteMarketingContent, content_id)
     if not item:
         abort(HTTPStatus.NOT_FOUND, description="Contenuto marketing non trovato.")
@@ -8818,6 +9725,15 @@ def api_delete_marketing_content(content_id: int):
 @api_bp.route("/marketing-consents/influencers", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_list_marketing_influencers():
+    """
+    Restituisce gli influencer attivi selezionabili nei consensi marketing.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/marketing-consents/influencers` in formato JSON/response Flask.
+    """
     rows = (
         db.session.query(Influencer)
         .filter(Influencer.active.is_(True))
@@ -9039,7 +9955,15 @@ def _get_trustpilot_history(cliente_id: int, limit: int = 20):
 @api_bp.route("/trustpilot-overview", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_trustpilot_overview():
-    """Panoramica Trustpilot: tutti i clienti attivi con lo stato review."""
+    """
+    Panoramica Trustpilot: tutti i clienti attivi con lo stato review.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `GET` su `/trustpilot-overview` in formato JSON/response Flask.
+    """
     from sqlalchemy import outerjoin
     from sqlalchemy.orm import aliased
 
@@ -9156,6 +10080,15 @@ def api_trustpilot_overview():
 @api_bp.route("/<int:cliente_id>/trustpilot", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_trustpilot_status(cliente_id: int):
+    """
+    Espone stato Trustpilot, ultima recensione e storico inviti del cliente.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `GET` su `/<int:cliente_id>/trustpilot` in formato JSON/response Flask.
+    """
     cliente = customers_repo.get_one(cliente_id)
     latest_review = _get_latest_trustpilot_review(cliente_id)
     history = _get_trustpilot_history(cliente_id, limit=10)
@@ -9186,6 +10119,15 @@ def api_trustpilot_status(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/trustpilot/link", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
 def api_trustpilot_generate_link(cliente_id: int):
+    """
+    Genera un link Trustpilot e registra l'evento come invito tracciato.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/trustpilot/link` in formato JSON/response Flask.
+    """
     _require_trustpilot_manager_or_403()
     cliente = customers_repo.get_one(cliente_id)
 
@@ -9237,6 +10179,15 @@ def api_trustpilot_generate_link(cliente_id: int):
 @api_bp.route("/<int:cliente_id>/trustpilot/invite", methods=["POST"])
 @permission_required(CustomerPerm.VIEW)
 def api_trustpilot_send_invite(cliente_id: int):
+    """
+    Invia invito email Trustpilot e salva il risultato nel registro recensioni.
+
+    Args:
+        cliente_id (int): ID del cliente
+
+    Returns:
+        Risposta HTTP per `POST` su `/<int:cliente_id>/trustpilot/invite` in formato JSON/response Flask.
+    """
     _require_trustpilot_manager_or_403()
     cliente = customers_repo.get_one(cliente_id)
 
@@ -9288,7 +10239,15 @@ def api_trustpilot_send_invite(cliente_id: int):
 @api_bp.route("/trustpilot/webhook", methods=["POST"])
 @csrf.exempt
 def api_trustpilot_webhook():
-    """Webhook Trustpilot per aggiornare stato recensione e metadata."""
+    """
+    Webhook Trustpilot per aggiornare stato recensione e metadata.
+
+    Args:
+        Nessuno: endpoint senza parametri path espliciti.
+
+    Returns:
+        Risposta HTTP per `POST` su `/trustpilot/webhook` in formato JSON/response Flask.
+    """
     if not _is_trustpilot_webhook_configured():
         return jsonify({
             "success": False,

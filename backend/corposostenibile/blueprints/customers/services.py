@@ -1009,13 +1009,7 @@ def _create_contract_for_cliente(
     session.flush()
 
     if contract.initial_deposit:
-        # TODO: Gestione pagamento rimossa dopo rimozione modulo accounting
-        # accounting_create_payment(
-        #     subscription_id=contract.subscription_id,
-        #     amount=contract.initial_deposit,
-        #     payment_method=payload.get("payment_method"),
-        #     transaction_type=TransactionTypeEnum.deposito,
-        # )
+        # Il modulo accounting legacy e' stato rimosso: nessuna registrazione pagamento qui.
         pass
 
     return contract
@@ -1072,14 +1066,7 @@ def create_payment(cliente: Cliente, payload: Mapping[str, Any], created_by_user
     with _commit_or_rollback() as session:
         contract = _resolve_contract(cliente, payload, session)
 
-    # TODO: Gestione pagamento rimossa dopo rimozione modulo accounting
-    # payment = accounting_create_payment(
-    #     subscription_id=contract.subscription_id,
-    #     amount=amount,
-    #     payment_method=payload.get("payment_method"),
-    #     transaction_type=tx_type,
-    #     note=payload.get("note"),
-    # )
+    # Il modulo accounting legacy e' stato rimosso: non viene creato alcun pagamento applicativo.
     payment = None
 
     db.session.commit()
@@ -1111,14 +1098,7 @@ def create_renewal(cliente: Cliente, payload: Mapping[str, Any], created_by_user
         session.add(renewal)
         session.flush()
 
-    # TODO: Gestione pagamento rimossa dopo rimozione modulo accounting
-    # accounting_create_payment(
-    #     subscription_id=contract.subscription_id,
-    #     amount=amount,
-    #     payment_method=payload.get("payment_method"),
-    #     transaction_type=TransactionTypeEnum.rinnovo,
-    #     note=f"Autogenerato da renewal {renewal.renewal_id}",
-    # )
+    # Il modulo accounting legacy e' stato rimosso: il rinnovo non genera pagamento automatico.
     pass
 
     if renewal.renewal_duration_days:
