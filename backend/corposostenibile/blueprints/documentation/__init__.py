@@ -1,4 +1,4 @@
-from flask import Blueprint, send_from_directory, redirect, abort, current_app, request
+from flask import Blueprint, send_from_directory, abort, current_app, request
 import os
 from flask_login import login_required, current_user
 
@@ -73,7 +73,7 @@ def check_path_permission(path):
 @documentation_bp.route('/')
 @login_required
 def index_root():
-    return redirect('/documentation/static/')
+    abort(404)
 
 @documentation_bp.route('/static/')
 @documentation_bp.route('/static/<path:path>')

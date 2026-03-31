@@ -204,7 +204,6 @@ def create_app(config_name: str | None = None) -> Flask:
         auth,
         customers,
         team,
-        department,
         welcome,
         nutrition,
         ticket,  # AGGIUNTO: Import del blueprint ticket
@@ -212,9 +211,7 @@ def create_app(config_name: str | None = None) -> Flask:
         respond_io,  # AGGIUNTO: Import del blueprint respond_io
         feedback,  # AGGIUNTO: Import del blueprint feedback
         review,  # AGGIUNTO: Import del blueprint review
-        projects,  # AGGIUNTO: Import del blueprint projects
         knowledge_base,  # AGGIUNTO: Import del blueprint knowledge_base
-        finance,  # AGGIUNTO: Import del blueprint finance
         recruiting,  # AGGIUNTO: Import del blueprint recruiting
         ghl_integration,  # AGGIUNTO: Import del blueprint GHL integration
         old_suite_integration,  # TEMPORANEO: Import blueprint Old Suite CRM integration
@@ -222,11 +219,7 @@ def create_app(config_name: str | None = None) -> Flask:
         client_checks,  # AGGIUNTO: Import del blueprint client_checks
         sales_form,  # AGGIUNTO: Import del blueprint sales_form
         suitemind,  # AGGIUNTO: Import del blueprint SuiteMind AI
-        feedback_global,  # AGGIUNTO: Sistema feedback democratico globale
-        manual,  # AGGIUNTO: Import del blueprint manual (documentazione suite)
-        kpi,  # AGGIUNTO: Sistema KPI e ARR
 
-        appointment_setting,  # Appointment Setting - messaggi Respond.io
         tasks,  # AGGIUNTO: Import del blueprint tasks
         documentation,  # AGGIUNTO: Import del blueprint documentation
         loom,  # AGGIUNTO: Import del blueprint loom
@@ -235,13 +228,7 @@ def create_app(config_name: str | None = None) -> Flask:
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
         push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
     )
-
-
-    from .blueprints.blueprint_registry import bp as blueprint_registry_bp  # Blueprint Registry
-    from .blueprints.database_registry import bp as database_registry_bp  # Database Models Registry
-    from .blueprints.dev_tracker import bp as dev_tracker_bp  # Dev Tracker - Development Team Management
-    from .blueprints.it_projects import bp as it_projects_bp  # IT Projects - Gestione Progetti IT
-    from .blueprints.news import news_bp, news_api_bp  # AGGIUNTO: Import del blueprint news
+    from .blueprints.news import news_api_bp  # API JSON per news (React)
 
     from .blueprints.pwa import pwa_bp
     
@@ -249,26 +236,18 @@ def create_app(config_name: str | None = None) -> Flask:
     customers.init_app(app)
     auth.init_app(app)
     team.init_app(app)
-    department.init_app(app)
     nutrition.init_app(app)
     ticket.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint ticket
     communications.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint communications
     respond_io.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint respond_io
     review.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint review
-    projects.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint projects
     knowledge_base.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint knowledge_base
-    finance.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint finance
     recruiting.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint recruiting
     ghl_integration.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint GHL integration
     old_suite_integration.init_app(app)  # TEMPORANEO: Old Suite CRM integration
     calendar.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint calendar
     client_checks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint client_checks
     suitemind.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SuiteMind AI
-    feedback_global.init_app(app)  # AGGIUNTO: Sistema feedback democratico globale (FASE 1+2)
-    manual.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint manual (documentazione suite)
-    kpi.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint KPI e ARR
-
-    appointment_setting.init_app(app)  # Appointment Setting
     tasks.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint tasks
     sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
     team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
@@ -288,16 +267,8 @@ def create_app(config_name: str | None = None) -> Flask:
     # Blueprint Feedback
     app.register_blueprint(feedback.bp)
 
-    # News Blueprint
-    app.register_blueprint(news_bp)  # AGGIUNTO: Registrazione del blueprint news
     app.register_blueprint(news_api_bp)  # API JSON per news (React)
 
-    # Blueprint Registry
-    app.register_blueprint(blueprint_registry_bp)  # AGGIUNTO: Registrazione Blueprint Registry
-    app.register_blueprint(database_registry_bp)  # AGGIUNTO: Registrazione Database Models Registry
-    app.register_blueprint(dev_tracker_bp)  # AGGIUNTO: Registrazione Dev Tracker
-    app.register_blueprint(it_projects_bp)  # AGGIUNTO: Registrazione IT Projects
-    
     # Documentation Blueprint
     app.register_blueprint(documentation.documentation_bp, url_prefix='/documentation')
     app.register_blueprint(

@@ -30,6 +30,7 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 ### Fase 2 - Blueprint ed endpoint inutilizzati
 
 - [ ] 2A. Eliminazione blueprint interi non usati dal frontend React.
+- [x] 2A.1. Rimossi i blueprint ad alta confidenza senza eccezioni note: `appointment_setting`, `blueprint_registry`, `database_registry`, `department`, `dev_tracker`, `finance`, `feedback_global`, `kpi`, `manual`, `projects`.
 - [ ] 2B. Eliminazione route singole HTML in blueprint ancora usati.
 
 ### Fase 3 - Documentazione e commenti
@@ -218,74 +219,135 @@ Nota aggiornata: `filters.py` da rimuovere si riferisce ai moduli Jinja legacy n
 
 ## FASE 2 - Eliminazione endpoint/blueprint non utilizzati (Ema + Samu)
 
-### 2A. Blueprint INTERI da eliminare (25 blueprint, ~500 route)
+### Stato sintetico Fase 2
 
-Nessuna chiamata dal frontend React:
+Questa tabella e' il riepilogo operativo principale della Fase 2.
 
-| Blueprint | Prefix | Route | Note |
-|---|---|---|---|
-| `appointment_setting` | `/api/appointment-setting` | 8 | Mai usato |
-| `blueprint_registry` | `/blueprint-registry` | 13 | Tool interno dev |
-| `database_registry` | `/database-registry` | 2 | Tool interno dev |
-| `communications` | `/communications` | 7 | Sostituito da React? |
-| `department` | `/departments` | 33 | Solo HTML |
-| `dev_tracker` | `/dev-tracker` | 19 | Tool interno dev |
-| `feedback` | `/feedback` | 10 | **TENERE il webhook Typeform** |
-| `feedback_global` | `/feedback` | 10 | - |
-| `finance` | `/finance` | 19 | Solo HTML |
-| `it_projects` | `/it-projects` | 39 | Solo HTML |
-| `knowledge_base` | `/kb` | 33 | Solo HTML |
-| `kpi` | `/kpi` | 9 | Solo HTML |
-| `manual` | `/manual` | 9 | Solo HTML |
-| `marketing_automation` | `/marketing-automation` | 4 | **TENERE OAuth callback + webhook** |
-| `nutrition` | `/nutrition` | 29 | Solo HTML |
-| `projects` | `/projects` | 26 | Solo HTML |
-| `recruiting` | `/recruiting` | 74 | **TENERE route pubbliche apply** |
-| `respond_io` | `/respond-io` | 71 | **TENERE i 5 webhook** |
-| `sales_form` | `/sales-form` | 70 | **TENERE form pubblici + API submit** |
-| `sop_chatbot` | `/api/sop` | 6 | - |
-| `suitemind` | `/suitemind` | 7 | - |
-| `ticket_bp` | `/tickets` | 38 | Solo HTML |
-| `public_ticket_bp` | `/public/ticket` | 4 | **Valutare se serve per utenti esterni** |
-| `team_tickets_bp` | `/api/team-tickets` | 21 | - |
-| `teams_bot_bp` | `/api/teams-bot` | 1 | **TENERE (MS Teams bot)** |
+| Blueprint / area | Prefix | Stato | Decisione | Motivo sintetico |
+|---|---|---|---|---|
+| `appointment_setting` | `/api/appointment-setting` | Verificato | Eliminato | Assente dal mapping frontend, nessuna eccezione nota |
+| `blueprint_registry` | `/blueprint-registry` | Verificato | Eliminato | Tool interno dev, nessun uso frontend |
+| `database_registry` | `/database-registry` | Verificato | Eliminato | Tool interno dev, nessun uso frontend |
+| `department` | `/departments` | Verificato | Eliminato | Legacy HTML; il frontend usa `/team/departments` |
+| `dev_tracker` | `/dev-tracker` | Verificato | Eliminato | Tool interno dev, nessun uso frontend |
+| `finance` | `/finance` | Verificato | Eliminato | Legacy HTML, nessun uso frontend |
+| `feedback_global` | `/feedback` | Verificato | Eliminato | Nessuna eccezione nota; attenzione separata a `feedback` webhook |
+| `kpi` | `/kpi` | Verificato | Eliminato | Le metriche attive stanno sotto `quality/api/*` |
+| `manual` | `/manual` | Verificato | Eliminato | Legacy HTML, nessun uso frontend |
+| `projects` | `/projects` | Verificato | Eliminato | Legacy HTML, nessun uso frontend |
+| `it_projects` | `/it-projects` | Verificato | Eliminato | Backend gia' vuoto; nel frontend c'era solo una voce menu senza pagina reale |
+| `communications` | `/communications` | Verificato | Non eliminare interamente | API statistiche, permessi, helper globali, email attive |
+| `knowledge_base` | `/kb` | Verificato | Non eliminare interamente | API KB reali + modelli + upload/storage dedicati |
+| `suitemind` | `/suitemind` | Verificato | Non eliminare interamente | API backend reali + route SPA dedicate nel frontend |
+| `sop_chatbot` | `/api/sop` | Verificato | Non eliminare interamente | Usato da `corposostenibile-amministrativa`, API e modelli SOP attivi |
+| `feedback` | `/feedback` | Vincolato | Non eliminare interamente | Webhook Typeform da preservare |
+| `marketing_automation` | `/marketing-automation` | Vincolato | Non eliminare interamente | OAuth + webhook documentati |
+| `recruiting` | `/recruiting` | Vincolato | Non eliminare interamente | Form pubblici e API upload/apply da preservare |
+| `respond_io` | `/respond-io` | Vincolato | Non eliminare interamente | Webhook esterni documentati |
+| `sales_form` | `/sales-form` | Vincolato | Non eliminare interamente | Form pubblici e submit/config pubblici attivi |
+| `public_ticket_bp` | `/public/ticket` | Vincolato | Non eliminare interamente | Flusso pubblico esterno da validare end-to-end prima di toccare |
+| `teams_bot_bp` | `/api/teams-bot` | Vincolato | Non eliminare interamente | Endpoint MS Teams bot da preservare |
+| `team_tickets_bp` | `/api/team-tickets` | Verificato | Non eliminare interamente | Usato esplicitamente dal frontend React |
+| `ticket_bp` | `/tickets` | Verificato | Non eliminare interamente | Le route HTML principali sono gia' disattivate, ma restano route operative, ACL, helper, API e file serving |
+| `nutrition` | `/nutrition` | Verificato | Non eliminare interamente | API nutrizione reali ancora attive; il frontend usa feature nutrizione via `/customers/*` |
 
-### 2B. Route singole da eliminare in blueprint USATI
+Legenda stato:
 
-Nei blueprint che il frontend usa, ci sono route HTML duplicate da eliminare:
+- `Verificato`: controllato su codice/frontend/backend e classificato con buona certezza
+- `Vincolato`: escluso dalla rimozione completa per vincoli esterni/documentati gia' noti
+- `Da verificare`: richiede ancora analisi prima di decidere
 
-| Blueprint | Tipo route da eliminare | Quante |
+### Regola operativa Fase 2
+
+Usare queste fonti, in quest'ordine:
+
+1. `Frontend API Endpoints Complete Mapping` in questo file
+2. `corposostenibile-clinica/src/services/`
+3. grep su chiamate frontend dirette `fetch` / `axios`
+4. eccezioni documentate: webhook, OAuth, form pubblici, SPA dedicate, altri frontend del monorepo
+
+Regola pratica:
+
+- se un blueprint ha API/backend live, webhook, OAuth, form pubblici o un altro frontend che lo usa, non va in `2A`
+- `2A` serve solo per blueprint davvero morti o gia' svuotati
+- `2B` serve per route HTML legacy in blueprint ancora vivi
+- `2C` serve per API non mappate, ma solo dopo verifica puntuale
+
+### 2A. Stato eseguito
+
+- [x] completata la rimozione dei blueprint morti/legacy: `appointment_setting`, `blueprint_registry`, `database_registry`, `department`, `dev_tracker`, `finance`, `feedback_global`, `kpi`, `manual`, `projects`, `it_projects`
+- [x] esclusi da `2A` perche' ancora vivi: `communications`, `knowledge_base`, `nutrition`, `suitemind`, `sop_chatbot`, `ticket_bp`, `team_tickets_bp`
+- [x] esclusi da `2A` per vincoli esterni: `feedback`, `marketing_automation`, `recruiting`, `respond_io`, `sales_form`, `public_ticket_bp`, `teams_bot_bp`
+
+Checklist minima da usare per eventuali altri candidati `2A`:
+
+- [ ] assente dal mapping frontend
+- [ ] assente dai service frontend e da fetch diretti
+- [ ] assente dalle route da preservare
+- [ ] assenza di webhook/OAuth/form pubblici/altri frontend del monorepo
+- [ ] rimozione package + registrazione bootstrap + riferimenti residui
+- [ ] smoke check backend
+
+### 2B. Route HTML legacy da trattare
+
+Stato attuale:
+
+- [x] `news_bp`: rimosso il blueprint pagina HTML; resta solo `news_api_bp`
+- [x] `documentation_bp`: rimosso il redirect root HTML `/documentation/`; restano gli endpoint static/API necessari
+- [x] `auth_bp`: nessuna pagina HTML residua da rimuovere, restano solo endpoint JSON / sessione
+- [x] `ghl_integration`: nessuna route HTML residua rilevata nel modulo attuale
+- [x] `review`: rimosse le route pagina dead-end; link email/menu/redirect legacy riallineati alla SPA `/formazione`
+
+Alta confidenza:
+
+| Blueprint | Route / gruppo | Decisione |
 |---|---|---|
-| `auth_bp` (HTML) | Route HTML login/forgot/reset/impersonate | 8 |
-| `calendar_bp` | Route HTML dashboard/connect/loom-library | 7 |
-| `customers_bp` | Route HTML + service_dashboard | ~36 |
-| `news_bp` | Route HTML index/detail/create/edit/delete | 10 |
-| `review` | Route HTML index/detail/create/edit/stats | 16 |
-| `team_bp` | Route HTML OKR/survey/payments/trial/weekly | ~25 |
-| `ghl_integration` | Route HTML test/webhook-status | 2 |
-| `loom_bp` | `GET /loom/api/recordings/<id>`, `PUT .../association` | 2 |
-| `push_notifications` | `GET /api/push/admin/professionisti`, `POST .../admin/send` | 2 |
-| `documentation_bp` | Route HTML `/documentation/`, `/documentation/static/` | 3 |
+| `auth_bp` | login / forgot / reset / impersonate HTML | gia' API-only / nessuna HTML residua utile |
+| `news_bp` | index/detail/create/edit/delete HTML | completato: rimosso blueprint pagina HTML |
+| `review` | index/detail/create/edit/stats HTML | completato: rimosse route pagina dead-end, preservate API `/review/api/*` |
+| `ghl_integration` | route HTML test / webhook-status | nessuna route HTML residua rilevata |
+| `documentation_bp` | `/documentation/` HTML | completato sul root HTML; preservati static/API |
 
-### 2C. Route API inutilizzate in blueprint usati
+Da verificare prima di toccare:
 
-Endpoint API che esistono nel backend ma il frontend non chiama:
+| Blueprint | Punto di attenzione |
+|---|---|
+| `calendar_bp` | non rompere `GET /calendar/connect` OAuth |
+| `customers_bp` | separare solo HTML da API clienti attive |
+| `team_bp` | verificare sostituzione React per OKR/survey/payments/trial/weekly |
+| `loom_bp` | verificare se `recordings/<id>` e `association` sono ancora usati |
+| `push_notifications` | verificare se le route admin sono usate fuori dal frontend principale |
+| `ticket_bp` | tenere le route operative; togliere solo eventuale HTML residuo davvero morto |
 
-**customers (`/api/v1/customers/`):**
-- `GET /hm-coordinatrici-dashboard`
-- `GET /{id}/clinical-folder-export`
-- `GET /{id}/initial-checks/attachment/{lead_id}/{filename}`
-- `GET|POST|PUT|DELETE /{id}/continuity-call-interventions` (4 route)
-- `GET /{id}/call-rinnovo-history`, `POST /{id}/call-rinnovo-request`
-- `POST /call-rinnovo/{id}/accept|decline|confirm` (3 route)
-- `GET /{id}/video-feedback-history`, `POST /{id}/video-feedback-request`
-- `POST /video-feedback/{id}/accept|complete` (2 route)
+### 2C. API non mappate da verificare
 
-**news (`/api/news/`):**
-- `GET /list-all`
-- `POST /create`
-- `PUT /{id}`
-- `DELETE /{id}`
+Nota su `customers`:
+
+- la lista iniziale del documento era parzialmente obsoleta
+- il sottoinsieme `call-bonus-*` e `video-review-*` risulta oggi usato dal frontend clinica e non va considerato candidato a rimozione
+- i candidati reali residui sono soprattutto: `hm-coordinatrici-dashboard`, `clinical-folder-export`, `initial-checks/attachment`, `continuity-call-interventions`, `call-rinnovo-*`, `video-feedback-*`
+- anche questi non vanno comunque rimossi in batch: serve conferma di assenza di uso operativo/manuale
+
+Candidati forti:
+
+| Blueprint | Endpoint | Decisione |
+|---|---|---|
+| Nessuno confermato al momento | - | i candidati iniziali `news` sono risultati usati da `corposostenibile-amministrativa` |
+
+Da verificare con estrema cautela:
+
+| Blueprint | Endpoint / gruppo | Nota |
+|---|---|---|
+| `customers` | `GET /hm-coordinatrici-dashboard` | non trovato nei frontend verificati; candidato reale ma da validare con owner/uso operativo |
+| `customers` | `GET /{id}/clinical-folder-export` | non trovato nei frontend verificati; possibile export operativo/manuale |
+| `customers` | `GET /{id}/initial-checks/attachment/{lead_id}/{filename}` | non trovato nei frontend verificati; possibile uso indiretto da link backend |
+| `customers` | `GET|POST /{id}/continuity-call-interventions` | non trovato nei frontend verificati; candidato reale ma stesso dominio molto attivo |
+| `customers` | `PUT|DELETE /continuity-call-interventions/{intervention_id}` | non trovato nei frontend verificati; candidato reale ma da validare con attenzione |
+| `customers` | `GET /{id}/call-rinnovo-history`, `POST /{id}/call-rinnovo-request` | non trovati nei frontend verificati; da validare con owner prima della rimozione |
+| `customers` | `GET /{id}/video-feedback-history`, `POST /{id}/video-feedback-request` | non trovati nei frontend verificati; da validare con owner prima della rimozione |
+| `customers` | `POST /call-bonus-interest/{id}`, `GET /{id}/call-bonus-history`, `POST /{id}/call-bonus-request`, `POST /call-bonus-select/{id}`, `POST /call-bonus-confirm/{id}`, `POST /call-bonus-decline/{id}` | usati dal frontend clinica, quindi NON candidati a rimozione |
+| `customers` | `GET /{id}/video-review-requests`, `POST /{id}/video-review-requests/booked`, `POST /video-review-requests/{id}/hm-confirm` | usati dal frontend clinica, quindi NON candidati a rimozione |
+| `news` | `GET /api/news/list-all`, `POST /api/news/create`, `PUT /api/news/{id}`, `DELETE /api/news/{id}` | usati da `corposostenibile-amministrativa`, quindi non candidati a rimozione nel perimetro attuale |
 
 ---
 

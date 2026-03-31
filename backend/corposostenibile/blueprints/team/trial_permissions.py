@@ -122,7 +122,7 @@ def get_trial_user_menu_items():
             },
             {
                 'label': 'Training',
-                'url': url_for('review.index'),
+                'url': '/formazione',
                 'icon': 'ri-book-open-line'
             }
         ])

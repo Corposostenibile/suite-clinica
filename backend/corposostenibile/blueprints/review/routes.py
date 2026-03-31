@@ -38,6 +38,13 @@ def _is_admin_hr_or_cco(user) -> bool:
     )
 
 
+def _frontend_training_path(anchor: str | None = None) -> str:
+    path = "/formazione"
+    if anchor:
+        return f"{path}#{anchor}"
+    return path
+
+
 def _get_led_team_member_ids(user):
     """Restituisce gli ID membri dei team guidati dall'utente (many-to-many), includendo sé stesso."""
     visible_ids = set()
@@ -163,37 +170,6 @@ def is_department_head(user):
     return department is not None
 
 
-@bp.route('/')
-@login_required
-def index():
-    """
-    Pagina principale delle review.
-    - Admin: vede tutti i membri
-    - Head: vede i membri del suo dipartimento
-    - Membro: redirect al proprio detail
-    """
-    abort(404)
-@bp.route('/member/<int:user_id>')
-@login_required
-def detail():
-    """
-    Mostra il dettaglio delle review di un membro con paginazione.
-    """
-    abort(404)
-@bp.route('/create/<int:user_id>', methods=['GET', 'POST'])
-@login_required
-def create():
-    """
-    Crea una nuova review per un membro.
-    """
-    abort(404)
-@bp.route('/edit/<int:review_id>', methods=['GET', 'POST'])
-@login_required
-def edit():
-    """
-    Modifica una review esistente.
-    """
-    abort(404)
 @bp.route('/acknowledge/<int:review_id>', methods=['POST'])
 @login_required
 def acknowledge(review_id):
@@ -211,7 +187,7 @@ def acknowledge(review_id):
     # Verifica se già confermata
     if review.is_acknowledged:
         flash('Hai già confermato questo training.', 'info')
-        return redirect(url_for('review.detail', user_id=current_user.id))
+        return redirect(_frontend_training_path())
     
     form = AcknowledgmentForm()
     
@@ -228,7 +204,7 @@ def acknowledge(review_id):
         
         flash('Lettura del training confermata!', 'success')
     
-    return redirect(url_for('review.detail', user_id=current_user.id))
+    return redirect(_frontend_training_path())
 
 
 @bp.route('/delete/<int:review_id>', methods=['POST'])
@@ -248,14 +224,14 @@ def delete(review_id):
     # Non si può eliminare una review già confermata (a meno di non essere admin o HR)
     if review.is_acknowledged and not (current_user.is_admin or current_user.department_id == 17):
         flash('Non puoi eliminare un training già confermato.', 'warning')
-        return redirect(url_for('review.detail', user_id=review.reviewee_id))
+        return redirect(_frontend_training_path())
     
     # Soft delete
     review.deleted_at = datetime.utcnow()
     db.session.commit()
     
     flash('Training eliminato con successo!', 'success')
-    return redirect(url_for('review.detail', user_id=review.reviewee_id))
+    return redirect(_frontend_training_path())
 
 
 @bp.route('/message/<int:review_id>', methods=['POST'])
@@ -278,7 +254,7 @@ def send_message(review_id):
     # Non si può inviare messaggi in review cancellate
     if review.deleted_at:
         flash('Non puoi inviare messaggi in un training eliminato.', 'warning')
-        return redirect(url_for('review.detail', user_id=review.reviewee_id))
+        return redirect(_frontend_training_path())
     
     form = ReviewMessageForm()
     
@@ -307,7 +283,7 @@ def send_message(review_id):
     else:
         flash('Errore nell\'invio del messaggio. Riprova.', 'danger')
     
-    return redirect(url_for('review.detail', user_id=review.reviewee_id, _anchor=f'review-{review_id}-chat'))
+    return redirect(_frontend_training_path(f'review-{review_id}-chat'))
 
 
 @bp.route('/message/<int:message_id>/read', methods=['POST'])
@@ -341,7 +317,7 @@ def mark_message_read(message_id):
     else:
         flash('Il messaggio è già stato letto.', 'info')
     
-    return redirect(url_for('review.detail', user_id=review.reviewee_id, _anchor=f'review-{review.id}-chat'))
+    return redirect(_frontend_training_path(f'review-{review.id}-chat'))
 
 
 @bp.route('/messages/mark-all-read/<int:review_id>', methods=['POST'])
@@ -381,49 +357,7 @@ def mark_all_messages_read(review_id):
     else:
         flash('Nessun nuovo messaggio da leggere.', 'info')
     
-    return redirect(url_for('review.detail', user_id=review.reviewee_id, _anchor=f'review-{review_id}-chat'))
-
-
-@bp.route('/stats')
-@login_required
-def stats():
-    """
-    Mostra statistiche sulle review (solo per admin).
-    """
-    abort(404)
-@bp.route('/request', methods=['GET', 'POST'])
-@login_required
-def request_training():
-    """
-    Permette agli utenti di richiedere un training al loro responsabile.
-
-    Regole:
-    - Professionista → SOLO il team leader del proprio team
-    - Team leader → SOLO CCO (head dept 23)
-    - Admin → tutti gli utenti attivi
-    """
-    abort(404)
-@bp.route('/requests/my')
-@login_required
-def my_requests():
-    """
-    Mostra le richieste di training inviate dall'utente corrente.
-    """
-    abort(404)
-@bp.route('/requests/received')
-@login_required
-def received_requests():
-    """
-    Mostra le richieste di training ricevute (per responsabili) con paginazione.
-    """
-    abort(404)
-@bp.route('/request/<int:request_id>/respond', methods=['GET', 'POST'])
-@login_required
-def respond_request():
-    """
-    Permette al responsabile di rispondere a una richiesta di training.
-    """
-    abort(404)
+    return redirect(_frontend_training_path(f'review-{review_id}-chat'))
 @bp.route('/request/<int:request_id>/create-training', methods=['GET', 'POST'])
 @login_required
 def create_from_request(request_id):
@@ -440,7 +374,7 @@ def create_from_request(request_id):
     
     if training_request.status != 'accepted':
         flash('Puoi creare un training solo da richieste accettate.', 'warning')
-        return redirect(url_for('review.received_requests'))
+        return redirect(_frontend_training_path())
     
     # Pre-popola il form con i dati della richiesta
     form = ReviewForm()
@@ -480,7 +414,7 @@ def create_from_request(request_id):
         send_review_request_response_notification(training_request)
         
         flash('Training creato con successo dalla richiesta!', 'success')
-        return redirect(url_for('review.detail', user_id=training_request.requester_id))
+        return redirect(_frontend_training_path())
     
     abort(404)
 
@@ -501,13 +435,13 @@ def cancel_request(request_id):
     # Solo richieste pending possono essere cancellate
     if training_request.status != 'pending':
         flash('Puoi cancellare solo richieste in attesa.', 'warning')
-        return redirect(url_for('review.my_requests'))
+        return redirect(_frontend_training_path())
     
     db.session.delete(training_request)
     db.session.commit()
 
     flash('Richiesta cancellata.', 'success')
-    return redirect(url_for('review.my_requests'))
+    return redirect(_frontend_training_path())
 
 
 # ===================== API JSON PER REACT FRONTEND =====================

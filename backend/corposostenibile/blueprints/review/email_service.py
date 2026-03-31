@@ -1,10 +1,21 @@
-"""
-Servizio di invio email per le review
-"""
+"""Servizio di invio email per le review."""
 
-from flask import current_app, url_for
+from flask import current_app
 from flask_mail import Message
 from corposostenibile.extensions import mail
+
+
+def _frontend_training_url(anchor: str | None = None) -> str:
+    frontend_base = (
+        current_app.config.get('FRONTEND_BASE_URL')
+        or current_app.config.get('FRONTEND_URL')
+        or current_app.config.get('BASE_URL')
+        or ''
+    ).rstrip('/')
+    path = '/formazione'
+    if anchor:
+        path = f'{path}#{anchor}'
+    return f'{frontend_base}{path}' if frontend_base else path
 
 
 def send_review_notification(review):
@@ -30,7 +41,7 @@ def send_review_notification(review):
         reviewee = review.reviewee
         
         # Costruisci l'URL per visualizzare il training
-        review_url = url_for('review.detail', user_id=reviewee.id, _external=True)
+        review_url = _frontend_training_url()
         
         # Prepara il contenuto testuale dell'email
         subject = f"Hai ricevuto un nuovo training da {reviewer.first_name} {reviewer.last_name}"
@@ -112,10 +123,7 @@ def send_message_notification(message, recipient):
         sender = message.sender
         
         # Costruisci l'URL per visualizzare il training con anchor alla chat
-        review_url = url_for('review.detail', 
-                           user_id=review.reviewee_id, 
-                           _external=True,
-                           _anchor=f'review-{review.id}-chat')
+        review_url = _frontend_training_url(f'review-{review.id}-chat')
         
         # Prepara il contenuto testuale dell'email
         subject = f"Nuovo messaggio nel training: {review.title}"
@@ -187,7 +195,7 @@ def send_review_request_notification(request):
         recipient = request.requested_to
         
         # Costruisci l'URL per visualizzare le richieste
-        requests_url = url_for('review.received_requests', _external=True)
+        requests_url = _frontend_training_url()
         
         # Prepara il contenuto testuale dell'email
         priority_labels = {
@@ -270,7 +278,7 @@ def send_review_request_response_notification(request):
             subject = f"✅ Il tuo training su '{request.subject}' è pronto!"
             
             # URL per vedere il training
-            review_url = url_for('review.detail', user_id=requester.id, _external=True)
+            review_url = _frontend_training_url()
             
             body = f"""Ciao {requester.first_name},
 
