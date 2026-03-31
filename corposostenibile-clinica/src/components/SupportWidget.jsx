@@ -508,6 +508,7 @@ function SupportWidget({
                 accentColor={accentColor}
               />
 
+              {/* Loom recording - nascosto temporaneamente
               <OpzioneAiuto
                 icon={<FaVideo size={18} color="#DC2626" />}
                 iconBg="linear-gradient(135deg, #FEE2E2, #FECACA)"
@@ -517,6 +518,7 @@ function SupportWidget({
                 accentColor={accentColor}
                 disabled={isRecording || isSavingLoom || isLoomDecisionOpen}
               />
+              */}
 
               {onStartTour && resolvedTourOptions.map((option, index) => (
                 <OpzioneAiuto

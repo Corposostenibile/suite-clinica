@@ -17,7 +17,6 @@ const MAIN_TABS = [
   { key: 'insoddisfatti', label: 'Insoddisfatti', icon: 'ri-emotion-unhappy-line' },
   { key: 'ghost', label: 'Ghost', icon: 'ri-ghost-line' },
   { key: 'pausa', label: 'In Pausa', icon: 'ri-pause-circle-line' },
-  { key: 'recensioni', label: 'Recensioni', icon: 'ri-star-line' },
   { key: 'coordinatrici_hm', label: 'Pannello di controllo coordinatrici HM', icon: 'ri-dashboard-line' },
 ];
 

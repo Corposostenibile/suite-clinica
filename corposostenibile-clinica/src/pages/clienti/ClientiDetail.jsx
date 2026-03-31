@@ -2921,10 +2921,10 @@ function ClientiDetail() {
     { id: 'check_periodici', label: 'Check Periodici', icon: 'ri-calendar-check-line' },
     ...(!isInfluencer ? [{ id: 'progresso', label: 'Progresso', icon: 'ri-line-chart-line' }] : []),
     { id: 'check_iniziali', label: 'Check Iniziali', icon: 'ri-file-list-2-line' },
-    { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
+    // { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-    ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
+    ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Video Review', icon: 'ri-video-line' }] : []),
   ].filter((tab) => {
     if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
     return getAllowedMainTabsForUser().has(tab.id);
@@ -4250,11 +4250,11 @@ function ClientiDetail() {
                   {/* Sub-tabs */}
                   <div className="cd-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                     {[
-                      { key: 'onboarding', label: 'Call Onboarding', icon: 'ri-user-add-line' },
-                      { key: 'customer_care', label: 'Call Customer Care', icon: 'ri-customer-service-2-line' },
-                      { key: 'check_in', label: 'Call Check-in', icon: 'ri-phone-line' },
-                      { key: 'rinnovo', label: 'Call Rinnovo', icon: 'ri-phone-lock-line' },
-                      { key: 'referral', label: 'Call Referral', icon: 'ri-gift-line' },
+                      { key: 'onboarding', label: 'Onboarding', icon: 'ri-user-add-line' },
+                      { key: 'customer_care', label: 'Customer Care', icon: 'ri-customer-service-2-line' },
+                      { key: 'check_in', label: 'Check-in', icon: 'ri-phone-line' },
+                      { key: 'rinnovo', label: 'Rinnovo', icon: 'ri-phone-lock-line' },
+                      { key: 'referral', label: 'Referral', icon: 'ri-gift-line' },
                     ].map((st) => (
                       <button
                         key={st.key}
@@ -4430,7 +4430,7 @@ function ClientiDetail() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                         <h6 style={{ fontWeight: 700, margin: 0 }}>
                           <i className="ri-phone-lock-line" style={{ marginRight: 8, color: '#8b5cf6' }}></i>
-                          Interventi Call Rinnovo
+                          Interventi Rinnovo
                         </h6>
                         <button type="button" className="btn btn-success btn-sm" onClick={() => openNewHmIntervention('rinnovo')}>
                           <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
@@ -4481,7 +4481,7 @@ function ClientiDetail() {
                     <div className="cd-card" style={{ padding: 24, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14 }}>
                       <h6 style={{ fontWeight: 700, marginBottom: 16 }}>
                         <i className="ri-gift-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                        Call Referral Bonus
+                        Referral Bonus
                       </h6>
                       <div className="row">
                         <div className="col-md-4 mb-3">
@@ -4551,10 +4551,10 @@ function ClientiDetail() {
                         <h6 style={{ fontWeight: 700, marginBottom: 20 }}>
                           {editingInterventionId ? 'Modifica' : 'Nuovo'} Intervento {
                             hmInterventionType === 'customer_care'
-                              ? 'Call Customer Care'
+                              ? 'Customer Care'
                               : hmInterventionType === 'check_in'
-                                ? 'Call Check-in'
-                                : 'Call Rinnovo'}
+                                ? 'Check-in'
+                                : 'Rinnovo'}
                         </h6>
                         <div className="mb-3">
                           <label className="form-label fw-semibold">Data</label>
@@ -8073,8 +8073,8 @@ function ClientiDetail() {
               {activeTab === 'marketing' && canViewMarketingTab && (
                 <div>
                   <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
-                    <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#25B36A' }}></i>
-                    Marketing — Trustpilot
+                    <i className="ri-video-line" style={{ marginRight: 8, color: '#0ea5e9' }}></i>
+                    Video Review
                   </h5>
 
                   {canUseVideoReviewFlow && (
@@ -8147,128 +8147,6 @@ function ClientiDetail() {
                     </div>
                   )}
 
-                  {loadingTrustpilot ? (
-                    <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-success"></div></div>
-                  ) : (
-                    <>
-                      {/* Status boxes */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Integrazione</div>
-                          <div style={{ fontWeight: 700, color: trustpilotData?.enabled ? '#22c55e' : '#94a3b8' }}>
-                            {trustpilotData?.enabled ? 'Abilitato' : 'Disabilitato'}
-                          </div>
-                        </div>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Ultimo invito</div>
-                          <div style={{ fontWeight: 700 }}>
-                            {trustpilotData?.latest?.invitation_status || '—'}
-                          </div>
-                        </div>
-                        <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, textAlign: 'center' }}>
-                          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>Stelle</div>
-                          <div style={{ fontWeight: 700, fontSize: 18, color: '#f59e0b' }}>
-                            {trustpilotData?.latest?.stelle ? `${'★'.repeat(trustpilotData.latest.stelle)}` : '—'}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      {trustpilotData?.can_manage && (
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-success btn-sm"
-                            disabled={!trustpilotData?.enabled || sendingTrustpilotAction === 'link'}
-                            onClick={handleGenerateTrustpilotLink}
-                          >
-                            <i className="ri-link" style={{ marginRight: 4 }}></i>
-                            {sendingTrustpilotAction === 'link' ? 'Generazione...' : 'Genera Link Review'}
-                          </button>
-                          <button
-                            className="btn btn-outline-primary btn-sm"
-                            disabled={!trustpilotData?.enabled || !trustpilotData?.email_configured || sendingTrustpilotAction === 'invite'}
-                            onClick={handleSendTrustpilotInvite}
-                          >
-                            <i className="ri-mail-send-line" style={{ marginRight: 4 }}></i>
-                            {sendingTrustpilotAction === 'invite' ? 'Invio...' : 'Invia Email Invito'}
-                          </button>
-                          {trustpilotData?.latest?.trustpilot_link && (
-                            <button
-                              className="btn btn-outline-secondary btn-sm"
-                              onClick={async () => {
-                                await navigator.clipboard.writeText(trustpilotData.latest.trustpilot_link);
-                              }}
-                            >
-                              <i className="ri-clipboard-line" style={{ marginRight: 4 }}></i>Copia Link
-                            </button>
-                          )}
-                          <button className="btn btn-outline-secondary btn-sm" onClick={fetchTrustpilotStatus}>
-                            <i className="ri-refresh-line" style={{ marginRight: 4 }}></i>Aggiorna
-                          </button>
-                        </div>
-                      )}
-
-                      {/* Warnings */}
-                      {!trustpilotData?.enabled && (
-                        <div style={{ padding: 14, background: 'rgba(245,158,11,.08)', border: '1px solid rgba(245,158,11,.2)', borderRadius: 10, fontSize: 13, color: '#92400e', marginBottom: 16 }}>
-                          <i className="ri-error-warning-line" style={{ marginRight: 6 }}></i>
-                          Integrazione Trustpilot non abilitata. Configura le variabili <code>TRUSTPILOT_*</code> nel backend.
-                        </div>
-                      )}
-                      {trustpilotData?.enabled && !trustpilotData?.email_configured && (
-                        <div style={{ padding: 14, background: 'rgba(59,130,246,.08)', border: '1px solid rgba(59,130,246,.2)', borderRadius: 10, fontSize: 13, color: '#1e40af', marginBottom: 16 }}>
-                          <i className="ri-information-line" style={{ marginRight: 6 }}></i>
-                          Template email non configurato. L'invio email non sara disponibile fino alla configurazione di <code>TRUSTPILOT_EMAIL_TEMPLATE_ID</code>.
-                        </div>
-                      )}
-
-                      {/* History */}
-                      <h6 style={{ fontWeight: 700, marginBottom: 12 }}>Storico Inviti / Recensioni</h6>
-                      {!trustpilotData?.history?.length ? (
-                        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: 12 }}>
-                          <i className="ri-star-line" style={{ fontSize: 32, display: 'block', marginBottom: 8 }}></i>
-                          Nessun invito Trustpilot ancora inviato per questo paziente
-                        </div>
-                      ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table className="table table-sm" style={{ fontSize: 13 }}>
-                            <thead>
-                              <tr>
-                                <th>Data</th>
-                                <th>Metodo</th>
-                                <th>Status</th>
-                                <th>Stelle</th>
-                                <th>Richiesto da</th>
-                                <th>Link</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {trustpilotData.history.map((item) => (
-                                <tr key={item.id}>
-                                  <td>{item.data_richiesta?.split('T')[0] || '—'}</td>
-                                  <td>
-                                    <span className={`badge bg-${item.invitation_method === 'email_invitation' ? 'primary' : 'secondary'}`} style={{ fontSize: 11 }}>
-                                      {item.invitation_method === 'email_invitation' ? 'Email' : 'Link'}
-                                    </span>
-                                  </td>
-                                  <td>{item.invitation_status || '—'}</td>
-                                  <td style={{ color: '#f59e0b' }}>{item.stelle ? '★'.repeat(item.stelle) : '—'}</td>
-                                  <td>{item.requested_by_name || '—'}</td>
-                                  <td>
-                                    {item.trustpilot_link ? (
-                                      <a href={item.trustpilot_link} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12 }}>
-                                        <i className="ri-external-link-line"></i>
-                                      </a>
-                                    ) : '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </>
-                  )}
                 </div>
               )}
 

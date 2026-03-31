@@ -500,17 +500,6 @@ function SuiteMindOldSuite() {
                   />
                 </div>
 
-                <div className="mb-3">
-                  <label className="sm-select-label">Note Interne Professionista</label>
-                  <Form.Control
-                    as="textarea"
-                    rows={2}
-                    placeholder="Note opzionali visibili al professionista..."
-                    value={assignmentNotes}
-                    onChange={(e) => { setAssignmentNotes(e.target.value); setHasNewInteraction(true); }}
-                    className="sm-notes-input"
-                  />
-                </div>
               </div>
             </div>
           </div>
