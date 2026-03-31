@@ -7139,6 +7139,57 @@ def api_video_review_requests(cliente_id: int):
     return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
 
 
+def _resolve_hm_user(cliente):
+    """Risolve l'Health Manager del paziente: prima FK, poi history."""
+    from corposostenibile.models import ClienteProfessionistaHistory
+
+    hm_id = getattr(cliente, "health_manager_id", None)
+    if hm_id:
+        hm = db.session.get(User, hm_id)
+        if hm:
+            return hm
+
+    # Fallback: cerca nella history
+    history_row = (
+        db.session.query(ClienteProfessionistaHistory)
+        .filter_by(cliente_id=cliente.cliente_id, tipo_professionista="health_manager", is_active=True)
+        .first()
+    )
+    if history_row and history_row.user_id:
+        return db.session.get(User, history_row.user_id)
+    return None
+
+
+def _resolve_hm_ghl_calendar(hm_user):
+    """Risolve il calendario GHL dell'HM: prima campo, poi ricerca automatica per ghl_user_id."""
+    if hm_user.ghl_calendar_id:
+        return hm_user.ghl_calendar_id
+
+    if not hm_user.ghl_user_id:
+        return None
+
+    try:
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            return None
+        calendars = service.get_calendars()
+        for cal in calendars:
+            name = (cal.get("name") or "").lower()
+            if "calendario follow up servizio clienti" not in name:
+                continue
+            for member in cal.get("teamMembers") or []:
+                if member.get("userId") == hm_user.ghl_user_id:
+                    # Cache per il futuro
+                    hm_user.ghl_calendar_id = cal["id"]
+                    db.session.commit()
+                    logger.info(f"[VideoReview] Auto-resolved calendar {cal['id']} for HM {hm_user.id}")
+                    return cal["id"]
+    except Exception as e:
+        logger.warning(f"[VideoReview] Calendar auto-resolve failed: {e}")
+    return None
+
+
 @api_bp.route("/<int:cliente_id>/video-review-calendar-slots", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_video_review_calendar_slots(cliente_id: int):
@@ -7146,12 +7197,14 @@ def api_video_review_calendar_slots(cliente_id: int):
     cliente = db.session.get(Cliente, cliente_id)
     if not cliente:
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
-    if not getattr(cliente, "health_manager_id", None):
+
+    hm_user = _resolve_hm_user(cliente)
+    if not hm_user:
         abort(HTTPStatus.CONFLICT, description="Nessun Health Manager assegnato al paziente.")
 
-    hm_user = db.session.get(User, cliente.health_manager_id)
-    if not hm_user or not hm_user.ghl_calendar_id:
-        abort(HTTPStatus.CONFLICT, description="Calendario GHL non configurato per l'Health Manager.")
+    calendar_id = _resolve_hm_ghl_calendar(hm_user)
+    if not calendar_id:
+        abort(HTTPStatus.CONFLICT, description="Calendario GHL non trovato per l'Health Manager. Contattare il team IT.")
 
     start = request.args.get("start")
     end = request.args.get("end")
@@ -7167,7 +7220,7 @@ def api_video_review_calendar_slots(cliente_id: int):
             return jsonify({"success": False, "message": "GHL non configurato"}), 503
 
         slots = service.get_free_slots(
-            hm_user.ghl_calendar_id,
+            calendar_id,
             start,
             end,
         )
@@ -7175,7 +7228,7 @@ def api_video_review_calendar_slots(cliente_id: int):
             "success": True,
             "slots": slots,
             "hm_name": hm_user.full_name,
-            "calendar_id": hm_user.ghl_calendar_id,
+            "calendar_id": calendar_id,
         })
     except Exception as e:
         logger.error(f"[VideoReview] Error fetching HM calendar slots: {e}")
@@ -7190,7 +7243,9 @@ def api_video_review_booked(cliente_id: int):
         abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
     if not _is_assigned_to_cliente(current_user, cliente):
         abort(HTTPStatus.FORBIDDEN, description="Non sei assegnato a questo paziente.")
-    if not getattr(cliente, "health_manager_id", None):
+
+    hm_user = _resolve_hm_user(cliente)
+    if not hm_user:
         abort(
             HTTPStatus.CONFLICT,
             description="Nessun Health Manager assegnato al paziente: assegna HM prima della prenotazione video recensione.",
@@ -7241,10 +7296,10 @@ def api_video_review_booked(cliente_id: int):
 
     # Crea appuntamento GHL — obbligatorio se slot selezionato
     ghl_appointment_id = None
-    hm_user = db.session.get(User, cliente.health_manager_id)
     if selected_slot:
-        if not hm_user or not hm_user.ghl_calendar_id:
-            abort(HTTPStatus.CONFLICT, description="Calendario GHL non configurato per l'Health Manager.")
+        calendar_id = _resolve_hm_ghl_calendar(hm_user)
+        if not calendar_id:
+            abort(HTTPStatus.CONFLICT, description="Calendario GHL non trovato per l'Health Manager. Contattare il team IT.")
 
         from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
         service = get_ghl_calendar_service()
@@ -7276,7 +7331,7 @@ def api_video_review_booked(cliente_id: int):
             end_time = start_time + timedelta(minutes=30)
             title = f"{cliente.nome_cognome} | Video Review"
             result = service.create_appointment(
-                calendar_id=hm_user.ghl_calendar_id,
+                calendar_id=calendar_id,
                 contact_id=ghl_contact_id,
                 start_time=start_time.isoformat(),
                 end_time=end_time.isoformat(),
@@ -7294,7 +7349,7 @@ def api_video_review_booked(cliente_id: int):
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
         requested_by_user_id=current_user.id,
-        hm_user_id=cliente.health_manager_id,
+        hm_user_id=hm_user.id,
         status="booked",
         booking_confirmed_at=datetime.utcnow(),
         booking_date=booking_date,
