@@ -35,11 +35,13 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 
 ### Fase 3 - Documentazione e commenti
 
-- [ ] 3A. Aggiungere docstring standard alle API route attive.
-- [ ] 3B. Rimuovere commenti obsoleti e riferimenti a codice/template eliminati.
+- [x] 3A. Aggiungere docstring standard alle API route attive.
+- [x] 3B. Rimuovere commenti obsoleti e riferimenti a codice/template eliminati.
 - [x] 3A (scope `customers` + `team`): completata aggiunta docstring standard alle API route attive nei blueprint in scope.
 - [x] 3B (scope `customers` + `team`): completata pulizia commenti obsoleti/legacy nei file backend in scope.
-- [ ] 3C. Creare `README.md` complessivo del progetto.
+- [x] 3A (scope completo): completata copertura docstring su tutti i blueprint attivi rimanenti (`auth`, `calendar`, `client_checks`, `tasks`, `review`, `quality`, `postit`, `news`, `search`, `loom`, `push_notifications`, `team_tickets`, `ghl_integration`, `old_suite_integration`).
+- [x] 3B (scope completo): nessun TODO/FIXME/HACK o codice commentato trovato nei blueprint attivi rimanenti.
+- [x] 3C. Creare `README.md` complessivo del progetto.
 
 ### Controlli documentazione collegata
 
@@ -272,13 +274,13 @@ Nota aggiornata: `filters.py` da rimuovere si riferisce ai moduli Jinja legacy n
 | Blueprint | Endpoint / gruppo | Stato | Decisione |
 |---|---|---|---|
 | Nessuno confermato al momento | - | Fatto | Nessun candidato forte confermato |
-| `customers` | `GET /hm-coordinatrici-dashboard` | Aperto | Non trovato nei frontend verificati; resta da confermare se esiste uso operativo interno |
-| `customers` | `GET /{id}/clinical-folder-export` | Aperto | Non trovato nei frontend verificati; potrebbe servire come export manuale/backend |
-| `customers` | `GET /{id}/initial-checks/attachment/{lead_id}/{filename}` | Aperto | Non trovato nei frontend verificati; potrebbe essere usato da link backend o allegati storici |
-| `customers` | `GET|POST /{id}/continuity-call-interventions` | Aperto | Non trovato nei frontend verificati, ma tocca un dominio cliente ancora molto attivo |
-| `customers` | `PUT|DELETE /continuity-call-interventions/{intervention_id}` | Aperto | Non trovato nei frontend verificati, ma tocca un dominio cliente ancora molto attivo |
-| `customers` | `GET /{id}/call-rinnovo-history`, `POST /{id}/call-rinnovo-request`, `POST /call-rinnovo/{id}/accept|decline|confirm` | Aperto | Non trovati nei frontend verificati; serve conferma owner prima di considerarli rimovibili |
-| `customers` | `GET /{id}/video-feedback-history`, `POST /{id}/video-feedback-request`, `POST /video-feedback/{id}/accept|complete` | Aperto | Non trovati nei frontend verificati; serve conferma owner prima di considerarli rimovibili |
+| `customers` | `GET /hm-coordinatrici-dashboard` | In sospeso | Non trovato in nessun frontend (clinica, amministrativa, kanban). Probabilmente collegato a pagine Flask HTML rimosse in Fase 1. Richiede conferma owner (Matteo) prima di rimuovere. |
+| `customers` | `GET /{id}/clinical-folder-export` | In sospeso | Non trovato in nessun frontend. Potrebbe essere export manuale/backend. Richiede conferma owner. |
+| `customers` | `GET /{id}/initial-checks/attachment/{lead_id}/{filename}` | In sospeso | Non trovato in nessun frontend. Potrebbe essere usato da link backend o allegati storici. Richiede conferma owner. |
+| `customers` | `GET|POST /{id}/continuity-call-interventions` | In sospeso | Non trovato in nessun frontend. Richiede conferma owner. |
+| `customers` | `PUT|DELETE /continuity-call-interventions/{intervention_id}` | In sospeso | Non trovato in nessun frontend. Richiede conferma owner. |
+| `customers` | `GET /{id}/call-rinnovo-history`, `POST /{id}/call-rinnovo-request`, `POST /call-rinnovo/{id}/accept|decline|confirm` | In sospeso | Non trovati in nessun frontend. Endpoint con auth sessione Flask — improbabile uso da GHL/esterni. Probabilmente legati a pagine HTML rimosse in Fase 1. Richiede conferma owner (Matteo). |
+| `customers` | `GET /{id}/video-feedback-history`, `POST /{id}/video-feedback-request`, `POST /video-feedback/{id}/accept|complete` | In sospeso | Non trovati in nessun frontend. Stessa valutazione di call-rinnovo. Richiede conferma owner (Matteo). |
 | `customers` | `call-bonus-*` | Fatto | Verificati come usati dal frontend clinica, quindi esclusi dai candidati a rimozione |
 | `customers` | `video-review-*` | Fatto | Verificati come usati dal frontend clinica, quindi esclusi dai candidati a rimozione |
 | `news` | `GET /api/news/list-all`, `POST /api/news/create`, `PUT /api/news/{id}`, `DELETE /api/news/{id}` | Fatto | Verificati come usati da `corposostenibile-amministrativa`, quindi esclusi dai candidati a rimozione |

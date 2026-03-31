@@ -27,6 +27,12 @@ def _require_admin() -> None:
 @bp.route("/public-key", methods=["GET"])
 @login_required
 def get_public_key():
+    """
+    Restituisce la chiave pubblica VAPID per l'inizializzazione delle push notification.
+
+    Returns:
+        JSON con `enabled` (bool) e `publicKey` (stringa VAPID pubblica).
+    """
     public_key = current_app.config.get("VAPID_PUBLIC_KEY")
     return jsonify({"enabled": bool(public_key), "publicKey": public_key})
 
@@ -34,6 +40,15 @@ def get_public_key():
 @bp.route("/subscriptions", methods=["POST"])
 @login_required
 def upsert_subscription():
+    """
+    Registra o aggiorna la subscription push dell'utente corrente.
+
+    Body JSON:
+        subscription: oggetto WebPush con `endpoint`, `keys.p256dh`, `keys.auth`.
+
+    Returns:
+        JSON con `ok` (bool) e `enabled` (bool).
+    """
     data = request.get_json(silent=True) or {}
     subscription = data.get("subscription", data)
     endpoint = subscription.get("endpoint")
@@ -70,6 +85,15 @@ def upsert_subscription():
 @bp.route("/subscriptions", methods=["DELETE"])
 @login_required
 def delete_subscription():
+    """
+    Rimuove la subscription push dell'utente corrente.
+
+    Body JSON:
+        endpoint (str, opzionale): se presente rimuove solo quella subscription; altrimenti rimuove tutte.
+
+    Returns:
+        JSON con `ok` (bool) e `removed` (int, numero di subscription eliminate).
+    """
     data = request.get_json(silent=True) or {}
     endpoint = data.get("endpoint")
 
@@ -88,6 +112,16 @@ def delete_subscription():
 @bp.route("/notifications", methods=["GET"])
 @login_required
 def list_notifications():
+    """
+    Restituisce le notifiche dell'utente corrente.
+
+    Query params:
+        unread_only (int, default 1): se 1 restituisce solo le non lette.
+        limit (int, default 20, max 100): numero massimo di notifiche.
+
+    Returns:
+        JSON con `items` (lista notifiche) e `unreadCount` (int).
+    """
     try:
         unread_only = str(request.args.get("unread_only", "1")).lower() in {"1", "true", "yes"}
         limit = min(max(int(request.args.get("limit", 20)), 1), 100)
@@ -119,6 +153,15 @@ def list_notifications():
 @bp.route("/notifications/<int:notification_id>/read", methods=["POST"])
 @login_required
 def mark_notification_read(notification_id: int):
+    """
+    Segna una notifica come letta.
+
+    Args:
+        notification_id: ID della notifica da marcare come letta.
+
+    Returns:
+        JSON con `ok` (bool), `unreadCount` (int aggiornato) e `notification` (oggetto notifica).
+    """
     notification = AppNotification.query.filter_by(id=notification_id, user_id=current_user.id).first()
     if not notification:
         abort(404, "Notifica non trovata")
@@ -132,6 +175,14 @@ def mark_notification_read(notification_id: int):
 @bp.route("/admin/professionisti", methods=["GET"])
 @login_required
 def list_professionisti():
+    """
+    Restituisce la lista dei professionisti attivi (uso admin per invio push manuale).
+
+    Richiede ruolo admin. Filtra utenti attivi con ruolo professionista, team_leader o health_manager.
+
+    Returns:
+        JSON con `items` (lista con id, full_name, email, role).
+    """
     _require_admin()
 
     users = (
@@ -160,6 +211,20 @@ def list_professionisti():
 @bp.route("/admin/send", methods=["POST"])
 @login_required
 def send_manual_push():
+    """
+    Invia una push notification manuale a un professionista specifico (uso admin).
+
+    Richiede ruolo admin.
+
+    Body JSON:
+        user_id (int): ID del professionista destinatario.
+        title (str): Titolo della notifica.
+        body (str): Testo della notifica.
+        url (str, opzionale): URL di destinazione al click, default '/'.
+
+    Returns:
+        JSON con `ok` (bool), `sent` (bool), `user_id` (int) e `notification_id` (int).
+    """
     _require_admin()
 
     data = request.get_json(silent=True) or {}

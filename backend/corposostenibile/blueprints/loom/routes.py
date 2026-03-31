@@ -95,6 +95,15 @@ def list_recordings():
 @loom_bp.route("/api/recordings/<int:recording_id>", methods=["GET"])
 @login_required
 def get_recording(recording_id: int):
+    """
+    Restituisce il dettaglio di una singola registrazione Loom.
+
+    Args:
+        recording_id: ID della registrazione.
+
+    Returns:
+        JSON con `success` (bool) e `recording` (oggetto serializzato).
+    """
     recording = LoomRecording.query.get_or_404(recording_id)
     if not _can_view_recording(current_user, recording):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403

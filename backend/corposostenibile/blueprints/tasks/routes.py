@@ -462,6 +462,12 @@ def get_stats():
 @bp.route('/filter-options', methods=['GET'])
 @login_required
 def get_filter_options():
+    """
+    Restituisce le opzioni di filtro disponibili per la lista task (team, assignee, ruoli, specializzazioni).
+
+    Returns:
+        JSON con `teams`, `assignees`, `roles`, `specialties`.
+    """
     payload = _build_filter_options()
     if payload is None:
         return jsonify({'teams': [], 'assignees': [], 'roles': [], 'specialties': []})

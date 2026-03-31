@@ -172,6 +172,12 @@ def api_forgot_password():
 
 @auth_api_bp.route("/verify-reset-token/", methods=["GET"])
 def api_verify_reset_token_empty():
+    """
+    Fallback per richieste a /verify-reset-token/ senza token. Restituisce sempre errore 400.
+
+    Returns:
+        JSON con `valid` False e messaggio di errore.
+    """
     return jsonify({
         "valid": False,
         "error": "Link non valido o scaduto."
