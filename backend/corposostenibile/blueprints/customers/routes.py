@@ -1599,7 +1599,7 @@ def api_expiring() -> Any:
     range_start = today if days == 30 else today + timedelta(days=days - 30)
     hm_filter = request.args.get("health_manager_id", type=int)
 
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(Cliente).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
@@ -1607,7 +1607,7 @@ def api_expiring() -> Any:
             Cliente.data_rinnovo <= limit_date,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    )
+    ))
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1655,14 +1655,14 @@ def api_expiring() -> Any:
         })
 
     # Conteggi per fascia
-    count_base = apply_role_filtering(
+    count_base = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(db.func.count(Cliente.cliente_id)).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo >= today,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    )
+    ))
     count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
     count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
     count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
@@ -1757,7 +1757,7 @@ def api_unsatisfied() -> Any:
     )
 
     # Query principale: clienti con media sotto la soglia
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(
             Cliente, subq.c.avg_rating,
             subq.c.avg_nutrizione, subq.c.avg_coach, subq.c.avg_psicologia, subq.c.avg_percorso,
@@ -1770,7 +1770,7 @@ def api_unsatisfied() -> Any:
             subq.c.avg_rating < threshold,
             *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
         )
-    )
+    ))
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1839,7 +1839,7 @@ def api_unsatisfied() -> Any:
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
     )
-    count_base = apply_role_filtering(count_base)
+    count_base = _apply_hm_page_scope(apply_role_filtering(count_base))
     count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
     count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
     count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
@@ -1891,9 +1891,11 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 or original_specialty_value.strip().lower() == "cco"
             )
 
-    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
+    role_value = getattr(current_user.role, "value", str(current_user.role or ""))
+    is_hm = role_value == "health_manager"
+    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user) or is_hm
     if not can_access:
-        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale coordinatrici HM.")
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale pannello di controllo HM.")
 
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
@@ -1946,7 +1948,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
     )
     hm_name_expr = hm_name_sql.label("health_manager_name")
 
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(
             Cliente,
             checkin_subq.c.last_check_in_call_date,
@@ -1962,10 +1964,10 @@ def api_hm_coordinatrici_dashboard() -> Any:
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.health_manager_id.isnot(None),
         )
-    )
+    ))
 
     hm_options_rows = (
-        apply_role_filtering(
+        _apply_hm_page_scope(apply_role_filtering(
             db.session.query(
                 Cliente.health_manager_id.label("id"),
                 hm_name_expr,
@@ -1975,7 +1977,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 Cliente.show_in_clienti_lista.is_(True),
                 Cliente.health_manager_id.isnot(None),
             )
-        )
+        ))
         .group_by(Cliente.health_manager_id, hm_name_sql)
         .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
         .all()
@@ -6619,6 +6621,37 @@ def _normalize_specialty_group_for_rbac(user) -> str | None:
     if specialty_value == "medico":
         return "medico"
     return None
+
+
+def _apply_hm_page_scope(query):
+    """
+    Filtro RBAC specifico per la pagina Health Manager:
+    - Admin/CCO: vedono tutto (nessun filtro aggiuntivo)
+    - Team Leader HM: vedono i pazienti il cui health_manager_id è un membro del team
+    - Health Manager: vedono solo i pazienti assegnati a loro (health_manager_id)
+    """
+    user_role = getattr(current_user, "role", None)
+    role_value = user_role.value if hasattr(user_role, "value") else str(user_role or "")
+    specialty = getattr(current_user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    is_admin_or_cco = bool(
+        getattr(current_user, "is_admin", False)
+        or role_value == "admin"
+        or specialty_value.strip().lower() == "cco"
+    )
+    if is_admin_or_cco:
+        return query
+    # Team Leader HM: pazienti assegnati agli HM del proprio team
+    if role_value == "team_leader" and _is_team_leader_health_manager_scope(current_user):
+        team_member_ids = {current_user.id}
+        for team in (getattr(current_user, "teams_led", []) or []):
+            for member in (getattr(team, "members", []) or []):
+                team_member_ids.add(member.id)
+        return query.filter(Cliente.health_manager_id.in_(list(team_member_ids)))
+    # Health Manager: solo i propri pazienti
+    if role_value == "health_manager":
+        return query.filter(Cliente.health_manager_id == current_user.id)
+    return query
 
 
 def _is_team_leader_health_manager_scope(user) -> bool:

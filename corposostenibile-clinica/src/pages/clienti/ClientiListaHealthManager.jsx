@@ -17,7 +17,7 @@ const MAIN_TABS = [
   { key: 'insoddisfatti', label: 'Insoddisfatti', icon: 'ri-emotion-unhappy-line' },
   { key: 'ghost', label: 'Ghost', icon: 'ri-ghost-line' },
   { key: 'pausa', label: 'In Pausa', icon: 'ri-pause-circle-line' },
-  { key: 'coordinatrici_hm', label: 'Pannello di controllo coordinatrici HM', icon: 'ri-dashboard-line' },
+  { key: 'coordinatrici_hm', label: 'Pannello di controllo', icon: 'ri-dashboard-line' },
 ];
 
 const REVIEW_TABS = [
@@ -448,8 +448,7 @@ function ClientiListaHealthManager() {
           : statusLoading;
   const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
 
-  const canAccessCoordinatriciPanel = Boolean(isAdmin || isHmTeamLeader || isImpersonatingSession);
-  const visibleMainTabs = MAIN_TABS.filter((tab) => tab.key !== 'coordinatrici_hm' || canAccessCoordinatriciPanel);
+  const visibleMainTabs = MAIN_TABS;
   const hmFilterOptions = isCoordinatriciTab && coordHealthManagers.length > 0 ? coordHealthManagers : healthManagers;
 
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString('it-IT') : '\u2014');
@@ -685,48 +684,7 @@ function ClientiListaHealthManager() {
         )}
       </div>
 
-      {isCoordinatriciTab && (
-        <div className="cl-coord-filters-row">
-          {[
-            ['check_in_completed', 'Check-in'],
-            ['contacted_for_renewal', 'Contattato rinnovo'],
-            ['renewal_completed', 'Rinnovo'],
-            ['contacted_for_review', 'Contattato review'],
-            ['review_completed', 'Review'],
-          ].map(([key, label]) => (
-            <select
-              key={key}
-              className="cl-coord-filter-select"
-              value={coordFlagFilters[key]}
-              onChange={(e) => {
-                const value = e.target.value;
-                setCoordFlagFilters((prev) => ({ ...prev, [key]: value }));
-                setCoordPagination((prev) => ({ ...prev, page: 1 }));
-              }}
-            >
-              <option value="">{label}: tutti</option>
-              <option value="yes">{label}: SI</option>
-              <option value="no">{label}: NO</option>
-            </select>
-          ))}
-          <button
-            type="button"
-            className="cl-coord-filter-reset"
-            onClick={() => {
-              setCoordFlagFilters({
-                check_in_completed: '',
-                contacted_for_renewal: '',
-                renewal_completed: '',
-                contacted_for_review: '',
-                review_completed: '',
-              });
-              setCoordPagination((prev) => ({ ...prev, page: 1 }));
-            }}
-          >
-            <i className="ri-refresh-line"></i> Reset filtri
-          </button>
-        </div>
-      )}
+      {/* Flag filters — temporaneamente disabilitati (colonne "in arrivo") */}
 
       {/* ── Recensioni Content ── */}
       {isReviewTab && (
@@ -940,9 +898,9 @@ function ClientiListaHealthManager() {
                          <th style={{ minWidth: 150 }}>{renderSortableHeader('Data onboarding', 'onboarding_date')}</th>
                          <th style={{ minWidth: 150 }}>{renderSortableHeader('Data inizio percorso', 'path_start_date')}</th>
                          <th style={{ minWidth: 150 }}>{renderSortableHeader('Data fine percorso', 'path_end_date')}</th>
-                         <th style={{ minWidth: 150 }}>{renderSortableHeader('Data check-in call', 'check_in_call_date')}</th>
+                         <th style={{ minWidth: 150 }}>Data check-in call</th>
                          <th style={{ minWidth: 115, textAlign: 'center' }}>Check-in</th>
-                         <th style={{ minWidth: 160 }}>{renderSortableHeader('Data call rinnovo', 'renewal_call_date')}</th>
+                         <th style={{ minWidth: 160 }}>Data call rinnovo</th>
                          <th style={{ minWidth: 170, textAlign: 'center' }}>Contattato per il rinnovo</th>
                          <th style={{ minWidth: 110, textAlign: 'center' }}>Rinnovo</th>
                          <th style={{ minWidth: 150, textAlign: 'center' }}>Contattato per review</th>
@@ -972,13 +930,13 @@ function ClientiListaHealthManager() {
                             <td>{formatDate(row.onboarding_date)}</td>
                             <td>{formatDate(row.path_start_date)}</td>
                             <td>{formatDate(row.path_end_date)}</td>
-                            <td>{formatDate(row.check_in_call_date)}</td>
-                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.check_in_completed), Boolean(row.flags_mocked?.check_in_completed))}</td>
-                            <td>{formatDate(row.renewal_call_date)}</td>
-                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_renewal), Boolean(row.flags_mocked?.contacted_for_renewal))}</td>
-                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.renewal_completed), Boolean(row.flags_mocked?.renewal_completed))}</td>
-                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.contacted_for_review), Boolean(row.flags_mocked?.contacted_for_review))}</td>
-                            <td style={{ textAlign: 'center' }}>{yesNoBadge(Boolean(row.flags?.review_completed), Boolean(row.flags_mocked?.review_completed))}</td>
+                            <td><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td style={{ textAlign: 'center' }}><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td style={{ textAlign: 'center' }}><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td style={{ textAlign: 'center' }}><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td style={{ textAlign: 'center' }}><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
+                            <td style={{ textAlign: 'center' }}><span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>in arrivo</span></td>
                             <td style={{ textAlign: 'right' }}>
                               <Link to={`/clienti-dettaglio/${row.cliente_id}`} className="cl-action-btn" title="Dettaglio">
                                 <i className="ri-eye-line"></i>
