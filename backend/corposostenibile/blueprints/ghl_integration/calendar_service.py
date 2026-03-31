@@ -332,8 +332,8 @@ class GHLCalendarService:
 
         Args:
             query: Ricerca libera (nome, email, etc.)
-            email: Filtra per email esatta
-            phone: Filtra per telefono
+            email: Cerca per email (usa query param, GHL non supporta filtro diretto)
+            phone: Cerca per telefono (usa query param)
             limit: Numero massimo risultati
 
         Returns:
@@ -345,12 +345,13 @@ class GHLCalendarService:
             "limit": limit
         }
 
+        # GHL API accetta solo 'query' per ricerca, non 'email'/'phone' diretti
         if query:
             params["query"] = query
-        if email:
-            params["email"] = email
-        if phone:
-            params["phone"] = phone
+        elif email:
+            params["query"] = email
+        elif phone:
+            params["query"] = phone
 
         response = self._make_request("GET", endpoint, params=params)
         return response.get("contacts", [])
