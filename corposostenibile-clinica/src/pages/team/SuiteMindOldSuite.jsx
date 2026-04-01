@@ -280,14 +280,51 @@ function SuiteMindOldSuite() {
           >
             <option value="">{selectPlaceholder}</option>
             {matchList.map(p => (
-              <option key={p.id} value={p.id}>{p.name} (Match: {p.score}%)</option>
+              <option key={p.id} value={p.id}>
+                {p.name} (Match: {p.score}%) — Capienza: {p.capacity ? `${Math.round(p.capacity.percentage)}%` : '—'}
+              </option>
             ))}
             {matchList.length > 0 && <option disabled>──────────</option>}
             {professionals.filter(p => !matchList.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === deptKey) && p.is_available !== false).map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name}{p.capacity ? ` — Capienza: ${Math.round(p.capacity.percentage)}%` : ''}
+              </option>
             ))}
           </Form.Select>
         </div>
+
+        {selectedMatch?.capacity && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            padding: '10px 14px', borderRadius: '10px', marginTop: '8px',
+            background: selectedMatch.capacity.is_over ? '#fef2f2' : selectedMatch.capacity.percentage > 80 ? '#fffbeb' : '#f0fdf4',
+            border: `1px solid ${selectedMatch.capacity.is_over ? '#fecaca' : selectedMatch.capacity.percentage > 80 ? '#fde68a' : '#bbf7d0'}`,
+          }}>
+            <i className={`ri-bar-chart-grouped-line`} style={{
+              fontSize: '18px',
+              color: selectedMatch.capacity.is_over ? '#dc2626' : selectedMatch.capacity.percentage > 80 ? '#d97706' : '#16a34a',
+            }}></i>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                Capienza: {Math.round(selectedMatch.capacity.percentage)}%
+                <span style={{ fontWeight: 400, color: '#64748b', marginLeft: '8px' }}>
+                  ({selectedMatch.capacity.assigned}/{selectedMatch.capacity.max} clienti — carico ponderato: {selectedMatch.capacity.weighted_load})
+                </span>
+              </div>
+              <div style={{
+                marginTop: '4px', height: '6px', borderRadius: '3px',
+                background: '#e2e8f0', overflow: 'hidden',
+              }}>
+                <div style={{
+                  height: '100%', borderRadius: '3px',
+                  width: `${Math.min(selectedMatch.capacity.percentage, 100)}%`,
+                  background: selectedMatch.capacity.is_over ? '#dc2626' : selectedMatch.capacity.percentage > 80 ? '#d97706' : '#16a34a',
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+            </div>
+          </div>
+        )}
 
         {selectedMatch?.match_reasons?.length > 0 && (
           <div className={`sm-match-reason sm-match-reason-${colorVariant}`}>

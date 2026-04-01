@@ -1266,29 +1266,44 @@ def api_get_professionals_criteria():
 
     current_app.logger.info(f"Found {len(professionals)} professionals with target specialties")
 
+    # Capacity data for all professionals
+    prof_ids = [p.id for p in professionals]
+    capacities = ProfessionistCapacity.query.filter(
+        ProfessionistCapacity.user_id.in_(prof_ids)
+    ).all() if prof_ids else []
+    cap_map = {(c.user_id, c.role_type): c for c in capacities}
+    assigned_map = _get_assigned_clients_count_map_active_by_role(prof_ids)
+    type_breakdown = _get_assigned_clients_by_type(prof_ids)
+    weights = _get_capacity_weights_by_role()
+
     results = []
     import json
-    
+
     for p in professionals:
         # Determina "department_id" e nome basato su specialty
         dept_id = 0
         dept_name = 'N/A'
-        
+
         # Get value safely
         spec_val = p.specialty.value if hasattr(p.specialty, 'value') else str(p.specialty)
         if spec_val.startswith('UserSpecialtyEnum.'):
             spec_val = spec_val.split('.')[-1]
-        
+
         if spec_val in ['nutrizionista', 'nutrizione']:
             dept_id = 2 # Nutrizione
             dept_name = 'Nutrizione'
+            cap_role = 'nutrizionista'
         elif spec_val == 'coach':
             dept_id = 3 # Coach
             dept_name = 'Coach'
+            cap_role = 'coach'
         elif spec_val in ['psicologo', 'psicologia']:
             dept_id = 4 # Psicologia
             dept_name = 'Psicologia'
-            
+            cap_role = 'psicologa'
+        else:
+            cap_role = None
+
         criteria = p.assignment_criteria or {}
         ai_notes = p.assignment_ai_notes or {}
         if isinstance(ai_notes, str):
@@ -1296,7 +1311,20 @@ def api_get_professionals_criteria():
                 ai_notes = json.loads(ai_notes)
             except:
                 ai_notes = {}
-                
+
+        # Capacity metrics
+        cap = cap_map.get((p.id, cap_role))
+        assigned = assigned_map.get((p.id, cap_role), 0)
+        contractual = (cap.max_clients if cap else 0) or 0
+        t_counts = type_breakdown.get((p.id, cap_role), {})
+        cap_metrics = _calculate_capacity_metrics(
+            role_type=cap_role or '',
+            assigned_clients=assigned,
+            contractual_capacity=contractual,
+            type_counts=t_counts,
+            weights_by_role=weights,
+        )
+
         results.append({
             'id': p.id,
             'name': f"{p.first_name} {p.last_name}",
@@ -1314,6 +1342,13 @@ def api_get_professionals_criteria():
                 }
                 for t in (p.teams or [])
             ],
+            'capacity': {
+                'assigned': assigned,
+                'max': contractual,
+                'percentage': cap_metrics['percentuale_capienza'],
+                'weighted_load': cap_metrics['capienza_ponderata'],
+                'is_over': cap_metrics['is_over_capacity'],
+            },
         })
 
     return jsonify({
