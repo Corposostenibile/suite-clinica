@@ -5013,7 +5013,7 @@ def _append_export_section(story, styles, title, rows, col_widths):
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
-    table.splitInRow = [1] * len(data)
+    table.splitInRow = 1
     story.append(table)
     story.append(Spacer(1, 10))
 
