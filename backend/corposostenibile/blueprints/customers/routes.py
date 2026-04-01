@@ -4985,11 +4985,12 @@ def _export_pdf_user_label(user):
 
 
 def _append_export_section(story, styles, title, rows, col_widths):
-    """Costruisce una sezione tabellare a 2 colonne per il PDF."""
+    """Costruisce una sezione tabellare a 2 colonne per il PDF, splittabile tra pagine."""
     from reportlab.lib import colors as rl_colors
     from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
 
-    story.append(Paragraph(title, styles["SectionHeader"]))
+    if title:
+        story.append(Paragraph(title, styles["SectionHeader"]))
     data = []
     for label, value in rows:
         rendered = _export_pdf_format_value(value)
@@ -5002,7 +5003,7 @@ def _append_export_section(story, styles, title, rows, col_widths):
         data = [[Paragraph("<b>Info</b>", styles["PDFBody"]),
                  Paragraph("Nessun dato disponibile", styles["PDFBody"])]]
 
-    table = Table(data, colWidths=col_widths)
+    table = Table(data, colWidths=col_widths, repeatRows=0)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (0, -1), rl_colors.HexColor("#f8fafc")),
         ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#d1d5db")),
@@ -5012,6 +5013,7 @@ def _append_export_section(story, styles, title, rows, col_widths):
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
+    table.splitInRow = [1] * len(data)
     story.append(table)
     story.append(Spacer(1, 10))
 
@@ -5534,13 +5536,44 @@ def api_clinical_folder_export_pdf(cliente_id: int):
         ("Referral Note", cliente.referral_richiesti_note),
     ], col_w)
 
-    # ══════════════════ PARTE 7: RISPOSTE CHECK ══════════════════
-    # Weekly Check Responses (TUTTE)
+    # ══════════════════ PARTE 7: CHECK INIZIALI ══════════════════
+    if check_assignments:
+        story.append(Paragraph("7. Risposte Check Iniziali", styles["SectionHeader"]))
+        for ca in check_assignments:
+            form = ca.form
+            form_name = form.name if form else f"Form #{ca.form_id}"
+            fields_map = {}
+            if form and hasattr(form, 'fields'):
+                for f in form.fields:
+                    fields_map[str(f.id)] = f.label
+            responses = list(ca.responses) if hasattr(ca.responses, '__iter__') else []
+            if not responses:
+                story.append(Paragraph(f"{form_name}: nessuna risposta", styles["MetaText"]))
+                continue
+            for ridx, resp in enumerate(responses, 1):
+                story.append(Paragraph(f"{form_name} — Risposta #{ridx} ({_export_pdf_format_value(resp.created_at)})", styles["SubSectionHeader"]))
+                resp_rows = []
+                if isinstance(resp.responses, dict):
+                    for field_id, value in resp.responses.items():
+                        label = fields_map.get(str(field_id), f"Domanda {field_id}")
+                        resp_rows.append((label, value))
+                if resp_rows:
+                    _append_export_section(story, styles, "", resp_rows, col_w)
+
+    # ══════════════════ PARTE 8: RISPOSTE WEEKLY CHECK ══════════════════
     if weekly_responses:
-        story.append(Paragraph("7. Risposte Weekly Check", styles["SectionHeader"]))
+        story.append(Paragraph("8. Risposte Weekly Check", styles["SectionHeader"]))
         for idx, wr in enumerate(weekly_responses, 1):
             story.append(Paragraph(f"Weekly #{idx} — {_export_pdf_format_value(wr.submit_date)}", styles["SubSectionHeader"]))
-            wr_rows = [
+            wr_rows = []
+            # Foto
+            if wr.photo_front:
+                wr_rows.append(("Foto Frontale", wr.photo_front))
+            if wr.photo_side:
+                wr_rows.append(("Foto Laterale", wr.photo_side))
+            if wr.photo_back:
+                wr_rows.append(("Foto Posteriore", wr.photo_back))
+            wr_rows.extend([
                 ("Cosa ha funzionato", wr.what_worked),
                 ("Cosa non ha funzionato", wr.what_didnt_work),
                 ("Cosa ho imparato", wr.what_learned),
@@ -5552,7 +5585,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
                 ("Settimane Allenamento Completate", wr.completed_training_weeks),
                 ("Giorni Allenamento Pianificati", wr.planned_training_days),
                 ("Modifiche Esercizi", wr.exercise_modifications),
-                ("Infortuni/Note", wr.injuries_notes),
+                ("Infortuni e Note", wr.injuries_notes),
                 ("Digestione", f"{wr.digestion_rating}/10" if wr.digestion_rating else "-"),
                 ("Energia", f"{wr.energy_rating}/10" if wr.energy_rating else "-"),
                 ("Forza", f"{wr.strength_rating}/10" if wr.strength_rating else "-"),
@@ -5560,22 +5593,22 @@ def api_clinical_folder_export_pdf(cliente_id: int):
                 ("Sonno", f"{wr.sleep_rating}/10" if wr.sleep_rating else "-"),
                 ("Umore", f"{wr.mood_rating}/10" if wr.mood_rating else "-"),
                 ("Motivazione", f"{wr.motivation_rating}/10" if wr.motivation_rating else "-"),
-                ("Rating Nutrizionista", f"{wr.nutritionist_rating}/10" if wr.nutritionist_rating else "-"),
+                ("Valutazione Nutrizionista", f"{wr.nutritionist_rating}/10" if wr.nutritionist_rating else "-"),
                 ("Feedback Nutrizionista", wr.nutritionist_feedback),
-                ("Rating Coach", f"{wr.coach_rating}/10" if wr.coach_rating else "-"),
+                ("Valutazione Coach", f"{wr.coach_rating}/10" if wr.coach_rating else "-"),
                 ("Feedback Coach", wr.coach_feedback),
-                ("Rating Psicologo", f"{wr.psychologist_rating}/10" if wr.psychologist_rating else "-"),
-                ("Feedback Psicologo", wr.psychologist_feedback),
-                ("Rating Progresso", f"{wr.progress_rating}/10" if wr.progress_rating else "-"),
+                ("Valutazione Psicologo/a", f"{wr.psychologist_rating}/10" if wr.psychologist_rating else "-"),
+                ("Feedback Psicologo/a", wr.psychologist_feedback),
+                ("Valutazione Progresso", f"{wr.progress_rating}/10" if wr.progress_rating else "-"),
                 ("Referral", wr.referral),
                 ("Commenti Extra", wr.extra_comments),
                 ("Argomenti Live Session", wr.live_session_topics),
-            ]
+            ])
             _append_export_section(story, styles, "", wr_rows, col_w)
 
     # Minor Check Responses (EDE-Q6) (TUTTE)
     if minor_responses:
-        story.append(Paragraph("7.1 Risposte Minor Check (EDE-Q6)", styles["SectionHeader"]))
+        story.append(Paragraph("8.1 Risposte Minor Check (EDE-Q6)", styles["SectionHeader"]))
         for idx, mr in enumerate(minor_responses, 1):
             _append_export_section(story, styles, f"EDE-Q6 #{idx} — {_export_pdf_format_value(mr.submit_date)}", [
                 ("Score Globale", f"{mr.score_global:.2f}" if mr.score_global else "-"),
@@ -5589,7 +5622,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # DCA Check Responses (TUTTE)
     if dca_responses:
-        story.append(Paragraph("7.2 Risposte DCA Check", styles["SectionHeader"]))
+        story.append(Paragraph("8.2 Risposte DCA Check", styles["SectionHeader"]))
         for idx, dr in enumerate(dca_responses, 1):
             _append_export_section(story, styles, f"DCA #{idx} — {_export_pdf_format_value(dr.submit_date)}", [
                 ("Equilibrio Umore", f"{dr.mood_balance_rating}/5" if dr.mood_balance_rating else "-"),
@@ -5624,7 +5657,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # Meal Plans (TUTTI)
     if meal_plans:
-        story.append(Paragraph("7.3 Piani Alimentari", styles["SectionHeader"]))
+        story.append(Paragraph("8.3 Piani Alimentari", styles["SectionHeader"]))
         for mp in meal_plans:
             _append_export_section(story, styles, f"{mp.name} ({_export_pdf_format_value(mp.start_date)} - {_export_pdf_format_value(mp.end_date)})", [
                 ("Attivo", mp.is_active),
@@ -5638,7 +5671,7 @@ def api_clinical_folder_export_pdf(cliente_id: int):
 
     # Training Plans (TUTTI)
     if training_plans:
-        story.append(Paragraph("7.4 Piani Allenamento", styles["SectionHeader"]))
+        story.append(Paragraph("8.4 Piani Allenamento", styles["SectionHeader"]))
         for tp in training_plans:
             _append_export_section(story, styles, f"{tp.name} ({_export_pdf_format_value(tp.start_date)} - {_export_pdf_format_value(tp.end_date)})", [
                 ("Attivo", tp.is_active),
