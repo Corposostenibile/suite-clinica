@@ -37,7 +37,7 @@ JWT_EXPIRY_HOURS = 8
 
 
 def _issue_jwt(user: User) -> str:
-    """Issue an internal JWT for the given user."""
+    """Genera JWT interno per la tab Teams a partire dall'utente autenticato."""
     payload = {
         "user_id": user.id,
         "name": user.full_name,
@@ -49,7 +49,7 @@ def _issue_jwt(user: User) -> str:
 
 
 def tab_auth_required(f):
-    """Decorator: validates bearer JWT and sets g.current_user."""
+    """Valida bearer JWT interno e popola `g.current_user` per la request."""
 
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -87,7 +87,11 @@ def tab_auth_required(f):
 
 @team_tickets_bp.route("/tab-auth", methods=["POST"])
 def tab_auth():
-    """Exchange AAD token from Teams SSO for internal JWT."""
+    """
+    Scambia un token AAD (Teams SSO) con JWT interno applicativo.
+
+    Se necessario, collega o crea automaticamente l'utente locale.
+    """
     data = request.get_json(silent=True) or {}
     aad_token = data.get("aad_token", "").strip()
     if not aad_token:
@@ -143,7 +147,7 @@ def tab_auth():
 
 @team_tickets_bp.route("/tab-auth/dev", methods=["POST"])
 def tab_auth_dev():
-    """Dev-only login: exchange username/password for JWT (no Teams SSO)."""
+    """Login dev-only: converte credenziali locali in JWT interno (senza SSO)."""
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     password = data.get("password", "")
@@ -175,7 +179,7 @@ def tab_auth_dev():
 
 
 def _user_relationship(ticket: TeamTicket, user_id: int) -> str:
-    """Determine user's relationship to a ticket."""
+    """Determina la relazione utente-ticket (`creator`, `assignee`, `participant`)."""
     if ticket.created_by_id == user_id:
         return "creator"
     if any(u.id == user_id for u in ticket.assigned_users):
@@ -184,14 +188,14 @@ def _user_relationship(ticket: TeamTicket, user_id: int) -> str:
 
 
 def _ticket_with_relationship(ticket: TeamTicket, user_id: int, **kwargs) -> dict:
-    """Serialize ticket with relationship_to_user field."""
+    """Serializza un ticket includendo il campo calcolato `relationship_to_user`."""
     d = ticket.to_dict(**kwargs)
     d["relationship_to_user"] = _user_relationship(ticket, user_id)
     return d
 
 
 def _emit_ticket_event(event: str, ticket: TeamTicket) -> None:
-    """Emit WebSocket event to the dashboard room."""
+    """Emette evento WebSocket verso la room dashboard Team Tickets."""
     try:
         socketio.emit(
             event,
@@ -208,7 +212,11 @@ def _emit_ticket_event(event: str, ticket: TeamTicket) -> None:
 @team_tickets_bp.route("/tab/tickets", methods=["GET"])
 @tab_auth_required
 def tab_list_tickets():
-    """List tickets visible to the authenticated user (scope=mine)."""
+    """
+    Elenca i ticket visibili all'utente autenticato (scope personale).
+
+    Include ticket creati, assegnati o con messaggi inviati dall'utente.
+    """
     user = g.current_user
     per_page = request.args.get("per_page", 200, type=int)
     per_page = min(per_page, 500)
@@ -250,7 +258,7 @@ def tab_list_tickets():
 @team_tickets_bp.route("/tab/tickets/<int:ticket_id>", methods=["GET"])
 @tab_auth_required
 def tab_get_ticket(ticket_id):
-    """Get ticket detail with messages and attachments."""
+    """Restituisce dettaglio ticket (messaggi+allegati) per utente autenticato."""
     ticket = ticket_service.get_ticket(ticket_id)
     if not ticket:
         abort(404)
@@ -267,7 +275,7 @@ def tab_get_ticket(ticket_id):
 @team_tickets_bp.route("/tab/tickets/<int:ticket_id>/status", methods=["PATCH"])
 @tab_auth_required
 def tab_update_status(ticket_id):
-    """Change ticket status (drag-and-drop)."""
+    """Aggiorna lo stato ticket (drag-and-drop) con validazione per board."""
     data = request.get_json(silent=True) or {}
     new_status = data.get("status")
     ticket = ticket_service.get_ticket(ticket_id)
@@ -304,7 +312,11 @@ def tab_update_status(ticket_id):
 @team_tickets_bp.route("/tab/tickets", methods=["POST"])
 @tab_auth_required
 def tab_create_ticket():
-    """Create a new ticket from the Kanban board."""
+    """
+    Crea un nuovo ticket dalla Kanban Teams.
+
+    Per board IT risolve automaticamente gli assegnatari dal sistema selezionato.
+    """
     data = request.get_json(silent=True) or {}
 
     title = data.get("title", "").strip()
@@ -358,7 +370,7 @@ def tab_create_ticket():
 @team_tickets_bp.route("/tab/tickets/<int:ticket_id>", methods=["PATCH"])
 @tab_auth_required
 def tab_update_ticket(ticket_id):
-    """Update ticket fields (priority, assignees, description)."""
+    """Aggiorna campi ticket (priorita', assegnatari, descrizione, stato, sistema)."""
     data = request.get_json(silent=True) or {}
 
     kwargs = {"source": "teams"}
@@ -396,7 +408,7 @@ def tab_update_ticket(ticket_id):
 @team_tickets_bp.route("/tab/tickets/<int:ticket_id>/messages", methods=["POST"])
 @tab_auth_required
 def tab_add_message(ticket_id):
-    """Add a message to a ticket."""
+    """Aggiunge un messaggio al ticket e notifica gli utenti coinvolti."""
     data = request.get_json(silent=True) or {}
     content = data.get("content", "").strip()
     if not content:
@@ -433,7 +445,7 @@ def tab_add_message(ticket_id):
 @team_tickets_bp.route("/tab/tickets/<int:ticket_id>/attachments", methods=["POST"])
 @tab_auth_required
 def tab_upload_attachment(ticket_id):
-    """Upload a file attachment to a ticket."""
+    """Carica allegato su ticket e aggiorna timestamp/eventi realtime."""
     ticket = ticket_service.get_ticket(ticket_id)
     if not ticket:
         abort(404)
@@ -466,7 +478,7 @@ def tab_upload_attachment(ticket_id):
 @team_tickets_bp.route("/tab/users", methods=["GET"])
 @tab_auth_required
 def tab_get_users():
-    """Search assignable users by name/email. Only Teams users."""
+    """Ricerca utenti assegnabili (solo utenti attivi con identita' Teams)."""
     q = request.args.get("q", "").strip()
     query = User.query.filter(
         User.is_active.is_(True),
@@ -490,7 +502,7 @@ def tab_get_users():
 @team_tickets_bp.route("/tab/patients/search", methods=["GET"])
 @tab_auth_required
 def tab_search_patients():
-    """Search patients (tab-authenticated wrapper)."""
+    """Wrapper autenticato tab per ricerca pazienti da associare al ticket."""
     q = request.args.get("q", "").strip()
     results = ticket_service.search_patients(q)
     return jsonify({"patients": results})
@@ -501,7 +513,7 @@ def tab_search_patients():
 @team_tickets_bp.route("/tab/attachments/<int:att_id>", methods=["GET"])
 @tab_auth_required
 def tab_download_attachment(att_id):
-    """Download attachment (tab-authenticated)."""
+    """Scarica allegato ticket tramite autenticazione JWT della tab."""
     att = ticket_service.get_attachment(att_id)
     if not att:
         abort(404)
@@ -527,9 +539,10 @@ def _notify_assignees_async(
     status_change: str | None = None,
     exclude_user_id: int | None = None,
 ) -> None:
-    """Send bot notification to ticket assignees + creator (fire-and-forget).
+    """
+    Invia notifiche bot a assegnatari e creatore in modalita' fire-and-forget.
 
-    Notifies everyone involved except the user who triggered the action.
+    Esclude l'utente che ha generato l'azione corrente.
     """
     try:
         import asyncio
@@ -572,7 +585,7 @@ def _notify_assignees_async(
 
 
 def _resolve_it_assignees(system: str | None) -> list[int] | None:
-    """Resolve IT assignees from system key using app config mapping (emails)."""
+    """Risolvi assegnatari IT da chiave sistema usando mapping email in config."""
     if not system:
         return None
     mapping = current_app.config.get("TEAM_TICKETS_IT_SYSTEM_ASSIGNEES", {}) or {}
@@ -586,7 +599,7 @@ def _resolve_it_assignees(system: str | None) -> list[int] | None:
 
 
 def _create_it_reminder_task(ticket: TeamTicket) -> None:
-    """Create a reminder Task for the IT assignee(s) of the ticket."""
+    """Crea task reminder interno per gli assegnatari del ticket board IT."""
     try:
         from corposostenibile.models import Task, TaskCategoryEnum, TaskStatusEnum, TaskPriorityEnum
         from corposostenibile.blueprints.tasks.teams_tasks import send_task_notification_task
@@ -622,7 +635,7 @@ def _create_it_reminder_task(ticket: TeamTicket) -> None:
 
 
 def _notify_it_channel_thread_async(ticket: TeamTicket) -> None:
-    """Post a new root message in the IT channel (creates a dedicated thread)."""
+    """Pubblica nuovo messaggio root nel canale IT per aprire thread dedicato."""
     try:
         import asyncio
         from corposostenibile.blueprints.team_tickets.services.notification_service import (

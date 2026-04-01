@@ -31,6 +31,7 @@ def register_api_routes(bp):
     @bp.route('/documents', methods=['GET'])
     @login_required
     def list_documents():
+        """Elenca i documenti SOP ordinati per data di caricamento decrescente."""
         docs = SOPDocument.query.order_by(SOPDocument.created_at.desc()).all()
         return jsonify({
             'success': True,
@@ -40,6 +41,7 @@ def register_api_routes(bp):
     @bp.route('/documents/upload', methods=['POST'])
     @login_required
     def upload_document():
+        """Carica un documento SOP e avvia l'indicizzazione in background."""
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'Nessun file inviato'}), 400
 
@@ -101,6 +103,7 @@ def register_api_routes(bp):
     @bp.route('/documents/<int:doc_id>', methods=['DELETE'])
     @login_required
     def delete_document(doc_id):
+        """Elimina un documento SOP e i relativi chunk vettoriali associati."""
         doc = db.session.get(SOPDocument, doc_id)
         if not doc:
             return jsonify({'success': False, 'error': 'Documento non trovato'}), 404
@@ -111,6 +114,7 @@ def register_api_routes(bp):
     @bp.route('/chat', methods=['POST'])
     @login_required
     def chat():
+        """Invia una query al chatbot SOP e restituisce risposta con fonti."""
         data = request.get_json()
         if not data or not data.get('query'):
             return jsonify({'success': False, 'error': 'Query mancante'}), 400
@@ -130,6 +134,7 @@ def register_api_routes(bp):
     @bp.route('/chat/clear', methods=['POST'])
     @login_required
     def clear_chat():
+        """Azzera lo stato conversazionale della sessione chat corrente."""
         data = request.get_json() or {}
         session_id = data.get('session_id', f"user_{current_user.id}_sop")
         ChatService.clear_session(session_id)
@@ -138,6 +143,7 @@ def register_api_routes(bp):
     @bp.route('/stats', methods=['GET'])
     @login_required
     def stats():
+        """Restituisce metriche sintetiche su documenti indicizzati e chunk."""
         total_docs = SOPDocument.query.count()
         ready_docs = SOPDocument.query.filter_by(status='ready').count()
         total_chunks = QdrantService.get_total_chunks()

@@ -54,7 +54,7 @@ def create_ticket(
     board: str = "general",
     system: str | None = None,
 ) -> TeamTicket:
-    """Crea un nuovo team ticket."""
+    """Crea un nuovo ticket Team Tickets con eventuali assegnazioni iniziali."""
     ticket = TeamTicket(
         ticket_number=TeamTicket.generate_ticket_number(),
         title=title,
@@ -112,7 +112,7 @@ def list_tickets(
     sort_by: str = "created_at",
     sort_dir: str = "desc",
 ):
-    """Lista ticket paginata con filtri."""
+    """Restituisce lista ticket paginata con filtri e ordinamento."""
     q = TeamTicket.query
 
     if status:
@@ -153,7 +153,7 @@ def update_ticket(
     system: str | None = None,
     source: str = "admin",
 ) -> TeamTicket:
-    """Aggiorna un team ticket."""
+    """Aggiorna un ticket esistente tracciando il cambio di stato/dati."""
     ticket = TeamTicket.query.get_or_404(ticket_id)
 
     if description is not None:
@@ -250,7 +250,7 @@ def get_attachment(attachment_id: int) -> TeamTicketAttachment | None:
 
 
 def _save_attachment(ticket: TeamTicket, file, uploaded_by_id: int | None, source: str) -> TeamTicketAttachment:
-    """Salva un file allegato al ticket."""
+    """Salva un allegato su storage e crea il record collegato al ticket."""
     filename = secure_filename(file.filename)
     ticket_dir = _upload_dir() / str(ticket.id)
     ticket_dir.mkdir(parents=True, exist_ok=True)
@@ -281,7 +281,7 @@ def _save_attachment(ticket: TeamTicket, file, uploaded_by_id: int | None, sourc
 # ─────────────────────────── STATS ───────────────────────────────────── #
 
 def get_stats() -> dict:
-    """Statistiche per la dashboard."""
+    """Calcola statistiche aggregate per dashboard Team Tickets."""
     total = TeamTicket.query.count()
     aperti = TeamTicket.query.filter_by(status=TeamTicketStatusEnum.aperto).count()
     in_lavorazione = TeamTicket.query.filter_by(status=TeamTicketStatusEnum.in_lavorazione).count()
@@ -300,7 +300,7 @@ def get_stats() -> dict:
 # ─────────────────────────── ANALYTICS ─────────────────────────────── #
 
 def get_analytics(days: int = 30) -> dict:
-    """Statistiche avanzate per la pagina analytics."""
+    """Calcola analytics avanzate su volumi, SLA e trend ticket."""
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     # ── Tickets by day (trend) ──
@@ -527,7 +527,7 @@ def get_analytics(days: int = 30) -> dict:
 # ─────────────────────────── USERS ───────────────────────────────────── #
 
 def get_assignable_users() -> list[dict]:
-    """Ritorna lista utenti attivi assegnabili ai ticket."""
+    """Restituisce utenti attivi assegnabili ai ticket."""
     users = User.query.filter_by(is_active=True).order_by(User.first_name).all()
     return [
         {"id": u.id, "name": u.full_name, "avatar": u.avatar_path}
@@ -538,7 +538,7 @@ def get_assignable_users() -> list[dict]:
 # ─────────────────────────── PATIENTS SEARCH ─────────────────────────── #
 
 def search_patients(query: str, limit: int = 15) -> list[dict]:
-    """Cerca pazienti per nome, email o telefono."""
+    """Esegue ricerca pazienti per nome, email o telefono."""
     if not query or len(query) < 2:
         return []
 

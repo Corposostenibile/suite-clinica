@@ -33,21 +33,12 @@ def trigger_onboarding_task(mapper, connection, target):
     """
     Genera un task di onboarding quando viene assegnato un professionista.
     """
-    # logger.info(f"EVENT: trigger_onboarding_task for client {target.cliente_id} - {target.nome_cognome}")
     # Verifica cambiamenti nei campi professionista
-    # create_task_session = db.session.object_session(target) # after_update keeps session?
-    # Usiamo Connection per insert diretti o Session? 
-    # after_update passa connection. Se vogliamo usare ORM, meglio Session.
-    # Ma attenzione a creare oggetti durante il flush (potrebbe dare warning).
-    # listeners.py usava before_flush per questo motivo.
-    # Proviamo con Session.
-    
+
     session = db.session
     if not session:
         logger.warning("EVENT: trigger_onboarding_task - NO SESSION FOUND")
         return
-    # logger.info("EVENT: trigger_onboarding_task - Session OK")
-
     # Helper per creare task
     def create_onboard_task(assignee_id, role_name):
         if not assignee_id:

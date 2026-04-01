@@ -54,12 +54,7 @@ def onboarding_template_create():
             is_active=form.is_active.data
         )
         
-        # Aggiungi task di default basati sul tipo di dipartimento
-        # DISABILITATO: Non creare task di default
-        # default_tasks = _get_default_onboarding_tasks(template.department)
-        # for task_data in default_tasks:
-        #     task = OnboardingTask(**task_data)
-        #     template.tasks.append(task)
+        # Non creiamo task di default in fase di creazione template.
         
         db.session.add(template)
         db.session.commit()

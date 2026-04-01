@@ -41,6 +41,9 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 - [x] 3B (scope `customers` + `team`): completata pulizia commenti obsoleti/legacy nei file backend in scope.
 - [x] 3A (scope completo): completata copertura docstring su tutti i blueprint attivi rimanenti (`auth`, `calendar`, `client_checks`, `tasks`, `review`, `quality`, `postit`, `news`, `search`, `loom`, `push_notifications`, `team_tickets`, `ghl_integration`, `old_suite_integration`).
 - [x] 3B (scope completo): nessun TODO/FIXME/HACK o codice commentato trovato nei blueprint attivi rimanenti.
+- [x] 3A (estensione 01/04/2026): aggiunte docstring route mancanti in `feedback`, `sop_chatbot` e `pwa`; verificato `recruiting/permissions.py` come falso positivo (route d'esempio in docstring decorator, non endpoint reali).
+- [x] 3B (estensione 01/04/2026): rimossi blocchi di codice commentato legacy/sperimentale in `recruiting/onboarding.py`, `respond_io/__init__.py`, `tasks/events.py`, `ticket/services.py`, `customers/services.py`.
+- [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `team_tickets` (route admin, route tab Teams e service layer) con descrizioni omogenee su scopo endpoint e comportamento.
 - [x] 3C. Creare `README.md` complessivo del progetto.
 
 ### Controlli documentazione collegata

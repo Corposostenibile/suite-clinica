@@ -31,6 +31,7 @@ pwa_bp: Final[Blueprint] = Blueprint(
 
 @pwa_bp.route("/manifest.webmanifest")
 def manifest():
+    """Serve il manifest PWA con content-type dedicato e fallback di errore."""
     try:
         response = send_from_directory(
             os.path.join(pwa_bp.root_path, "static"),

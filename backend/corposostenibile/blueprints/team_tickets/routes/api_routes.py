@@ -21,7 +21,12 @@ from corposostenibile.blueprints.team_tickets.services import ticket_service
 @team_tickets_bp.route("/", methods=["GET"])
 @login_required
 def list_tickets():
-    """Lista ticket paginata con filtri."""
+    """
+    Restituisce la lista ticket paginata per la dashboard amministrativa.
+
+    Supporta filtri per stato, priorita', assegnatario, paziente, testo libero
+    e ordinamento via query string.
+    """
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     status = request.args.get("status")
@@ -63,7 +68,7 @@ def list_tickets():
 @team_tickets_bp.route("/<int:ticket_id>", methods=["GET"])
 @login_required
 def get_ticket(ticket_id):
-    """Dettaglio ticket con messaggi e allegati."""
+    """Restituisce il dettaglio ticket con messaggi e allegati."""
     ticket = ticket_service.get_ticket(ticket_id)
     if not ticket:
         abort(404)
@@ -78,7 +83,7 @@ def get_ticket(ticket_id):
 @team_tickets_bp.route("/<int:ticket_id>/messages", methods=["GET"])
 @login_required
 def get_messages(ticket_id):
-    """Messaggi del ticket (sola lettura)."""
+    """Restituisce i messaggi del ticket in sola lettura."""
     messages = ticket_service.get_messages(ticket_id)
     return jsonify({
         "success": True,
@@ -91,7 +96,7 @@ def get_messages(ticket_id):
 @team_tickets_bp.route("/attachments/<int:att_id>", methods=["GET"])
 @login_required
 def download_attachment(att_id):
-    """Scarica un allegato."""
+    """Scarica un allegato ticket validando esistenza record e file."""
     att = ticket_service.get_attachment(att_id)
     if not att:
         abort(404)
@@ -112,7 +117,7 @@ def download_attachment(att_id):
 @team_tickets_bp.route("/stats", methods=["GET"])
 @login_required
 def get_stats():
-    """Statistiche per la dashboard."""
+    """Restituisce statistiche aggregate per la dashboard Team Tickets."""
     stats = ticket_service.get_stats()
     return jsonify({"success": True, **stats})
 
@@ -122,7 +127,11 @@ def get_stats():
 @team_tickets_bp.route("/analytics", methods=["GET"])
 @login_required
 def get_analytics():
-    """Dati analytics avanzati per la pagina analytics."""
+    """
+    Restituisce metriche analytics avanzate.
+
+    Il range temporale e' controllato dal parametro `days` (min 7, max 365).
+    """
     days = request.args.get("days", 30, type=int)
     days = max(7, min(days, 365))
     data = ticket_service.get_analytics(days=days)
@@ -134,7 +143,7 @@ def get_analytics():
 @team_tickets_bp.route("/users", methods=["GET"])
 @login_required
 def get_assignable_users():
-    """Utenti assegnabili ai ticket."""
+    """Restituisce l'elenco utenti assegnabili ai ticket."""
     users = ticket_service.get_assignable_users()
     return jsonify({"success": True, "users": users})
 
@@ -144,7 +153,7 @@ def get_assignable_users():
 @team_tickets_bp.route("/patients/search", methods=["GET"])
 @login_required
 def search_patients():
-    """Cerca pazienti per nome/email/telefono."""
+    """Cerca pazienti per nome, email o telefono per associazione ticket."""
     q = request.args.get("q", "").strip()
     results = ticket_service.search_patients(q)
     return jsonify({"success": True, "patients": results})

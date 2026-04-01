@@ -928,11 +928,7 @@ def update_cliente(
                 if old_ids != multi_fields['consulenti']:
                     changes['consulenti_multipli'] = (old_ids, multi_fields['consulenti'])
 
-        # KPI – campo ltv nel modello ridotto è placeholder
-        # Commented out because ltv is a read-only property
-        # if recalc_ltv and changes and hasattr(cliente, "ltv"):
-        #     cliente.ltv = _calculate_ltv(cliente)
-        #     cliente.ltv_90_gg = _calculate_ltv(cliente, days=90)
+        # KPI: il campo ltv nel modello ridotto e' gestito come read-only.
 
         # ⚡ LOGICA CALL → STATO ATTIVO ⚡
         # Se call_iniziale_X diventa True, stato_X diventa ATTIVO automaticamente

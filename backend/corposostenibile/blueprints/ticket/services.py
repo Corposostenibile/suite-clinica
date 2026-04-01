@@ -521,10 +521,7 @@ class TicketService:
         for user in ticket.assigned_users:
             team_recipients.add(user)
         
-        # 2. Head del dipartimento (opzionale, solo per ticket importanti)
-        # Commentato per ridurre spam: può essere riattivato se necessario
-        # if ticket.department and ticket.department.head:
-        #     team_recipients.add(ticket.department.head)
+        # 2. Head del dipartimento: escluso per evitare notifiche ridondanti.
         
         # Richiedente (riceve notifica solo se flag attivo)
         if notify_requester:

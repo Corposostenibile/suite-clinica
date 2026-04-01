@@ -268,6 +268,7 @@ def get_response_details(response_id):
 
 @bp.route("/api/search_customers")
 def api_search_customers():
+    """Restituisce suggerimenti clienti per autocomplete nella UI feedback."""
     q = request.args.get("q", "").strip()
     if len(q) < 2:
         return jsonify([])
@@ -283,6 +284,7 @@ def api_search_customers():
 @csrf.exempt
 @bp.route("/webhook", methods=["POST"])
 def webhook():
+    """Riceve webhook Typeform, valida firma e salva la risposta grezza."""
     if not verify_typeform_signature(request):
         return {"error": "Invalid signature"}, 403
     data = request.get_json(force=True)
