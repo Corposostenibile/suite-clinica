@@ -64,6 +64,75 @@ gli unici 4 slot Gunicorn si saturano. La conseguenza e' che molte API osservate
 
 ---
 
+## Perche' Google Cloud Storage e' la scelta corretta
+
+Il punto non e' solo dove mettere i file: il punto e' **sbloccare l'architettura di GKE**.
+
+### Perche' oggi non possiamo avere piu' pod backend
+
+Oggi il backend dipende da un volume `ReadWriteOnce` per gli uploads. Questo significa che il disco puo' essere montato da un solo pod alla volta. Finche' i file stanno li', il backend resta di fatto vincolato a una sola replica attiva.
+
+### Perche' avere piu' pod e' importante
+
+Avere piu' pod backend significa:
+
+1. gestire piu' richieste in parallelo senza mettere tutto in coda sullo stesso processo;
+2. assorbire i picchi di traffico con HPA invece di saturare subito il singolo pod;
+3. ridurre l'impatto di richieste lente o bloccanti, che oggi occupano una quota enorme dei soli 4 slot disponibili;
+4. avere maggiore resilienza: se un pod viene riavviato o degrada, il servizio resta comunque disponibile;
+5. fare deploy `RollingUpdate` senza downtime applicativo reale.
+
+### Perche' questo e' il senso di GKE
+
+Il valore di GKE non e' avere una macchina piu' grande che esegue un solo processo, ma avere un'infrastruttura che:
+
+1. distribuisce il carico su piu' repliche;
+2. scala automaticamente in base al traffico;
+3. sostituisce pod degradati;
+4. permette rilasci progressivi e piu' sicuri.
+
+Se il backend resta bloccato a una sola replica per colpa dello storage locale condiviso male, si usa GKE come se fosse quasi una VM singola orchestrata, perdendo gran parte del beneficio del cluster.
+
+### Differenza rispetto al solo aumento risorse su una singola replica
+
+Aumentare CPU/RAM del singolo pod aiuta, ma solo fino a un certo punto.
+
+#### Se aumento solo la singola replica
+
+Ottengo:
+
+1. piu' margine CPU e memoria;
+2. possibilita' di aumentare worker/thread;
+3. un miglioramento immediato ma limitato.
+
+Pero' restano questi limiti:
+
+1. **un solo punto di saturazione**;
+2. **un solo punto di failure**;
+3. deploy ancora complicati o con interruzione;
+4. le richieste lente continuano a bloccare la stessa replica;
+5. oltre una certa soglia, scalare verticalmente costa di piu' e rende meno.
+
+#### Se passo a GCS e multi-pod
+
+Ottengo invece:
+
+1. rimozione del vincolo `ReadWriteOnce`;
+2. backend veramente scalabile orizzontalmente;
+3. file serviti fuori dalla Flask app;
+4. migliore latenza sotto carico reale;
+5. migliore affidabilita' operativa;
+6. uso coerente della piattaforma GKE.
+
+### Sintesi pratica
+
+1. **Vertical scaling** su una replica: utile come tampone rapido.
+2. **GCS + horizontal scaling**: soluzione strutturale corretta per produzione su GKE.
+
+Per questo Google Cloud Storage non e' solo un miglioramento storage: e' il passaggio che consente al backend di uscire dalla logica "single pod con disco locale" e di sfruttare davvero il cluster.
+
+---
+
 ## Cosa Va Modificato per Integrare Cloud Storage
 
 L'audit del codice ha trovato circa **35 punti** in circa **15 file** che leggono/scrivono file direttamente sul filesystem locale.
