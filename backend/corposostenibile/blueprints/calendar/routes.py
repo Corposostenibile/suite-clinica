@@ -68,7 +68,12 @@ def _ensure_valid_token() -> bool:
 @calendar_bp.route('/connect')
 @login_required
 def calendar_connect():
-    """Gestisce il callback OAuth dopo l'autorizzazione Google."""
+    """
+    Gestisce il callback OAuth Google e persiste i token dell'utente.
+
+    A valle dell'autorizzazione valida il token ricevuto, aggiorna le credenziali
+    in DB e reindirizza l'utente alla sezione calendario frontend.
+    """
     # Questo è il callback dopo che l'utente ha autorizzato
     # Flask-Dance ha già salvato il token nella sessione
 
@@ -164,7 +169,7 @@ def calendar_connect():
 @calendar_bp.route('/sync')
 @login_required
 def sync_events():
-    """Sincronizza gli eventi da Google Calendar."""
+    """Sincronizza eventi Google nel DB locale per l'utente autenticato."""
     if not current_user.google_auth:
         return jsonify({'error': 'Devi prima connetterti a Google Calendar'}), 400
 
@@ -348,7 +353,7 @@ def sync_events():
 @calendar_bp.route('/api/events', methods=['POST'])
 @login_required
 def api_create_event():
-    """API per creare un nuovo evento."""
+    """Crea un evento su Google Calendar e allinea il meeting locale."""
     if not current_user.google_auth:
         return jsonify({'error': 'Google Calendar non connesso'}), 400
 
@@ -394,7 +399,7 @@ def api_create_event():
 @calendar_bp.route('/api/meetings/<int:cliente_id>')
 @login_required
 def api_cliente_meetings(cliente_id):
-    """API per recuperare i meeting di un cliente (solo quelli dell'utente corrente)."""
+    """Restituisce i meeting cliente visibili all'utente corrente."""
     # Ogni utente vede solo i PROPRI meeting con questo cliente
     # Admin può vedere quelli di altri se passa user_id
     requested_user_id = request.args.get('user_id')
@@ -417,7 +422,7 @@ def api_cliente_meetings(cliente_id):
 @calendar_bp.route('/api/meeting/<int:meeting_id>', methods=['GET', 'PUT', 'DELETE'])
 @login_required
 def api_meeting_details(meeting_id):
-    """API per recuperare, aggiornare o eliminare un meeting."""
+    """Gestisce dettaglio, aggiornamento o eliminazione meeting con controllo ownership."""
     # Recupera il meeting
     meeting = Meeting.query.get_or_404(meeting_id)
 
@@ -530,7 +535,11 @@ def api_meeting_details(meeting_id):
 @calendar_bp.route('/api/event/<string:google_event_id>', methods=['DELETE'])
 @login_required
 def api_delete_event_by_google_id(google_event_id):
-    """API per eliminare un evento tramite google_event_id (per eventi senza meeting_id nel DB)."""
+    """
+    Elimina evento tramite `google_event_id`.
+
+    Copre anche il caso di eventi senza `meeting_id` locale associato.
+    """
     if not current_user.google_auth:
         return jsonify({'error': 'Google Calendar non connesso'}), 400
 
@@ -567,7 +576,7 @@ def api_delete_event_by_google_id(google_event_id):
 @calendar_bp.route('/api/sync-single-event', methods=['POST'])
 @login_required
 def api_sync_single_event():
-    """API per sincronizzare un singolo evento da Google e salvarlo nel DB."""
+    """Sincronizza un singolo evento Google nel database locale."""
     try:
         data = request.get_json()
 
@@ -712,7 +721,7 @@ def api_connection_status():
 @calendar_bp.route('/disconnect')
 @login_required
 def calendar_disconnect():
-    """Disconnette l'utente da Google Calendar."""
+    """Disconnette Google Calendar eliminando le credenziali salvate."""
     if current_user.google_auth:
         db.session.delete(current_user.google_auth)
         db.session.commit()
@@ -932,7 +941,7 @@ def api_get_events():
 @calendar_bp.route('/api/team/users')
 @login_required
 def api_team_users():
-    """API per recuperare la lista dei team members."""
+    """Restituisce i membri team attivi per filtri/assegnazioni calendario."""
     try:
         users = User.query.filter_by(is_active=True).all()
         users_data = []
@@ -976,7 +985,7 @@ def api_team_users():
 @calendar_bp.route('/api/customers/search')
 @login_required
 def api_customers_search():
-    """API per la ricerca live dei clienti."""
+    """Ricerca live clienti per autocomplete in creazione/gestione meeting."""
     from sqlalchemy import or_
 
     query = request.args.get('q', '').strip()
@@ -1015,7 +1024,7 @@ def api_customers_search():
 @calendar_bp.route('/api/customers/<int:cliente_id>/minimal')
 @login_required
 def api_customer_minimal(cliente_id):
-    """API per recuperare info minime di un cliente per ID."""
+    """Restituisce dati minimi cliente per ID, con controlli permessi trial."""
     cliente = Cliente.query.get(cliente_id)
 
     if not cliente:
@@ -1038,7 +1047,7 @@ def api_customer_minimal(cliente_id):
 @calendar_bp.route('/api/customers/list')
 @login_required
 def api_customers_list():
-    """API per recuperare la lista dei clienti."""
+    """Restituisce la lista clienti disponibile nel modulo calendario."""
     try:
         # Cliente model non ha is_active, prendiamo tutti i clienti attivi
         customers = Cliente.query.all()  # Rimuovo filter_by(is_active=True)

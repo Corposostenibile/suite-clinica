@@ -62,7 +62,7 @@ def _get_team_leader_team_ids(user) -> list[int]:
 
 
 def admin_required(f):
-    """Decorator per verificare accesso admin o CCO."""
+    """Consente accesso solo a utenti admin o CCO."""
     from functools import wraps
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -273,7 +273,7 @@ def api_weekly_scores():
 @login_required
 @admin_required
 def api_professionista_trend(user_id):
-    """API: trend Quality Score professionista (ultime 12 settimane)."""
+    """Restituisce il trend quality del professionista sulle ultime 12 settimane."""
     scores = db.session.query(QualityWeeklyScore).filter_by(
         professionista_id=user_id
     ).order_by(QualityWeeklyScore.week_start_date).limit(12).all()
@@ -293,7 +293,7 @@ def api_professionista_trend(user_id):
 @login_required
 @admin_required
 def api_dashboard_stats():
-    """API: statistiche generali dashboard."""
+    """Restituisce statistiche aggregate della dashboard quality settimanale."""
     week_start, _ = EligibilityService.get_week_bounds()
 
     weekly_scores = db.session.query(QualityWeeklyScore).filter_by(
@@ -454,7 +454,7 @@ def api_calculate_quality():
 @login_required
 @admin_required
 def api_calcola_dipartimento(dept_key):
-    """API: Calcola Quality Score per un dipartimento specifico."""
+    """Calcola quality score settimanale per il dipartimento richiesto."""
     if dept_key not in DEPT_CONFIG:
         return jsonify({'success': False, 'error': 'Dipartimento non valido'}), 400
 
@@ -564,7 +564,7 @@ def api_calcola_dipartimento(dept_key):
 @login_required
 @admin_required
 def api_clienti_eleggibili(prof_id):
-    """API: Recupera clienti eleggibili per un professionista in una settimana."""
+    """Restituisce clienti eleggibili del professionista per la settimana richiesta."""
     week_start_str = request.args.get('week')
 
     try:
@@ -614,7 +614,7 @@ def api_clienti_eleggibili(prof_id):
 @login_required
 @admin_required
 def api_check_responses(prof_id):
-    """API: Recupera le risposte ai check settimanali per un professionista in una settimana."""
+    """Restituisce risposte check settimanali del professionista nel range settimanale."""
     week_start_str = request.args.get('week')
     dept = request.args.get('dept', 'nutrizione')
 

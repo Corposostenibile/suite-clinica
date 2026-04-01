@@ -19,7 +19,7 @@ news_api_bp = Blueprint('news_api', __name__, url_prefix='/api/news')
 @news_api_bp.route('/list')
 @login_required
 def api_list():
-    """Lista news pubblicate (paginata, pinned first)."""
+    """Restituisce news pubblicate paginate, ordinando prima le pinned."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
 
@@ -68,7 +68,7 @@ def api_list():
 @login_required
 @admin_only
 def api_list_all():
-    """Lista TUTTE le news (anche bozze) — per admin CRUD."""
+    """Restituisce tutte le news (incluse bozze) per CRUD admin."""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
@@ -113,7 +113,7 @@ def api_list_all():
 @news_api_bp.route('/<int:news_id>')
 @login_required
 def api_detail(news_id):
-    """Dettaglio singola news + segna come letta."""
+    """Restituisce dettaglio news e registra lettura utente corrente."""
     news = News.query.get_or_404(news_id)
 
     if not news.is_visible and not current_user.is_admin:
@@ -147,7 +147,7 @@ def api_detail(news_id):
 @login_required
 @admin_only
 def api_create():
-    """Crea una nuova news."""
+    """Crea una nuova news tramite endpoint admin."""
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'error': 'Dati mancanti'}), 400
@@ -195,7 +195,7 @@ def api_create():
 @login_required
 @admin_only
 def api_update(news_id):
-    """Modifica una news esistente."""
+    """Aggiorna i campi modificabili di una news esistente."""
     news = News.query.get_or_404(news_id)
     data = request.get_json()
     if not data:
@@ -234,7 +234,7 @@ def api_update(news_id):
 @login_required
 @admin_only
 def api_delete(news_id):
-    """Elimina una news."""
+    """Elimina definitivamente una news esistente."""
     news = News.query.get_or_404(news_id)
 
     db.session.delete(news)

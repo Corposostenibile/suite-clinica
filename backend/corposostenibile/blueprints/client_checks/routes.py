@@ -78,7 +78,7 @@ from .rbac import get_accessible_clients_query
 
 
 def _fix_sequence(table_name: str) -> None:
-    """Reset a PostgreSQL sequence to MAX(id) after a UniqueViolation."""
+    """Ripristina la sequence PostgreSQL al MAX(id) dopo una UniqueViolation."""
     seq_name = f"{table_name}_id_seq"
     max_id = db.session.execute(text(f"SELECT MAX(id) FROM {table_name}")).scalar() or 0
     db.session.execute(
@@ -321,7 +321,7 @@ def conferma_lettura(response_type, response_id):
 @client_checks_bp.route("/forms/create", methods=["POST"])
 @login_required
 def create_form():
-    """Crea un nuovo form check (JSON API)."""
+    """Crea un nuovo form check via API JSON con validazioni base."""
     try:
         data = request.get_json()
         if not data:
@@ -358,7 +358,7 @@ def create_form():
 @client_checks_bp.route("/forms/<int:id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_form(id: int):
-    """Modifica un form esistente."""
+    """Gestisce lettura/modifica di un form esistente (GET/POST)."""
     check_form = CheckForm.query.get_or_404(id)
 
     if request.method == "GET":
@@ -423,7 +423,7 @@ def edit_form(id: int):
 @client_checks_bp.route("/forms/<int:id>/delete", methods=["POST"])
 @login_required
 def delete_form(id: int):
-    """Elimina un form (soft delete)."""
+    """Esegue soft delete del form da flusso admin legacy."""
     try:
         CheckFormService.delete_form(id)
         flash("Form eliminato con successo!", "success")
@@ -439,7 +439,7 @@ def delete_form(id: int):
 @client_checks_bp.route("/forms/<int:id>", methods=["POST"])
 @login_required
 def delete_form_api(id: int):
-    """Elimina un form via API (soft delete)."""
+    """Esegue soft delete del form via endpoint API."""
     try:
         CheckFormService.delete_form(id)
         return jsonify({"success": True, "message": "Form eliminato con successo!"})
@@ -458,7 +458,7 @@ def delete_form_api(id: int):
 @client_checks_bp.route("/assign/<int:client_id>", methods=["POST"])
 @login_required
 def assign_to_single_client(client_id: int):
-    """Assegna un form a un singolo cliente (chiamata dai modal del dettaglio cliente)."""
+    """Assegna un check form a un singolo cliente dal dettaglio cliente."""
     try:
         # Verifica che il cliente esista
         cliente = Cliente.query.get_or_404(client_id)
@@ -503,7 +503,7 @@ def assign_to_single_client(client_id: int):
 @client_checks_bp.route("/responses/<int:id>/data")
 @login_required
 def response_data(id: int):
-    """Restituisce i dati della risposta in formato JSON per il modal."""
+    """Restituisce dettaglio risposta check in JSON per il modal frontend."""
     try:
         response = (
             ClientCheckResponse.query
@@ -551,7 +551,7 @@ def response_data(id: int):
 @client_checks_bp.route("/api/clients/search")
 @login_required
 def api_clients_search():
-    """API per ricerca clienti (per autocomplete)."""
+    """Ricerca clienti per autocomplete nelle schermate di assegnazione check."""
     try:
         query = request.args.get("q", "").strip()
         if len(query) < 2:
@@ -586,7 +586,7 @@ def api_clients_search():
 @client_checks_bp.route("/api/forms/<int:form_id>/preview")
 @login_required
 def api_form_preview(form_id: int):
-    """API per anteprima form."""
+    """Restituisce anteprima completa di un form check e dei suoi campi."""
     try:
         form = (
             CheckForm.query
@@ -3076,7 +3076,7 @@ def _get_initial_check_forms():
 @api_bp.route("/initial-assignments/<int:lead_id>/check/<int:check_number>/response", methods=["GET"])
 @login_required
 def api_initial_assignment_check_response(lead_id: int, check_number: int):
-    """Restituisce il dettaglio della compilazione check iniziale per il modal React."""
+    """Restituisce compilazione check iniziale (1/2) per modal React."""
     try:
         if check_number not in (1, 2):
             return jsonify({"success": False, "error": "check_number non valido"}), 400
@@ -3487,7 +3487,7 @@ def api_public_submit_minor(token: str):
 # --------------------------------------------------------------------------- #
 
 def _apply_check_rbac_weekly(q):
-    """Join WeeklyCheckResponse -> WeeklyCheck -> Cliente and apply RBAC if needed."""
+    """Applica join WeeklyCheck->Cliente e filtro RBAC su query risposte weekly."""
     q = q.join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id).join(
         Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
     )
@@ -3498,7 +3498,7 @@ def _apply_check_rbac_weekly(q):
 
 
 def _apply_check_rbac_dca(q):
-    """Join DCACheckResponse -> DCACheck -> Cliente and apply RBAC if needed."""
+    """Applica join DCACheck->Cliente e filtro RBAC su query risposte DCA."""
     q = q.join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id).join(
         Cliente, DCACheck.cliente_id == Cliente.cliente_id
     )
@@ -3509,7 +3509,7 @@ def _apply_check_rbac_dca(q):
 
 
 def _apply_check_rbac_minor(q):
-    """Join MinorCheckResponse -> MinorCheck -> Cliente and apply RBAC if needed."""
+    """Applica join MinorCheck->Cliente e filtro RBAC su query risposte minor."""
     q = q.join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id).join(
         Cliente, MinorCheck.cliente_id == Cliente.cliente_id
     )
@@ -3522,7 +3522,11 @@ def _apply_check_rbac_minor(q):
 @api_bp.route("/admin/dashboard-stats")
 @login_required
 def api_admin_dashboard_stats():
-    """Check dashboard stats; data filtered by role (admin=all, TL=team clients, professionista=own)."""
+    """
+    Restituisce statistiche dashboard check filtrate per ruolo utente.
+
+    Admin vede tutto, Team Leader i clienti team, professionista i propri clienti.
+    """
     from corposostenibile.models import ClientCheckReadConfirmation
     from datetime import timedelta
     from dateutil.relativedelta import relativedelta

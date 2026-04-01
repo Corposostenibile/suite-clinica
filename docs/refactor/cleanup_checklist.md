@@ -44,6 +44,10 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 - [x] 3A (estensione 01/04/2026): aggiunte docstring route mancanti in `feedback`, `sop_chatbot` e `pwa`; verificato `recruiting/permissions.py` come falso positivo (route d'esempio in docstring decorator, non endpoint reali).
 - [x] 3B (estensione 01/04/2026): rimossi blocchi di codice commentato legacy/sperimentale in `recruiting/onboarding.py`, `respond_io/__init__.py`, `tasks/events.py`, `ticket/services.py`, `customers/services.py`.
 - [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `team_tickets` (route admin, route tab Teams e service layer) con descrizioni omogenee su scopo endpoint e comportamento.
+- [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `calendar/routes.py` e `client_checks/routes.py` per endpoint core ad alta frequenza d'uso.
+- [x] 3B (verifica step successivo 01/04/2026): nessun codice commentato "eseguibile" residuo rilevato in `calendar/routes.py` e `client_checks/routes.py`.
+- [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `tasks/routes.py`, `quality/routes.py`, `auth/routes.py`, `auth/api.py`, `news/api_routes.py`.
+- [x] 3B (verifica step successivo 01/04/2026): nessun codice commentato "eseguibile" residuo rilevato nei file aggiornati (`tasks`, `quality`, `auth`, `news`).
 - [x] 3C. Creare `README.md` complessivo del progetto.
 
 ### Controlli documentazione collegata

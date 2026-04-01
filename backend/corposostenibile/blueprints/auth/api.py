@@ -277,7 +277,7 @@ _CLINICAL_ROLES = [
 
 
 def _clear_impersonation_session():
-    """Pulisce tutte le chiavi di sessione relative all'impersonation."""
+    """Rimuove dalla sessione tutte le chiavi legate all'impersonazione."""
     for key in ("impersonating", "original_admin_id", "original_admin_name", "impersonation_log_id"):
         session.pop(key, None)
 
@@ -285,7 +285,7 @@ def _clear_impersonation_session():
 @auth_api_bp.route("/impersonate/users", methods=["GET"])
 @login_required
 def api_impersonate_users():
-    """Lista utenti attivi per impersonation (solo admin)."""
+    """Restituisce utenti attivi impersonabili dall'admin."""
     from flask import current_app
 
     if not current_user.is_admin:
@@ -333,7 +333,7 @@ def api_impersonate_users():
 @auth_api_bp.route("/impersonate/<int:user_id>", methods=["POST"])
 @login_required
 def api_impersonate_user(user_id: int):
-    """Accede come un altro utente (solo admin)."""
+    """Avvia impersonazione API verso un utente specifico (solo admin)."""
     from flask import current_app
     if session.get("impersonating"):
         return jsonify({"success": False, "error": "Sei già in modalità impersonazione. Torna al tuo account prima."}), 400
@@ -388,7 +388,7 @@ def api_impersonate_user(user_id: int):
 @auth_api_bp.route("/stop-impersonation", methods=["POST"])
 @login_required
 def api_stop_impersonation():
-    """Torna all'account admin originale."""
+    """Interrompe impersonazione API e ripristina l'admin originale."""
     from flask import current_app
 
     if not session.get("impersonating"):
@@ -442,7 +442,7 @@ def api_stop_impersonation():
 # --------------------------------------------------------------------------- #
 
 def _user_to_dict(user: User) -> dict:
-    """Convert User model to JSON-safe dict."""
+    """Converte il modello utente in payload JSON serializzabile."""
     role_val = getattr(user, "role", None)
     role_value = role_val.value if (role_val is not None and hasattr(role_val, "value")) else (str(role_val) if role_val is not None else None)
     spec = getattr(user, "specialty", None)

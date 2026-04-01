@@ -53,7 +53,7 @@ auth_bp = Blueprint(
 # --------------------------------------------------------------------------- #
 
 def _send_password_changed_email(user: User, ip_address: str) -> None:
-    """Invia email di conferma dopo cambio password."""
+    """Invia email di conferma dopo reset/cambio password con contesto sicurezza."""
     from datetime import datetime
     from flask import render_template_string, current_app
     
@@ -110,7 +110,7 @@ def _send_password_changed_email(user: User, ip_address: str) -> None:
 
 
 def _get_serializer() -> URLSafeTimedSerializer:
-    """Restituisce un serializer firmato con secret-key + salt."""
+    """Costruisce serializer firmato usato per token reset password."""
     from flask import current_app
 
     secret = current_app.config["SECRET_KEY"]
@@ -191,14 +191,14 @@ def _send_reset_email(user: User) -> None:
 @auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
-    """Chiude la sessione utente."""
+    """Chiude la sessione autenticata corrente."""
     logout_user()
     return jsonify({"success": True, "message": "Sei uscito dall'account."})
 
 
 @auth_bp.route("/forgot-password", methods=["POST"])
 def forgot_password():
-    """Richiesta link di reset password (API JSON only)."""
+    """Gestisce richiesta reset password via endpoint JSON."""
     if current_user.is_authenticated:
         return {'success': False, 'error': 'Già autenticato.'}, 400
 
@@ -217,7 +217,7 @@ def forgot_password():
 
 @auth_bp.route("/verify-reset-token/<token>", methods=["GET"])
 def verify_reset_token(token: str):
-    """Verifica validità token."""
+    """Verifica validita' del token reset password."""
     user = _verify_reset_token(token)
     if user:
         return {'valid': True}, 200
@@ -233,7 +233,7 @@ def verify_reset_token(token: str):
 @auth_bp.route("/impersonate/<int:user_id>", methods=["POST"])
 @login_required
 def impersonate_user(user_id: int):
-    """Accede come un altro utente."""
+    """Avvia impersonazione admin verso utente target."""
     if not current_user.is_admin:
         if request.is_json:
             return {'success': False, 'error': 'Accesso non autorizzato.'}, 403
@@ -293,7 +293,7 @@ def impersonate_user(user_id: int):
 @auth_bp.route("/stop-impersonation", methods=["POST"])
 @login_required
 def stop_impersonation():
-    """Torna all'account admin originale."""
+    """Termina impersonazione e ripristina account admin originale."""
     if not session.get('impersonating'):
         if request.is_json:
             return {'success': False, 'error': 'Non sei in modalità impersonazione.'}, 400

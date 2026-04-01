@@ -17,7 +17,7 @@ def _is_done_status(value) -> bool:
 
 
 def _normalize_check_task_payload(payload: dict | None):
-    """Estrae il riferimento check dal payload task in formati legacy/nuovi."""
+    """Normalizza payload task check legacy/nuovi in `(response_type, response_id)`."""
     if not isinstance(payload, dict):
         return None, None
 
@@ -47,7 +47,11 @@ def _normalize_check_task_payload(payload: dict | None):
 
 
 def _mark_check_as_read_from_task_if_needed(task: Task) -> None:
-    """Se il task è un task check con payload compatibile, marca il check come letto per l'assignee."""
+    """
+    Marca un check come letto quando un task check viene completato.
+
+    Applica solo se payload e permessi sono coerenti con l'assignee corrente.
+    """
     if task.category != TaskCategoryEnum.check:
         return
 
@@ -285,7 +289,7 @@ def _build_filter_options():
 @bp.route('/', methods=['GET'])
 @login_required
 def list_tasks():
-    """Ritorna la lista dei task, filtrata in base al ruolo."""
+    """Restituisce lista task con visibilita', filtri e paginazione opzionale."""
     scope_query = _apply_visibility_scope(Task.query, current_user, mine_only=request.args.get('mine', '').lower() == 'true')
     page = max(request.args.get('page', 1, type=int) or 1, 1)
     requested_per_page = request.args.get('per_page', type=int)
@@ -364,7 +368,7 @@ def list_tasks():
 @bp.route('/', methods=['POST'])
 @login_required
 def create_task():
-    """Crea un task manuale."""
+    """Crea un task manuale con controlli di visibilita' sull'assegnatario."""
     data = request.json
     
     # Validazione base
@@ -415,7 +419,7 @@ def create_task():
 @bp.route('/<int:task_id>', methods=['PUT'])
 @login_required
 def update_task(task_id):
-    """Aggiorna un task (stato o completamento)."""
+    """Aggiorna stato/completamento task e sincronizza eventuale check letto."""
     task = Task.query.get_or_404(task_id)
 
     # Check permessi: assignee o creatore (se ci fosse created_by) o admin
@@ -453,7 +457,7 @@ def update_task(task_id):
 @bp.route('/stats', methods=['GET'])
 @login_required
 def get_stats():
-    """Ritorna conteggi per la dashboard."""
+    """Restituisce i conteggi task per la dashboard nel perimetro visibile."""
     scope_query = _apply_visibility_scope(Task.query, current_user)
     scope_query = _apply_admin_filters(scope_query)
     return jsonify(_build_stats(scope_query))
