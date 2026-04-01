@@ -8377,10 +8377,6 @@ function ClientiDetail() {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      </div>
 
               {/* ==================== MARKETING TAB ==================== */}
               {activeTab === 'marketing' && canViewMarketingTab && (
@@ -8420,6 +8416,11 @@ function ClientiDetail() {
                   </div>
                 </div>
               )}
+
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ========== TICKET DETAIL MODAL ========== */}
       {(ticketDetailModal || loadingTicketDetail) && (
