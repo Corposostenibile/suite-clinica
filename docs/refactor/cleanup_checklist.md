@@ -48,6 +48,9 @@ Questa sezione e' il punto unico di riferimento sullo stato reale della pulizia 
 - [x] 3B (verifica step successivo 01/04/2026): nessun codice commentato "eseguibile" residuo rilevato in `calendar/routes.py` e `client_checks/routes.py`.
 - [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `tasks/routes.py`, `quality/routes.py`, `auth/routes.py`, `auth/api.py`, `news/api_routes.py`.
 - [x] 3B (verifica step successivo 01/04/2026): nessun codice commentato "eseguibile" residuo rilevato nei file aggiornati (`tasks`, `quality`, `auth`, `news`).
+- [x] 3A (uniformazione step successivo 01/04/2026): uniformato stile docstring su `loom/routes.py`, `ghl_integration/routes.py`, `old_suite_integration/routes.py`; `push_notifications/routes.py` gia' coerente e non ha richiesto modifiche.
+- [x] 3B (verifica step successivo 01/04/2026): nessun codice commentato "eseguibile" residuo rilevato nei file aggiornati (`loom`, `ghl_integration`, `old_suite_integration`).
+- [x] 3A/3B (rifinitura finale 01/04/2026): passata trasversale di consistenza su blueprint attivi prioritari completata; nessuna ulteriore anomalia significativa rilevata su stile docstring o codice commentato eseguibile.
 - [x] 3C. Creare `README.md` complessivo del progetto.
 
 ### Controlli documentazione collegata

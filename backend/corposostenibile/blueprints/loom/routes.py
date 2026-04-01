@@ -21,7 +21,7 @@ def health():
 @csrf.exempt
 @login_required
 def create_recording():
-    """Crea una registrazione Loom del widget supporto."""
+    """Crea una nuova registrazione Loom opzionalmente associata a un cliente."""
     try:
         data = request.get_json() or {}
 
@@ -62,7 +62,7 @@ def create_recording():
 @loom_bp.route("/api/recordings", methods=["GET"])
 @login_required
 def list_recordings():
-    """Libreria Loom con scope dipendente da ruolo/team."""
+    """Restituisce libreria Loom filtrata per scope ruolo/team e query params."""
     query = _recordings_scope_query(current_user)
 
     cliente_id = request.args.get("cliente_id", type=int)
@@ -114,7 +114,7 @@ def get_recording(recording_id: int):
 @csrf.exempt
 @login_required
 def update_recording_association(recording_id: int):
-    """Aggiorna o rimuove l'associazione paziente di una registrazione."""
+    """Aggiorna o rimuove l'associazione cliente di una registrazione Loom."""
     recording = LoomRecording.query.get_or_404(recording_id)
     if not _can_manage_recording(current_user, recording):
         return jsonify({"success": False, "message": "Non autorizzato"}), 403
@@ -144,7 +144,7 @@ def update_recording_association(recording_id: int):
 @loom_bp.route("/api/patients/search", methods=["GET"])
 @login_required
 def search_patients():
-    """Ricerca pazienti per la select di associazione Loom."""
+    """Ricerca clienti per la select di associazione registrazioni Loom."""
     query_text = (request.args.get("q") or "").strip()
     limit = min(max(request.args.get("limit", default=20, type=int), 1), 50)
 
@@ -298,7 +298,7 @@ def _clienti_scope_query(user):
 
 
 def can_view_submitter_id_for_role(user_like, submitter_user_id: int, allowed_ids: set[int] | None) -> bool:
-    """Helper puro per verificare lo scope visibilità senza DB."""
+    """Valuta lo scope visibilita' submitter in modo puro (senza accesso DB)."""
     if getattr(user_like, "is_admin", False) or getattr(user_like, "role", "") == UserRoleEnum.admin.value:
         return True
     if allowed_ids is None:

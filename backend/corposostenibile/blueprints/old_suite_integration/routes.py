@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 def _resolve_user_by_name(full_name: str):
-    """Trova un User per nome completo (case-insensitive). Fallback per cognome."""
+    """Risolvi utente da nome completo (case-insensitive) con fallback su cognome."""
     if not full_name:
         return None
 
@@ -55,7 +55,7 @@ def _resolve_user_by_name(full_name: str):
 
 
 def _serialize_lead(lead, parsed_pkg=None):
-    """Serializza un SalesLead per il frontend."""
+    """Serializza un `SalesLead` nel payload JSON atteso dal frontend."""
     if parsed_pkg is None:
         parsed_pkg = parse_package_name(lead.custom_package_name)
 
@@ -160,7 +160,7 @@ def webhook_receiver():
 
 
 def _handle_pending_assignment(data):
-    """Gestisce l'evento lead.pending_assignment: crea/aggiorna SalesLead."""
+    """Gestisce evento `lead.pending_assignment` creando/aggiornando il SalesLead."""
     lead_data = data.get('lead', {})
     old_suite_id = lead_data.get('id')
     unique_code = lead_data.get('unique_code')
@@ -308,7 +308,7 @@ def _handle_pending_assignment(data):
 
 
 def _handle_check_completed(data):
-    """Gestisce l'evento lead.check_completed: aggiorna check di un lead esistente."""
+    """Gestisce evento `lead.check_completed` aggiornando check lead esistente."""
     old_suite_id = data.get('lead_id')
     unique_code = data.get('unique_code')
     check_number = data.get('check_number')
@@ -369,7 +369,7 @@ def _handle_check_completed(data):
 
 
 def _update_checks_from_payload(lead, checks_data):
-    """Aggiorna i campi check del SalesLead dal payload webhook."""
+    """Aggiorna campi check del `SalesLead` usando i dati del payload webhook."""
     for idx in (1, 2, 3):
         check_key = f'check{idx}'
         check = checks_data.get(check_key, {})
@@ -406,7 +406,7 @@ def _update_checks_from_payload(lead, checks_data):
 @bp.route("/api/leads", methods=["GET"])
 @login_required
 def api_get_leads():
-    """Lista lead dalla vecchia suite, non ancora convertite."""
+    """Restituisce lead provenienti da old suite non ancora convertite."""
     try:
         leads = (
             SalesLead.query
@@ -431,7 +431,7 @@ def api_get_leads():
 @bp.route("/api/leads/<int:lead_id>", methods=["GET"])
 @login_required
 def api_get_lead(lead_id):
-    """Dettaglio singola lead."""
+    """Restituisce dettaglio di una singola lead old suite."""
     lead = SalesLead.query.filter_by(id=lead_id, source_system='old_suite').first()
     if not lead:
         return jsonify({'success': False, 'message': 'Lead non trovata'}), 404
@@ -443,7 +443,7 @@ def api_get_lead(lead_id):
 @bp.route("/api/leads/<int:lead_id>/check/<int:check_number>", methods=["GET"])
 @login_required
 def api_get_check_detail(lead_id, check_number):
-    """Dettaglio risposte di un check specifico."""
+    """Restituisce dettaglio risposte del check richiesto per una lead."""
     if check_number not in (1, 2, 3):
         return jsonify({'success': False, 'message': 'Check number non valido'}), 400
 

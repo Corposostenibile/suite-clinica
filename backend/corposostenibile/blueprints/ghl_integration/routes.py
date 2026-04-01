@@ -37,7 +37,7 @@ from corposostenibile.models import (
 
 
 def _normalize_custom_data(raw_custom_data: Any) -> Dict[str, Any]:
-    """Normalizza customData GHL in un dizionario key->value."""
+    """Normalizza `customData` GHL in un dizionario uniforme chiave->valore."""
     if isinstance(raw_custom_data, dict):
         return raw_custom_data
 
@@ -151,7 +151,7 @@ def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, An
 
 
 def _resolve_calendar_view_user(target_user_id: int | None):
-    """Resolve target user for calendar read/write with RBAC checks."""
+    """Risolvi utente target per lettura/scrittura calendario con controlli RBAC."""
     if not target_user_id or target_user_id == current_user.id:
         return current_user, current_user.id, None
 
@@ -1145,7 +1145,7 @@ def api_get_calendar_events():
 @bp.route('/api/calendar/events', methods=['POST'])
 @login_required
 def api_create_calendar_event():
-    """Crea appuntamento GHL dal frontend calendario."""
+    """Crea appuntamento su calendario GHL a partire dal payload frontend."""
     payload = request.get_json(silent=True) or {}
 
     target_user_id = None
@@ -1575,7 +1575,7 @@ def webhook_opportunity_data():
 @bp.route('/api/opportunity-data', methods=['GET'])
 @login_required
 def api_get_opportunity_data():
-    """Recupera tutti i dati opportunity dal database."""
+    """Restituisce i dati opportunity recenti con assegnazioni correnti."""
     try:
         data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(200).all()
         if _is_team_leader_user(current_user) and not current_user.is_admin:
@@ -1629,7 +1629,7 @@ def api_webhook_urls():
 
 # DEBUG ENDPOINT - Pubblico per test (rimuovere in produzione)
 def _get_current_assignments_for_opp(opp_data):
-    """Recupera le assegnazioni correnti per un'opportunità GHL."""
+    """Calcola le assegnazioni correnti per una specifica opportunita' GHL."""
     from corposostenibile.models import Cliente, ServiceClienteAssignment
     
     # Trova email nel payload
@@ -1656,7 +1656,7 @@ def _get_current_assignments_for_opp(opp_data):
 
 @bp.route('/api/opportunity-data-debug', methods=['GET'])
 def api_get_opportunity_data_debug():
-    """DEBUG: Recupera dati senza autenticazione."""
+    """Endpoint debug: restituisce dati opportunity senza autenticazione."""
     try:
         data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(100).all()
         return jsonify({
@@ -1678,7 +1678,7 @@ def api_get_opportunity_data_debug():
 @bp.route('/api/opportunity-data/<int:item_id>', methods=['GET'])
 @login_required
 def api_get_opportunity_data_single(item_id):
-    """Recupera un singolo record opportunity."""
+    """Restituisce dettaglio di un singolo record opportunity."""
     try:
         d = GHLOpportunityData.query.get(item_id)
         if not d:
@@ -1699,7 +1699,7 @@ def api_get_opportunity_data_single(item_id):
 @bp.route('/api/opportunity-data/clear', methods=['POST'])
 @login_required
 def api_clear_opportunity_data():
-    """Pulisce tutti i dati (solo admin)."""
+    """Cancella tutti i record opportunity-data (accesso solo admin)."""
     if not current_user.is_admin:
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     try:
