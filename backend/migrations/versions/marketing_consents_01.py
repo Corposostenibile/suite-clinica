@@ -14,85 +14,74 @@ depends_on = None
 
 
 def upgrade():
-    # --- Enum types (idempotent via DO $$ block) ---
     conn = op.get_bind()
-    conn.execute(sa.text(
-        "DO $$ BEGIN "
-        "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'marketingflagtypeenum') THEN "
-        "CREATE TYPE marketingflagtypeenum AS ENUM ('usabile_marketing','stories_editata','carosello_editato','videofeedback_editato'); "
-        "END IF; END $$;"
-    ))
-    conn.execute(sa.text(
-        "DO $$ BEGIN "
-        "IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'marketingcontenttypeenum') THEN "
-        "CREATE TYPE marketingcontenttypeenum AS ENUM ('stories','carosello','videofeedback'); "
-        "END IF; END $$;"
-    ))
-    marketingflagtype = sa.Enum(
-        "usabile_marketing", "stories_editata", "carosello_editato", "videofeedback_editato",
-        name="marketingflagtypeenum", create_type=False,
-    )
-    marketingcontenttype = sa.Enum(
-        "stories", "carosello", "videofeedback",
-        name="marketingcontenttypeenum", create_type=False,
-    )
 
-    # --- note_marketing on clienti (idempotent) ---
-    conn.execute(sa.text(
-        "ALTER TABLE clienti ADD COLUMN IF NOT EXISTS note_marketing TEXT"
-    ))
+    # Everything in raw SQL to avoid SQLAlchemy Enum auto-creation issues
+    conn.execute(sa.text("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'marketingflagtypeenum') THEN
+                CREATE TYPE marketingflagtypeenum AS ENUM (
+                    'usabile_marketing','stories_editata','carosello_editato','videofeedback_editato'
+                );
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'marketingcontenttypeenum') THEN
+                CREATE TYPE marketingcontenttypeenum AS ENUM (
+                    'stories','carosello','videofeedback'
+                );
+            END IF;
+        END $$;
 
-    # --- Tables (idempotent: skip if already exists) ---
-    tables_exist = {row[0] for row in conn.execute(sa.text(
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-    ))}
+        ALTER TABLE clienti ADD COLUMN IF NOT EXISTS note_marketing TEXT;
 
-    if "cliente_marketing_flags" not in tables_exist:
-        op.create_table(
-            "cliente_marketing_flags",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("cliente_id", sa.BigInteger(), sa.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False),
-            sa.Column("flag_type", marketingflagtype, nullable=False),
-            sa.Column("checked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-            sa.Column("checked_date", sa.Date(), nullable=True),
-            sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), onupdate=sa.func.now()),
-            sa.UniqueConstraint("cliente_id", "flag_type", name="uq_cliente_marketing_flags_cliente_tipo"),
-        )
-        op.create_index("ix_cliente_marketing_flags_cliente_id", "cliente_marketing_flags", ["cliente_id"])
+        CREATE TABLE IF NOT EXISTS cliente_marketing_flags (
+            id SERIAL PRIMARY KEY,
+            cliente_id BIGINT NOT NULL REFERENCES clienti(cliente_id) ON DELETE CASCADE,
+            flag_type marketingflagtypeenum NOT NULL,
+            checked BOOLEAN NOT NULL DEFAULT false,
+            checked_date DATE,
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now(),
+            CONSTRAINT uq_cliente_marketing_flags_cliente_tipo UNIQUE (cliente_id, flag_type)
+        );
 
-    if "cliente_marketing_content" not in tables_exist:
-        op.create_table(
-            "cliente_marketing_content",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("cliente_id", sa.BigInteger(), sa.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False),
-            sa.Column("content_type", marketingcontenttype, nullable=False),
-            sa.Column("checked", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-            sa.Column("checked_date", sa.Date(), nullable=True),
-            sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), onupdate=sa.func.now()),
-        )
-        op.create_index("ix_cliente_marketing_content_cliente_id", "cliente_marketing_content", ["cliente_id"])
-        op.create_index("ix_cliente_marketing_content_content_type", "cliente_marketing_content", ["content_type"])
+        CREATE INDEX IF NOT EXISTS ix_cliente_marketing_flags_cliente_id
+            ON cliente_marketing_flags (cliente_id);
 
-    if "cliente_marketing_influencers" not in tables_exist:
-        op.create_table(
-            "cliente_marketing_influencers",
-            sa.Column("id", sa.Integer(), primary_key=True),
-            sa.Column("marketing_content_id", sa.Integer(), sa.ForeignKey("cliente_marketing_content.id", ondelete="CASCADE"), nullable=False),
-            sa.Column("influencer_id", sa.Integer(), sa.ForeignKey("influencers.influencer_id", ondelete="CASCADE"), nullable=False),
-            sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), onupdate=sa.func.now()),
-            sa.UniqueConstraint("marketing_content_id", "influencer_id", name="uq_marketing_content_influencer"),
-        )
-        op.create_index("ix_cliente_marketing_influencers_content_id", "cliente_marketing_influencers", ["marketing_content_id"])
-        op.create_index("ix_cliente_marketing_influencers_influencer_id", "cliente_marketing_influencers", ["influencer_id"])
+        CREATE TABLE IF NOT EXISTS cliente_marketing_content (
+            id SERIAL PRIMARY KEY,
+            cliente_id BIGINT NOT NULL REFERENCES clienti(cliente_id) ON DELETE CASCADE,
+            content_type marketingcontenttypeenum NOT NULL,
+            checked BOOLEAN NOT NULL DEFAULT false,
+            checked_date DATE,
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_cliente_marketing_content_cliente_id
+            ON cliente_marketing_content (cliente_id);
+        CREATE INDEX IF NOT EXISTS ix_cliente_marketing_content_content_type
+            ON cliente_marketing_content (content_type);
+
+        CREATE TABLE IF NOT EXISTS cliente_marketing_influencers (
+            id SERIAL PRIMARY KEY,
+            marketing_content_id INTEGER NOT NULL REFERENCES cliente_marketing_content(id) ON DELETE CASCADE,
+            influencer_id INTEGER NOT NULL REFERENCES influencers(influencer_id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT now(),
+            updated_at TIMESTAMP DEFAULT now(),
+            CONSTRAINT uq_marketing_content_influencer UNIQUE (marketing_content_id, influencer_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS ix_cliente_marketing_influencers_content_id
+            ON cliente_marketing_influencers (marketing_content_id);
+        CREATE INDEX IF NOT EXISTS ix_cliente_marketing_influencers_influencer_id
+            ON cliente_marketing_influencers (influencer_id);
+    """))
 
 
 def downgrade():
-    op.drop_table("cliente_marketing_influencers")
-    op.drop_table("cliente_marketing_content")
-    op.drop_table("cliente_marketing_flags")
-    op.drop_column("clienti", "note_marketing")
-    sa.Enum(name="marketingcontenttypeenum").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="marketingflagtypeenum").drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TABLE IF EXISTS cliente_marketing_influencers")
+    op.execute("DROP TABLE IF EXISTS cliente_marketing_content")
+    op.execute("DROP TABLE IF EXISTS cliente_marketing_flags")
+    op.execute("ALTER TABLE clienti DROP COLUMN IF EXISTS note_marketing")
+    op.execute("DROP TYPE IF EXISTS marketingcontenttypeenum")
+    op.execute("DROP TYPE IF EXISTS marketingflagtypeenum")
