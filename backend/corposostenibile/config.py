@@ -296,6 +296,14 @@ class BaseConfig:
     RESPOND_IO_RATE_LIMIT_CONTACTS: int = int(os.getenv("RESPOND_IO_RATE_LIMIT_CONTACTS", "5"))
     RESPOND_IO_RATE_LIMIT_MESSAGES: int = int(os.getenv("RESPOND_IO_RATE_LIMIT_MESSAGES", "10"))
 
+    # ------------------ Performance Monitoring ----------------------
+    # Soglia in ms oltre la quale una richiesta HTTP viene loggata come lenta.
+    # Sovrascrivibile via env var (es. SLOW_REQUEST_THRESHOLD_MS=2000).
+    SLOW_REQUEST_THRESHOLD_MS: int = int(os.getenv("SLOW_REQUEST_THRESHOLD_MS", "1000"))
+    # Soglia in ms oltre la quale una singola query SQL viene loggata come lenta.
+    # 200ms è un buon punto di partenza: query normali stanno sotto i 10-20ms.
+    SLOW_QUERY_THRESHOLD_MS: int = int(os.getenv("SLOW_QUERY_THRESHOLD_MS", "200"))
+
 # ---------------------------------------------------------------- Env-specifiche
 class DevelopmentConfig(BaseConfig):
     DEBUG: bool = True

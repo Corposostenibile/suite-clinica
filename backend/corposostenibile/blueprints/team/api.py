@@ -2216,9 +2216,12 @@ def get_teams():
     include_members_raw = request.args.get('include_members', '').strip().lower()
     include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
-    # Base query with eager loading for head only (fast)
+    # Eager load head (JOIN) e members (SELECT IN) in un colpo solo.
+    # Senza selectinload(Team.members), ogni chiamata a len(team.members)
+    # nel loop di serializzazione genera una query separata per team → N+1.
     query = Team.query.options(
-        joinedload(Team.head)  # Eager load team head only
+        joinedload(Team.head),
+        selectinload(Team.members),
     )
 
     # RBAC base scope

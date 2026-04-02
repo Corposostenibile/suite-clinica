@@ -45,15 +45,20 @@ __all__ = ["CustomerRepository", "customers_repo"]
 # --------------------------------------------------------------------------- #
 
 _DEFAULT_EAGER_LOAD = (
-    subqueryload(Cliente.cartelle),
+    # cartelle: selectinload è preferibile a subqueryload per collection —
+    # emette un singolo SELECT con IN clause invece di una subquery correlata.
+    selectinload(Cliente.cartelle),
     # Professionisti per colonna Team nella lista
     selectinload(Cliente.nutrizionisti_multipli),
     selectinload(Cliente.coaches_multipli),
     selectinload(Cliente.psicologi_multipli),
+    selectinload(Cliente.consulenti_multipli),   # era assente → lazy-load N+1
     selectinload(Cliente.health_manager_user),
     # Piani attivi per colonne "Piano Dieta" / "Piano Allenamento" nelle visuali
     selectinload(Cliente.meal_plans),
     selectinload(Cliente.training_plans),
+    # subscriptions era assente → lazy-load N+1 (1 query per cliente)
+    selectinload(Cliente.subscriptions),
 )
 
 
