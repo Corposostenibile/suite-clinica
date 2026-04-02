@@ -281,6 +281,19 @@ class InfluencerFlagEnum(str, Enum):
     no = "no"
 
 
+class MarketingFlagTypeEnum(str, Enum):
+    usabile_marketing = "usabile_marketing"
+    stories_editata = "stories_editata"
+    carosello_editato = "carosello_editato"
+    videofeedback_editato = "videofeedback_editato"
+
+
+class MarketingContentTypeEnum(str, Enum):
+    stories = "stories"
+    carosello = "carosello"
+    videofeedback = "videofeedback"
+
+
 class CampaignPlatformEnum(str, Enum):
     """Canale da cui proviene il candidato / la campagna recruiting."""
     linkedin  = "linkedin"
@@ -1545,6 +1558,12 @@ class Influencer(TimestampMixin, db.Model):
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     ad_campaigns = relationship("AdCampaign", back_populates="influencer")
+    marketing_content_links = relationship(
+        "ClienteMarketingInfluencer",
+        back_populates="influencer",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
 # ───────────────────── 1) SALES PERSON ─────────────────────────── #
 class SalesPerson(TimestampMixin, db.Model):
@@ -2057,6 +2076,9 @@ class Cliente(TimestampMixin, db.Model):
     videofeedback_note    = db.Column(db.Text)  # Note per richiesta/rifiuto/ricezione
     videofeedback_file    = db.Column(db.String(500))  # Path al file video
 
+    # Marketing Consents
+    note_marketing        = db.Column(db.Text)
+
     # Referral Richiesti
     referral_richiesti_note = db.Column(db.Text)  # Note per richiesta/rifiuto/ricezione
 
@@ -2125,6 +2147,20 @@ class Cliente(TimestampMixin, db.Model):
     # TypeForm responses
     typeform_responses    = relationship(
         "TypeFormResponse",
+        back_populates="cliente",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    # Marketing consent flags & content
+    marketing_flags       = relationship(
+        "ClienteMarketingFlag",
+        back_populates="cliente",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    marketing_contents    = relationship(
+        "ClienteMarketingContent",
         back_populates="cliente",
         cascade="all, delete-orphan",
         lazy="selectin",
@@ -11991,6 +12027,70 @@ class CallBonus(TimestampMixin, db.Model):
 
     def __repr__(self):
         return f"<CallBonus cliente={self.cliente_id} professionista={self.professionista_id} status={self.status.value}>"
+
+
+# ───────────────────── MARKETING CONSENT MODELS ──────────────────── #
+
+class ClienteMarketingFlag(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_flags"
+    __table_args__ = (
+        db.UniqueConstraint("cliente_id", "flag_type", name="uq_cliente_marketing_flags_cliente_tipo"),
+        db.Index("ix_cliente_marketing_flags_cliente_id", "cliente_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False)
+    flag_type = db.Column(_def(MarketingFlagTypeEnum), nullable=False)
+    checked = db.Column(db.Boolean, nullable=False, default=False)
+    checked_date = db.Column(db.Date)
+
+    cliente = relationship("Cliente", back_populates="marketing_flags")
+
+
+class ClienteMarketingContent(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_content"
+    __table_args__ = (
+        db.Index("ix_cliente_marketing_content_cliente_id", "cliente_id"),
+        db.Index("ix_cliente_marketing_content_content_type", "content_type"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey("clienti.cliente_id", ondelete="CASCADE"), nullable=False)
+    content_type = db.Column(_def(MarketingContentTypeEnum), nullable=False)
+    checked = db.Column(db.Boolean, nullable=False, default=False)
+    checked_date = db.Column(db.Date)
+
+    cliente = relationship("Cliente", back_populates="marketing_contents")
+    influencer_links = relationship(
+        "ClienteMarketingInfluencer",
+        back_populates="marketing_content",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+
+class ClienteMarketingInfluencer(TimestampMixin, db.Model):
+    __tablename__ = "cliente_marketing_influencers"
+    __table_args__ = (
+        db.UniqueConstraint("marketing_content_id", "influencer_id", name="uq_marketing_content_influencer"),
+        db.Index("ix_cliente_marketing_influencers_content_id", "marketing_content_id"),
+        db.Index("ix_cliente_marketing_influencers_influencer_id", "influencer_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    marketing_content_id = db.Column(
+        db.Integer,
+        db.ForeignKey("cliente_marketing_content.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    influencer_id = db.Column(
+        db.Integer,
+        db.ForeignKey("influencers.influencer_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    marketing_content = relationship("ClienteMarketingContent", back_populates="influencer_links")
+    influencer = relationship("Influencer", back_populates="marketing_content_links")
 
 
 class VideoReviewRequest(TimestampMixin, db.Model):

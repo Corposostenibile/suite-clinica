@@ -763,6 +763,25 @@ function ClientiDetail() {
   const [videoReviewHmForm, setVideoReviewHmForm] = useState({ loom_link: '', hm_note: '' });
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
 
+  // ==================== MARKETING CONSENTS STATE ====================
+  const [marketingSubTab, setMarketingSubTab] = useState('consensi');
+  const [marketingConsents, setMarketingConsents] = useState({
+    note_marketing: '',
+    usabile_marketing: { checked: false, checked_date: '' },
+    contents: { stories: [], carosello: [], videofeedback: [] },
+  });
+  const [marketingInfluencers, setMarketingInfluencers] = useState([]);
+  const [loadingMarketingConsents, setLoadingMarketingConsents] = useState(false);
+  const [savingMarketingConsents, setSavingMarketingConsents] = useState(false);
+  const [showMarketingContentModal, setShowMarketingContentModal] = useState(false);
+  const [editingMarketingContent, setEditingMarketingContent] = useState(null);
+  const [marketingContentForm, setMarketingContentForm] = useState({
+    content_type: 'stories',
+    checked: true,
+    checked_date: new Date().toISOString().split('T')[0],
+    influencer_ids: [],
+  });
+
   // ==================== COACHING STATE ====================
   const [coachingSubTab, setCoachingSubTab] = useState('panoramica');
   // Training Plans
@@ -1303,10 +1322,6 @@ function ClientiDetail() {
     finally { setLoadingTrustpilot(false); }
   }, [id, canViewMarketingTab]);
 
-  useEffect(() => {
-    if (activeTab === 'video_review') fetchTrustpilotStatus();
-  }, [activeTab, fetchTrustpilotStatus]);
-
   const fetchVideoReviewRequests = useCallback(async () => {
     if (!id || !canUseVideoReviewFlow) return;
     setLoadingVideoReviewRequests(true);
@@ -1320,12 +1335,6 @@ function ClientiDetail() {
       setLoadingVideoReviewRequests(false);
     }
   }, [id, canUseVideoReviewFlow]);
-
-  useEffect(() => {
-    if (activeTab === 'video_review') {
-      fetchVideoReviewRequests();
-    }
-  }, [activeTab, fetchVideoReviewRequests]);
 
   const handleExportClinicalFolderPdf = async () => {
     if (!id) return;
@@ -1439,6 +1448,86 @@ function ClientiDetail() {
     } finally {
       setSavingVideoReviewAction(false);
     }
+  };
+
+  // ── Marketing Consents ──
+  const fetchMarketingConsents = useCallback(async () => {
+    if (!id || !canViewMarketingTab) return;
+    setLoadingMarketingConsents(true);
+    try {
+      const [consents, influencers] = await Promise.all([
+        clientiService.getMarketingConsents(id),
+        clientiService.listMarketingInfluencers(),
+      ]);
+      setMarketingConsents(consents || { note_marketing: '', usabile_marketing: { checked: false, checked_date: '' }, contents: { stories: [], carosello: [], videofeedback: [] } });
+      setMarketingInfluencers(Array.isArray(influencers) ? influencers : []);
+    } catch (err) { console.error('Error fetching marketing consents:', err); }
+    finally { setLoadingMarketingConsents(false); }
+  }, [id, canViewMarketingTab]);
+
+  useEffect(() => {
+    if (activeTab === 'marketing' && marketingSubTab === 'consensi') {
+      fetchMarketingConsents();
+    }
+    if (activeTab === 'marketing' && marketingSubTab === 'video_recensione') {
+      fetchVideoReviewRequests();
+    }
+  }, [activeTab, marketingSubTab, fetchMarketingConsents, fetchVideoReviewRequests]);
+
+  const handleSaveMarketingConsents = async () => {
+    if (!id) return;
+    setSavingMarketingConsents(true);
+    try {
+      await clientiService.saveMarketingConsents(id, {
+        note_marketing: marketingConsents.note_marketing,
+        usabile_marketing: marketingConsents.usabile_marketing,
+      });
+    } catch (err) { console.error('Error saving marketing consents:', err); }
+    finally { setSavingMarketingConsents(false); }
+  };
+
+  const openNewMarketingContentModal = () => {
+    setEditingMarketingContent(null);
+    setMarketingContentForm({
+      content_type: 'stories',
+      checked: true,
+      checked_date: new Date().toISOString().split('T')[0],
+      influencer_ids: [],
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const openEditMarketingContentModal = (item) => {
+    setEditingMarketingContent(item);
+    setMarketingContentForm({
+      content_type: item.content_type,
+      checked: item.checked,
+      checked_date: item.checked_date || '',
+      influencer_ids: (item.influencers || []).map((i) => i.influencer_id),
+    });
+    setShowMarketingContentModal(true);
+  };
+
+  const handleSaveMarketingContent = async () => {
+    setSavingMarketingConsents(true);
+    try {
+      if (editingMarketingContent) {
+        await clientiService.updateMarketingContent(editingMarketingContent.id, marketingContentForm);
+      } else {
+        await clientiService.createMarketingContent(id, marketingContentForm);
+      }
+      setShowMarketingContentModal(false);
+      await fetchMarketingConsents();
+    } catch (err) { console.error('Error saving marketing content:', err); }
+    finally { setSavingMarketingConsents(false); }
+  };
+
+  const handleDeleteMarketingContent = async (contentId) => {
+    if (!window.confirm('Eliminare questa registrazione?')) return;
+    try {
+      await clientiService.deleteMarketingContent(contentId);
+      await fetchMarketingConsents();
+    } catch (err) { console.error('Error deleting marketing content:', err); }
   };
 
   // ── Health Manager: fetch interventions ──
@@ -3030,7 +3119,6 @@ function ClientiDetail() {
     // { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
-    ...(canViewMarketingTab ? [{ id: 'video_review', label: 'Video Review', icon: 'ri-video-line' }] : []),
     ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
     if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
@@ -8275,87 +8363,6 @@ function ClientiDetail() {
                 </div>
               )}
 
-              {/* ==================== VIDEO REVIEW TAB ==================== */}
-              {activeTab === 'video_review' && canViewMarketingTab && (
-                <div>
-                  <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
-                    <i className="ri-video-line" style={{ marginRight: 8, color: '#0ea5e9' }}></i>
-                    Video Review
-                  </h5>
-
-                  {canUseVideoReviewFlow && (
-                    <div style={{ marginBottom: 24, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
-                            Video Recensione con HM
-                          </div>
-                          <div style={{ fontSize: 13, color: '#64748b' }}>
-                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
-                          </div>
-                        </div>
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => { setShowVideoReviewBookingModal(true); fetchVideoReviewSlots(); }}
-                        >
-                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
-                          Prenota video recensione con HM
-                        </button>
-                      </div>
-
-                      {loadingVideoReviewRequests ? (
-                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
-                      ) : videoReviewRequests.length === 0 ? (
-                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
-                      ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
-                            <thead>
-                              <tr>
-                                <th>Stato</th>
-                                <th>Prenotata da</th>
-                                <th>Data prenotazione</th>
-                                <th>Loom</th>
-                                <th>Azione</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {videoReviewRequests.map((item) => (
-                                <tr key={item.id}>
-                                  <td>
-                                    <span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>
-                                      {item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}
-                                    </span>
-                                  </td>
-                                  <td>{item.requested_by_name || '—'}</td>
-                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
-                                  <td>
-                                    {item.loom_link ? (
-                                      <a href={item.loom_link} target="_blank" rel="noopener noreferrer">
-                                        <i className="ri-external-link-line"></i>
-                                      </a>
-                                    ) : '—'}
-                                  </td>
-                                  <td>
-                                    {canConfirmVideoReviewHm && item.status === 'booked' ? (
-                                      <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>
-                                        Conferma + Loom
-                                      </button>
-                                    ) : '—'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                </div>
-              )}
-
               {/* ==================== CALL BONUS TAB ==================== */}
               {activeTab === 'call_bonus' && (
                 <div className="cal-coming-soon">
@@ -8378,42 +8385,215 @@ function ClientiDetail() {
                 </div>
               )}
 
-              {/* ==================== MARKETING TAB ==================== */}
+              {/* ==================== MARKETING TAB (with sub-tabs) ==================== */}
               {activeTab === 'marketing' && canViewMarketingTab && (
                 <div>
-                  <h5 style={{ fontWeight: 700, marginBottom: 20 }}>
+                  <h5 style={{ fontWeight: 700, marginBottom: 16 }}>
                     <i className="ri-megaphone-line" style={{ marginRight: 8, color: '#8b5cf6' }}></i>
                     Marketing
                   </h5>
 
-                  {/* ── Export Cartella Clinica PDF ── */}
-                  <div style={{ marginBottom: 24, padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                      <div>
-                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                          <i className="ri-file-pdf-2-line" style={{ marginRight: 6, color: '#dc2626' }}></i>
-                          Export Cartella Clinica PDF
-                        </div>
-                        <div style={{ fontSize: 13, color: '#64748b' }}>
-                          Il PDF include tutte le sezioni della cartella clinica: anagrafica, servizi, patologie, check, interventi, piani e metriche.
-                        </div>
-                      </div>
+                  {/* Sub-tab navigation */}
+                  <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e2e8f0', marginBottom: 20 }}>
+                    {[
+                      { id: 'consensi', label: 'Consensi Marketing', icon: 'ri-shield-check-line' },
+                      { id: 'video_recensione', label: 'Video Recensione', icon: 'ri-video-line' },
+                      { id: 'trustpilot', label: 'Trustpilot', icon: 'ri-star-line' },
+                      { id: 'export_pdf', label: 'Export PDF', icon: 'ri-file-pdf-2-line' },
+                    ].map((sub) => (
                       <button
-                        className="btn btn-danger btn-sm"
-                        disabled={exportingClinicalPdf}
-                        onClick={handleExportClinicalFolderPdf}
+                        key={sub.id}
+                        onClick={() => setMarketingSubTab(sub.id)}
+                        style={{
+                          padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          border: 'none', background: 'transparent', color: marketingSubTab === sub.id ? '#8b5cf6' : '#64748b',
+                          borderBottom: marketingSubTab === sub.id ? '2px solid #8b5cf6' : '2px solid transparent',
+                          marginBottom: -2, transition: 'all .15s',
+                        }}
                       >
-                        {exportingClinicalPdf ? (
-                          <><span className="spinner-border spinner-border-sm me-1"></span>Generazione...</>
-                        ) : (
-                          <><i className="ri-download-2-line" style={{ marginRight: 4 }}></i>Scarica PDF</>
-                        )}
+                        <i className={sub.icon} style={{ marginRight: 6 }}></i>{sub.label}
                       </button>
-                    </div>
-                    {marketingPdfError && (
-                      <div className="text-danger small mt-2"><i className="ri-error-warning-line me-1"></i>{marketingPdfError}</div>
-                    )}
+                    ))}
                   </div>
+
+                  {/* ── Sub-tab: Consensi Marketing ── */}
+                  {marketingSubTab === 'consensi' && (
+                    <div>
+                      {loadingMarketingConsents ? (
+                        <div className="text-center py-4"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : (
+                        <>
+                          {/* Consent flag + notes */}
+                          <div style={{ marginBottom: 24, padding: 16, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                              <div style={{ fontWeight: 700 }}>
+                                <i className="ri-shield-check-line" style={{ marginRight: 6, color: '#16a34a' }}></i>
+                                Consensi Marketing
+                              </div>
+                              <button className="btn btn-success btn-sm" onClick={handleSaveMarketingConsents} disabled={savingMarketingConsents}>
+                                {savingMarketingConsents ? <span className="spinner-border spinner-border-sm"></span> : <><i className="ri-save-line" style={{ marginRight: 4 }}></i>Salva Consensi</>}
+                              </button>
+                            </div>
+
+                            <div className="mb-3">
+                              <label className="form-label fw-semibold" style={{ fontSize: 13 }}>Note Marketing</label>
+                              <textarea className="form-control" rows="3" placeholder="Note marketing..." value={marketingConsents.note_marketing}
+                                onChange={(e) => setMarketingConsents((prev) => ({ ...prev, note_marketing: e.target.value }))}
+                              />
+                            </div>
+
+                            <div className="form-check mb-2">
+                              <input className="form-check-input" type="checkbox" id="usabile_marketing" checked={marketingConsents.usabile_marketing?.checked || false}
+                                onChange={(e) => setMarketingConsents((prev) => ({
+                                  ...prev,
+                                  usabile_marketing: {
+                                    checked: e.target.checked,
+                                    checked_date: e.target.checked ? (prev.usabile_marketing?.checked_date || new Date().toISOString().split('T')[0]) : '',
+                                  },
+                                }))}
+                              />
+                              <label className="form-check-label fw-semibold" htmlFor="usabile_marketing" style={{ fontSize: 13 }}>
+                                Usabile per marketing
+                              </label>
+                              {marketingConsents.usabile_marketing?.checked && marketingConsents.usabile_marketing?.checked_date && (
+                                <span className="text-muted ms-2" style={{ fontSize: 12 }}>
+                                  dal {new Date(marketingConsents.usabile_marketing.checked_date + 'T00:00:00').toLocaleDateString('it-IT')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Content sections */}
+                          {[
+                            { key: 'stories', label: 'Stories Editate', icon: 'ri-instagram-line', color: '#e11d48' },
+                            { key: 'carosello', label: 'Carosello Editato', icon: 'ri-layout-grid-line', color: '#7c3aed' },
+                            { key: 'videofeedback', label: 'Videofeedback Editato', icon: 'ri-video-line', color: '#0ea5e9' },
+                          ].map((section) => (
+                            <div key={section.key} style={{ marginBottom: 20, padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>
+                                  <i className={section.icon} style={{ marginRight: 6, color: section.color }}></i>
+                                  {section.label}
+                                </div>
+                                <button className="btn btn-outline-primary btn-sm" onClick={openNewMarketingContentModal}>
+                                  <i className="ri-add-line" style={{ marginRight: 4 }}></i>Nuovo
+                                </button>
+                              </div>
+                              {(marketingConsents.contents?.[section.key] || []).length === 0 ? (
+                                <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessun contenuto registrato.</div>
+                              ) : (
+                                (marketingConsents.contents[section.key]).map((item) => (
+                                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 0', borderBottom: '1px solid #e2e8f0', fontSize: 13 }}>
+                                    <span className={`badge bg-${item.checked ? 'success' : 'secondary'}`}>
+                                      {item.checked ? 'Editato' : 'Non editato'}
+                                    </span>
+                                    {item.checked_date && <span className="text-muted">{new Date(item.checked_date + 'T00:00:00').toLocaleDateString('it-IT')}</span>}
+                                    {item.influencers?.length > 0 && (
+                                      <span style={{ color: '#7c3aed' }}>{item.influencers.map((i) => i.name || i.handle).join(', ')}</span>
+                                    )}
+                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+                                      <button className="btn btn-outline-secondary btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => openEditMarketingContentModal(item)}>
+                                        <i className="ri-pencil-line"></i>
+                                      </button>
+                                      <button className="btn btn-outline-danger btn-sm" style={{ padding: '2px 8px', fontSize: 12 }} onClick={() => handleDeleteMarketingContent(item.id)}>
+                                        <i className="ri-delete-bin-line"></i>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Sub-tab: Video Recensione ── */}
+                  {marketingSubTab === 'video_recensione' && canUseVideoReviewFlow && (
+                    <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
+                            Video Recensione con HM
+                          </div>
+                          <div style={{ fontSize: 13, color: '#64748b' }}>
+                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
+                          </div>
+                        </div>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowVideoReviewBookingModal(true); fetchVideoReviewSlots(); }}>
+                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
+                          Prenota video recensione con HM
+                        </button>
+                      </div>
+
+                      {loadingVideoReviewRequests ? (
+                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : videoReviewRequests.length === 0 ? (
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
+                            <thead>
+                              <tr><th>Stato</th><th>Prenotata da</th><th>Data prenotazione</th><th>Loom</th><th>Azione</th></tr>
+                            </thead>
+                            <tbody>
+                              {videoReviewRequests.map((item) => (
+                                <tr key={item.id}>
+                                  <td><span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>{item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}</span></td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
+                                  <td>{item.loom_link ? <a href={item.loom_link} target="_blank" rel="noopener noreferrer"><i className="ri-external-link-line"></i></a> : '—'}</td>
+                                  <td>{canConfirmVideoReviewHm && item.status === 'booked' ? <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>Conferma + Loom</button> : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {marketingSubTab === 'video_recensione' && !canUseVideoReviewFlow && (
+                    <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 24 }}>
+                      Non hai i permessi per gestire le video recensioni di questo paziente.
+                    </div>
+                  )}
+
+                  {/* ── Sub-tab: Trustpilot ── */}
+                  {marketingSubTab === 'trustpilot' && (
+                    <div style={{ textAlign: 'center', padding: '48px 24px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12 }}>
+                      <i className="ri-tools-line" style={{ fontSize: 36, color: '#f59e0b', display: 'block', marginBottom: 12 }}></i>
+                      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Sezione in manutenzione</div>
+                      <div style={{ fontSize: 13, color: '#92400e' }}>
+                        L'integrazione Trustpilot è attualmente in fase di aggiornamento. Tornerà disponibile a breve.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Sub-tab: Export PDF ── */}
+                  {marketingSubTab === 'export_pdf' && (
+                    <div style={{ padding: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            <i className="ri-file-pdf-2-line" style={{ marginRight: 6, color: '#dc2626' }}></i>
+                            Export Cartella Clinica PDF
+                          </div>
+                          <div style={{ fontSize: 13, color: '#64748b' }}>
+                            Il PDF include tutte le sezioni della cartella clinica: anagrafica, servizi, patologie, check, interventi, piani e metriche.
+                          </div>
+                        </div>
+                        <button className="btn btn-danger btn-sm" disabled={exportingClinicalPdf} onClick={handleExportClinicalFolderPdf}>
+                          {exportingClinicalPdf ? <><span className="spinner-border spinner-border-sm me-1"></span>Generazione...</> : <><i className="ri-download-2-line" style={{ marginRight: 4 }}></i>Scarica PDF</>}
+                        </button>
+                      </div>
+                      {marketingPdfError && (
+                        <div className="text-danger small mt-2"><i className="ri-error-warning-line me-1"></i>{marketingPdfError}</div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               )}
 
@@ -9018,6 +9198,72 @@ function ClientiDetail() {
                 ) : (
                   <><i className="ri-check-double-line"></i>Conferma e salva Loom</>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Marketing Content Modal */}
+      {showMarketingContentModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowMarketingContentModal(false)}>
+          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="cd-modal-header purple-bg">
+              <h5>
+                <i className="ri-megaphone-line text-primary"></i>
+                {editingMarketingContent ? 'Modifica registrazione' : 'Nuova registrazione'}
+              </h5>
+              <button className="cd-modal-close" onClick={() => setShowMarketingContentModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body">
+              <div className="cd-field mb-3">
+                <label className="cd-field-label">Tipo contenuto</label>
+                <select className="form-select" value={marketingContentForm.content_type}
+                  onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, content_type: e.target.value }))}>
+                  <option value="stories">Stories</option>
+                  <option value="carosello">Carosello</option>
+                  <option value="videofeedback">Videofeedback</option>
+                </select>
+              </div>
+              <div className="form-check mb-3">
+                <input className="form-check-input" type="checkbox" id="mkt_content_checked" checked={marketingContentForm.checked}
+                  onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked: e.target.checked }))} />
+                <label className="form-check-label" htmlFor="mkt_content_checked">Editato</label>
+              </div>
+              <div className="cd-field mb-3">
+                <label className="cd-field-label">Data</label>
+                <input type="date" className="form-control" value={marketingContentForm.checked_date}
+                  onChange={(e) => setMarketingContentForm((prev) => ({ ...prev, checked_date: e.target.value }))} />
+              </div>
+              {marketingInfluencers.length > 0 && (
+                <div className="cd-field">
+                  <label className="cd-field-label">Profili di condivisione</label>
+                  <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+                    {marketingInfluencers.map((inf) => (
+                      <div key={inf.influencer_id} className="form-check" style={{ fontSize: 13 }}>
+                        <input className="form-check-input" type="checkbox" id={`inf_${inf.influencer_id}`}
+                          checked={marketingContentForm.influencer_ids.includes(inf.influencer_id)}
+                          onChange={(e) => {
+                            setMarketingContentForm((prev) => ({
+                              ...prev,
+                              influencer_ids: e.target.checked
+                                ? [...prev.influencer_ids, inf.influencer_id]
+                                : prev.influencer_ids.filter((x) => x !== inf.influencer_id),
+                            }));
+                          }} />
+                        <label className="form-check-label" htmlFor={`inf_${inf.influencer_id}`}>
+                          {inf.name}{inf.handle ? ` (@${inf.handle})` : ''}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowMarketingContentModal(false)}>Annulla</button>
+              <button className="cd-btn-save" onClick={handleSaveMarketingContent} disabled={savingMarketingConsents}>
+                {savingMarketingConsents ? <span className="spinner-border spinner-border-sm"></span> : <><i className="ri-save-line" style={{ marginRight: 4 }}></i>Salva</>}
               </button>
             </div>
           </div>

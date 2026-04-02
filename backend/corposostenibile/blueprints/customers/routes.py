@@ -58,6 +58,12 @@ from corposostenibile.models import (
     VideoReviewRequest,
     CheckInIntervention,
     RinnovoIntervention,
+    ClienteMarketingFlag,
+    ClienteMarketingContent,
+    ClienteMarketingInfluencer,
+    Influencer,
+    MarketingFlagTypeEnum,
+    MarketingContentTypeEnum,
 )
 from sqlalchemy import case, or_, and_
 from . import customers_bp                              # blueprint declared in __init__.py
@@ -8528,6 +8534,186 @@ def api_trustpilot_send_invite(cliente_id: int):
         "message": "Invito email Trustpilot inviato.",
         "data": _serialize_trustpilot_review(review),
     }), HTTPStatus.CREATED
+
+
+# --------------------------------------------------------------------------- #
+#  Marketing Consents                                                         #
+# --------------------------------------------------------------------------- #
+
+def _serialize_marketing_content(item):
+    return {
+        "id": item.id,
+        "content_type": item.content_type.value if hasattr(item.content_type, "value") else item.content_type,
+        "checked": bool(item.checked),
+        "checked_date": item.checked_date.isoformat() if item.checked_date else None,
+        "influencers": [
+            {
+                "influencer_id": link.influencer_id,
+                "name": getattr(link.influencer, "name", None),
+                "handle": getattr(link.influencer, "handle", None),
+            }
+            for link in (item.influencer_links or [])
+            if link.influencer
+        ],
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["GET"])
+@login_required
+def get_marketing_consents(cliente_id):
+    """Retrieve marketing consents and content for a client."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    flag = ClienteMarketingFlag.query.filter_by(
+        cliente_id=cliente_id,
+        flag_type=MarketingFlagTypeEnum.usabile_marketing,
+    ).first()
+
+    contents = ClienteMarketingContent.query.filter_by(cliente_id=cliente_id).order_by(
+        ClienteMarketingContent.created_at.desc()
+    ).all()
+
+    grouped = {"stories": [], "carosello": [], "videofeedback": []}
+    for c in contents:
+        key = c.content_type.value if hasattr(c.content_type, "value") else c.content_type
+        if key in grouped:
+            grouped[key].append(_serialize_marketing_content(c))
+
+    return jsonify({
+        "note_marketing": cliente.note_marketing or "",
+        "usabile_marketing": {
+            "checked": bool(flag.checked) if flag else False,
+            "checked_date": flag.checked_date.isoformat() if flag and flag.checked_date else "",
+        },
+        "contents": grouped,
+    })
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["PUT"])
+@login_required
+def update_marketing_consents(cliente_id):
+    """Update marketing notes and usabile_marketing flag."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    cliente.note_marketing = data.get("note_marketing", cliente.note_marketing)
+
+    um = data.get("usabile_marketing", {})
+    flag = ClienteMarketingFlag.query.filter_by(
+        cliente_id=cliente_id,
+        flag_type=MarketingFlagTypeEnum.usabile_marketing,
+    ).first()
+
+    if not flag:
+        flag = ClienteMarketingFlag(
+            cliente_id=cliente_id,
+            flag_type=MarketingFlagTypeEnum.usabile_marketing,
+        )
+        db.session.add(flag)
+
+    flag.checked = bool(um.get("checked", False))
+    if flag.checked:
+        flag.checked_date = um.get("checked_date") or date.today()
+    else:
+        flag.checked_date = None
+
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents/content", methods=["POST"])
+@login_required
+def create_marketing_content(cliente_id):
+    """Create a new marketing content record."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    content_type = data.get("content_type", "stories")
+    checked = bool(data.get("checked", False))
+    checked_date = data.get("checked_date")
+    if checked and not checked_date:
+        checked_date = date.today().isoformat()
+
+    item = ClienteMarketingContent(
+        cliente_id=cliente_id,
+        content_type=content_type,
+        checked=checked,
+        checked_date=checked_date or None,
+    )
+    db.session.add(item)
+    db.session.flush()
+
+    for inf_id in data.get("influencer_ids", []):
+        db.session.add(ClienteMarketingInfluencer(
+            marketing_content_id=item.id,
+            influencer_id=inf_id,
+        ))
+
+    db.session.commit()
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)}), HTTPStatus.CREATED
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["PUT"])
+@login_required
+def update_marketing_content(content_id):
+    """Update a marketing content record."""
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    if "content_type" in data:
+        item.content_type = data["content_type"]
+    if "checked" in data:
+        item.checked = bool(data["checked"])
+    if "checked_date" in data:
+        item.checked_date = data["checked_date"] or None
+    if item.checked and not item.checked_date:
+        item.checked_date = date.today()
+    if not item.checked:
+        item.checked_date = None
+
+    if "influencer_ids" in data:
+        ClienteMarketingInfluencer.query.filter_by(marketing_content_id=item.id).delete()
+        for inf_id in data["influencer_ids"]:
+            db.session.add(ClienteMarketingInfluencer(
+                marketing_content_id=item.id,
+                influencer_id=inf_id,
+            ))
+
+    db.session.commit()
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)})
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["DELETE"])
+@login_required
+def delete_marketing_content(content_id):
+    """Delete a marketing content record."""
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.route("/marketing-consents/influencers", methods=["GET"])
+@login_required
+def list_marketing_influencers():
+    """Return all active influencers."""
+    influencers = Influencer.query.filter_by(active=True).order_by(Influencer.name).all()
+    return jsonify([
+        {"influencer_id": i.influencer_id, "name": i.name, "handle": i.handle}
+        for i in influencers
+    ])
 
 
 # --------------------------------------------------------------------------- #
