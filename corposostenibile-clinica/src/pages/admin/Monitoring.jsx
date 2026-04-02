@@ -28,7 +28,7 @@ function Monitoring() {
   const [includeStatic, setIncludeStatic] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedEndpoint, setSelectedEndpoint] = useState(null);
-  const [sortField, setSortField] = useState('avg_per_day');
+  const [sortField, setSortField] = useState('avg_latency_ms');
   const [sortAsc, setSortAsc] = useState(false);
   const [filterClassification, setFilterClassification] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,8 +140,8 @@ function Monitoring() {
 
     return {
       byClass: Object.values(byClass),
-      topByVolume: [...data.endpoints].sort((a, b) => b.avg_per_day - a.avg_per_day).slice(0, 10),
       topByLatency: [...data.endpoints].sort((a, b) => b.avg_latency_ms - a.avg_latency_ms).slice(0, 10),
+      topByP95: [...data.endpoints].sort((a, b) => b.p95_latency_ms - a.p95_latency_ms).slice(0, 10),
     };
   };
 
@@ -202,10 +202,6 @@ function Monitoring() {
     return (
       <div className="summary-cards">
         <div className="summary-card">
-          <div className="summary-value">{totalReqs.toLocaleString()}</div>
-          <div className="summary-label">Richieste totali ({data.period_days}gg)</div>
-        </div>
-        <div className="summary-card">
           <div className="summary-value">{eps.length}</div>
           <div className="summary-label">Endpoint unici</div>
         </div>
@@ -238,32 +234,6 @@ function Monitoring() {
 
         <div className="charts-row">
           <div className="chart-container">
-            <h5>Top 10 per volume (media/giorno)</h5>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={overview.topByVolume} layout="vertical" margin={{ left: 200 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="url"
-                  width={190}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={v => v.length > 30 ? v.slice(0, 30) + '...' : v}
-                />
-                <Tooltip
-                  formatter={(val, name) => [val, 'Media/giorno']}
-                  labelFormatter={label => label}
-                />
-                <Bar dataKey="avg_per_day" name="Media/giorno">
-                  {overview.topByVolume.map((entry, i) => (
-                    <Cell key={i} fill={COLORS[entry.classification] || '#8884d8'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="chart-container">
             <h5>Top 10 per latenza media (ms)</h5>
             <ResponsiveContainer width="100%" height={350}>
               <BarChart data={overview.topByLatency} layout="vertical" margin={{ left: 200 }}>
@@ -283,6 +253,32 @@ function Monitoring() {
                 <Bar dataKey="avg_latency_ms" name="Latenza media (ms)">
                   {overview.topByLatency.map((entry, i) => (
                     <Cell key={i} fill={entry.avg_latency_ms > 5000 ? '#f44336' : entry.avg_latency_ms > 2000 ? '#FF9800' : '#4CAF50'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="chart-container">
+            <h5>Top 10 per latenza P95 (ms)</h5>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={overview.topByP95} layout="vertical" margin={{ left: 200 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis
+                  type="category"
+                  dataKey="url"
+                  width={190}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={v => v.length > 30 ? v.slice(0, 30) + '...' : v}
+                />
+                <Tooltip
+                  formatter={(val) => [`${val}ms`, 'P95']}
+                  labelFormatter={label => label}
+                />
+                <Bar dataKey="p95_latency_ms" name="P95 (ms)">
+                  {overview.topByP95.map((entry, i) => (
+                    <Cell key={i} fill={entry.p95_latency_ms > 5000 ? '#f44336' : entry.p95_latency_ms > 2000 ? '#FF9800' : '#4CAF50'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -354,12 +350,6 @@ function Monitoring() {
                 <th onClick={() => handleSort('url')} className="sortable">
                   Endpoint{sortIndicator('url')}
                 </th>
-                <th onClick={() => handleSort('avg_per_day')} className="sortable text-end">
-                  Media/giorno{sortIndicator('avg_per_day')}
-                </th>
-                <th onClick={() => handleSort('total_requests')} className="sortable text-end">
-                  Totale{sortIndicator('total_requests')}
-                </th>
                 <th onClick={() => handleSort('avg_latency_ms')} className="sortable text-end">
                   Latenza media{sortIndicator('avg_latency_ms')}
                 </th>
@@ -388,8 +378,6 @@ function Monitoring() {
                   </td>
                   <td><span className={`method-badge method-${ep.method.toLowerCase()}`}>{ep.method}</span></td>
                   <td className="endpoint-url" title={ep.url}>{ep.url}</td>
-                  <td className="text-end">{ep.avg_per_day}</td>
-                  <td className="text-end">{ep.total_requests.toLocaleString()}</td>
                   <td className="text-end">
                     <span className={`latency-value ${ep.avg_latency_ms > 5000 ? 'latency-critical' : ep.avg_latency_ms > 2000 ? 'latency-warning' : 'latency-ok'}`}>
                       {ep.avg_latency_ms.toLocaleString()}ms
@@ -414,7 +402,7 @@ function Monitoring() {
                 </tr>
               ))}
               {endpoints.length === 0 && (
-                <tr><td colSpan={10} className="text-center text-muted">Nessun endpoint trovato</td></tr>
+                <tr><td colSpan={8} className="text-center text-muted">Nessun endpoint trovato</td></tr>
               )}
             </tbody>
           </table>
@@ -432,8 +420,7 @@ function Monitoring() {
         <span className={`badge-classification badge-${ep.classification}`}>
           {CLASSIFICATION_LABELS[ep.classification]}
         </span>
-        <span className="badge bg-secondary">{ep.total_requests} richieste</span>
-        <span className="badge bg-info">{ep.avg_per_day}/giorno</span>
+        <span className="badge bg-secondary">{ep.total_requests} campioni</span>
       </div>
 
       <div className="charts-row">
@@ -855,9 +842,8 @@ function Monitoring() {
 
           <div className="monitoring-footer text-muted small">
             Periodo: {data.period_days} giorni |
-            Log analizzati: {data.fetched_entries?.toLocaleString()} |
-            Record validi: {data.parsed_records?.toLocaleString()} |
-            Endpoint unici: {data.endpoints?.length}
+            Endpoint unici: {data.endpoints?.length} |
+            Campione: ~300 entry/giorno
           </div>
         </>
       )}
