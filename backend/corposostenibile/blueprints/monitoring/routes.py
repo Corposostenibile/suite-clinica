@@ -34,11 +34,11 @@ def get_metrics():
 
     days = request.args.get('days', 7, type=int)
     include_static = request.args.get('include_static', 0, type=int)
-    limit = request.args.get('limit', 10000, type=int)
+    limit = request.args.get('limit', 2000, type=int)
 
     # Limiti di sicurezza
     days = min(max(days, 1), 30)
-    limit = min(max(limit, 100), 50000)
+    limit = min(max(limit, 100), 10000)
 
     data = get_monitoring_data(
         days=days,

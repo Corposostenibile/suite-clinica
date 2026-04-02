@@ -7,9 +7,10 @@ const monitoringService = {
    * @returns {Promise<Object>} - { endpoints, errors, period_days, total_requests, ... }
    */
   async getMetrics(params = {}) {
-    const { days = 7, include_static = 0, limit = 10000 } = params;
+    const { days = 7, include_static = 0, limit = 2000 } = params;
     const response = await api.get('/monitoring/metrics', {
       params: { days, include_static, limit },
+      timeout: 55000, // 55s — sotto il timeout nginx di 60s
     });
     return response.data;
   },

@@ -173,7 +173,7 @@ def _fetch_logs(days: int = 7, max_entries: int = 10000) -> List[Dict[str, Any]]
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=50,
         )
         if result.returncode != 0:
             _log_error(
@@ -375,7 +375,7 @@ def _aggregate_metrics(
 def get_monitoring_data(
     days: int = 7,
     include_static: bool = False,
-    max_entries: int = 10000,
+    max_entries: int = 2000,
 ) -> Dict[str, Any]:
     """
     Entry-point principale: scarica log, parsa, aggrega.
