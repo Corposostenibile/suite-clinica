@@ -8561,7 +8561,7 @@ def _serialize_marketing_content(item):
 
 
 @api_bp.route("/<int:cliente_id>/marketing-consents", methods=["GET"])
-@login_required
+@permission_required(CustomerPerm.VIEW)
 def get_marketing_consents(cliente_id):
     """Retrieve marketing consents and content for a client."""
     cliente = db.session.get(Cliente, cliente_id)
@@ -8594,7 +8594,7 @@ def get_marketing_consents(cliente_id):
 
 
 @api_bp.route("/<int:cliente_id>/marketing-consents", methods=["PUT"])
-@login_required
+@permission_required(CustomerPerm.EDIT)
 def update_marketing_consents(cliente_id):
     """Update marketing notes and usabile_marketing flag."""
     cliente = db.session.get(Cliente, cliente_id)
@@ -8628,7 +8628,7 @@ def update_marketing_consents(cliente_id):
 
 
 @api_bp.route("/<int:cliente_id>/marketing-consents/content", methods=["POST"])
-@login_required
+@permission_required(CustomerPerm.EDIT)
 def create_marketing_content(cliente_id):
     """Create a new marketing content record."""
     cliente = db.session.get(Cliente, cliente_id)
@@ -8662,7 +8662,7 @@ def create_marketing_content(cliente_id):
 
 
 @api_bp.route("/marketing-consents/content/<int:content_id>", methods=["PUT"])
-@login_required
+@permission_required(CustomerPerm.EDIT)
 def update_marketing_content(content_id):
     """Update a marketing content record."""
     item = db.session.get(ClienteMarketingContent, content_id)
@@ -8694,7 +8694,7 @@ def update_marketing_content(content_id):
 
 
 @api_bp.route("/marketing-consents/content/<int:content_id>", methods=["DELETE"])
-@login_required
+@permission_required(CustomerPerm.EDIT)
 def delete_marketing_content(content_id):
     """Delete a marketing content record."""
     item = db.session.get(ClienteMarketingContent, content_id)
@@ -8706,7 +8706,7 @@ def delete_marketing_content(content_id):
 
 
 @api_bp.route("/marketing-consents/influencers", methods=["GET"])
-@login_required
+@permission_required(CustomerPerm.VIEW)
 def list_marketing_influencers():
     """Return all active influencers."""
     influencers = Influencer.query.filter_by(active=True).order_by(Influencer.name).all()
