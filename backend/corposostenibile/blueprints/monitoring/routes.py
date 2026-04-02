@@ -25,21 +25,15 @@ def get_metrics():
     """
     GET /api/monitoring/metrics?days=7&include_static=0&per_day_limit=300
 
-    Ritorna tutte le metriche aggregate:
-    - endpoints: lista con avg/day, latenza, distribuzione oraria/settimanale
-    - errors: log errori raggruppati
-    - classificazione: internal vs external_call
-
-    Il fetch è parallelo: una chiamata gcloud per giorno, campionata con per_day_limit entry.
+    Fetch parallelo per giorno (un thread per giorno), 300 entry/giorno di campione.
     """
     _require_admin()
 
-    days = request.args.get('days', 7, type=int)
+    days          = request.args.get('days', 7, type=int)
     include_static = request.args.get('include_static', 0, type=int)
     per_day_limit = request.args.get('per_day_limit', 300, type=int)
 
-    # Limiti di sicurezza
-    days = min(max(days, 1), 30)
+    days          = min(max(days, 1), 30)
     per_day_limit = min(max(per_day_limit, 50), 2000)
 
     data = get_monitoring_data(
@@ -53,17 +47,7 @@ def get_metrics():
 @bp.route('/infrastructure', methods=['GET'])
 @login_required
 def get_infrastructure():
-    """
-    GET /api/monitoring/infrastructure
-
-    Ritorna metriche infrastrutturali live:
-    - pods_metrics: CPU e memoria per pod (kubectl top pods)
-    - nodes_metrics: CPU e memoria per nodo (kubectl top nodes)
-    - hpa: stato HPA (min/max replicas, CPU/memory %)
-    - deployment: info deployment (replicas, strategy, image, resources)
-    - pods_status: stato dei pod (ready, restarts, phase)
-    - cloud_sql: info Cloud SQL (tier, disk, version, state)
-    """
+    """GET /api/monitoring/infrastructure"""
     _require_admin()
     data = get_infrastructure_data()
     return jsonify(data)

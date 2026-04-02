@@ -6,6 +6,7 @@ tramite gcloud CLI (gia' autenticato sul VPS).
 
 Logica:
 - Usa `gcloud logging read` con filtri per resource.type="http_load_balancer"
+- Fetch parallelo per giorno (un thread per giorno)
 - Parsa i risultati JSON
 - Aggrega per endpoint, fascia oraria, giorno della settimana
 - Distingue chiamate "esterne" (dal LB verso il backend) e chiamate
@@ -20,7 +21,6 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
-from functools import lru_cache
 
 from flask import current_app
 
@@ -144,20 +144,20 @@ def _parse_latency(latency_str: str) -> float:
 
 # ── Query Cloud Logging ─────────────────────────────────────────────────────
 
-def _fetch_logs_for_day(date: datetime, per_day_limit: int, timeout_s: int = 20) -> List[Dict[str, Any]]:
+def _fetch_logs_for_day(date: datetime, per_day_limit: int, timeout_s: int = 40) -> tuple[str, List[Dict[str, Any]]]:
     """
     Scarica i log di UN singolo giorno (UTC).
-    Ritorna lista vuota in caso di errore.
+    Ritorna (date_str, entries).
     """
     day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end   = day_start + timedelta(days=1)
+    date_str  = day_start.strftime('%Y-%m-%d')
     start_str = day_start.strftime('%Y-%m-%dT%H:%M:%SZ')
     end_str   = day_end.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     filter_str = (
         f'resource.type="http_load_balancer" '
         f'timestamp>="{start_str}" timestamp<"{end_str}" '
-        # Esclude asset statici (JS/CSS/font/immagini) e probe di scanner
         f'httpRequest.requestUrl=~"/(api|old-suite|ghl|check|postit|clienti)/" '
     )
     cmd = [
@@ -169,30 +169,33 @@ def _fetch_logs_for_day(date: datetime, per_day_limit: int, timeout_s: int = 20)
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
         if result.returncode != 0:
-            _log_error("[monitoring] gcloud error day=%s: %s", start_str[:10], result.stderr[:200])
-            return []
-        return json.loads(result.stdout) if result.stdout.strip() else []
+            _log_error("[monitoring] gcloud error day=%s: %s", date_str, result.stderr[:200])
+            return date_str, []
+        entries = json.loads(result.stdout) if result.stdout.strip() else []
+        _log_info("[monitoring] day=%s → %d entries", date_str, len(entries))
+        return date_str, entries
     except subprocess.TimeoutExpired:
-        _log_error("[monitoring] gcloud timeout day=%s", start_str[:10])
-        return []
+        _log_error("[monitoring] gcloud timeout day=%s", date_str)
+        return date_str, []
     except json.JSONDecodeError as e:
-        _log_error("[monitoring] JSON parse error day=%s: %s", start_str[:10], e)
-        return []
+        _log_error("[monitoring] JSON parse error day=%s: %s", date_str, e)
+        return date_str, []
 
 
-def _fetch_logs(days: int = 7, per_day_limit: int = 300) -> List[Dict[str, Any]]:
+def _fetch_logs(
+    days: int = 7,
+    per_day_limit: int = 300,
+) -> List[Dict[str, Any]]:
     """
     Scarica i log degli ultimi N giorni con fetch parallelo (un thread per giorno).
-    Ogni giorno viene campionato con al massimo `per_day_limit` entry.
-
-    Tempo atteso: ~8-12s indipendentemente dal numero di giorni (bounded dal thread più lento).
     """
     now = datetime.now(timezone.utc)
     dates = [now - timedelta(days=i) for i in range(days)]
 
-    _log_info("[monitoring] Fetching logs: days=%d, per_day_limit=%d (parallel)", days, per_day_limit)
+    _log_info("[monitoring] Fetching logs: days=%d, per_day_limit=%d", days, per_day_limit)
 
     all_entries: List[Dict[str, Any]] = []
+
     with ThreadPoolExecutor(max_workers=min(days, 7)) as executor:
         futures = {
             executor.submit(_fetch_logs_for_day, d, per_day_limit): d
@@ -200,9 +203,8 @@ def _fetch_logs(days: int = 7, per_day_limit: int = 300) -> List[Dict[str, Any]]
         }
         for future in as_completed(futures):
             try:
-                entries = future.result()
+                date_str, entries = future.result()
                 all_entries.extend(entries)
-                _log_info("[monitoring] day=%s → %d entries", futures[future].strftime('%Y-%m-%d'), len(entries))
             except Exception as e:
                 _log_error("[monitoring] future error: %s", e)
 
@@ -398,15 +400,13 @@ def get_monitoring_data(
     per_day_limit: int = 300,
 ) -> Dict[str, Any]:
     """
-    Entry-point principale: scarica log (campionati per giorno), parsa, aggrega.
-    Ritorna il dizionario completo con tutte le metriche.
+    Scarica tutti i giorni in parallelo, aggrega e ritorna.
     """
     raw = _fetch_logs(days=days, per_day_limit=per_day_limit)
     records = _parse_entries(raw)
     metrics = _aggregate_metrics(records, include_static=include_static)
     metrics['fetched_entries'] = len(raw)
     metrics['parsed_records'] = len(records)
-    metrics['per_day_limit'] = per_day_limit
     return metrics
 
 
