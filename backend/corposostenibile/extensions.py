@@ -235,16 +235,21 @@ def init_app(app):  # noqa: D401
     @login_manager.user_loader
     def _load_user(user_id: str):
         try:
-            return _models.User.query.get(int(user_id))
-        except Exception:
+            from corposostenibile.models import User  # lazy import to avoid circular imports
+            db.session.rollback()  # clear any aborted transaction from previous request
+            return db.session.get(User, int(user_id))
+        except Exception as e:
+            import traceback
+            app.logger.error("user_loader error for user_id=%s: %s\n%s", user_id, e, traceback.format_exc())
             return None
 
     @login_manager.request_loader
     def _request_loader(req):
+        from corposostenibile.models import User  # lazy import to avoid circular imports
         auth = req.authorization
         if not auth:
             return None
-        user = _models.User.query.filter_by(email=auth.username).first()
+        user = User.query.filter_by(email=auth.username).first()
         if user and check_password_hash(user.password_hash, auth.password):
             return user
         return None

@@ -46,8 +46,12 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      // Redirect to login if unauthorized
-      window.location.href = `${import.meta.env.BASE_URL}auth/login`;
+      const data = error.response?.data;
+      // Only redirect to login when the server explicitly says unauthenticated.
+      // Permission-denied 401s will have a different payload and should not redirect.
+      if (data?.authenticated === false) {
+        window.location.href = `${import.meta.env.BASE_URL}auth/login`;
+      }
     }
     return Promise.reject(error);
   }
