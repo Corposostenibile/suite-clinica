@@ -156,7 +156,9 @@ def _fetch_logs_for_day(date: datetime, per_day_limit: int, timeout_s: int = 20)
 
     filter_str = (
         f'resource.type="http_load_balancer" '
-        f'timestamp>="{start_str}" timestamp<"{end_str}"'
+        f'timestamp>="{start_str}" timestamp<"{end_str}" '
+        # Esclude asset statici (JS/CSS/font/immagini) e probe di scanner
+        f'httpRequest.requestUrl=~"/(api|old-suite|ghl|check|postit|clienti)/" '
     )
     cmd = [
         'gcloud', 'logging', 'read', filter_str,
