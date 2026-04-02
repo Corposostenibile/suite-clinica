@@ -32,6 +32,7 @@ def upgrade():
         END $$;
 
         ALTER TABLE clienti ADD COLUMN IF NOT EXISTS note_marketing TEXT;
+        ALTER TABLE clienti_version ADD COLUMN IF NOT EXISTS note_marketing TEXT;
 
         CREATE TABLE IF NOT EXISTS cliente_marketing_flags (
             id SERIAL PRIMARY KEY,
