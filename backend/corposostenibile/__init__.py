@@ -227,6 +227,7 @@ def create_app(config_name: str | None = None) -> Flask:
         sop_chatbot,  # AGGIUNTO: Import del blueprint SOP Chatbot RAG
         team_tickets,  # AGGIUNTO: Import del blueprint Team Tickets
         push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
+        monitoring,  # AGGIUNTO: Import del blueprint Monitoring Dashboard
     )
     from .blueprints.news import news_api_bp  # API JSON per news (React)
 
@@ -252,6 +253,7 @@ def create_app(config_name: str | None = None) -> Flask:
     sop_chatbot.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint SOP Chatbot RAG
     team_tickets.init_app(app)  # AGGIUNTO: Inizializzazione del blueprint Team Tickets
     push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
+    monitoring.init_app(app)  # AGGIUNTO: Inizializzazione monitoring dashboard
 
 
     # Sales Form Blueprint

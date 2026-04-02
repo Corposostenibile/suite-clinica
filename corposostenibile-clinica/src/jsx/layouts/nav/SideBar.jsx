@@ -247,6 +247,12 @@ const SideBar = () => {
                   </Link>
                 </li>
               )}
+              <li className={path === 'admin/monitoring' ? 'mm-active' : ''}>
+                <Link to="/admin/monitoring" className={path === 'admin/monitoring' ? 'mm-active' : ''}>
+                  <i className="ri-bar-chart-box-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">API Monitoring</span>
+                </Link>
+              </li>
             </>
           )}
         </ul>

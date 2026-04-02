@@ -20,6 +20,7 @@ from . import (
     tasks,
     search,
     sop_chatbot,
+    monitoring,
 
 )
 
@@ -43,4 +44,5 @@ __all__ = [
     'tasks',
     'search',
     'sop_chatbot',
+    'monitoring',
 ]

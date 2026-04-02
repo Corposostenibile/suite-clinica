@@ -62,7 +62,7 @@ import LoomLibrary from './pages/loom/LoomLibrary';
 import Novita from './pages/Novita';
 
 // Admin pages
-import { GHLSettings, OriginSettings, ImpersonateUser, CapacityWeightSettings } from './pages/admin';
+import { GHLSettings, OriginSettings, ImpersonateUser, CapacityWeightSettings, Monitoring } from './pages/admin';
 
 // Components
 import RoleProtectedRoute from './components/RoleProtectedRoute';
@@ -266,6 +266,11 @@ function App() {
             <Route path="/admin/impersonate" element={
               <RoleProtectedRoute allowedRoles={['admin']}>
                 <ImpersonateUser />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/admin/monitoring" element={
+              <RoleProtectedRoute allowedRoles={['admin']}>
+                <Monitoring />
               </RoleProtectedRoute>
             } />
           </Route>
