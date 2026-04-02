@@ -17,6 +17,7 @@ import json
 import re
 import subprocess
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from functools import lru_cache
@@ -143,50 +144,67 @@ def _parse_latency(latency_str: str) -> float:
 
 # ── Query Cloud Logging ─────────────────────────────────────────────────────
 
-def _fetch_logs(days: int = 7, max_entries: int = 10000) -> List[Dict[str, Any]]:
+def _fetch_logs_for_day(date: datetime, per_day_limit: int, timeout_s: int = 20) -> List[Dict[str, Any]]:
     """
-    Scarica i log del HTTP Load Balancer degli ultimi N giorni.
-    Usa gcloud CLI gia' autenticato.
+    Scarica i log di UN singolo giorno (UTC).
+    Ritorna lista vuota in caso di errore.
     """
-    now = datetime.now(timezone.utc)
-    start = now - timedelta(days=days)
-    start_str = start.strftime('%Y-%m-%dT%H:%M:%SZ')
+    day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end   = day_start + timedelta(days=1)
+    start_str = day_start.strftime('%Y-%m-%dT%H:%M:%SZ')
+    end_str   = day_end.strftime('%Y-%m-%dT%H:%M:%SZ')
 
     filter_str = (
         f'resource.type="http_load_balancer" '
-        f'timestamp>="{start_str}"'
+        f'timestamp>="{start_str}" timestamp<"{end_str}"'
     )
-
     cmd = [
         'gcloud', 'logging', 'read', filter_str,
         '--project=suite-clinica',
-        f'--limit={max_entries}',
+        f'--limit={per_day_limit}',
         '--format=json',
     ]
-
-    _log_info(
-        "[monitoring] Fetching logs: days=%d, limit=%d", days, max_entries
-    )
-
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=50,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
         if result.returncode != 0:
-            _log_error(
-                "[monitoring] gcloud error: %s", result.stderr[:500]
-            )
+            _log_error("[monitoring] gcloud error day=%s: %s", start_str[:10], result.stderr[:200])
             return []
         return json.loads(result.stdout) if result.stdout.strip() else []
     except subprocess.TimeoutExpired:
-        _log_error("[monitoring] gcloud command timed out")
+        _log_error("[monitoring] gcloud timeout day=%s", start_str[:10])
         return []
     except json.JSONDecodeError as e:
-        _log_error("[monitoring] JSON parse error: %s", e)
+        _log_error("[monitoring] JSON parse error day=%s: %s", start_str[:10], e)
         return []
+
+
+def _fetch_logs(days: int = 7, per_day_limit: int = 300) -> List[Dict[str, Any]]:
+    """
+    Scarica i log degli ultimi N giorni con fetch parallelo (un thread per giorno).
+    Ogni giorno viene campionato con al massimo `per_day_limit` entry.
+
+    Tempo atteso: ~8-12s indipendentemente dal numero di giorni (bounded dal thread più lento).
+    """
+    now = datetime.now(timezone.utc)
+    dates = [now - timedelta(days=i) for i in range(days)]
+
+    _log_info("[monitoring] Fetching logs: days=%d, per_day_limit=%d (parallel)", days, per_day_limit)
+
+    all_entries: List[Dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=min(days, 7)) as executor:
+        futures = {
+            executor.submit(_fetch_logs_for_day, d, per_day_limit): d
+            for d in dates
+        }
+        for future in as_completed(futures):
+            try:
+                entries = future.result()
+                all_entries.extend(entries)
+                _log_info("[monitoring] day=%s → %d entries", futures[future].strftime('%Y-%m-%d'), len(entries))
+            except Exception as e:
+                _log_error("[monitoring] future error: %s", e)
+
+    return all_entries
 
 
 def _parse_entries(raw_entries: List[Dict]) -> List[Dict[str, Any]]:
@@ -375,17 +393,18 @@ def _aggregate_metrics(
 def get_monitoring_data(
     days: int = 7,
     include_static: bool = False,
-    max_entries: int = 2000,
+    per_day_limit: int = 300,
 ) -> Dict[str, Any]:
     """
-    Entry-point principale: scarica log, parsa, aggrega.
+    Entry-point principale: scarica log (campionati per giorno), parsa, aggrega.
     Ritorna il dizionario completo con tutte le metriche.
     """
-    raw = _fetch_logs(days=days, max_entries=max_entries)
+    raw = _fetch_logs(days=days, per_day_limit=per_day_limit)
     records = _parse_entries(raw)
     metrics = _aggregate_metrics(records, include_static=include_static)
     metrics['fetched_entries'] = len(raw)
     metrics['parsed_records'] = len(records)
+    metrics['per_day_limit'] = per_day_limit
     return metrics
 
 

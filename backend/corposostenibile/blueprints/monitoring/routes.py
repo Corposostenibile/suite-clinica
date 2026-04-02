@@ -23,27 +23,29 @@ def _require_admin() -> None:
 @login_required
 def get_metrics():
     """
-    GET /api/monitoring/metrics?days=7&include_static=0&limit=10000
+    GET /api/monitoring/metrics?days=7&include_static=0&per_day_limit=300
 
     Ritorna tutte le metriche aggregate:
     - endpoints: lista con avg/day, latenza, distribuzione oraria/settimanale
     - errors: log errori raggruppati
     - classificazione: internal vs external_call
+
+    Il fetch è parallelo: una chiamata gcloud per giorno, campionata con per_day_limit entry.
     """
     _require_admin()
 
     days = request.args.get('days', 7, type=int)
     include_static = request.args.get('include_static', 0, type=int)
-    limit = request.args.get('limit', 2000, type=int)
+    per_day_limit = request.args.get('per_day_limit', 300, type=int)
 
     # Limiti di sicurezza
     days = min(max(days, 1), 30)
-    limit = min(max(limit, 100), 10000)
+    per_day_limit = min(max(per_day_limit, 50), 2000)
 
     data = get_monitoring_data(
         days=days,
         include_static=bool(include_static),
-        max_entries=limit,
+        per_day_limit=per_day_limit,
     )
     return jsonify(data)
 
