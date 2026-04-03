@@ -60,6 +60,11 @@ function Monitoring() {
     fetchOverview();
   }, [fetchOverview]);
 
+  // Quando cambia il periodo, invalida i dati dettaglio (verranno ricaricati lazy)
+  useEffect(() => {
+    setData(null);
+  }, [days]);
+
   // Carica dettaglio endpoint solo quando serve (lazy)
   const fetchData = useCallback(async () => {
     if (data) return; // già caricato
