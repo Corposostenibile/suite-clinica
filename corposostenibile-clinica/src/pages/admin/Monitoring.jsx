@@ -213,23 +213,23 @@ function Monitoring() {
     if (!overview) return null;
     return (
       <div className="summary-cards">
-        <div className="summary-card">
+        <div className="summary-card" title="Numero totale di richieste HTTP ricevute dal Load Balancer nel periodo selezionato">
           <div className="summary-value">{overview.total_requests?.toLocaleString() || 0}</div>
           <div className="summary-label">Richieste totali ({overview.period_days}gg)</div>
         </div>
-        <div className="summary-card">
+        <div className="summary-card" title="Media aritmetica delle richieste giornaliere nel periodo">
           <div className="summary-value">{overview.avg_requests_per_day || 0}</div>
           <div className="summary-label">Media richieste/giorno</div>
         </div>
-        <div className="summary-card">
+        <div className="summary-card" title="Tempo medio di risposta di tutte le richieste. Può essere alzato da poche richieste molto lente (es. chiamate a servizi esterni)">
           <div className="summary-value">{overview.avg_latency_ms || 0}ms</div>
           <div className="summary-label">Latenza media</div>
         </div>
-        <div className="summary-card">
+        <div className="summary-card" title="Il 95% delle richieste risponde entro questo tempo. È l'indicatore più utile per capire l'esperienza reale degli utenti">
           <div className="summary-value">{overview.p95_latency_ms || 0}ms</div>
           <div className="summary-label">Latenza P95</div>
         </div>
-        <div className="summary-card">
+        <div className="summary-card" title="Percentuale di risposte con errore. 4xx = errori client (es. 404 non trovato, 401 non autorizzato). 5xx = errori server (bug, timeout)">
           <div className="summary-value">{overview.error_rate_pct || 0}%</div>
           <div className="summary-label">Errori ({overview.errors_4xx || 0} 4xx + {overview.errors_5xx || 0} 5xx)</div>
         </div>
@@ -279,16 +279,18 @@ function Monitoring() {
             <h5>Latenza (ms)</h5>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={[
-                { name: 'Media', value: overview.avg_latency_ms || 0 },
-                { name: 'P50', value: overview.p50_latency_ms || 0 },
-                { name: 'P95', value: overview.p95_latency_ms || 0 },
-                { name: 'P99', value: overview.p99_latency_ms || 0 },
-                { name: 'Max', value: overview.max_latency_ms || 0 },
+                { name: 'Media', value: overview.avg_latency_ms || 0, desc: 'Tempo medio di risposta' },
+                { name: 'P50', value: overview.p50_latency_ms || 0, desc: 'Il 50% delle richieste risponde entro questo tempo (mediana)' },
+                { name: 'P95', value: overview.p95_latency_ms || 0, desc: 'Il 95% delle richieste risponde entro questo tempo' },
+                { name: 'P99', value: overview.p99_latency_ms || 0, desc: 'Il 99% delle richieste risponde entro questo tempo' },
+                { name: 'Max', value: overview.max_latency_ms || 0, desc: 'Tempo della richiesta più lenta (stima dal bucket)' },
               ]}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip formatter={(val) => [`${val}ms`, 'Latenza']} />
+                <Tooltip
+                  formatter={(val, _name, props) => [`${val.toLocaleString()}ms`, props.payload.desc]}
+                />
                 <Bar dataKey="value" name="Latenza (ms)">
                   {[
                     { name: 'Media', value: overview.avg_latency_ms || 0 },
@@ -410,16 +412,16 @@ function Monitoring() {
                 <th onClick={() => handleSort('url')} className="sortable">
                   Endpoint{sortIndicator('url')}
                 </th>
-                <th onClick={() => handleSort('avg_latency_ms')} className="sortable text-end">
+                <th onClick={() => handleSort('avg_latency_ms')} className="sortable text-end" title="Tempo medio di risposta per questo endpoint">
                   Latenza media{sortIndicator('avg_latency_ms')}
                 </th>
-                <th onClick={() => handleSort('p95_latency_ms')} className="sortable text-end">
+                <th onClick={() => handleSort('p95_latency_ms')} className="sortable text-end" title="Il 95% delle richieste a questo endpoint risponde entro questo tempo">
                   P95{sortIndicator('p95_latency_ms')}
                 </th>
-                <th onClick={() => handleSort('max_latency_ms')} className="sortable text-end">
+                <th onClick={() => handleSort('max_latency_ms')} className="sortable text-end" title="Tempo della richiesta più lenta registrata per questo endpoint">
                   Max{sortIndicator('max_latency_ms')}
                 </th>
-                <th onClick={() => handleSort('error_rate_pct')} className="sortable text-end">
+                <th onClick={() => handleSort('error_rate_pct')} className="sortable text-end" title="Percentuale di risposte con errore (status HTTP >= 400)">
                   Errori{sortIndicator('error_rate_pct')}
                 </th>
                 <th></th>
