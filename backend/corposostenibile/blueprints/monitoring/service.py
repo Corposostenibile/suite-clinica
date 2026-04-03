@@ -183,27 +183,33 @@ def _fetch_logs_for_day_api(
     """
     Scarica i log di UN singolo giorno (UTC) usando Cloud Logging API.
     
-    Strategia: divide il giorno in 4 fasce di 6 ore e distribuisce
-    il budget equamente, così il campione copre tutto il giorno
-    e tutti gli endpoint (anche quelli usati solo in certi orari).
+    Strategia: divide il giorno in fasce orarie pesate sulle ore
+    lavorative italiane (08-18 IT = 06-16 UTC), così il campione
+    copre meglio gli endpoint usati durante il lavoro.
     """
     day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
     date_str  = day_start.strftime('%Y-%m-%d')
     
     limit = per_day_limit if per_day_limit and per_day_limit > 0 else 500
     
-    # Dividi in 4 fasce da 6 ore con budget equo
-    NUM_SLICES = 4
-    HOURS_PER_SLICE = 6
-    per_slice_limit = max(50, limit // NUM_SLICES)
+    # Fasce orarie (UTC) con pesi. Orario lavoro IT 08-18 = UTC 06-16.
+    # Le ore di lavoro prendono più budget.
+    SLICES = [
+        # (start_hour, end_hour, weight)
+        (0,  6,  0.05),   # 02-08 IT  — notte
+        (6,  11, 0.35),   # 08-13 IT  — mattina lavorativa
+        (11, 16, 0.35),   # 13-18 IT  — pomeriggio lavorativo
+        (16, 24, 0.25),   # 18-02 IT  — sera
+    ]
     
     all_entries: List[Dict[str, Any]] = []
     
-    for s in range(NUM_SLICES):
-        slice_start = day_start + timedelta(hours=s * HOURS_PER_SLICE)
-        slice_end   = slice_start + timedelta(hours=HOURS_PER_SLICE)
+    for start_h, end_h, weight in SLICES:
+        slice_start = day_start + timedelta(hours=start_h)
+        slice_end   = day_start + timedelta(hours=end_h)
         start_str = slice_start.strftime('%Y-%m-%dT%H:%M:%SZ')
         end_str   = slice_end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        slice_limit = max(25, int(limit * weight))
         
         filter_str = (
             f'resource.type="http_load_balancer" '
@@ -213,7 +219,7 @@ def _fetch_logs_for_day_api(
         
         try:
             client = _get_logging_client()
-            page_size = min(per_slice_limit, 1000)
+            page_size = min(slice_limit, 1000)
             
             request = ListLogEntriesRequest(
                 resource_names=["projects/suite-clinica"],
@@ -231,20 +237,20 @@ def _fetch_logs_for_day_api(
                 for entry in page.entries:
                     all_entries.append(_protobuf_entry_to_dict(entry))
                     count += 1
-                    if count >= per_slice_limit:
+                    if count >= slice_limit:
                         break
-                if count >= per_slice_limit:
+                if count >= slice_limit:
                     break
                     
         except GoogleAPIError as e:
-            _log_error("[monitoring] Logging API error day=%s slice=%d: %s", date_str, s, str(e))
+            _log_error("[monitoring] Logging API error day=%s h%d-%d: %s", date_str, start_h, end_h, str(e))
         except DefaultCredentialsError as e:
             _log_error("[monitoring] GCP credentials not found: %s", str(e))
             return date_str, []
         except Exception as e:
-            _log_error("[monitoring] Unexpected error day=%s slice=%d: %s", date_str, s, str(e))
+            _log_error("[monitoring] Unexpected error day=%s h%d-%d: %s", date_str, start_h, end_h, str(e))
     
-    _log_info("[monitoring] day=%s → %d entries (4 slices)", date_str, len(all_entries))
+    _log_info("[monitoring] day=%s → %d entries (4 weighted slices)", date_str, len(all_entries))
     return date_str, all_entries
 
 
