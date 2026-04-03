@@ -271,7 +271,11 @@ def generate_report(output_dir=".", upload_to_bucket=None):
 
         df_prof = pd.DataFrame(rows_prof).sort_values(['Dipartimento', 'Professionista']) if rows_prof else pd.DataFrame()
         df_team = pd.DataFrame(build_aggregate_rows(stats_by_team, True))
+        if not df_team.empty:
+            df_team = df_team.sort_values(['Dipartimento', 'Team'])
         df_dept = pd.DataFrame(build_aggregate_rows(stats_by_dept, False))
+        if not df_dept.empty:
+            df_dept = df_dept.sort_values(['Dipartimento'])
 
         output_file = os.path.join(output_dir, f'Report_KPI_Professionisti_{datetime.now().strftime("%Y%m%d")}.xlsx')
         with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
