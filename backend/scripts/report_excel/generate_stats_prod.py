@@ -79,7 +79,7 @@ def generate_report(output_dir=".", upload_to_bucket=None):
             Cliente.stato_cliente,
             Cliente.stato_cliente_data,
             WeeklyCheck.assigned_at
-        ).outerjoin(WeeklyCheck, WeeklyCheck.cliente_id == Cliente.cliente_id).all()
+        ).outerjoin(WeeklyCheck, WeeklyCheck.cliente_id == Cliente.cliente_id).yield_per(500)
 
         stats_by_prof = defaultdict(lambda: {
             'prof_ratings': [], 'prog_ratings': [],
@@ -126,7 +126,7 @@ def generate_report(output_dir=".", upload_to_bucket=None):
             WeeklyCheckResponse.coach_rating,
             WeeklyCheckResponse.psychologist_rating,
             WeeklyCheckResponse.progress_rating
-        ).all()
+        ).yield_per(1000)
 
         for r in risposte_query:
             # Nutrizione
