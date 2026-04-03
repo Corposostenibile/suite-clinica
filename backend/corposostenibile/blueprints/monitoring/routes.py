@@ -88,18 +88,17 @@ def get_metrics():
 
     days           = request.args.get('days', 7, type=int)
     include_static = request.args.get('include_static', 0, type=int)
-    per_day_limit  = request.args.get('per_day_limit', 500, type=int)
     use_cache      = request.args.get('use_cache', 1, type=int)
     cache_ttl      = request.args.get('cache_ttl', 300, type=int)
 
     # Validazione
     days          = min(max(days, 1), 30)
-    # per_day_limit=0 significa default (500), hard limit a 5000
-    if per_day_limit <= 0:
-        per_day_limit = 500
-    else:
-        per_day_limit = min(max(per_day_limit, 100), 5000)
     cache_ttl     = min(max(cache_ttl, 60), 3600)
+
+    # Budget totale fisso ~3500 entry, distribuito sui giorni.
+    # Meno giorni = più entry/giorno = migliore copertura endpoint.
+    TOTAL_BUDGET = 3500
+    per_day_limit = max(100, min(5000, TOTAL_BUDGET // days))
 
     data = get_monitoring_data(
         days=days,
