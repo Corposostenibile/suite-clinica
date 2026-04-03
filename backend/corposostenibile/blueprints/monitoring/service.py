@@ -182,81 +182,70 @@ def _fetch_logs_for_day_api(
 ) -> tuple[str, List[Dict[str, Any]]]:
     """
     Scarica i log di UN singolo giorno (UTC) usando Cloud Logging API.
-    Ritorna (date_str, entries).
     
-    Miglioramenti:
-    - Nessun subprocess
-    - Gestione errori API nativa
-    - Timeout configurable
+    Strategia: divide il giorno in 4 fasce di 6 ore e distribuisce
+    il budget equamente, così il campione copre tutto il giorno
+    e tutti gli endpoint (anche quelli usati solo in certi orari).
     """
     day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
-    day_end   = day_start + timedelta(days=1)
     date_str  = day_start.strftime('%Y-%m-%d')
-    start_str = day_start.strftime('%Y-%m-%dT%H:%M:%SZ')
-    end_str   = day_end.strftime('%Y-%m-%dT%H:%M:%SZ')
-
-    filter_str = (
-        f'resource.type="http_load_balancer" '
-        f'timestamp>="{start_str}" timestamp<"{end_str}" '
-        f'httpRequest.requestUrl=~"/(api|old-suite|ghl|check|postit|clienti)/" '
-    )
     
-    max_retries = 3
-    for attempt in range(max_retries):
+    limit = per_day_limit if per_day_limit and per_day_limit > 0 else 500
+    
+    # Dividi in 4 fasce da 6 ore con budget equo
+    NUM_SLICES = 4
+    HOURS_PER_SLICE = 6
+    per_slice_limit = max(50, limit // NUM_SLICES)
+    
+    all_entries: List[Dict[str, Any]] = []
+    
+    for s in range(NUM_SLICES):
+        slice_start = day_start + timedelta(hours=s * HOURS_PER_SLICE)
+        slice_end   = slice_start + timedelta(hours=HOURS_PER_SLICE)
+        start_str = slice_start.strftime('%Y-%m-%dT%H:%M:%SZ')
+        end_str   = slice_end.strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        filter_str = (
+            f'resource.type="http_load_balancer" '
+            f'timestamp>="{start_str}" timestamp<"{end_str}" '
+            f'httpRequest.requestUrl=~"/(api|old-suite|ghl|check|postit|clienti)/" '
+        )
+        
         try:
             client = _get_logging_client()
-            entries = []
+            page_size = min(per_slice_limit, 1000)
             
-            # Determina page_size e limite
-            limit = per_day_limit if per_day_limit and per_day_limit > 0 else 500
-            page_size = min(limit, 1000)
-            
-            # Costruisci la request con page_size
             request = ListLogEntriesRequest(
                 resource_names=["projects/suite-clinica"],
                 filter=filter_str,
                 page_size=page_size,
             )
             
-            # Cloud Logging API con paginazione
             response = client.list_log_entries(
                 request=request,
                 timeout=timeout_s,
             )
             
-            # Itera attraverso le pagine
+            count = 0
             for page in response.pages:
                 for entry in page.entries:
-                    entry_dict = _protobuf_entry_to_dict(entry)
-                    entries.append(entry_dict)
-                    
-                    if len(entries) >= limit:
+                    all_entries.append(_protobuf_entry_to_dict(entry))
+                    count += 1
+                    if count >= per_slice_limit:
                         break
-                
-                if len(entries) >= limit:
+                if count >= per_slice_limit:
                     break
-            
-            _log_info("[monitoring] day=%s → %d entries (API)", date_str, len(entries))
-            return date_str, entries
-            
+                    
         except GoogleAPIError as e:
-            # Se è un errore 429 (rate limit) e abbiamo tentativi, aspetta con backoff
-            if hasattr(e, 'code') and e.code == 429 and attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # 1, 2, 4 secondi
-                _log_info("[monitoring] Rate limit hit for day=%s, retrying in %ds (attempt %d/%d)", 
-                         date_str, wait_time, attempt + 1, max_retries)
-                time.sleep(wait_time)
-                continue
-            _log_error("[monitoring] Cloud Logging API error day=%s: %s", date_str, str(e))
-            return date_str, []
+            _log_error("[monitoring] Logging API error day=%s slice=%d: %s", date_str, s, str(e))
         except DefaultCredentialsError as e:
             _log_error("[monitoring] GCP credentials not found: %s", str(e))
             return date_str, []
         except Exception as e:
-            _log_error("[monitoring] Unexpected error day=%s: %s", date_str, str(e))
-            return date_str, []
-    # Should not reach here, but just in case
-    return date_str, []
+            _log_error("[monitoring] Unexpected error day=%s slice=%d: %s", date_str, s, str(e))
+    
+    _log_info("[monitoring] day=%s → %d entries (4 slices)", date_str, len(all_entries))
+    return date_str, all_entries
 
 
 def _protobuf_entry_to_dict(entry) -> Dict[str, Any]:
