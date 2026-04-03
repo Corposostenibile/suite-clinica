@@ -195,8 +195,8 @@ def generate_report(output_dir=".", upload_to_bucket=None):
             dept_name = stats['dept'].value if stats['dept'] else (user.specialty.value if user.specialty else 'N/A')
 
             rows_prof.append({
-                'Dipartimento': dept_name,
                 'Professionista': user.full_name,
+                'Dipartimento': dept_name,
                 'Team': team.name if team else 'Senza Team',
                 'Voto medio professionista': round(avg_prof, 2) if avg_prof else None,
                 'N° check con voto professionista': len(stats['prof_ratings']),
@@ -237,7 +237,15 @@ def generate_report(output_dir=".", upload_to_bucket=None):
                 skipped = ((exp - rec) / exp * 100) if exp > 0 else 0
                 if skipped < 0: skipped = 0
                 
-                row = {
+                row = {}
+                if is_team:
+                    t_obj = all_teams.get(key)
+                    row['Team'] = t_obj.name if t_obj else f'ID {key}'
+                    row['Dipartimento'] = st['dept']
+                else:
+                    row['Dipartimento'] = key
+                
+                row.update({
                     'Voto medio professionista': round(avg_prof, 2) if avg_prof else None,
                     'N° check con voto professionista': len(st['prof_ratings']),
                     'Voto medio percorso': round(avg_prog, 2) if avg_prog else None,
@@ -246,13 +254,7 @@ def generate_report(output_dir=".", upload_to_bucket=None):
                     'Check aspettati': exp,
                     'Check ricevuti': rec,
                     '% Check saltati': round(skipped, 2),
-                }
-                if is_team:
-                    t_obj = all_teams.get(key)
-                    row['Team'] = t_obj.name if t_obj else f'ID {key}'
-                    row['Dipartimento'] = st['dept']
-                else:
-                    row['Dipartimento'] = key
+                })
                 rows.append(row)
             return rows
 
