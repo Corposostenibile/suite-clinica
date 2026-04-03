@@ -62,8 +62,9 @@ def generate_report(output_dir=".", upload_to_bucket=None):
     app = create_app()
     with app.app_context():
         session = db.session
-        print("[1/5] Estrazione anagrafica Clienti per calcolo Check Aspettati...")
+        print("[1/5] Estrazione anagrafica Clienti ATTIVI per calcolo Check Aspettati...")
         
+        # Filtra solo clienti attivi
         clienti_query = session.query(
             Cliente.cliente_id,
             Cliente.nutrizionista_id,
@@ -79,7 +80,11 @@ def generate_report(output_dir=".", upload_to_bucket=None):
             Cliente.stato_cliente,
             Cliente.stato_cliente_data,
             WeeklyCheck.assigned_at
-        ).outerjoin(WeeklyCheck, WeeklyCheck.cliente_id == Cliente.cliente_id).yield_per(500)
+        ).filter(
+            Cliente.stato_cliente == StatoClienteEnum.attivo
+        ).outerjoin(WeeklyCheck, WeeklyCheck.cliente_id == Cliente.cliente_id).filter(
+            Cliente.stato_cliente == StatoClienteEnum.attivo
+        ).yield_per(500)
 
         stats_by_prof = defaultdict(lambda: {
             'prof_ratings': [], 'prog_ratings': [],
@@ -126,6 +131,12 @@ def generate_report(output_dir=".", upload_to_bucket=None):
             WeeklyCheckResponse.coach_rating,
             WeeklyCheckResponse.psychologist_rating,
             WeeklyCheckResponse.progress_rating
+        ).join(
+            WeeklyCheck, WeeklyCheck.id == WeeklyCheckResponse.weekly_check_id
+        ).join(
+            Cliente, Cliente.cliente_id == WeeklyCheck.cliente_id
+        ).filter(
+            Cliente.stato_cliente == StatoClienteEnum.attivo
         ).yield_per(1000)
 
         for r in risposte_query:
