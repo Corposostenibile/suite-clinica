@@ -21,8 +21,13 @@ const CLASSIFICATION_LABELS = {
 
 function Monitoring() {
   const { user } = useOutletContext();
+  // Overview (Cloud Monitoring - veloce)
+  const [overview, setOverview] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState(null);
+  // Dettaglio endpoint (Cloud Logging - più lento, lazy)
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [days, setDays] = useState(7);
   const [includeStatic, setIncludeStatic] = useState(false);
@@ -36,7 +41,28 @@ function Monitoring() {
   const [infraLoading, setInfraLoading] = useState(false);
   const [infraError, setInfraError] = useState(null);
 
+  // Carica overview all'avvio (veloce, Cloud Monitoring)
+  const fetchOverview = useCallback(async () => {
+    try {
+      setOverviewLoading(true);
+      setOverviewError(null);
+      const result = await monitoringService.getOverview({ days });
+      setOverview(result);
+    } catch (err) {
+      setOverviewError(err.response?.data?.message || 'Errore nel caricamento overview');
+      console.error('Overview fetch error:', err);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
+
+  // Carica dettaglio endpoint solo quando serve (lazy)
   const fetchData = useCallback(async () => {
+    if (data) return; // già caricato
     try {
       setLoading(true);
       setError(null);
@@ -46,16 +72,36 @@ function Monitoring() {
       });
       setData(result);
     } catch (err) {
-      setError(err.response?.data?.message || 'Errore nel caricamento dei dati');
+      setError(err.response?.data?.message || 'Errore nel caricamento dettaglio endpoint');
       console.error('Monitoring fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [days, includeStatic, data]);
+
+  const forceRefreshData = useCallback(async () => {
+    setData(null);
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await monitoringService.getMetrics({
+        days,
+        include_static: includeStatic ? 1 : 0,
+      });
+      setData(result);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Errore nel caricamento dettaglio endpoint');
     } finally {
       setLoading(false);
     }
   }, [days, includeStatic]);
 
+  // Carica dati endpoint/errori quando si clicca sul tab
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if ((activeTab === 'endpoints' || activeTab === 'errors') && !data && !loading) {
+      fetchData();
+    }
+  }, [activeTab, data, loading, fetchData]);
 
   const fetchInfraData = useCallback(async () => {
     try {
@@ -126,32 +172,13 @@ function Monitoring() {
     return eps;
   };
 
-  // Overview summary data
-  const getOverviewData = () => {
-    if (!data?.endpoints) return { byClass: [], topByVolume: [], topByLatency: [] };
-
-    const byClass = {};
-    data.endpoints.forEach(ep => {
-      const cls = ep.classification;
-      if (!byClass[cls]) byClass[cls] = { name: CLASSIFICATION_LABELS[cls] || cls, count: 0, requests: 0 };
-      byClass[cls].count += 1;
-      byClass[cls].requests += ep.total_requests;
-    });
-
-    return {
-      byClass: Object.values(byClass),
-      topByLatency: [...data.endpoints].sort((a, b) => b.avg_latency_ms - a.avg_latency_ms).slice(0, 10),
-      topByP95: [...data.endpoints].sort((a, b) => b.p95_latency_ms - a.p95_latency_ms).slice(0, 10),
-    };
-  };
-
-  const renderLoading = () => (
+  const renderLoading = (msg = 'Caricamento dati...', submsg = '') => (
     <div className="monitoring-loading">
       <div className="spinner-border text-primary" role="status">
         <span className="visually-hidden">Caricamento...</span>
       </div>
-      <p className="mt-3">Caricamento dati da Google Cloud Logging...</p>
-      <p className="text-muted small">Questo potrebbe richiedere 30-60 secondi</p>
+      <p className="mt-3">{msg}</p>
+      {submsg && <p className="text-muted small">{submsg}</p>}
     </div>
   );
 
@@ -167,21 +194,10 @@ function Monitoring() {
           <option value={30}>Ultimi 30 giorni</option>
         </select>
       </div>
-      <div className="control-group">
-        <label className="form-check-label">
-          <input
-            type="checkbox"
-            className="form-check-input me-1"
-            checked={includeStatic}
-            onChange={e => setIncludeStatic(e.target.checked)}
-          />
-          Includi file statici
-        </label>
-      </div>
       <button
         className="btn btn-sm btn-outline-primary"
-        onClick={fetchData}
-        disabled={loading}
+        onClick={() => { setOverview(null); setData(null); fetchOverview(); }}
+        disabled={overviewLoading || loading}
       >
         Aggiorna
       </button>
@@ -189,44 +205,37 @@ function Monitoring() {
   );
 
   const renderSummaryCards = () => {
-    if (!data) return null;
-    const eps = data.endpoints || [];
-    const totalReqs = eps.reduce((s, e) => s + e.total_requests, 0);
-    const avgLatency = eps.length
-      ? Math.round(eps.reduce((s, e) => s + e.avg_latency_ms * e.total_requests, 0) / Math.max(totalReqs, 1))
-      : 0;
-    const errorEndpoints = eps.filter(e => e.error_rate_pct > 0).length;
-    const internalCount = eps.filter(e => e.classification === 'internal').length;
-    const externalCount = eps.filter(e => e.classification === 'external_call').length;
-
+    if (!overview) return null;
     return (
       <div className="summary-cards">
         <div className="summary-card">
-          <div className="summary-value">{eps.length}</div>
-          <div className="summary-label">Endpoint unici</div>
+          <div className="summary-value">{overview.total_requests?.toLocaleString() || 0}</div>
+          <div className="summary-label">Richieste totali ({overview.period_days}gg)</div>
         </div>
         <div className="summary-card">
-          <div className="summary-value">{avgLatency}ms</div>
-          <div className="summary-label">Latenza media ponderata</div>
+          <div className="summary-value">{overview.avg_requests_per_day || 0}</div>
+          <div className="summary-label">Media richieste/giorno</div>
         </div>
         <div className="summary-card">
-          <div className="summary-value">{errorEndpoints}</div>
-          <div className="summary-label">Endpoint con errori</div>
+          <div className="summary-value">{overview.avg_latency_ms || 0}ms</div>
+          <div className="summary-label">Latenza media</div>
         </div>
-        <div className="summary-card card-internal">
-          <div className="summary-value">{internalCount}</div>
-          <div className="summary-label">Endpoint interni</div>
+        <div className="summary-card">
+          <div className="summary-value">{overview.p95_latency_ms || 0}ms</div>
+          <div className="summary-label">Latenza P95</div>
         </div>
-        <div className="summary-card card-external">
-          <div className="summary-value">{externalCount}</div>
-          <div className="summary-label">Verso servizi esterni</div>
+        <div className="summary-card">
+          <div className="summary-value">{overview.error_rate_pct || 0}%</div>
+          <div className="summary-label">Errori ({overview.errors_4xx || 0} 4xx + {overview.errors_5xx || 0} 5xx)</div>
         </div>
       </div>
     );
   };
 
   const renderOverview = () => {
-    const overview = getOverviewData();
+    if (overviewLoading) return renderLoading('Caricamento panoramica...', '~1-2 secondi (Cloud Monitoring)');
+    if (overviewError) return <div className="alert alert-danger">{overviewError}</div>;
+    if (!overview) return null;
 
     return (
       <div className="monitoring-overview">
@@ -234,25 +243,56 @@ function Monitoring() {
 
         <div className="charts-row">
           <div className="chart-container">
-            <h5>Top 10 per latenza media (ms)</h5>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={overview.topByLatency} layout="vertical" margin={{ left: 200 }}>
+            <h5>Distribuzione oraria (tutte le richieste)</h5>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={overview.hourly_distribution || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="url"
-                  width={190}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={v => v.length > 30 ? v.slice(0, 30) + '...' : v}
-                />
-                <Tooltip
-                  formatter={(val) => [`${val}ms`, 'Latenza media']}
-                  labelFormatter={label => label}
-                />
-                <Bar dataKey="avg_latency_ms" name="Latenza media (ms)">
-                  {overview.topByLatency.map((entry, i) => (
-                    <Cell key={i} fill={entry.avg_latency_ms > 5000 ? '#f44336' : entry.avg_latency_ms > 2000 ? '#FF9800' : '#4CAF50'} />
+                <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+                <YAxis />
+                <Tooltip formatter={(val) => [val.toLocaleString(), 'Richieste']} />
+                <Bar dataKey="count" fill="#4CAF50" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="chart-container">
+            <h5>Distribuzione settimanale (tutte le richieste)</h5>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={overview.weekday_distribution || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis />
+                <Tooltip formatter={(val) => [val.toLocaleString(), 'Media/giorno']} />
+                <Bar dataKey="avg_per_day" fill="#FF9800" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="charts-row">
+          <div className="chart-container">
+            <h5>Latenza (ms)</h5>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={[
+                { name: 'Media', value: overview.avg_latency_ms || 0 },
+                { name: 'P50', value: overview.p50_latency_ms || 0 },
+                { name: 'P95', value: overview.p95_latency_ms || 0 },
+                { name: 'P99', value: overview.p99_latency_ms || 0 },
+                { name: 'Max', value: overview.max_latency_ms || 0 },
+              ]}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(val) => [`${val}ms`, 'Latenza']} />
+                <Bar dataKey="value" name="Latenza (ms)">
+                  {[
+                    { name: 'Media', value: overview.avg_latency_ms || 0 },
+                    { name: 'P50', value: overview.p50_latency_ms || 0 },
+                    { name: 'P95', value: overview.p95_latency_ms || 0 },
+                    { name: 'P99', value: overview.p99_latency_ms || 0 },
+                    { name: 'Max', value: overview.max_latency_ms || 0 },
+                  ].map((entry, i) => (
+                    <Cell key={i} fill={entry.value > 5000 ? '#f44336' : entry.value > 2000 ? '#FF9800' : '#4CAF50'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -260,54 +300,69 @@ function Monitoring() {
           </div>
 
           <div className="chart-container">
-            <h5>Top 10 per latenza P95 (ms)</h5>
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={overview.topByP95} layout="vertical" margin={{ left: 200 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis
-                  type="category"
-                  dataKey="url"
-                  width={190}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={v => v.length > 30 ? v.slice(0, 30) + '...' : v}
-                />
-                <Tooltip
-                  formatter={(val) => [`${val}ms`, 'P95']}
-                  labelFormatter={label => label}
-                />
-                <Bar dataKey="p95_latency_ms" name="P95 (ms)">
-                  {overview.topByP95.map((entry, i) => (
-                    <Cell key={i} fill={entry.p95_latency_ms > 5000 ? '#f44336' : entry.p95_latency_ms > 2000 ? '#FF9800' : '#4CAF50'} />
-                  ))}
-                </Bar>
-              </BarChart>
+            <h5>Errori</h5>
+            <ResponsiveContainer width="100%" height={200}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'OK (2xx/3xx)', value: Math.max(0, (overview.total_requests || 0) - (overview.errors_4xx || 0) - (overview.errors_5xx || 0)) },
+                    { name: 'Client (4xx)', value: overview.errors_4xx || 0 },
+                    { name: 'Server (5xx)', value: overview.errors_5xx || 0 },
+                  ].filter(d => d.value > 0)}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={70}
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(1)}%)`}
+                >
+                  <Cell fill="#4CAF50" />
+                  <Cell fill="#FF9800" />
+                  <Cell fill="#f44336" />
+                </Pie>
+                <Tooltip formatter={(val) => [val.toLocaleString(), 'Richieste']} />
+                <Legend />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="chart-container full-width">
-          <h5>Distribuzione per tipo</h5>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={overview.byClass}
-                dataKey="requests"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-              >
-                {overview.byClass.map((entry, i) => (
-                  <Cell key={i} fill={Object.values(COLORS)[i] || '#8884d8'} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(val) => [val.toLocaleString(), 'Richieste']} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {/* Top endpoint per latenza (dai log, se disponibili) */}
+        {data?.endpoints && data.endpoints.length > 0 && (
+          <div className="charts-row">
+            <div className="chart-container">
+              <h5>Top 10 per latenza media (ms) — da log</h5>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={[...data.endpoints].sort((a, b) => b.avg_latency_ms - a.avg_latency_ms).slice(0, 10)} layout="vertical" margin={{ left: 200 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis
+                    type="category"
+                    dataKey="url"
+                    width={190}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={v => v.length > 30 ? v.slice(0, 30) + '...' : v}
+                  />
+                  <Tooltip formatter={(val) => [`${val}ms`, 'Latenza media']} />
+                  <Bar dataKey="avg_latency_ms" name="Latenza media (ms)">
+                    {[...data.endpoints].sort((a, b) => b.avg_latency_ms - a.avg_latency_ms).slice(0, 10).map((entry, i) => (
+                      <Cell key={i} fill={entry.avg_latency_ms > 5000 ? '#f44336' : entry.avg_latency_ms > 2000 ? '#FF9800' : '#4CAF50'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {!data && !loading && (
+          <div className="text-center mt-3">
+            <button className="btn btn-sm btn-outline-secondary" onClick={forceRefreshData}>
+              Carica dettaglio per endpoint (da Cloud Logging)
+            </button>
+          </div>
+        )}
+        {loading && <p className="text-muted text-center mt-3">Caricamento dettaglio endpoint...</p>}
       </div>
     );
   };
@@ -803,10 +858,10 @@ function Monitoring() {
 
       {renderControls()}
 
-      {loading && renderLoading()}
-      {error && <div className="alert alert-danger">{error}</div>}
+      {overviewLoading && activeTab === 'overview' && renderLoading('Caricamento panoramica...', '~1-2 secondi (Cloud Monitoring)')}
+      {overviewError && activeTab === 'overview' && <div className="alert alert-danger">{overviewError}</div>}
 
-      {!loading && data && (
+      {(overview || data) && (
         <>
           <div className="monitoring-tabs">
             <button
@@ -819,13 +874,13 @@ function Monitoring() {
               className={`tab-btn ${activeTab === 'endpoints' ? 'active' : ''}`}
               onClick={() => setActiveTab('endpoints')}
             >
-              Dettaglio API ({data.endpoints?.length || 0})
+              Dettaglio API {data ? `(${data.endpoints?.length || 0})` : ''}
             </button>
             <button
               className={`tab-btn ${activeTab === 'errors' ? 'active' : ''}`}
               onClick={() => setActiveTab('errors')}
             >
-              Errori ({data.errors?.length || 0})
+              Errori {data ? `(${data.errors?.length || 0})` : ''}
             </button>
             <button
               className={`tab-btn ${activeTab === 'infrastructure' ? 'active' : ''}`}
@@ -836,14 +891,14 @@ function Monitoring() {
           </div>
 
           {activeTab === 'overview' && renderOverview()}
-          {activeTab === 'endpoints' && renderEndpointTable()}
-          {activeTab === 'errors' && renderErrors()}
+          {activeTab === 'endpoints' && (loading ? renderLoading('Caricamento dettaglio endpoint...', '~5-10 secondi (Cloud Logging)') : error ? <div className="alert alert-danger">{error}</div> : data ? renderEndpointTable() : null)}
+          {activeTab === 'errors' && (loading ? renderLoading('Caricamento errori...', '~5-10 secondi (Cloud Logging)') : error ? <div className="alert alert-danger">{error}</div> : data ? renderErrors() : null)}
           {activeTab === 'infrastructure' && renderInfrastructure()}
 
           <div className="monitoring-footer text-muted small">
-            Periodo: {data.period_days} giorni |
-            Endpoint unici: {data.endpoints?.length} |
-            Campione: ~300 entry/giorno
+            {overview && <>Periodo: {overview.period_days} giorni | Richieste totali: {overview.total_requests?.toLocaleString()}</>}
+            {data && <> | Endpoint unici: {data.endpoints?.length}</>}
+            {' '}| Fonte overview: Cloud Monitoring (pre-aggregato)
           </div>
         </>
       )}

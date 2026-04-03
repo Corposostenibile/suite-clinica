@@ -1,8 +1,8 @@
-# Monitoring Blueprint v2.0
+# Monitoring Blueprint v2.1
 
 Dashboard admin per analizzare le performance delle API dal Google Cloud Load Balancer.
 
-**Novità v2.0**: Cloud Logging API nativa (non più CLI), caching Redis, recupero di tutti i dati.
+**Novità v2.1**: Approccio ibrido — Cloud Monitoring API per overview (istantaneo) + Cloud Logging per dettaglio endpoint (lazy load).
 
 ## Struttura
 
@@ -10,7 +10,7 @@ Dashboard admin per analizzare le performance delle API dal Google Cloud Load Ba
 blueprints/monitoring/
 ├── __init__.py       # Blueprint Flask (prefix: /api/monitoring)
 ├── routes.py         # Endpoint HTTP (con caching)
-├── service.py        # Logica: Cloud Logging API, parsing, aggregazione
+├── service.py        # Logica: Cloud Monitoring + Logging API, parsing, aggregazione
 └── docs/
     └── monitoring.md
 ```
@@ -20,28 +20,49 @@ Service frontend: `corposostenibile-clinica/src/services/monitoringService.js`
 
 ---
 
-## Architettura v2.0
+## Architettura v2.1 — Approccio Ibrido
 
+### Tab "Panoramica" (Cloud Monitoring API — istantaneo)
 ```
-Browser → nginx → Flask /api/monitoring/metrics
-                         ↓
-                  Redis Cache (5 min TTL)
-                         ↓ (cache miss)
-                  _fetch_logs_api()
-                  Cloud Logging API nativa
-                  ThreadPoolExecutor (1 thread/giorno, max 4)
-                         ↓
-                  _parse_entries()  →  _aggregate_metrics()
-                         ↓
-                  JSON response + Cache-Control header
+Browser → /api/monitoring/overview
+                    ↓
+             Redis Cache (5 min TTL)
+                    ↓ (cache miss)
+             Cloud Monitoring API (metriche pre-aggregate GCP)
+             loadbalancing.googleapis.com/https/request_count
+             loadbalancing.googleapis.com/https/total_latencies
+                    ↓
+             JSON response (~1-2s)
 ```
 
-**Vantaggi v2.0:**
-- **Performance**: API nativa vs subprocess CLI (10-50x più veloce)
-- **Completezza**: Nessun limite di campionamento (recupera TUTTI i dati)
-- **Affidabilità**: Gestione errori API nativa, timeout configurabili
-- **Caching**: Redis cache per ridurre chiamate API
-- **Scalabilità**: Pronto per produzione GCP
+### Tab "Dettaglio API" / "Errori" (Cloud Logging — lazy load)
+```
+Browser → /api/monitoring/metrics (solo quando si clicca sul tab)
+                    ↓
+             Redis Cache (5 min TTL)
+                    ↓ (cache miss)
+             Cloud Logging API (500 entry/giorno, campione)
+             ThreadPoolExecutor (1 thread/giorno, max 4)
+                    ↓
+             Parse + Aggregate → JSON response (~5-10s)
+```
+
+### Tab "Infrastruttura" (Kubernetes + Cloud SQL API — lazy load)
+```
+Browser → /api/monitoring/infrastructure
+                    ↓
+             Redis Cache (1 min TTL)
+                    ↓ (cache miss)
+             6 chiamate parallele (ThreadPoolExecutor)
+                    ↓
+             JSON response (~2-5s)
+```
+
+**Vantaggi v2.1 vs v2.0:**
+- **Overview istantanea**: Cloud Monitoring fornisce metriche pre-aggregate, nessun log da scaricare
+- **Lazy loading**: il dettaglio endpoint si carica solo quando richiesto
+- **Infrastruttura parallela**: 6 chiamate in contemporanea invece che in serie
+- **Limiti ragionevoli**: 500 entry/giorno (campione statistico sufficiente)
 
 ---
 
@@ -89,15 +110,45 @@ Browser → nginx → Flask /api/monitoring/metrics
 
 ## Endpoint
 
+### `GET /api/monitoring/overview` (NUOVO — v2.1)
+
+Overview veloce da Cloud Monitoring API (metriche pre-aggregate GCP). **~1-2 secondi**.
+
+| Parametro  | Default | Range    | Note              |
+|------------|---------|----------|-------------------|
+| `days`     | 7       | 1–30    | Quanti giorni     |
+| `use_cache`| 1       | 0/1      | Usa Redis cache   |
+| `cache_ttl`| 300     | 60–3600 | Cache TTL secondi |
+
+**Response:**
+```json
+{
+  "source": "cloud_monitoring",
+  "total_requests": 4250,
+  "avg_requests_per_day": 607.1,
+  "errors_4xx": 23,
+  "errors_5xx": 2,
+  "error_rate_pct": 0.6,
+  "period_days": 7,
+  "avg_latency_ms": 320,
+  "p50_latency_ms": 180,
+  "p95_latency_ms": 1200,
+  "p99_latency_ms": 2800,
+  "max_latency_ms": 5200,
+  "hourly_distribution": [...],
+  "weekday_distribution": [...]
+}
+```
+
 ### `GET /api/monitoring/metrics`
 
-Richiede autenticazione admin. Usa Cloud Logging API nativa + caching Redis.
+Dettaglio per endpoint da Cloud Logging (campione log). **~5-10 secondi** (prima volta).
 
 | Parametro       | Default | Range   | Note                          |
 |-----------------|---------|---------|-------------------------------|
 | `days`          | 7       | 1–30    | Quanti giorni di log          |
 | `include_static`| 0       | 0/1     | Includere asset statici       |
-| `per_day_limit` | 0       | 0, 100–50000 | Entry per giorno (0 = tutti i dati, max 50k) |
+| `per_day_limit` | 500   | 100–5000  | Entry per giorno (campione statistico)  |
 | `use_cache`     | 1       | 0/1     | Usa Redis cache               |
 | `cache_ttl`     | 300     | 60–3600 | Cache TTL in secondi          |
 
@@ -159,11 +210,13 @@ Metriche infrastrutturali via Kubernetes API nativa + caching Redis.
 - **Subprocess CLI** (gcloud, kubectl)
 - **Nessuna cache**
 
-### Nuova implementazione (v2.0)
-- **TUTTI i dati** (fino a 50k entry/giorno)
-- **~1-3 secondi** per 7 giorni (con cache: 0.1s)
+### Nuova implementazione (v2.0 → v2.1)
+- **500 entry/giorno** (campione statistico sufficiente)
+- **~3-8 secondi** per 7 giorni (con cache: <100ms)
 - **Cloud Logging API nativa**
 - **Redis cache** (TTL configurabile)
+- **Fetch parallelo** (4 thread)
+- **Infrastruttura parallela** (6 chiamate in contemporanea)
 
 ---
 

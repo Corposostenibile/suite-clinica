@@ -177,8 +177,8 @@ def _get_logging_client() -> LoggingServiceV2Client:
 
 def _fetch_logs_for_day_api(
     date: datetime,
-    per_day_limit: Optional[int] = 10000,  # None o 0 significa "tutti i dati"
-    timeout_s: int = 60,
+    per_day_limit: Optional[int] = 500,
+    timeout_s: int = 30,
 ) -> tuple[str, List[Dict[str, Any]]]:
     """
     Scarica i log di UN singolo giorno (UTC) usando Cloud Logging API.
@@ -207,13 +207,9 @@ def _fetch_logs_for_day_api(
             client = _get_logging_client()
             entries = []
             
-            # Determina page_size e se applicare limite
-            if per_day_limit is None or per_day_limit == 0:
-                page_size = 1000  # Massimo per pagina, nessun limite totale
-                limit = None
-            else:
-                page_size = min(per_day_limit, 1000)
-                limit = per_day_limit
+            # Determina page_size e limite
+            limit = per_day_limit if per_day_limit and per_day_limit > 0 else 500
+            page_size = min(limit, 1000)
             
             # Costruisci la request con page_size
             request = ListLogEntriesRequest(
@@ -228,14 +224,16 @@ def _fetch_logs_for_day_api(
                 timeout=timeout_s,
             )
             
-            # Itera attraverso le entry (il pager è iterable)
-            for entry in response:
-                # Converti entry protobuf in dict
-                entry_dict = _protobuf_entry_to_dict(entry)
-                entries.append(entry_dict)
+            # Itera attraverso le pagine
+            for page in response.pages:
+                for entry in page.entries:
+                    entry_dict = _protobuf_entry_to_dict(entry)
+                    entries.append(entry_dict)
+                    
+                    if len(entries) >= limit:
+                        break
                 
-                # Stop se raggiungiamo il limite (se applicabile)
-                if limit is not None and len(entries) >= limit:
+                if len(entries) >= limit:
                     break
             
             _log_info("[monitoring] day=%s → %d entries (API)", date_str, len(entries))
@@ -293,7 +291,7 @@ def _protobuf_entry_to_dict(entry) -> Dict[str, Any]:
 
 def _fetch_logs_api(
     days: int = 7,
-    per_day_limit: Optional[int] = 10000,  # None o 0 significa "tutti i dati"
+    per_day_limit: Optional[int] = 500,
     use_cache: bool = True,
     cache_ttl: int = 300,  # 5 minuti di cache
 ) -> List[Dict[str, Any]]:
@@ -322,14 +320,17 @@ def _fetch_logs_api(
             _log_info("[monitoring] Cache hit for logs: %s", cache_key)
             return json.loads(cached_data)
 
-    # Fetch sequenziale per evitare rate limit (max 60 richieste/min)
     all_entries: List[Dict[str, Any]] = []
     
-    for i, d in enumerate(dates):
-        if i > 0:
-            time.sleep(1)  # Pausa di 1 secondo tra richieste per sicurezza
-        date_str, entries = _fetch_logs_for_day_api(d, per_day_limit)
-        all_entries.extend(entries)
+    # Eseguiamo in parallelo con ThreadPoolExecutor (max 4 thread)
+    with ThreadPoolExecutor(max_workers=min(days, 4)) as executor:
+        futures = {executor.submit(_fetch_logs_for_day_api, d, per_day_limit): d for d in dates}
+        for future in as_completed(futures):
+            try:
+                date_str, entries = future.result()
+                all_entries.extend(entries)
+            except Exception as e:
+                _log_error("[monitoring] Error fetching logs in thread: %s", str(e))
 
     # Salva in cache
     if use_cache and is_redis_available() and all_entries:
@@ -594,7 +595,8 @@ def get_pod_metrics() -> List[Dict[str, Any]]:
         # Per semplicità, usiamo le label dei pod per calcolare utilizzo
         pods = api.list_namespaced_pod(
             namespace="default",
-            label_selector="app=suite-clinica-backend"
+            label_selector="app=suite-clinica-backend",
+            _request_timeout=15
         )
         
         pod_metrics = []
@@ -626,7 +628,7 @@ def get_node_metrics() -> List[Dict[str, Any]]:
         if not api:
             return []
         
-        nodes = api.list_node()
+        nodes = api.list_node(_request_timeout=15)
         
         node_metrics = []
         for node in nodes.items:
@@ -690,40 +692,22 @@ def _parse_memory_k8s(memory_str: str) -> Optional[int]:
 
 
 def get_hpa_status() -> List[Dict[str, Any]]:
-    """Stato degli HPA usando Kubernetes API."""
+    """Stato degli HPA usando Kubernetes AutoscalingV1 API."""
     try:
         api = _get_autoscaling_client()
         if not api:
             return []
         
-        hpa_list = api.list_horizontal_pod_autoscaler_for_all_namespaces()
+        hpa_list = api.list_horizontal_pod_autoscaler_for_all_namespaces(_request_timeout=15)
         
         hpas = []
         for hpa in hpa_list.items:
             spec = hpa.spec
             status = hpa.status
             
-            # Estrai metriche target e correnti
-            current_metrics = {}
-            target_metrics = {}
-            
-            if status.current_metrics:
-                for metric in status.current_metrics:
-                    if metric.resource:
-                        res_name = metric.resource.name
-                        if metric.resource.current:
-                            current_metrics[res_name] = (
-                                metric.resource.current.average_utilization
-                            )
-            
-            if spec.metrics:
-                for metric in spec.metrics:
-                    if metric.resource:
-                        res_name = metric.resource.name
-                        if metric.resource.target:
-                            target_metrics[res_name] = (
-                                metric.resource.target.average_utilization
-                            )
+            # V1 HPA: solo CPU target/current
+            cpu_target = spec.target_cpu_utilization_percentage
+            cpu_current = status.current_cpu_utilization_percentage
             
             hpas.append({
                 'name': hpa.metadata.name,
@@ -732,10 +716,10 @@ def get_hpa_status() -> List[Dict[str, Any]]:
                 'max_replicas': spec.max_replicas or 0,
                 'current_replicas': status.current_replicas or 0,
                 'desired_replicas': status.desired_replicas or 0,
-                'cpu_current_pct': current_metrics.get('cpu'),
-                'cpu_target_pct': target_metrics.get('cpu'),
-                'memory_current_pct': current_metrics.get('memory'),
-                'memory_target_pct': target_metrics.get('memory'),
+                'cpu_current_pct': cpu_current,
+                'cpu_target_pct': cpu_target,
+                'memory_current_pct': None,
+                'memory_target_pct': None,
             })
         
         return hpas
@@ -754,7 +738,8 @@ def get_deployment_info() -> Dict[str, Any]:
         
         deployment = api.read_namespaced_deployment(
             name="suite-clinica-backend",
-            namespace="default"
+            namespace="default",
+            _request_timeout=15
         )
         
         spec = deployment.spec
@@ -766,10 +751,10 @@ def get_deployment_info() -> Dict[str, Any]:
             'strategy': spec.strategy.type if spec.strategy else 'Unknown',
             'image': container.image if container else '',
             'command': ' '.join(container.command or []) if container else '',
-            'requests_cpu': resources.requests.cpu if resources and resources.requests else '',
-            'requests_memory': resources.requests.memory if resources and resources.requests else '',
-            'limits_cpu': resources.limits.cpu if resources and resources.limits else '',
-            'limits_memory': resources.limits.memory if resources and resources.limits else '',
+            'requests_cpu': (resources.requests or {}).get('cpu', '') if resources else '',
+            'requests_memory': (resources.requests or {}).get('memory', '') if resources else '',
+            'limits_cpu': (resources.limits or {}).get('cpu', '') if resources else '',
+            'limits_memory': (resources.limits or {}).get('memory', '') if resources else '',
             'ready_replicas': deployment.status.ready_replicas or 0,
             'available_replicas': deployment.status.available_replicas or 0,
         }
@@ -788,7 +773,8 @@ def get_pods_status() -> List[Dict[str, Any]]:
         
         pods = api.list_namespaced_pod(
             namespace="default",
-            label_selector="app=suite-clinica-backend"
+            label_selector="app=suite-clinica-backend",
+            _request_timeout=15
         )
         
         pod_list = []
@@ -864,14 +850,22 @@ def get_infrastructure_data(use_cache: bool = True, cache_ttl: int = 60) -> Dict
             _log_info("[monitoring] Cache hit for infrastructure: %s", cache_key)
             return json.loads(cached_data)
     
-    # Recupera dati freschi
+    # Recupera dati freschi in parallelo
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        f_pods = executor.submit(get_pod_metrics)
+        f_nodes = executor.submit(get_node_metrics)
+        f_hpa = executor.submit(get_hpa_status)
+        f_deploy = executor.submit(get_deployment_info)
+        f_status = executor.submit(get_pods_status)
+        f_sql = executor.submit(get_cloud_sql_info)
+    
     data = {
-        'pods_metrics': get_pod_metrics(),
-        'nodes_metrics': get_node_metrics(),
-        'hpa': get_hpa_status(),
-        'deployment': get_deployment_info(),
-        'pods_status': get_pods_status(),
-        'cloud_sql': get_cloud_sql_info(),
+        'pods_metrics': f_pods.result(),
+        'nodes_metrics': f_nodes.result(),
+        'hpa': f_hpa.result(),
+        'deployment': f_deploy.result(),
+        'pods_status': f_status.result(),
+        'cloud_sql': f_sql.result(),
     }
     
     # Salva in cache
@@ -885,26 +879,342 @@ def get_infrastructure_data(use_cache: bool = True, cache_ttl: int = 60) -> Dict
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#              CLOUD MONITORING API (metriche pre-aggregate GCP)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_GCP_PROJECT = "projects/suite-clinica"
+
+# Metriche LB disponibili:
+# - loadbalancing.googleapis.com/https/request_count  (DELTA, INT64)
+# - loadbalancing.googleapis.com/https/total_latencies (DELTA, DISTRIBUTION)
+# - loadbalancing.googleapis.com/https/backend_latencies (DELTA, DISTRIBUTION)
+
+
+def _get_monitoring_client() -> monitoring_v3.MetricServiceClient:
+    """Ottiene il client Cloud Monitoring."""
+    return monitoring_v3.MetricServiceClient()
+
+
+def _build_time_interval(days: int) -> monitoring_v3.TimeInterval:
+    """Costruisce l'intervallo temporale per le query."""
+    from google.protobuf.timestamp_pb2 import Timestamp as PbTimestamp
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+    interval = monitoring_v3.TimeInterval()
+    interval.end_time = PbTimestamp(seconds=int(now.timestamp()))
+    interval.start_time = PbTimestamp(seconds=int(start.timestamp()))
+    return interval
+
+
+def _fetch_request_counts(
+    client: monitoring_v3.MetricServiceClient,
+    days: int,
+) -> Dict[str, Any]:
+    """
+    Recupera conteggio richieste dal LB, raggruppato per response_code_class.
+    Filtra solo il backend target dell'app (esclude health check, bot, static).
+    """
+    interval = _build_time_interval(days)
+
+    # Filtra solo il path rule "/" (il nostro backend reale).
+    # Esclude UNMATCHED (bot/scanner) e UNKNOWN (traffico non classificato).
+    metric_filter = (
+        'metric.type = "loadbalancing.googleapis.com/https/request_count" '
+        'resource.type = "https_lb_rule" '
+        'resource.label.matched_url_path_rule = "/"'
+    )
+
+    request_obj = monitoring_v3.ListTimeSeriesRequest(
+        name=_GCP_PROJECT,
+        filter=metric_filter,
+        interval=interval,
+        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        aggregation=monitoring_v3.Aggregation(
+            alignment_period={"seconds": 3600},  # 1 ora
+            per_series_aligner=monitoring_v3.Aggregation.Aligner.ALIGN_SUM,
+            cross_series_reducer=monitoring_v3.Aggregation.Reducer.REDUCE_SUM,
+            group_by_fields=["metric.label.response_code_class"],
+        ),
+    )
+
+    total_requests = 0
+    errors_4xx = 0
+    errors_5xx = 0
+    hourly_counts = defaultdict(int)
+    weekday_counts = defaultdict(int)
+    daily_counts = defaultdict(int)
+
+    try:
+        results = client.list_time_series(request=request_obj, timeout=15)
+        for ts in results:
+            code_class = ts.metric.labels.get("response_code_class", "")
+            _log_info("[monitoring] request_count: response_code_class=%s", code_class)
+            for point in ts.points:
+                count = point.value.int64_value
+                total_requests += count
+
+                pt_time = point.interval.start_time
+                pt_dt = datetime.fromtimestamp(pt_time.timestamp(), tz=timezone.utc)
+                hourly_counts[pt_dt.hour] += count
+                weekday_counts[pt_dt.weekday()] += count
+                daily_counts[pt_dt.strftime('%Y-%m-%d')] += count
+
+                # response_code_class è un intero come 200, 300, 400, 500
+                if str(code_class) == "400":
+                    errors_4xx += count
+                elif str(code_class) == "500":
+                    errors_5xx += count
+    except Exception as e:
+        _log_error("[monitoring] Cloud Monitoring request_count error: %s", str(e))
+
+    num_days = max(len(daily_counts), 1)
+
+    hourly_distribution = [
+        {"hour": h, "count": hourly_counts.get(h, 0)}
+        for h in range(24)
+    ]
+
+    weekday_names = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom']
+    weekday_distribution = [
+        {
+            "day": weekday_names[wd],
+            "day_index": wd,
+            "total": weekday_counts.get(wd, 0),
+            "avg_per_day": round(weekday_counts.get(wd, 0) / max(1, sum(
+                1 for d in daily_counts if datetime.strptime(d, '%Y-%m-%d').weekday() == wd
+            )), 1),
+        }
+        for wd in range(7)
+    ]
+
+    return {
+        "total_requests": total_requests,
+        "avg_requests_per_day": round(total_requests / num_days, 1),
+        "errors_4xx": errors_4xx,
+        "errors_5xx": errors_5xx,
+        "error_rate_pct": round((errors_4xx + errors_5xx) / max(total_requests, 1) * 100, 1),
+        "period_days": num_days,
+        "hourly_distribution": hourly_distribution,
+        "weekday_distribution": weekday_distribution,
+    }
+
+
+def _fetch_latency_stats(
+    client: monitoring_v3.MetricServiceClient,
+    days: int,
+) -> Dict[str, Any]:
+    """
+    Recupera statistiche latenza dal LB usando la metrica distribution.
+    
+    NOTA: loadbalancing.googleapis.com/https/total_latencies è in MILLISECONDI.
+    I valori mean, bucket bounds e range sono già in ms, NON moltiplicare x1000.
+    """
+    interval = _build_time_interval(days)
+
+    # Filtra solo path rule "/" (esclude bot/scanner che generano UNMATCHED)
+    metric_filter = (
+        'metric.type = "loadbalancing.googleapis.com/https/total_latencies" '
+        'resource.type = "https_lb_rule" '
+        'resource.label.matched_url_path_rule = "/"'
+    )
+
+    request_obj = monitoring_v3.ListTimeSeriesRequest(
+        name=_GCP_PROJECT,
+        filter=metric_filter,
+        interval=interval,
+        view=monitoring_v3.ListTimeSeriesRequest.TimeSeriesView.FULL,
+        aggregation=monitoring_v3.Aggregation(
+            alignment_period={"seconds": days * 86400},
+            per_series_aligner=monitoring_v3.Aggregation.Aligner.ALIGN_DELTA,
+            cross_series_reducer=monitoring_v3.Aggregation.Reducer.REDUCE_SUM,
+        ),
+    )
+
+    total_count = 0
+    weighted_sum = 0.0
+    max_latency = 0.0
+    # Accumula tutti i bucket per calcolo percentili
+    merged_bucket_counts: List[int] = []
+    bucket_bounds: List[float] = []
+
+    try:
+        results = client.list_time_series(request=request_obj, timeout=15)
+        for ts in results:
+            for point in ts.points:
+                dist = point.value.distribution_value
+                if dist.count == 0:
+                    continue
+
+                total_count += dist.count
+                # dist.mean è già in ms
+                weighted_sum += dist.mean * dist.count
+
+                # Estrai bucket bounds (una sola volta, sono uguali per tutte le serie)
+                if not bucket_bounds:
+                    if dist.bucket_options.explicit_buckets.bounds:
+                        bucket_bounds = list(dist.bucket_options.explicit_buckets.bounds)
+                    elif dist.bucket_options.exponential_buckets.num_finite_buckets > 0:
+                        eb = dist.bucket_options.exponential_buckets
+                        bucket_bounds = [
+                            eb.scale * (eb.growth_factor ** i)
+                            for i in range(eb.num_finite_buckets + 1)
+                        ]
+                    _log_info("[monitoring] Latency bucket_bounds (%d): first=%s, last=%s",
+                              len(bucket_bounds),
+                              bucket_bounds[:3] if bucket_bounds else 'none',
+                              bucket_bounds[-3:] if bucket_bounds else 'none')
+
+                # Somma bucket counts (per merge di più serie)
+                counts = list(dist.bucket_counts)
+                if not merged_bucket_counts:
+                    merged_bucket_counts = counts
+                else:
+                    for j in range(min(len(counts), len(merged_bucket_counts))):
+                        merged_bucket_counts[j] += counts[j]
+                    # Se la nuova serie ha più bucket
+                    if len(counts) > len(merged_bucket_counts):
+                        merged_bucket_counts.extend(counts[len(merged_bucket_counts):])
+
+                # dist.range non è popolato per aggregazioni, calcoleremo il max dai bucket
+                pass
+
+        _log_info("[monitoring] Latency raw: total_count=%d, weighted_sum=%.1f, "
+                  "mean=%.1fms, max=%.1fms, buckets=%d, bounds=%d",
+                  total_count, weighted_sum,
+                  weighted_sum / max(total_count, 1), max_latency,
+                  len(merged_bucket_counts), len(bucket_bounds))
+
+    except Exception as e:
+        _log_error("[monitoring] Cloud Monitoring latency error: %s", str(e))
+
+    # Media (già in ms)
+    avg_ms = round(weighted_sum / max(total_count, 1))
+
+    # Calcola percentili dai bucket
+    # Per exponential buckets: bound[i] = scale * growth_factor^i
+    # bucket_counts[0] = underflow (< bound[0])
+    # bucket_counts[i] per i>=1 = count con bound[i-1] <= x < bound[i]
+    # L'ultimo bucket_counts è overflow (>= ultimo bound)
+    p50_ms = 0
+    p95_ms = 0
+    p99_ms = 0
+    max_latency_ms = 0
+
+    if merged_bucket_counts and bucket_bounds:
+        cumulative = 0
+        for i, bc in enumerate(merged_bucket_counts):
+            cumulative += bc
+            pct = cumulative / max(total_count, 1)
+
+            # Il bound superiore di questo bucket
+            if i == 0:
+                upper_bound = bucket_bounds[0] if bucket_bounds else 0
+            elif i <= len(bucket_bounds):
+                upper_bound = bucket_bounds[i - 1]
+            else:
+                upper_bound = bucket_bounds[-1] if bucket_bounds else 0
+
+            # Traccia l'ultimo bucket con dati per stimare il max
+            if bc > 0:
+                max_latency_ms = round(upper_bound)
+
+            if p50_ms == 0 and pct >= 0.50:
+                p50_ms = round(upper_bound)
+            if p95_ms == 0 and pct >= 0.95:
+                p95_ms = round(upper_bound)
+            if p99_ms == 0 and pct >= 0.99:
+                p99_ms = round(upper_bound)
+                break
+
+    _log_info("[monitoring] Latency results: avg=%dms, p50=%dms, p95=%dms, p99=%dms, max=%dms",
+              avg_ms, p50_ms, p95_ms, p99_ms, round(max_latency))
+
+    return {
+        "avg_latency_ms": avg_ms,
+        "p50_latency_ms": p50_ms,
+        "p95_latency_ms": p95_ms,
+        "p99_latency_ms": p99_ms,
+        "max_latency_ms": max_latency_ms,
+        "sample_count": total_count,
+    }
+
+
+def get_overview_data(
+    days: int = 7,
+    use_cache: bool = True,
+    cache_ttl: int = 300,
+) -> Dict[str, Any]:
+    """
+    Overview della dashboard usando Cloud Monitoring API (metriche pre-aggregate).
+    Istantaneo (~1-2 secondi), nessun log grezzo da scaricare.
+
+    Dati forniti:
+    - Totale richieste e media/giorno
+    - Errori 4xx/5xx e percentuale
+    - Latenza media, p50, p95, p99, max
+    - Distribuzione oraria (tutte le request)
+    - Distribuzione settimanale (tutte le request)
+    """
+    # Controlla cache
+    if use_cache and is_redis_available():
+        redis_client = get_redis_client()
+        cache_key = get_cache_key("monitoring:overview", days)
+        cached = redis_client.get(cache_key)
+        if cached:
+            _log_info("[monitoring] Cache hit for overview: %s", cache_key)
+            return json.loads(cached)
+
+    try:
+        client = _get_monitoring_client()
+
+        # Fetch parallelo: conteggi e latenze
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            f_counts = executor.submit(_fetch_request_counts, client, days)
+            f_latency = executor.submit(_fetch_latency_stats, client, days)
+
+        counts = f_counts.result()
+        latency = f_latency.result()
+
+        data = {
+            "source": "cloud_monitoring",
+            "period_days": counts["period_days"],
+            **counts,
+            **latency,
+        }
+
+    except (GoogleAPIError, DefaultCredentialsError) as e:
+        _log_error("[monitoring] Cloud Monitoring overview error: %s", str(e))
+        data = {
+            "source": "cloud_monitoring",
+            "error": str(e),
+            "total_requests": 0,
+            "period_days": 0,
+        }
+
+    # Salva in cache
+    if use_cache and is_redis_available() and data.get("total_requests", 0) > 0:
+        redis_client = get_redis_client()
+        cache_key = get_cache_key("monitoring:overview", days)
+        redis_client.setex(cache_key, cache_ttl, json.dumps(data))
+        _log_info("[monitoring] Saved overview to cache: %s", cache_key)
+
+    return data
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #                       API PUBBLICA DEL SERVIZIO
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_monitoring_data(
     days: int = 7,
     include_static: bool = False,
-    per_day_limit: Optional[int] = 10000,  # None o 0 significa "tutti i dati"
+    per_day_limit: Optional[int] = 500,
     use_cache: bool = True,
     cache_ttl: int = 300,  # 5 minuti
 ) -> Dict[str, Any]:
     """
-    Scarica tutti i giorni in parallelo, aggrega e ritorna.
-    Usa Cloud Logging API nativa + caching Redis.
-    
-    Args:
-        days: Numero di giorni da analizzare
-        include_static: Se includere endpoint statici
-        per_day_limit: Limite entry per giorno (None o 0 = tutti i dati)
-        use_cache: Se usare la cache Redis
-        cache_ttl: Tempo di vita della cache in secondi
+    Dettaglio per endpoint: scarica log e aggrega.
+    Usato solo per il tab "Dettaglio API" (non per overview).
     """
     raw = _fetch_logs_api(
         days=days,

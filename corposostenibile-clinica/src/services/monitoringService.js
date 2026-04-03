@@ -2,15 +2,27 @@ import api from './api';
 
 const monitoringService = {
   /**
-   * Recupera metriche monitoring dal backend.
-   * @param {Object} params - { days: number, include_static: 0|1, limit: number }
-   * @returns {Promise<Object>} - { endpoints, errors, period_days, total_requests, ... }
+   * Recupera overview da Cloud Monitoring API (metriche pre-aggregate GCP).
+   * Istantaneo (~1-2s), nessun log grezzo.
+   */
+  async getOverview(params = {}) {
+    const { days = 7 } = params;
+    const response = await api.get('/monitoring/overview', {
+      params: { days },
+      timeout: 15000, // 15s max
+    });
+    return response.data;
+  },
+
+  /**
+   * Recupera dettaglio per endpoint da Cloud Logging (campione log).
+   * Più lento (~5-10s), usato solo per tab "Dettaglio API".
    */
   async getMetrics(params = {}) {
-    const { days = 7, include_static = 0, per_day_limit = 0 } = params;
+    const { days = 7, include_static = 0 } = params;
     const response = await api.get('/monitoring/metrics', {
-      params: { days, include_static, per_day_limit },
-      timeout: 55000, // 55s — sotto il timeout nginx di 60s
+      params: { days, include_static },
+      timeout: 30000, // 30s
     });
     return response.data;
   },
