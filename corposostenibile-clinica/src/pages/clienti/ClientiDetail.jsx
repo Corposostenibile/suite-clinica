@@ -170,7 +170,8 @@ function ClientiDetail() {
     return new Set([
       'anagrafica', 'programma', 'team', 'health_manager', 'nutrizione', 'coaching', 'psicologia', 'medico',
       'check_periodici', 'progresso', 'check_iniziali', 'loom', 'tickets', 'call_bonus',
-      ...(canViewMarketingTab ? ['video_review', 'marketing'] : [])
+      'video_recensione',
+      ...(canViewMarketingTab ? ['marketing'] : [])
     ]);
   }, []);
 
@@ -1289,7 +1290,7 @@ function ClientiDetail() {
     return multiAssignments.some((entry) => Number(entry?.id ?? entry?.user_id ?? entry) === uid);
   }, [isProfessionista, user?.id, cliente]);
 
-  const canUseVideoReviewFlow = Boolean(isAdmin || isHealthManager || isAssignedProfessionalForCliente);
+  const canUseVideoReviewFlow = Boolean(user);
   const canConfirmVideoReviewHm = Boolean(isAdmin || (isHealthManager && Number(cliente?.health_manager_id) === Number(user?.id)));
 
   const sortedPatientLoomRecordings = useMemo(() => {
@@ -1469,7 +1470,7 @@ function ClientiDetail() {
     if (activeTab === 'marketing' && marketingSubTab === 'consensi') {
       fetchMarketingConsents();
     }
-    if (activeTab === 'marketing' && marketingSubTab === 'video_recensione') {
+    if (activeTab === 'video_recensione') {
       fetchVideoReviewRequests();
     }
   }, [activeTab, marketingSubTab, fetchMarketingConsents, fetchVideoReviewRequests]);
@@ -3119,6 +3120,7 @@ function ClientiDetail() {
     // { id: 'loom', label: 'Loom', icon: 'ri-video-line' },
     { id: 'tickets', label: 'Ticket', icon: 'ri-ticket-2-line' },
     { id: 'call_bonus', label: 'Call Bonus', icon: 'ri-phone-line' },
+    { id: 'video_recensione', label: 'Video Recensione', icon: 'ri-video-line' },
     ...(canViewMarketingTab ? [{ id: 'marketing', label: 'Marketing', icon: 'ri-megaphone-line' }] : []),
   ].filter((tab) => {
     if (isInfluencer && (tab.id === 'tickets' || tab.id === 'call_bonus')) return false;
@@ -8385,6 +8387,65 @@ function ClientiDetail() {
                 </div>
               )}
 
+              {/* ==================== VIDEO RECENSIONE TAB (standalone) ==================== */}
+              {activeTab === 'video_recensione' && (
+                <div>
+                  <h5 style={{ fontWeight: 700, marginBottom: 16 }}>
+                    <i className="ri-video-line" style={{ marginRight: 8, color: '#0ea5e9' }}></i>
+                    Video Recensione
+                  </h5>
+
+                  {canUseVideoReviewFlow ? (
+                    <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
+                            Video Recensione con HM
+                          </div>
+                          <div style={{ fontSize: 13, color: '#64748b' }}>
+                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
+                          </div>
+                        </div>
+                        <button className="btn btn-primary btn-sm" onClick={() => { setShowVideoReviewBookingModal(true); fetchVideoReviewSlots(); }}>
+                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
+                          Prenota video recensione con HM
+                        </button>
+                      </div>
+
+                      {loadingVideoReviewRequests ? (
+                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
+                      ) : videoReviewRequests.length === 0 ? (
+                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
+                      ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
+                            <thead>
+                              <tr><th>Stato</th><th>Prenotata da</th><th>Data prenotazione</th><th>Loom</th><th>Azione</th></tr>
+                            </thead>
+                            <tbody>
+                              {videoReviewRequests.map((item) => (
+                                <tr key={item.id}>
+                                  <td><span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>{item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}</span></td>
+                                  <td>{item.requested_by_name || '—'}</td>
+                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
+                                  <td>{item.loom_link ? <a href={item.loom_link} target="_blank" rel="noopener noreferrer"><i className="ri-external-link-line"></i></a> : '—'}</td>
+                                  <td>{canConfirmVideoReviewHm && item.status === 'booked' ? <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>Conferma + Loom</button> : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 24 }}>
+                      Non hai i permessi per gestire le video recensioni di questo paziente.
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ==================== MARKETING TAB (with sub-tabs) ==================== */}
               {activeTab === 'marketing' && canViewMarketingTab && (
                 <div>
@@ -8397,7 +8458,6 @@ function ClientiDetail() {
                   <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e2e8f0', marginBottom: 20 }}>
                     {[
                       { id: 'consensi', label: 'Consensi Marketing', icon: 'ri-shield-check-line' },
-                      { id: 'video_recensione', label: 'Video Recensione', icon: 'ri-video-line' },
                       { id: 'trustpilot', label: 'Trustpilot', icon: 'ri-star-line' },
                       { id: 'export_pdf', label: 'Export PDF', icon: 'ri-file-pdf-2-line' },
                     ].map((sub) => (
@@ -8506,57 +8566,6 @@ function ClientiDetail() {
                           ))}
                         </>
                       )}
-                    </div>
-                  )}
-
-                  {/* ── Sub-tab: Video Recensione ── */}
-                  {marketingSubTab === 'video_recensione' && canUseVideoReviewFlow && (
-                    <div style={{ padding: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                            <i className="ri-video-line" style={{ marginRight: 6, color: '#0ea5e9' }}></i>
-                            Video Recensione con HM
-                          </div>
-                          <div style={{ fontSize: 13, color: '#64748b' }}>
-                            Flusso: prenotazione da professionista/HM, poi conferma HM con link Loom.
-                          </div>
-                        </div>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setShowVideoReviewBookingModal(true); fetchVideoReviewSlots(); }}>
-                          <i className="ri-calendar-check-line" style={{ marginRight: 4 }}></i>
-                          Prenota video recensione con HM
-                        </button>
-                      </div>
-
-                      {loadingVideoReviewRequests ? (
-                        <div className="text-center py-2"><div className="spinner-border spinner-border-sm text-primary"></div></div>
-                      ) : videoReviewRequests.length === 0 ? (
-                        <div style={{ fontSize: 13, color: '#94a3b8' }}>Nessuna richiesta video recensione registrata.</div>
-                      ) : (
-                        <div style={{ overflowX: 'auto' }}>
-                          <table className="table table-sm" style={{ fontSize: 13, marginBottom: 0 }}>
-                            <thead>
-                              <tr><th>Stato</th><th>Prenotata da</th><th>Data prenotazione</th><th>Loom</th><th>Azione</th></tr>
-                            </thead>
-                            <tbody>
-                              {videoReviewRequests.map((item) => (
-                                <tr key={item.id}>
-                                  <td><span className={`badge bg-${item.status === 'hm_confirmed' ? 'success' : 'warning'}`}>{item.status === 'hm_confirmed' ? 'Confermata HM' : 'Prenotata'}</span></td>
-                                  <td>{item.requested_by_name || '—'}</td>
-                                  <td>{item.booking_confirmed_at ? new Date(item.booking_confirmed_at).toLocaleString('it-IT') : '—'}</td>
-                                  <td>{item.loom_link ? <a href={item.loom_link} target="_blank" rel="noopener noreferrer"><i className="ri-external-link-line"></i></a> : '—'}</td>
-                                  <td>{canConfirmVideoReviewHm && item.status === 'booked' ? <button className="btn btn-outline-success btn-sm" onClick={() => openVideoReviewConfirmModal(item)}>Conferma + Loom</button> : '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {marketingSubTab === 'video_recensione' && !canUseVideoReviewFlow && (
-                    <div style={{ fontSize: 13, color: '#94a3b8', textAlign: 'center', padding: 24 }}>
-                      Non hai i permessi per gestire le video recensioni di questo paziente.
                     </div>
                   )}
 
