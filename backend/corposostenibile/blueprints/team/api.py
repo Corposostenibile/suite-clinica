@@ -11,7 +11,7 @@ from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct
+from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct, literal
 from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
@@ -345,103 +345,86 @@ def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[
     Conteggio clienti assegnati per (user_id, role_type) considerando solo
     lo stato servizio 'attivo' (stato_nutrizione, stato_coach, stato_psicologia).
     Usato per la tabella capienza professionisti.
+    Esegue una singola query con UNION ALL + GROUP BY invece di 4 query separate.
     """
     if not user_ids:
         return {}
 
-    result: dict[tuple[int, str], int] = {}
-
-    # Nutrizionista: nutrizionista_id, consulente_alimentare_id, m2m nutrizionisti/consulenti + stato_nutrizione = attivo
+    # Nutrizionista sources (4 rami)
     nut_sources = [
-        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+        select(Cliente.nutrizionista_id.label('user_id'), Cliente.cliente_id.label('cliente_id'), literal('nutrizionista').label('role_type')).where(
             Cliente.nutrizionista_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
         ),
-        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+        select(Cliente.consulente_alimentare_id.label('user_id'), Cliente.cliente_id.label('cliente_id'), literal('nutrizionista').label('role_type')).where(
             Cliente.consulente_alimentare_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
         ),
-        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id')).select_from(
+        select(cliente_nutrizionisti.c.user_id.label('user_id'), cliente_nutrizionisti.c.cliente_id.label('cliente_id'), literal('nutrizionista').label('role_type')).select_from(
             cliente_nutrizionisti.join(Cliente, cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_nutrizionisti.c.user_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
         ),
-        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id')).select_from(
+        select(cliente_consulenti.c.user_id.label('user_id'), cliente_consulenti.c.cliente_id.label('cliente_id'), literal('nutrizionista').label('role_type')).select_from(
             cliente_consulenti.join(Cliente, cliente_consulenti.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_consulenti.c.user_id.in_(user_ids),
             Cliente.stato_nutrizione == StatoClienteEnum.attivo,
         ),
     ]
-    nut_sq = union_all(*nut_sources).subquery()
-    nut_rows = db.session.query(
-        nut_sq.c.user_id,
-        func.count(distinct(nut_sq.c.cliente_id)).label('cnt'),
-    ).group_by(nut_sq.c.user_id).all()
-    for user_id, cnt in nut_rows:
-        result[(int(user_id), 'nutrizionista')] = int(cnt)
 
-    # Coach: coach_id, cliente_coaches + stato_coach = attivo
+    # Coach sources (2 rami)
     coach_sources = [
-        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+        select(Cliente.coach_id.label('user_id'), Cliente.cliente_id.label('cliente_id'), literal('coach').label('role_type')).where(
             Cliente.coach_id.in_(user_ids),
             Cliente.stato_coach == StatoClienteEnum.attivo,
         ),
-        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id')).select_from(
+        select(cliente_coaches.c.user_id.label('user_id'), cliente_coaches.c.cliente_id.label('cliente_id'), literal('coach').label('role_type')).select_from(
             cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_coaches.c.user_id.in_(user_ids),
             Cliente.stato_coach == StatoClienteEnum.attivo,
         ),
     ]
-    coach_sq = union_all(*coach_sources).subquery()
-    coach_rows = db.session.query(
-        coach_sq.c.user_id,
-        func.count(distinct(coach_sq.c.cliente_id)).label('cnt'),
-    ).group_by(coach_sq.c.user_id).all()
-    for user_id, cnt in coach_rows:
-        result[(int(user_id), 'coach')] = int(cnt)
 
-    # Psicologa: psicologa_id, cliente_psicologi + stato_psicologia = attivo
+    # Psicologa sources (2 rami)
     psico_sources = [
-        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id')).where(
+        select(Cliente.psicologa_id.label('user_id'), Cliente.cliente_id.label('cliente_id'), literal('psicologa').label('role_type')).where(
             Cliente.psicologa_id.in_(user_ids),
             Cliente.stato_psicologia == StatoClienteEnum.attivo,
         ),
-        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id')).select_from(
+        select(cliente_psicologi.c.user_id.label('user_id'), cliente_psicologi.c.cliente_id.label('cliente_id'), literal('psicologa').label('role_type')).select_from(
             cliente_psicologi.join(Cliente, cliente_psicologi.c.cliente_id == Cliente.cliente_id)
         ).where(
             cliente_psicologi.c.user_id.in_(user_ids),
             Cliente.stato_psicologia == StatoClienteEnum.attivo,
         ),
     ]
-    psico_sq = union_all(*psico_sources).subquery()
-    psico_rows = db.session.query(
-        psico_sq.c.user_id,
-        func.count(distinct(psico_sq.c.cliente_id)).label('cnt'),
-    ).group_by(psico_sq.c.user_id).all()
-    for user_id, cnt in psico_rows:
-        result[(int(user_id), 'psicologa')] = int(cnt)
 
-    # Health Manager:
-    # - clienti effettivi attivi
-    # - lead pre-onboarding (service_status = pending_assignment)
-    # Entrambi conteggiati da Cliente.health_manager_id, valorizzato dal bridge GHL.
-    hm_rows = db.session.query(
-        Cliente.health_manager_id.label('user_id'),
-        func.count(distinct(Cliente.cliente_id)).label('cnt'),
-    ).filter(
-        Cliente.health_manager_id.in_(user_ids),
-        or_(
-            Cliente.stato_cliente == StatoClienteEnum.attivo,
-            Cliente.service_status == 'pending_assignment',
+    # Health Manager source (1 ramo: clienti attivi + lead pending_assignment)
+    hm_sources = [
+        select(
+            Cliente.health_manager_id.label('user_id'),
+            Cliente.cliente_id.label('cliente_id'),
+            literal('health_manager').label('role_type'),
+        ).where(
+            Cliente.health_manager_id.in_(user_ids),
+            or_(
+                Cliente.stato_cliente == StatoClienteEnum.attivo,
+                Cliente.service_status == 'pending_assignment',
+            ),
         ),
-    ).group_by(Cliente.health_manager_id).all()
-    for user_id, cnt in hm_rows:
-        result[(int(user_id), 'health_manager')] = int(cnt)
+    ]
 
-    return result
+    all_sq = union_all(*nut_sources, *coach_sources, *psico_sources, *hm_sources).subquery()
+    rows = db.session.query(
+        all_sq.c.user_id,
+        all_sq.c.role_type,
+        func.count(distinct(all_sq.c.cliente_id)).label('cnt'),
+    ).group_by(all_sq.c.user_id, all_sq.c.role_type).all()
+
+    return {(int(user_id), role_type): int(cnt) for user_id, role_type, cnt in rows}
 
 
 def _get_hm_split_counts(user_ids: list[int]) -> dict[int, dict]:
@@ -1340,29 +1323,44 @@ def api_get_professionals_criteria():
 
     current_app.logger.info(f"Found {len(professionals)} professionals with target specialties")
 
+    # Capacity data for all professionals
+    prof_ids = [p.id for p in professionals]
+    capacities = ProfessionistCapacity.query.filter(
+        ProfessionistCapacity.user_id.in_(prof_ids)
+    ).all() if prof_ids else []
+    cap_map = {(c.user_id, c.role_type): c for c in capacities}
+    assigned_map = _get_assigned_clients_count_map_active_by_role(prof_ids)
+    type_breakdown = _get_assigned_clients_by_type(prof_ids)
+    weights = _get_capacity_weights_by_role()
+
     results = []
     import json
-    
+
     for p in professionals:
         # Determina "department_id" e nome basato su specialty
         dept_id = 0
         dept_name = 'N/A'
-        
+
         # Get value safely
         spec_val = p.specialty.value if hasattr(p.specialty, 'value') else str(p.specialty)
         if spec_val.startswith('UserSpecialtyEnum.'):
             spec_val = spec_val.split('.')[-1]
-        
+
         if spec_val in ['nutrizionista', 'nutrizione']:
             dept_id = 2 # Nutrizione
             dept_name = 'Nutrizione'
+            cap_role = 'nutrizionista'
         elif spec_val == 'coach':
             dept_id = 3 # Coach
             dept_name = 'Coach'
+            cap_role = 'coach'
         elif spec_val in ['psicologo', 'psicologia']:
             dept_id = 4 # Psicologia
             dept_name = 'Psicologia'
-            
+            cap_role = 'psicologa'
+        else:
+            cap_role = None
+
         criteria = p.assignment_criteria or {}
         ai_notes = p.assignment_ai_notes or {}
         if isinstance(ai_notes, str):
@@ -1370,7 +1368,20 @@ def api_get_professionals_criteria():
                 ai_notes = json.loads(ai_notes)
             except:
                 ai_notes = {}
-                
+
+        # Capacity metrics
+        cap = cap_map.get((p.id, cap_role))
+        assigned = assigned_map.get((p.id, cap_role), 0)
+        contractual = (cap.max_clients if cap else 0) or 0
+        t_counts = type_breakdown.get((p.id, cap_role), {})
+        cap_metrics = _calculate_capacity_metrics(
+            role_type=cap_role or '',
+            assigned_clients=assigned,
+            contractual_capacity=contractual,
+            type_counts=t_counts,
+            weights_by_role=weights,
+        )
+
         results.append({
             'id': p.id,
             'name': f"{p.first_name} {p.last_name}",
@@ -1388,6 +1399,13 @@ def api_get_professionals_criteria():
                 }
                 for t in (p.teams or [])
             ],
+            'capacity': {
+                'assigned': assigned,
+                'max': contractual,
+                'percentage': cap_metrics['percentuale_capienza'],
+                'weighted_load': cap_metrics['capienza_ponderata'],
+                'is_over': cap_metrics['is_over_capacity'],
+            },
         })
 
     return jsonify({
@@ -2292,9 +2310,12 @@ def get_teams():
     include_members_raw = request.args.get('include_members', '').strip().lower()
     include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
-    # Base query with eager loading for head only (fast)
+    # Eager load head (JOIN) e members (SELECT IN) in un colpo solo.
+    # Senza selectinload(Team.members), ogni chiamata a len(team.members)
+    # nel loop di serializzazione genera una query separata per team → N+1.
     query = Team.query.options(
-        joinedload(Team.head)  # Eager load team head only
+        joinedload(Team.head),
+        selectinload(Team.members),
     )
 
     # RBAC base scope

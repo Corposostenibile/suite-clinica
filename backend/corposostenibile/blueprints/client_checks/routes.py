@@ -37,7 +37,7 @@ from flask import (
     abort,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import desc, and_, exists, select, text
+from sqlalchemy import desc, and_, exists, select, text, union_all, literal
 from sqlalchemy.orm import joinedload, defer
 from werkzeug.exceptions import HTTPException
 
@@ -2273,16 +2273,54 @@ def api_azienda_stats():
         # --- RBAC ---
         accessible_query = get_accessible_clients_query()
 
-        # --- Helper: apply prof filters to a query that already has Cliente joined ---
+        # --- Helper: apply prof filters a query che ha già Cliente in JOIN ---
+        # Quando prof_id è specificato, precalcoliamo i cliente_id corrispondenti con
+        # una singola query (usando subquery sulle tabelle di associazione dirette) invece
+        # di aggiungere un EXISTS correlato a ciascuna delle 6+ query successive.
+        _precomputed_prof_cliente_ids = None
+        if prof_type and prof_id:
+            from corposostenibile.models import (
+                cliente_nutrizionisti as _cn_tbl,
+                cliente_coaches as _cc_tbl,
+                cliente_psicologi as _cp_tbl,
+            )
+            if prof_type == 'nutrizione':
+                from corposostenibile.models import cliente_consulenti as _ccons_tbl
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.nutrizionista_id == prof_id,
+                            Cliente.consulente_alimentare_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cn_tbl.c.cliente_id).where(_cn_tbl.c.user_id == prof_id)),
+                            Cliente.cliente_id.in_(select(_ccons_tbl.c.cliente_id).where(_ccons_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+            elif prof_type == 'coach':
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.coach_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cc_tbl.c.cliente_id).where(_cc_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+            elif prof_type == 'psicologia':
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.psicologa_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cp_tbl.c.cliente_id).where(_cp_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+
         def _apply_prof_filters(q):
-            if prof_type and prof_id:
-                if prof_type == 'nutrizione':
-                    q = q.filter(db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id)))
-                elif prof_type == 'coach':
-                    q = q.filter(db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id)))
-                elif prof_type == 'psicologia':
-                    q = q.filter(db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id)))
+            if _precomputed_prof_cliente_ids is not None:
+                # IN list precomputata: evita EXISTS correlati su ogni query
+                q = q.filter(Cliente.cliente_id.in_(_precomputed_prof_cliente_ids))
             elif prof_type:
+                # Solo prof_type senza prof_id specifico: semplice check NOT NULL + any()
                 if prof_type == 'nutrizione':
                     q = q.filter(db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any()))
                 elif prof_type == 'coach':
@@ -2420,78 +2458,118 @@ def api_azienda_stats():
         avg_quality = round(sum(all_avgs) / len(all_avgs), 1) if all_avgs else None
 
         # ============================================================
-        # 3) UNIFIED PAGINATION — merge all types sorted by submit_date DESC
+        # 3) UNIFIED PAGINATION — UNION ALL SQL
         # ============================================================
-        # Strategy: use UNION-like approach via separate sorted queries, then
-        # manually merge-paginate. For simplicity with different ORM models,
-        # we fetch IDs+dates for all types and paginate in Python.
+        # Ogni tipo di check contribuisce un SELECT (id, submit_date, tipo).
+        # Postgres ordina e pagina internamente: restituisce solo `per_page`
+        # righe invece di caricare tutti gli ID in memoria Python.
+        #
+        # _apply_prof_filters usa l'API ORM (query.filter) e resta invariata
+        # per le query di conteggio/stats. Qui serve la condizione grezza per
+        # poterla passare a select().where().
+        def _prof_filter_cond():
+            # Se abbiamo già i cliente_ids precomputati, usiamo un IN clause semplice
+            if _precomputed_prof_cliente_ids is not None:
+                return Cliente.cliente_id.in_(_precomputed_prof_cliente_ids)
+            if prof_type:
+                if prof_type == 'nutrizione':
+                    return db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any())
+                elif prof_type == 'coach':
+                    return db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any())
+                elif prof_type == 'psicologia':
+                    return db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any())
+            return None
+
         offset = (page - 1) * per_page
+        prof_cond = _prof_filter_cond()
 
-        # Collect (submit_date, type, id) tuples for ordering
-        all_items = []
+        union_parts = []
 
-        if include_weekly and weekly_count > 0:
-            weekly_dates = (
-                db.session.query(WeeklyCheckResponse.id, WeeklyCheckResponse.submit_date)
+        if include_weekly:
+            w_sel = (
+                select(
+                    WeeklyCheckResponse.id.label("id"),
+                    WeeklyCheckResponse.submit_date.label("submit_date"),
+                    literal("weekly").label("check_type"),
+                )
                 .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
                 .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .filter(WeeklyCheckResponse.submit_date >= start_date)
+                .where(WeeklyCheckResponse.submit_date >= start_date)
             )
             if period == 'custom':
-                weekly_dates = weekly_dates.filter(WeeklyCheckResponse.submit_date <= end_date)
+                w_sel = w_sel.where(WeeklyCheckResponse.submit_date <= end_date)
             if accessible_query is not None:
-                weekly_dates = weekly_dates.filter(Cliente.cliente_id.in_(accessible_query))
-            weekly_dates = _apply_prof_filters(weekly_dates)
-            for row in weekly_dates.all():
-                all_items.append((row.submit_date, 'weekly', row.id))
+                w_sel = w_sel.where(Cliente.cliente_id.in_(accessible_query))
+            if prof_cond is not None:
+                w_sel = w_sel.where(prof_cond)
+            union_parts.append(w_sel)
 
-        if include_weekly and typeform_count > 0:
-            tf_dates = (
-                db.session.query(TypeFormResponse.id, TypeFormResponse.submit_date)
+            tf_sel = (
+                select(
+                    TypeFormResponse.id.label("id"),
+                    TypeFormResponse.submit_date.label("submit_date"),
+                    literal("typeform").label("check_type"),
+                )
                 .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
-                .filter(TypeFormResponse.submit_date >= start_date)
+                .where(TypeFormResponse.submit_date >= start_date)
             )
             if period == 'custom':
-                tf_dates = tf_dates.filter(TypeFormResponse.submit_date <= end_date)
+                tf_sel = tf_sel.where(TypeFormResponse.submit_date <= end_date)
             if accessible_query is not None:
-                tf_dates = tf_dates.filter(Cliente.cliente_id.in_(accessible_query))
-            tf_dates = _apply_prof_filters(tf_dates)
-            for row in tf_dates.all():
-                all_items.append((row.submit_date, 'typeform', row.id))
+                tf_sel = tf_sel.where(Cliente.cliente_id.in_(accessible_query))
+            if prof_cond is not None:
+                tf_sel = tf_sel.where(prof_cond)
+            union_parts.append(tf_sel)
 
-        if include_dca and dca_count > 0:
-            dca_dates = (
-                db.session.query(DCACheckResponse.id, DCACheckResponse.submit_date)
+        if include_dca:
+            d_sel = (
+                select(
+                    DCACheckResponse.id.label("id"),
+                    DCACheckResponse.submit_date.label("submit_date"),
+                    literal("dca").label("check_type"),
+                )
                 .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
                 .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
-                .filter(DCACheckResponse.submit_date >= start_date)
+                .where(DCACheckResponse.submit_date >= start_date)
             )
             if period == 'custom':
-                dca_dates = dca_dates.filter(DCACheckResponse.submit_date <= end_date)
+                d_sel = d_sel.where(DCACheckResponse.submit_date <= end_date)
             if accessible_query is not None:
-                dca_dates = dca_dates.filter(Cliente.cliente_id.in_(accessible_query))
-            dca_dates = _apply_prof_filters(dca_dates)
-            for row in dca_dates.all():
-                all_items.append((row.submit_date, 'dca', row.id))
+                d_sel = d_sel.where(Cliente.cliente_id.in_(accessible_query))
+            if prof_cond is not None:
+                d_sel = d_sel.where(prof_cond)
+            union_parts.append(d_sel)
 
-        if include_minor and minor_count > 0:
-            minor_dates = (
-                db.session.query(MinorCheckResponse.id, MinorCheckResponse.submit_date)
+        if include_minor:
+            m_sel = (
+                select(
+                    MinorCheckResponse.id.label("id"),
+                    MinorCheckResponse.submit_date.label("submit_date"),
+                    literal("minor").label("check_type"),
+                )
                 .join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id)
                 .join(Cliente, MinorCheck.cliente_id == Cliente.cliente_id)
-                .filter(MinorCheckResponse.submit_date >= start_date)
+                .where(MinorCheckResponse.submit_date >= start_date)
             )
             if period == 'custom':
-                minor_dates = minor_dates.filter(MinorCheckResponse.submit_date <= end_date)
+                m_sel = m_sel.where(MinorCheckResponse.submit_date <= end_date)
             if accessible_query is not None:
-                minor_dates = minor_dates.filter(Cliente.cliente_id.in_(accessible_query))
-            minor_dates = _apply_prof_filters(minor_dates)
-            for row in minor_dates.all():
-                all_items.append((row.submit_date, 'minor', row.id))
+                m_sel = m_sel.where(Cliente.cliente_id.in_(accessible_query))
+            if prof_cond is not None:
+                m_sel = m_sel.where(prof_cond)
+            union_parts.append(m_sel)
 
-        # Sort DESC by submit_date, paginate
-        all_items.sort(key=lambda x: x[0] or datetime.min, reverse=True)
-        page_items = all_items[offset:offset + per_page]
+        if union_parts:
+            combined = union_all(*union_parts).subquery("combined")
+            page_rows = db.session.execute(
+                select(combined.c.id, combined.c.submit_date, combined.c.check_type)
+                .order_by(combined.c.submit_date.desc().nullslast(), combined.c.id.desc())
+                .limit(per_page)
+                .offset(offset)
+            ).fetchall()
+            page_items = [(row.submit_date, row.check_type, row.id) for row in page_rows]
+        else:
+            page_items = []
 
         # Group IDs by type for batch loading
         weekly_ids_page = [item[2] for item in page_items if item[1] == 'weekly']
@@ -2881,11 +2959,16 @@ def api_get_professionisti_by_type(prof_type: str):
 
             led_team_ids = [t.id for t in (getattr(current_user, 'teams_led', None) or [])]
             if led_team_ids:
-                # Includi sia i membri del team che il team leader stesso
+                # Includi sia i membri del team che il team leader stesso.
+                # Usiamo IN subquery invece di EXISTS correlata (più efficiente con index).
+                from corposostenibile.models import team_members as team_members_tbl
                 led_head_ids = [t.head_id for t in current_user.teams_led if t.head_id]
+                member_ids_sq = db.session.query(team_members_tbl.c.user_id).filter(
+                    team_members_tbl.c.team_id.in_(led_team_ids)
+                ).subquery()
                 professionals_query = professionals_query.filter(
                     db.or_(
-                        User.teams.any(Team.id.in_(led_team_ids)),
+                        User.id.in_(member_ids_sq),
                         User.id.in_(led_head_ids)
                     )
                 )

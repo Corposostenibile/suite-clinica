@@ -62,6 +62,7 @@ from corposostenibile.models import (
     CheckInIntervention,
     TrustpilotReview,
     VideoReviewRequest,
+    RinnovoIntervention,
     Influencer,
     ClienteMarketingFlag,
     ClienteMarketingContent,
@@ -69,6 +70,7 @@ from corposostenibile.models import (
     MarketingFlagTypeEnum,
     MarketingContentTypeEnum,
 )
+from sqlalchemy import case, or_, and_
 from . import customers_bp                              # blueprint declared in __init__.py
 from .filters import apply_customer_filters, parse_filter_args
 from .permissions import CustomerPerm, permission_required
@@ -1742,7 +1744,7 @@ def api_expiring() -> Any:
     range_start = today if days == 30 else today + timedelta(days=days - 30)
     hm_filter = request.args.get("health_manager_id", type=int)
 
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(Cliente).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
@@ -1750,7 +1752,7 @@ def api_expiring() -> Any:
             Cliente.data_rinnovo <= limit_date,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    )
+    ))
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1798,14 +1800,14 @@ def api_expiring() -> Any:
         })
 
     # Conteggi per fascia
-    count_base = apply_role_filtering(
+    count_base = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(db.func.count(Cliente.cliente_id)).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo >= today,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    )
+    ))
     count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
     count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
     count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
@@ -1908,7 +1910,7 @@ def api_unsatisfied() -> Any:
     )
 
     # Query principale: clienti con media sotto la soglia
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(
             Cliente, subq.c.avg_rating,
             subq.c.avg_nutrizione, subq.c.avg_coach, subq.c.avg_psicologia, subq.c.avg_percorso,
@@ -1921,7 +1923,7 @@ def api_unsatisfied() -> Any:
             subq.c.avg_rating < threshold,
             *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
         )
-    )
+    ))
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1990,7 +1992,7 @@ def api_unsatisfied() -> Any:
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
     )
-    count_base = apply_role_filtering(count_base)
+    count_base = _apply_hm_page_scope(apply_role_filtering(count_base))
     count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
     count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
     count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
@@ -2014,13 +2016,10 @@ def api_unsatisfied() -> Any:
 @permission_required(CustomerPerm.VIEW)
 def api_hm_coordinatrici_dashboard() -> Any:
     """
-    Dashboard coordinatrici HM:.
-
-    Args:
-        Nessuno: endpoint senza parametri path espliciti.
-
-    Returns:
-        Risposta HTTP per `GET` su `/hm-coordinatrici-dashboard` in formato JSON/response Flask.
+    Dashboard coordinatrici HM:
+    - elenco pazienti associati a Health Manager
+    - ordinamento per HM e date principali
+    - flag operativi (parte mock finche' non disponibili dati persistenti)
     """
     specialty = getattr(current_user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
@@ -2045,9 +2044,11 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 or original_specialty_value.strip().lower() == "cco"
             )
 
-    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user)
+    role_value = getattr(current_user.role, "value", str(current_user.role or ""))
+    is_hm = role_value == "health_manager"
+    can_access = is_admin_or_cco or is_impersonated_by_admin_or_cco or _is_team_leader_health_manager_scope(current_user) or is_hm
     if not can_access:
-        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale coordinatrici HM.")
+        abort(HTTPStatus.FORBIDDEN, description="Non autorizzato alla visuale pannello di controllo HM.")
 
     page = max(request.args.get("page", 1, type=int), 1)
     per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
@@ -2075,10 +2076,10 @@ def api_hm_coordinatrici_dashboard() -> Any:
 
     rinnovo_subq = (
         db.session.query(
-            CallRinnovo.cliente_id.label("cliente_id"),
-            func.max(CallRinnovo.data_richiesta).label("last_renewal_call_date"),
+            RinnovoIntervention.cliente_id.label("cliente_id"),
+            func.max(RinnovoIntervention.intervention_date).label("last_renewal_call_date"),
         )
-        .group_by(CallRinnovo.cliente_id)
+        .group_by(RinnovoIntervention.cliente_id)
         .subquery()
     )
 
@@ -2100,7 +2101,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
     )
     hm_name_expr = hm_name_sql.label("health_manager_name")
 
-    query = apply_role_filtering(
+    query = _apply_hm_page_scope(apply_role_filtering(
         db.session.query(
             Cliente,
             checkin_subq.c.last_check_in_call_date,
@@ -2116,10 +2117,10 @@ def api_hm_coordinatrici_dashboard() -> Any:
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.health_manager_id.isnot(None),
         )
-    )
+    ))
 
     hm_options_rows = (
-        apply_role_filtering(
+        _apply_hm_page_scope(apply_role_filtering(
             db.session.query(
                 Cliente.health_manager_id.label("id"),
                 hm_name_expr,
@@ -2129,7 +2130,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 Cliente.show_in_clienti_lista.is_(True),
                 Cliente.health_manager_id.isnot(None),
             )
-        )
+        ))
         .group_by(Cliente.health_manager_id, hm_name_sql)
         .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
         .all()
@@ -3619,6 +3620,36 @@ def api_admin_dashboard_stats() -> Any:
             patologie.append({"name": name, "count": count})
     patologie.sort(key=lambda x: x["count"], reverse=True)
 
+    # ─── PATOLOGIE COACHING (top occurrences) ─────────────────────────── #
+    patologie_coach_fields = [
+        ("DCA", Cliente.patologia_coach_dca),
+        ("Ipertensione", Cliente.patologia_coach_ipertensione),
+        ("PCOS", Cliente.patologia_coach_pcos),
+        ("Sindrome metabolica", Cliente.patologia_coach_sindrome_metabolica),
+        ("Endometriosi", Cliente.patologia_coach_endometriosi),
+        ("Osteoporosi", Cliente.patologia_coach_osteoporosi),
+        ("Menopausa", Cliente.patologia_coach_menopausa),
+        ("Artrosi", Cliente.patologia_coach_artrosi),
+        ("Artrite", Cliente.patologia_coach_artrite),
+        ("Sclerosi Multipla", Cliente.patologia_coach_sclerosi_multipla),
+        ("Fibromialgia", Cliente.patologia_coach_fibromialgia),
+        ("Lipedema", Cliente.patologia_coach_lipedema),
+        ("Linfedema", Cliente.patologia_coach_linfedema),
+        ("Gravidanza", Cliente.patologia_coach_gravidanza),
+        ("Riabilitazione anca", Cliente.patologia_coach_riabilitazione_anca),
+        ("Riabilitazione spalla", Cliente.patologia_coach_riabilitazione_spalla),
+        ("Riabilitazione ginocchio", Cliente.patologia_coach_riabilitazione_ginocchio),
+        ("Lombalgia", Cliente.patologia_coach_lombalgia),
+        ("Spondilolistesi", Cliente.patologia_coach_spondilolistesi),
+        ("Spondilolisi", Cliente.patologia_coach_spondilolisi),
+    ]
+    patologie_coach = []
+    for name, col in patologie_coach_fields:
+        count = q().filter(col == True).with_entities(func.count(Cliente.cliente_id)).scalar() or 0
+        if count > 0:
+            patologie_coach.append({"name": name, "count": count})
+    patologie_coach.sort(key=lambda x: x["count"], reverse=True)
+
     # ─── GENDER DISTRIBUTION ─────────────────────────────────────────── #
     gender_rows = (
         q()
@@ -3679,6 +3710,7 @@ def api_admin_dashboard_stats() -> Any:
         },
         "monthlyTrend": monthly_trend,
         "patologie": patologie,
+        "patologie_coach": patologie_coach,
         "genderDistribution": gender_distribution,
         "programmaDistribution": programma_distribution,
         "paymentDistribution": payment_distribution,
@@ -4017,9 +4049,14 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
 
     _require_cliente_scope_or_403(cliente_id)
 
-    # Verifica che il lead appartenga a questo cliente
-    cliente = customers_repo.get_one(cliente_id, eager=True)
-    if not cliente.original_lead or cliente.original_lead.id != lead_id:
+    # Verifica che il lead appartenga a questo cliente con una query minimale,
+    # evitando di caricare l'intero cliente con eager=True.
+    from corposostenibile.models import SalesLead as _SalesLead
+    lead_exists = db.session.query(_SalesLead.id).filter(
+        _SalesLead.id == lead_id,
+        _SalesLead.converted_to_client_id == cliente_id,
+    ).scalar()
+    if not lead_exists:
         abort(403, description="Lead non associato a questo cliente")
 
     # I file lead possono trovarsi in diverse posizioni:
@@ -5006,24 +5043,44 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         history.motivazione_interruzione = motivazione
         history.interrotto_da_id = current_user.id if current_user.is_authenticated else None
 
-        # Rimuovi dalla relazione many-to-many
-        user = db.session.query(User).filter_by(id=history.user_id).first()
-        if user:
-            if history.tipo_professionista == "nutrizionista":
-                if user in cliente.nutrizionisti_multipli:
-                    cliente.nutrizionisti_multipli.remove(user)
-            elif history.tipo_professionista == "coach":
-                if user in cliente.coaches_multipli:
-                    cliente.coaches_multipli.remove(user)
-            elif history.tipo_professionista == "psicologa":
-                if user in cliente.psicologi_multipli:
-                    cliente.psicologi_multipli.remove(user)
-            elif history.tipo_professionista == "consulente":
-                if user in cliente.consulenti_multipli:
-                    cliente.consulenti_multipli.remove(user)
-            elif history.tipo_professionista == "health_manager":
-                if cliente.health_manager_id == history.user_id:
-                    cliente.health_manager_id = None
+        # Rimuovi dalla relazione many-to-many usando DELETE diretto sulla tabella di
+        # associazione invece di caricare l'intera collezione con lazy load.
+        from corposostenibile.models import (
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
+        )
+        tipo = history.tipo_professionista
+        user_id_to_remove = history.user_id
+        if tipo == "nutrizionista":
+            db.session.execute(
+                cliente_nutrizionisti.delete().where(
+                    cliente_nutrizionisti.c.cliente_id == cliente_id,
+                    cliente_nutrizionisti.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "coach":
+            db.session.execute(
+                cliente_coaches.delete().where(
+                    cliente_coaches.c.cliente_id == cliente_id,
+                    cliente_coaches.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "psicologa":
+            db.session.execute(
+                cliente_psicologi.delete().where(
+                    cliente_psicologi.c.cliente_id == cliente_id,
+                    cliente_psicologi.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "consulente":
+            db.session.execute(
+                cliente_consulenti.delete().where(
+                    cliente_consulenti.c.cliente_id == cliente_id,
+                    cliente_consulenti.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "health_manager":
+            if cliente.health_manager_id == history.user_id:
+                cliente.health_manager_id = None
 
         db.session.commit()
 
@@ -6448,6 +6505,793 @@ def api_storico_patologie_psico(cliente_id: int):
         'ok': True,
         'storico': result
     }), HTTPStatus.OK
+
+
+@customers_bp.route("/<int:cliente_id>/patologie_coach/storico", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_storico_patologie_coach(cliente_id: int):
+    """
+    Recupera lo storico completo delle patologie coaching del cliente.
+    Mostra quando ogni patologia coaching è stata aggiunta o rimossa.
+    """
+    from corposostenibile.models import PatologiaCoachLog
+
+    # Verifica che il cliente esista
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+    _require_service_scope_or_403(cliente_id, "coaching")
+
+    # Recupera lo storico ordinato per data (dal più recente al più vecchio)
+    storico = PatologiaCoachLog.query.filter_by(
+        cliente_id=cliente_id
+    ).order_by(PatologiaCoachLog.data_inizio.desc()).all()
+
+    # Prepara la risposta JSON
+    result = []
+    for log in storico:
+        result.append({
+            'id': log.id,
+            'patologia': log.patologia,
+            'patologia_nome': log.patologia_nome,
+            'azione': log.azione,
+            'data_inizio': log.data_inizio.strftime('%d/%m/%Y') if log.data_inizio else None,
+            'data_fine': log.data_fine.strftime('%d/%m/%Y') if log.data_fine else None,
+            'is_attiva': log.is_attiva,
+            'durata_giorni': log.durata_giorni,
+            'note': log.note
+        })
+
+    return jsonify({
+        'ok': True,
+        'storico': result
+    }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  CLINICAL FOLDER PDF EXPORT                                                 #
+# --------------------------------------------------------------------------- #
+
+def _export_pdf_format_value(value):
+    """Formatta un qualsiasi valore per la visualizzazione nel PDF."""
+    if value is None:
+        return "-"
+    if hasattr(value, "value"):
+        value = value.value
+    if isinstance(value, bool):
+        return "Sì" if value else "No"
+    if isinstance(value, (date, datetime)):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, (list, tuple, set)):
+        if not value:
+            return "-"
+        return ", ".join(_export_pdf_format_value(item) for item in value)
+    text = str(value).strip()
+    return text or "-"
+
+
+def _export_pdf_user_label(user):
+    """Estrae un'etichetta leggibile per un utente."""
+    if not user:
+        return "-"
+    full_name = getattr(user, "full_name", None)
+    if full_name:
+        return str(full_name)
+    email = getattr(user, "email", None)
+    if email:
+        return str(email)
+    user_id = getattr(user, "id", None)
+    if user_id:
+        return f"Utente #{user_id}"
+    return "-"
+
+
+def _append_export_section(story, styles, title, rows, col_widths):
+    """Costruisce una sezione tabellare a 2 colonne per il PDF, splittabile tra pagine."""
+    from reportlab.lib import colors as rl_colors
+    from reportlab.platypus import Paragraph, Spacer, Table, TableStyle
+
+    if title:
+        story.append(Paragraph(title, styles["SectionHeader"]))
+    data = []
+    for label, value in rows:
+        rendered = _export_pdf_format_value(value)
+        data.append([
+            Paragraph(f"<b>{label}</b>", styles["PDFBody"]),
+            Paragraph(rendered.replace("\n", "<br/>"), styles["PDFBody"]),
+        ])
+
+    if not data:
+        data = [[Paragraph("<b>Info</b>", styles["PDFBody"]),
+                 Paragraph("Nessun dato disponibile", styles["PDFBody"])]]
+
+    table = Table(data, colWidths=col_widths, repeatRows=0)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), rl_colors.HexColor("#f8fafc")),
+        ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#d1d5db")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    table.splitInRow = 1
+    story.append(table)
+    story.append(Spacer(1, 10))
+
+
+@customers_bp.route("/<int:cliente_id>/clinical-folder-export", methods=["GET"])
+@csrf.exempt
+@permission_required(CustomerPerm.VIEW)
+def api_clinical_folder_export_pdf(cliente_id: int):
+    """Genera ed esporta la cartella clinica completa del paziente in formato PDF."""
+    from io import BytesIO
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (
+        BaseDocTemplate, Frame, PageTemplate,
+        Paragraph, Spacer, Table, TableStyle,
+    )
+    from flask import send_file
+
+    _require_cliente_scope_or_403(cliente_id)
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    # ── Fetch ALL related data (nessun limite) ──────────────────────────
+    from corposostenibile.models import (
+        WeeklyCheck, WeeklyCheckResponse,
+        ClientCheckAssignment, ClientCheckResponse,
+        ServiceAnamnesi, ServiceDiaryEntry,
+        MinorCheck, MinorCheckResponse,
+        DCACheck, DCACheckResponse,
+        ClienteProfessionistaHistory,
+        CustomerCareIntervention, CheckInIntervention,
+        RinnovoIntervention, ContinuityCallIntervention,
+        MealPlan, TrainingPlan, TrainingLocation,
+        TrustpilotReview, VideoReviewRequest,
+        CartellaClinica,
+    )
+
+    weekly_checks = WeeklyCheck.query.filter_by(cliente_id=cliente_id).all()
+    weekly_responses = (WeeklyCheckResponse.query
+        .join(WeeklyCheck).filter(WeeklyCheck.cliente_id == cliente_id)
+        .order_by(WeeklyCheckResponse.submit_date.desc()).all())
+
+    check_assignments = ClientCheckAssignment.query.filter_by(cliente_id=cliente_id).all()
+
+    minor_responses = (MinorCheckResponse.query
+        .join(MinorCheck).filter(MinorCheck.cliente_id == cliente_id)
+        .order_by(MinorCheckResponse.submit_date.desc()).all())
+
+    dca_responses = (DCACheckResponse.query
+        .join(DCACheck).filter(DCACheck.cliente_id == cliente_id)
+        .order_by(DCACheckResponse.submit_date.desc()).all())
+
+    anamnesi_entries = ServiceAnamnesi.query.filter_by(cliente_id=cliente_id).all()
+    diary_entries = ServiceDiaryEntry.query.filter_by(cliente_id=cliente_id).order_by(ServiceDiaryEntry.entry_date.desc()).all()
+
+    meal_plans = MealPlan.query.filter_by(cliente_id=cliente_id).order_by(MealPlan.created_at.desc()).all()
+    training_plans = TrainingPlan.query.filter_by(cliente_id=cliente_id).order_by(TrainingPlan.created_at.desc()).all()
+    training_locations = TrainingLocation.query.filter_by(cliente_id=cliente_id).order_by(TrainingLocation.start_date.desc()).all()
+
+    team_history = (ClienteProfessionistaHistory.query
+        .filter_by(cliente_id=cliente_id)
+        .order_by(ClienteProfessionistaHistory.data_dal.desc()).all())
+
+    cc_interventions = CustomerCareIntervention.query.filter_by(cliente_id=cliente_id).order_by(CustomerCareIntervention.intervention_date.desc()).all()
+    ci_interventions = CheckInIntervention.query.filter_by(cliente_id=cliente_id).order_by(CheckInIntervention.intervention_date.desc()).all()
+    rinnovo_interventions = RinnovoIntervention.query.filter_by(cliente_id=cliente_id).order_by(RinnovoIntervention.intervention_date.desc()).all()
+    continuity_interventions = ContinuityCallIntervention.query.filter_by(cliente_id=cliente_id).order_by(ContinuityCallIntervention.intervention_date.desc()).all()
+
+    trustpilot_reviews = TrustpilotReview.query.filter_by(cliente_id=cliente_id).order_by(TrustpilotReview.data_richiesta.desc()).all()
+    video_reviews = VideoReviewRequest.query.filter_by(cliente_id=cliente_id).order_by(VideoReviewRequest.created_at.desc()).all()
+
+    cartelle = CartellaClinica.query.filter_by(cliente_id=cliente_id).all()
+
+    try:
+        from corposostenibile.models import CallBonus
+        call_bonus_list = CallBonus.query.filter_by(cliente_id=cliente_id).order_by(CallBonus.data_richiesta.desc()).all()
+    except Exception:
+        call_bonus_list = []
+
+    try:
+        from corposostenibile.models import Ticket
+        tickets = Ticket.query.filter_by(cliente_id=cliente_id).all()
+    except Exception:
+        tickets = []
+
+    # ── Metriche peso e rating ──────────────────────────────────────────
+    first_weight = None
+    last_weight = None
+    rating_sums = {k: 0 for k in ("energy", "sleep", "mood", "motivation", "digestion", "strength", "hunger")}
+    rating_counts = {k: 0 for k in rating_sums}
+    for wr in weekly_responses:
+        w = getattr(wr, "weight", None)
+        if w:
+            if last_weight is None:
+                last_weight = w
+            first_weight = w
+        for rk in rating_sums:
+            rv = getattr(wr, f"{rk}_rating", None)
+            if rv is not None:
+                rating_sums[rk] += rv
+                rating_counts[rk] += 1
+    weight_delta = round(last_weight - first_weight, 1) if first_weight and last_weight else None
+    avg_ratings = {k: round(rating_sums[k] / rating_counts[k], 1) if rating_counts[k] else None for k in rating_sums}
+
+    # ── PDF Design ──────────────────────────────────────────────────────
+    PRIMARY_GREEN = rl_colors.HexColor("#25B36A")
+    SECONDARY_GREEN = rl_colors.HexColor("#1a8a50")
+    DARK_GRAY = rl_colors.HexColor("#1f2937")
+    MEDIUM_GRAY = rl_colors.HexColor("#6b7280")
+    LIGHT_GREEN_BG = rl_colors.HexColor("#e8f5e9")
+    SECTION_BG = rl_colors.HexColor("#f1f8f4")
+
+    pdf_buffer = BytesIO()
+    page_w, page_h = A4
+    left_m, right_m, top_m, bottom_m = 1.5 * cm, 1.5 * cm, 2.5 * cm, 2.0 * cm
+
+    frame = Frame(left_m, bottom_m, page_w - left_m - right_m, page_h - top_m - bottom_m, id="main")
+
+    def header_footer(canvas, doc):
+        canvas.saveState()
+        canvas.setFillColor(PRIMARY_GREEN)
+        canvas.rect(0, page_h - 1.5 * cm, page_w, 1.5 * cm, fill=True, stroke=False)
+        canvas.setFillColor(rl_colors.white)
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawString(left_m, page_h - 1.1 * cm, f"Cartella Clinica — {cliente.nome_cognome or 'N/D'}")
+        canvas.setFillColor(PRIMARY_GREEN)
+        canvas.setStrokeColor(PRIMARY_GREEN)
+        canvas.line(left_m, bottom_m - 0.3 * cm, page_w - right_m, bottom_m - 0.3 * cm)
+        canvas.setFillColor(MEDIUM_GRAY)
+        canvas.setFont("Helvetica", 7)
+        canvas.drawString(left_m, bottom_m - 0.7 * cm, f"Generato il {datetime.utcnow().strftime('%d/%m/%Y %H:%M')} UTC")
+        canvas.drawRightString(page_w - right_m, bottom_m - 0.7 * cm, f"Pag. {doc.page}")
+        canvas.restoreState()
+
+    doc = BaseDocTemplate(pdf_buffer, pagesize=A4,
+                          leftMargin=left_m, rightMargin=right_m,
+                          topMargin=top_m, bottomMargin=bottom_m)
+    doc.addPageTemplates([PageTemplate(id="all", frames=[frame], onPage=header_footer)])
+
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle("CoverTitle", parent=styles["Title"], fontSize=28, textColor=PRIMARY_GREEN, alignment=1, spaceAfter=20))
+    styles.add(ParagraphStyle("CoverSubtitle", parent=styles["Normal"], fontSize=14, textColor=MEDIUM_GRAY, alignment=1, spaceAfter=30))
+    styles.add(ParagraphStyle("SectionHeader", parent=styles["Heading2"], fontSize=14, textColor=PRIMARY_GREEN, spaceBefore=15, spaceAfter=10))
+    styles.add(ParagraphStyle("SubSectionHeader", parent=styles["Heading3"], fontSize=12, textColor=SECONDARY_GREEN, spaceBefore=12, spaceAfter=8))
+    styles.add(ParagraphStyle("PDFBody", parent=styles["Normal"], fontSize=10, textColor=DARK_GRAY, leading=14, spaceAfter=6))
+    styles.add(ParagraphStyle("MetaText", parent=styles["Normal"], fontSize=9, textColor=MEDIUM_GRAY, leading=12, spaceAfter=4))
+    styles.add(ParagraphStyle("HighlightLabel", parent=styles["Normal"], fontSize=10, textColor=PRIMARY_GREEN, leading=14, fontName="Helvetica-Bold"))
+
+    story = []
+    col_w = [5.5 * cm, page_w - left_m - right_m - 5.5 * cm]
+
+    # ══════════════════ COPERTINA ══════════════════
+    story.append(Spacer(1, 3 * cm))
+    story.append(Paragraph("Cartella Clinica", styles["CoverTitle"]))
+    story.append(Paragraph(f"Paziente: {cliente.nome_cognome or 'N/D'}", styles["CoverSubtitle"]))
+
+    cover_data = [
+        [Paragraph("<b>Data di Nascita</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.data_di_nascita), styles["PDFBody"])],
+        [Paragraph("<b>Stato</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.stato_cliente), styles["PDFBody"])],
+        [Paragraph("<b>Programma</b>", styles["PDFBody"]), Paragraph(_export_pdf_format_value(cliente.programma_attuale), styles["PDFBody"])],
+        [Paragraph("<b>Data Generazione</b>", styles["PDFBody"]), Paragraph(datetime.utcnow().strftime("%d/%m/%Y"), styles["PDFBody"])],
+    ]
+    cover_table = Table(cover_data, colWidths=[5 * cm, 8 * cm])
+    cover_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREEN_BG),
+        ("BOX", (0, 0), (-1, -1), 1, PRIMARY_GREEN),
+        ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#c8e6c9")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(cover_table)
+    story.append(Spacer(1, 2 * cm))
+
+    # ══════════════════ PARTE 1: ANAGRAFICA ══════════════════
+    _append_export_section(story, styles, "1. Anagrafica", [
+        ("Nome e Cognome", cliente.nome_cognome),
+        ("Data di Nascita", cliente.data_di_nascita),
+        ("Genere", cliente.genere),
+        ("Email", cliente.mail),
+        ("Telefono", cliente.numero_telefono),
+        ("Professione", cliente.professione),
+        ("Paese", cliente.paese),
+        ("Indirizzo", cliente.indirizzo),
+    ], col_w)
+
+    if cliente.storia_cliente or cliente.problema or cliente.paure or cliente.conseguenze:
+        _append_export_section(story, styles, "1.1 Storia e Problematiche", [
+            ("Storia del Cliente", cliente.storia_cliente),
+            ("Problema", cliente.problema),
+            ("Paure", cliente.paure),
+            ("Conseguenze", cliente.conseguenze),
+        ], col_w)
+
+    _append_export_section(story, styles, "1.2 Programma", [
+        ("Programma Attuale", cliente.programma_attuale),
+        ("Dettaglio", cliente.programma_attuale_dettaglio),
+        ("Macrocategoria", cliente.macrocategoria),
+        ("Obiettivo", cliente.obiettivo_semplicato),
+        ("Obiettivo Dettagliato", cliente.obiettivo_cliente),
+        ("Tipologia Cliente", cliente.tipologia_cliente),
+        ("Stato Cliente", cliente.stato_cliente),
+        ("Inizio Abbonamento", cliente.data_inizio_abbonamento),
+        ("Durata (giorni)", cliente.durata_programma_giorni),
+        ("Note Rinnovo", cliente.note_rinnovo),
+        ("Data Rinnovo", cliente.data_rinnovo),
+        ("Modalità Pagamento", cliente.modalita_pagamento),
+        ("Deposito Iniziale", cliente.deposito_iniziale),
+    ], col_w)
+
+    _append_export_section(story, styles, "1.3 Date Piani Servizio", [
+        ("Inizio Nutrizione", cliente.data_inizio_nutrizione),
+        ("Durata Nutrizione (gg)", cliente.durata_nutrizione_giorni),
+        ("Scadenza Nutrizione", cliente.data_scadenza_nutrizione),
+        ("Inizio Coach", cliente.data_inizio_coach),
+        ("Durata Coach (gg)", cliente.durata_coach_giorni),
+        ("Scadenza Coach", cliente.data_scadenza_coach),
+        ("Inizio Psicologia", cliente.data_inizio_psicologia),
+        ("Durata Psicologia (gg)", cliente.durata_psicologia_giorni),
+        ("Scadenza Psicologia", cliente.data_scadenza_psicologia),
+    ], col_w)
+
+    _append_export_section(story, styles, "1.4 Team Attuale", [
+        ("Nutrizionista", _export_pdf_user_label(cliente.nutrizionista_user)),
+        ("Coach", _export_pdf_user_label(cliente.coach_user)),
+        ("Psicologa", _export_pdf_user_label(cliente.psicologa_user)),
+        ("Health Manager", _export_pdf_user_label(cliente.health_manager_user)),
+        ("Consulente", _export_pdf_user_label(cliente.consulente_user)),
+    ], col_w)
+
+    # ══════════════════ PARTE 2: STORICO TEAM ══════════════════
+    if team_history:
+        rows = []
+        for h in team_history:
+            rows.append((
+                f"{_export_pdf_format_value(h.tipo_professionista)} — {_export_pdf_user_label(h.professionista)}",
+                f"Dal {_export_pdf_format_value(h.data_dal)} al {_export_pdf_format_value(h.data_al)} | {'Attivo' if h.is_active else 'Terminato'}"
+            ))
+        _append_export_section(story, styles, "2. Storico Team", rows, col_w)
+
+    # ══════════════════ PARTE 2.5: INTERVENTI HM ══════════════════
+    if cc_interventions:
+        rows = []
+        for i in cc_interventions:
+            note_text = (i.notes or "")[:500]
+            loom = f" | Loom: {i.loom_link}" if i.loom_link else ""
+            rows.append((
+                _export_pdf_format_value(i.intervention_date),
+                f"{_export_pdf_user_label(i.created_by)}: {note_text}{loom}"
+            ))
+        _append_export_section(story, styles, "2.5a Customer Care Interventions", rows, col_w)
+
+    if ci_interventions:
+        rows = []
+        for i in ci_interventions:
+            note_text = (i.notes or "")[:500]
+            loom = f" | Loom: {i.loom_link}" if i.loom_link else ""
+            rows.append((
+                _export_pdf_format_value(i.intervention_date),
+                f"{_export_pdf_user_label(i.created_by)}: {note_text}{loom}"
+            ))
+        _append_export_section(story, styles, "2.5b Check-in Interventions", rows, col_w)
+
+    if rinnovo_interventions:
+        rows = []
+        for i in rinnovo_interventions:
+            note_text = (i.notes or "")[:500]
+            loom = f" | Loom: {i.loom_link}" if i.loom_link else ""
+            rows.append((
+                _export_pdf_format_value(i.intervention_date),
+                f"{_export_pdf_user_label(i.created_by)}: {note_text}{loom}"
+            ))
+        _append_export_section(story, styles, "2.5c Rinnovo Interventions", rows, col_w)
+
+    if continuity_interventions:
+        rows = []
+        for i in continuity_interventions:
+            note_text = (i.notes or "")[:500]
+            loom = f" | Loom: {i.loom_link}" if i.loom_link else ""
+            rows.append((
+                _export_pdf_format_value(i.intervention_date),
+                f"{_export_pdf_user_label(i.created_by)}: {note_text}{loom}"
+            ))
+        _append_export_section(story, styles, "2.5d Continuity Call Interventions", rows, col_w)
+
+    # ══════════════════ PARTE 3: SERVIZI ══════════════════
+    # ── 3A: NUTRIZIONE ──
+    story.append(Paragraph("3A. Nutrizione", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Nutrizione", [
+        ("Stato Servizio", cliente.stato_nutrizione),
+        ("Stato Chat", cliente.stato_cliente_chat_nutrizione),
+        ("Reach Out", cliente.reach_out_nutrizione),
+        ("Call Iniziale", cliente.call_iniziale_nutrizionista),
+        ("Data Call Iniziale", cliente.data_call_iniziale_nutrizionista),
+        ("Dieta Dal", cliente.dieta_dal),
+        ("Nuova Dieta Dal", cliente.nuova_dieta_dal),
+        ("Piani Alimentari", len(meal_plans)),
+    ], col_w)
+
+    # Patologie nutrizionali
+    pat_nutri = []
+    if cliente.nessuna_patologia:
+        pat_nutri.append(("Nessuna Patologia", "Sì"))
+    for field_name, label in [
+        ("patologia_ibs", "IBS"), ("patologia_reflusso", "Reflusso"), ("patologia_gastrite", "Gastrite"),
+        ("patologia_dca", "DCA"), ("patologia_insulino_resistenza", "Insulino-Resistenza"),
+        ("patologia_diabete", "Diabete"), ("patologia_dislipidemie", "Dislipidemie"),
+        ("patologia_steatosi_epatica", "Steatosi Epatica"), ("patologia_ipertensione", "Ipertensione"),
+        ("patologia_pcos", "PCOS"), ("patologia_endometriosi", "Endometriosi"),
+        ("patologia_obesita_sindrome", "Obesità Sindrome"), ("patologia_osteoporosi", "Osteoporosi"),
+        ("patologia_diverticolite", "Diverticolite"), ("patologia_crohn", "Crohn"),
+        ("patologia_stitichezza", "Stitichezza"), ("patologia_tiroidee", "Tiroidee"),
+    ]:
+        if getattr(cliente, field_name, False):
+            pat_nutri.append((label, "Sì"))
+    if cliente.patologia_altro:
+        pat_nutri.append(("Altro", cliente.patologia_altro))
+    if pat_nutri:
+        _append_export_section(story, styles, "Patologie Nutrizionali", pat_nutri, col_w)
+
+    if cliente.alert_nutrizione:
+        _append_export_section(story, styles, "Alert Nutrizione", [("Alert", cliente.alert_nutrizione)], col_w)
+    if cliente.storia_nutrizione or cliente.note_extra_nutrizione:
+        _append_export_section(story, styles, "Note Nutrizione", [
+            ("Storia", cliente.storia_nutrizione), ("Note Extra", cliente.note_extra_nutrizione),
+        ], col_w)
+
+    anamnesi_nutri = next((a for a in anamnesi_entries if a.service_type == "nutrizione"), None)
+    if anamnesi_nutri:
+        _append_export_section(story, styles, "Anamnesi Nutrizione", [
+            ("Contenuto", anamnesi_nutri.content),
+            ("Creato il", anamnesi_nutri.created_at),
+        ], col_w)
+
+    diary_nutri = [d for d in diary_entries if d.service_type == "nutrizione"]
+    if diary_nutri:
+        rows = [(str(d.entry_date.strftime("%d/%m/%Y")), f"{_export_pdf_user_label(d.author)}: {d.content}") for d in diary_nutri]
+        _append_export_section(story, styles, "Diario Nutrizione", rows, col_w)
+
+    # ── 3B: COACHING ──
+    story.append(Paragraph("3B. Coaching", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Coaching", [
+        ("Stato Servizio", cliente.stato_coach),
+        ("Stato Chat", cliente.stato_cliente_chat_coaching),
+        ("Reach Out", cliente.reach_out_coaching),
+        ("Call Iniziale", cliente.call_iniziale_coach),
+        ("Data Call Iniziale", cliente.data_call_iniziale_coach),
+        ("Luogo Allenamento", cliente.luogo_di_allenamento),
+        ("Allenamento Dal", cliente.allenamento_dal),
+        ("Nuovo Allenamento Il", cliente.nuovo_allenamento_il),
+        ("Piani Allenamento", len(training_plans)),
+    ], col_w)
+
+    # Patologie coaching
+    pat_coach = []
+    if cliente.nessuna_patologia_coach:
+        pat_coach.append(("Nessuna Patologia", "Sì"))
+    for field_name, label in [
+        ("patologia_coach_dca", "DCA"), ("patologia_coach_ipertensione", "Ipertensione"),
+        ("patologia_coach_pcos", "PCOS"), ("patologia_coach_sindrome_metabolica", "Sindrome Metabolica - Obesità"),
+        ("patologia_coach_endometriosi", "Endometriosi"), ("patologia_coach_osteoporosi", "Osteoporosi"),
+        ("patologia_coach_menopausa", "Menopausa"), ("patologia_coach_artrosi", "Artrosi"),
+        ("patologia_coach_artrite", "Artrite"), ("patologia_coach_sclerosi_multipla", "Sclerosi Multipla"),
+        ("patologia_coach_fibromialgia", "Fibromialgia"), ("patologia_coach_lipedema", "Lipedema"),
+        ("patologia_coach_linfedema", "Linfedema"), ("patologia_coach_gravidanza", "Gravidanza"),
+        ("patologia_coach_riabilitazione_anca", "Riabilitazione Anca"),
+        ("patologia_coach_riabilitazione_spalla", "Riabilitazione Spalla"),
+        ("patologia_coach_riabilitazione_ginocchio", "Riabilitazione Ginocchio"),
+        ("patologia_coach_lombalgia", "Lombalgia"), ("patologia_coach_spondilolistesi", "Spondilolistesi"),
+        ("patologia_coach_spondilolisi", "Spondilolisi"),
+    ]:
+        if getattr(cliente, field_name, False):
+            pat_coach.append((label, "Sì"))
+    if cliente.patologia_coach_altro:
+        pat_coach.append(("Altro", cliente.patologia_coach_altro))
+    if pat_coach:
+        _append_export_section(story, styles, "Patologie Coaching", pat_coach, col_w)
+
+    if cliente.alert_coaching:
+        _append_export_section(story, styles, "Alert Coaching", [("Alert", cliente.alert_coaching)], col_w)
+    if cliente.storia_coach or cliente.note_extra_coach:
+        _append_export_section(story, styles, "Note Coaching", [
+            ("Storia", cliente.storia_coach), ("Note Extra", cliente.note_extra_coach),
+        ], col_w)
+
+    anamnesi_coach = next((a for a in anamnesi_entries if a.service_type == "coaching"), None)
+    if anamnesi_coach:
+        _append_export_section(story, styles, "Anamnesi Coaching", [
+            ("Contenuto", anamnesi_coach.content),
+            ("Creato il", anamnesi_coach.created_at),
+        ], col_w)
+
+    diary_coach = [d for d in diary_entries if d.service_type == "coaching"]
+    if diary_coach:
+        rows = [(str(d.entry_date.strftime("%d/%m/%Y")), f"{_export_pdf_user_label(d.author)}: {d.content}") for d in diary_coach]
+        _append_export_section(story, styles, "Diario Coaching", rows, col_w)
+
+    # Training Locations
+    if training_locations:
+        rows = [(f"{_export_pdf_format_value(tl.location)} dal {_export_pdf_format_value(tl.start_date)}", tl.notes or "-") for tl in training_locations]
+        _append_export_section(story, styles, "Luoghi Allenamento", rows, col_w)
+
+    # ── 3C: PSICOLOGIA ──
+    story.append(Paragraph("3C. Psicologia", styles["SectionHeader"]))
+    _append_export_section(story, styles, "Stato Psicologia", [
+        ("Stato Servizio", cliente.stato_psicologia),
+        ("Stato Chat", cliente.stato_cliente_chat_psicologia),
+        ("Reach Out", cliente.reach_out_psicologia),
+        ("Call Iniziale", cliente.call_iniziale_psicologa),
+        ("Data Call Iniziale", cliente.data_call_iniziale_psicologia),
+        ("Sedute Comprate", cliente.sedute_psicologia_comprate),
+        ("Sedute Svolte", cliente.sedute_psicologia_svolte),
+    ], col_w)
+
+    # Patologie psicologiche
+    pat_psico = []
+    if cliente.nessuna_patologia_psico:
+        pat_psico.append(("Nessuna Patologia", "Sì"))
+    for field_name, label in [
+        ("patologia_psico_dca", "DCA"), ("patologia_psico_obesita_psicoemotiva", "Obesità Psicoemotiva"),
+        ("patologia_psico_ansia_umore_cibo", "Ansia/Umore/Cibo"),
+        ("patologia_psico_comportamenti_disfunzionali", "Comportamenti Disfunzionali"),
+        ("patologia_psico_immagine_corporea", "Immagine Corporea"),
+        ("patologia_psico_psicosomatiche", "Psicosomatiche"),
+        ("patologia_psico_relazionali_altro", "Relazionali/Altro"),
+    ]:
+        if getattr(cliente, field_name, False):
+            pat_psico.append((label, "Sì"))
+    if cliente.patologia_psico_altro:
+        pat_psico.append(("Altro", cliente.patologia_psico_altro))
+    if pat_psico:
+        _append_export_section(story, styles, "Patologie Psicologiche", pat_psico, col_w)
+
+    if cliente.alert_psicologia:
+        _append_export_section(story, styles, "Alert Psicologia", [("Alert", cliente.alert_psicologia)], col_w)
+    if cliente.storia_psicologica or cliente.note_extra_psicologa:
+        _append_export_section(story, styles, "Note Psicologia", [
+            ("Storia", cliente.storia_psicologica), ("Note Extra", cliente.note_extra_psicologa),
+        ], col_w)
+
+    anamnesi_psico = next((a for a in anamnesi_entries if a.service_type == "psicologia"), None)
+    if anamnesi_psico:
+        _append_export_section(story, styles, "Anamnesi Psicologia", [
+            ("Contenuto", anamnesi_psico.content),
+            ("Creato il", anamnesi_psico.created_at),
+        ], col_w)
+
+    diary_psico = [d for d in diary_entries if d.service_type == "psicologia"]
+    if diary_psico:
+        rows = [(str(d.entry_date.strftime("%d/%m/%Y")), f"{_export_pdf_user_label(d.author)}: {d.content}") for d in diary_psico]
+        _append_export_section(story, styles, "Diario Psicologia", rows, col_w)
+
+    # ══════════════════ PARTE 4: PROGRESSO ══════════════════
+    progress_rows = [
+        ("Peso Iniziale", f"{first_weight} kg" if first_weight else "-"),
+        ("Peso Attuale", f"{last_weight} kg" if last_weight else "-"),
+        ("Delta Peso", f"{weight_delta:+.1f} kg" if weight_delta is not None else "-"),
+    ]
+    for rk, rl in [("energy", "Energia"), ("sleep", "Sonno"), ("mood", "Umore"),
+                    ("motivation", "Motivazione"), ("digestion", "Digestione"),
+                    ("strength", "Forza"), ("hunger", "Fame")]:
+        progress_rows.append((f"Media {rl}", f"{avg_ratings[rk]}/10" if avg_ratings[rk] else "-"))
+    _append_export_section(story, styles, "4. Progresso e Metriche", progress_rows, col_w)
+
+    # ══════════════════ PARTE 5: OVERVIEW CHECK ══════════════════
+    _append_export_section(story, styles, "5. Check Periodici", [
+        ("Weekly Check Configurati", len(weekly_checks)),
+        ("Weekly Check Risposte", len(weekly_responses)),
+        ("Check Iniziali Assegnati", len(check_assignments)),
+        ("Minor Check (EDE-Q6) Risposte", len(minor_responses)),
+        ("DCA Check Risposte", len(dca_responses)),
+        ("Giorno Check", cliente.check_day),
+        ("Check Saltati", cliente.check_saltati),
+    ], col_w)
+
+    # ══════════════════ PARTE 6: EXTRA ══════════════════
+    extra_rows = [
+        ("Loom Link", cliente.loom_link),
+        ("Ticket Aperti", len(tickets)),
+        ("Onboarding Date", cliente.onboarding_date),
+        ("Note Criticità Iniziali", cliente.note_criticita_iniziali),
+    ]
+    if call_bonus_list:
+        extra_rows.append(("Call Bonus Richieste", len(call_bonus_list)))
+        latest_cb = call_bonus_list[0]
+        extra_rows.append(("Ultimo Call Bonus", f"{_export_pdf_format_value(latest_cb.status)} - {_export_pdf_format_value(latest_cb.data_richiesta)}"))
+    if trustpilot_reviews:
+        extra_rows.append(("Trustpilot Richieste", len(trustpilot_reviews)))
+    if video_reviews:
+        extra_rows.append(("Video Review Richieste", len(video_reviews)))
+    extra_rows.append(("Cartelle Cliniche", len(cartelle)))
+    extra_rows.append(("Allegati Totali", sum(len(c.allegati) for c in cartelle)))
+
+    # Social & Marketing flags
+    social_rows = [
+        ("Consenso Social Richiesto", cliente.consenso_social_richiesto),
+        ("Consenso Social Accettato", cliente.consenso_social_accettato),
+        ("Consenso Social Note", cliente.consenso_social_note),
+        ("Video Feedback Richiesto", cliente.video_feedback_richiesto),
+        ("Video Feedback Svolto", cliente.video_feedback_svolto),
+        ("Video Feedback Condiviso", cliente.video_feedback_condiviso),
+        ("Trasformazione Fisica", cliente.trasformazione_fisica),
+        ("Trasformazione Condivisa", cliente.trasformazione_fisica_condivisa),
+        ("Recensione Richiesta", cliente.recensione_richiesta),
+        ("Recensione Accettata", cliente.recensione_accettata),
+        ("Recensione Stelle", cliente.recensione_stelle),
+        ("Exit Call Richiesta", cliente.exit_call_richiesta),
+        ("Exit Call Svolta", cliente.exit_call_svolta),
+        ("Exit Call Note", cliente.exit_call_note),
+    ]
+    _append_export_section(story, styles, "6. Extra e Marketing", extra_rows + social_rows, col_w)
+
+    # Referral
+    _append_export_section(story, styles, "6.1 Referral", [
+        ("Bonus Scelto", cliente.referral_bonus_scelto),
+        ("Bonus Utilizzato", cliente.referral_bonus_utilizzato),
+        ("Bonus Da Utilizzare", cliente.referral_bonus_da_utilizzare),
+        ("Referral Note", cliente.referral_richiesti_note),
+    ], col_w)
+
+    # ══════════════════ PARTE 7: CHECK INIZIALI ══════════════════
+    if check_assignments:
+        story.append(Paragraph("7. Risposte Check Iniziali", styles["SectionHeader"]))
+        for ca in check_assignments:
+            form = ca.form
+            form_name = form.name if form else f"Form #{ca.form_id}"
+            fields_map = {}
+            if form and hasattr(form, 'fields'):
+                for f in form.fields:
+                    fields_map[str(f.id)] = f.label
+            responses = list(ca.responses) if hasattr(ca.responses, '__iter__') else []
+            if not responses:
+                story.append(Paragraph(f"{form_name}: nessuna risposta", styles["MetaText"]))
+                continue
+            for ridx, resp in enumerate(responses, 1):
+                story.append(Paragraph(f"{form_name} — Risposta #{ridx} ({_export_pdf_format_value(resp.created_at)})", styles["SubSectionHeader"]))
+                resp_rows = []
+                if isinstance(resp.responses, dict):
+                    for field_id, value in resp.responses.items():
+                        label = fields_map.get(str(field_id), f"Domanda {field_id}")
+                        resp_rows.append((label, value))
+                if resp_rows:
+                    _append_export_section(story, styles, "", resp_rows, col_w)
+
+    # ══════════════════ PARTE 8: RISPOSTE WEEKLY CHECK ══════════════════
+    if weekly_responses:
+        story.append(Paragraph("8. Risposte Weekly Check", styles["SectionHeader"]))
+        for idx, wr in enumerate(weekly_responses, 1):
+            story.append(Paragraph(f"Weekly #{idx} — {_export_pdf_format_value(wr.submit_date)}", styles["SubSectionHeader"]))
+            wr_rows = []
+            # Foto
+            if wr.photo_front:
+                wr_rows.append(("Foto Frontale", wr.photo_front))
+            if wr.photo_side:
+                wr_rows.append(("Foto Laterale", wr.photo_side))
+            if wr.photo_back:
+                wr_rows.append(("Foto Posteriore", wr.photo_back))
+            wr_rows.extend([
+                ("Cosa ha funzionato", wr.what_worked),
+                ("Cosa non ha funzionato", wr.what_didnt_work),
+                ("Cosa ho imparato", wr.what_learned),
+                ("Su cosa concentrarmi", wr.what_focus_next),
+                ("Peso", f"{wr.weight} kg" if wr.weight else "-"),
+                ("Aderenza Piano Nutrizione", wr.nutrition_program_adherence),
+                ("Aderenza Piano Allenamento", wr.training_program_adherence),
+                ("Passi Giornalieri", wr.daily_steps),
+                ("Settimane Allenamento Completate", wr.completed_training_weeks),
+                ("Giorni Allenamento Pianificati", wr.planned_training_days),
+                ("Modifiche Esercizi", wr.exercise_modifications),
+                ("Infortuni e Note", wr.injuries_notes),
+                ("Digestione", f"{wr.digestion_rating}/10" if wr.digestion_rating else "-"),
+                ("Energia", f"{wr.energy_rating}/10" if wr.energy_rating else "-"),
+                ("Forza", f"{wr.strength_rating}/10" if wr.strength_rating else "-"),
+                ("Fame", f"{wr.hunger_rating}/10" if wr.hunger_rating else "-"),
+                ("Sonno", f"{wr.sleep_rating}/10" if wr.sleep_rating else "-"),
+                ("Umore", f"{wr.mood_rating}/10" if wr.mood_rating else "-"),
+                ("Motivazione", f"{wr.motivation_rating}/10" if wr.motivation_rating else "-"),
+                ("Valutazione Nutrizionista", f"{wr.nutritionist_rating}/10" if wr.nutritionist_rating else "-"),
+                ("Feedback Nutrizionista", wr.nutritionist_feedback),
+                ("Valutazione Coach", f"{wr.coach_rating}/10" if wr.coach_rating else "-"),
+                ("Feedback Coach", wr.coach_feedback),
+                ("Valutazione Psicologo/a", f"{wr.psychologist_rating}/10" if wr.psychologist_rating else "-"),
+                ("Feedback Psicologo/a", wr.psychologist_feedback),
+                ("Valutazione Progresso", f"{wr.progress_rating}/10" if wr.progress_rating else "-"),
+                ("Referral", wr.referral),
+                ("Commenti Extra", wr.extra_comments),
+                ("Argomenti Live Session", wr.live_session_topics),
+            ])
+            _append_export_section(story, styles, "", wr_rows, col_w)
+
+    # Minor Check Responses (EDE-Q6) (TUTTE)
+    if minor_responses:
+        story.append(Paragraph("8.1 Risposte Minor Check (EDE-Q6)", styles["SectionHeader"]))
+        for idx, mr in enumerate(minor_responses, 1):
+            _append_export_section(story, styles, f"EDE-Q6 #{idx} — {_export_pdf_format_value(mr.submit_date)}", [
+                ("Score Globale", f"{mr.score_global:.2f}" if mr.score_global else "-"),
+                ("Score Restraint", f"{mr.score_restraint:.2f}" if mr.score_restraint else "-"),
+                ("Score Eating Concern", f"{mr.score_eating_concern:.2f}" if mr.score_eating_concern else "-"),
+                ("Score Shape Concern", f"{mr.score_shape_concern:.2f}" if mr.score_shape_concern else "-"),
+                ("Score Weight Concern", f"{mr.score_weight_concern:.2f}" if mr.score_weight_concern else "-"),
+                ("Peso", f"{mr.peso_attuale} kg" if mr.peso_attuale else "-"),
+                ("Altezza", f"{mr.altezza} cm" if mr.altezza else "-"),
+            ], col_w)
+
+    # DCA Check Responses (TUTTE)
+    if dca_responses:
+        story.append(Paragraph("8.2 Risposte DCA Check", styles["SectionHeader"]))
+        for idx, dr in enumerate(dca_responses, 1):
+            _append_export_section(story, styles, f"DCA #{idx} — {_export_pdf_format_value(dr.submit_date)}", [
+                ("Equilibrio Umore", f"{dr.mood_balance_rating}/5" if dr.mood_balance_rating else "-"),
+                ("Serenità Piano Alimentare", f"{dr.food_plan_serenity}/5" if dr.food_plan_serenity else "-"),
+                ("Preoccupazione Peso/Cibo", f"{dr.food_weight_worry}/5" if dr.food_weight_worry else "-"),
+                ("Emotional Eating", f"{dr.emotional_eating}/5" if dr.emotional_eating else "-"),
+                ("Comfort Corporeo", f"{dr.body_comfort}/5" if dr.body_comfort else "-"),
+                ("Rispetto del Corpo", f"{dr.body_respect}/5" if dr.body_respect else "-"),
+                ("Esercizio Benessere", f"{dr.exercise_wellness}/5" if dr.exercise_wellness else "-"),
+                ("Senso di Colpa Esercizio", f"{dr.exercise_guilt}/5" if dr.exercise_guilt else "-"),
+                ("Sonno", f"{dr.sleep_satisfaction}/5" if dr.sleep_satisfaction else "-"),
+                ("Tempo Relazioni", f"{dr.relationship_time}/5" if dr.relationship_time else "-"),
+                ("Tempo Personale", f"{dr.personal_time}/5" if dr.personal_time else "-"),
+                ("Interferenza Vita", f"{dr.life_interference}/5" if dr.life_interference else "-"),
+                ("Gestione Imprevisti", f"{dr.unexpected_management}/5" if dr.unexpected_management else "-"),
+                ("Auto-Compassione", f"{dr.self_compassion}/5" if dr.self_compassion else "-"),
+                ("Dialogo Interiore", f"{dr.inner_dialogue}/5" if dr.inner_dialogue else "-"),
+                ("Sostenibilità", f"{dr.long_term_sustainability}/5" if dr.long_term_sustainability else "-"),
+                ("Allineamento Valori", f"{dr.values_alignment}/5" if dr.values_alignment else "-"),
+                ("Motivazione", f"{dr.motivation_level}/5" if dr.motivation_level else "-"),
+                ("Organizzazione Pasti", f"{dr.meal_organization}/5" if dr.meal_organization else "-"),
+                ("Stress Pasti", f"{dr.meal_stress}/5" if dr.meal_stress else "-"),
+                ("Digestione", f"{dr.digestion_rating}/10" if dr.digestion_rating else "-"),
+                ("Energia", f"{dr.energy_rating}/10" if dr.energy_rating else "-"),
+                ("Forza", f"{dr.strength_rating}/10" if dr.strength_rating else "-"),
+                ("Fame", f"{dr.hunger_rating}/10" if dr.hunger_rating else "-"),
+                ("Umore (fisico)", f"{dr.mood_rating}/10" if dr.mood_rating else "-"),
+                ("Motivazione (fisico)", f"{dr.motivation_rating}/10" if dr.motivation_rating else "-"),
+                ("Referral", dr.referral),
+                ("Commenti", dr.extra_comments),
+            ], col_w)
+
+    # Meal Plans (TUTTI)
+    if meal_plans:
+        story.append(Paragraph("8.3 Piani Alimentari", styles["SectionHeader"]))
+        for mp in meal_plans:
+            _append_export_section(story, styles, f"{mp.name} ({_export_pdf_format_value(mp.start_date)} - {_export_pdf_format_value(mp.end_date)})", [
+                ("Attivo", mp.is_active),
+                ("Calorie Target", mp.target_calories),
+                ("Proteine (g)", mp.target_proteins),
+                ("Carboidrati (g)", mp.target_carbohydrates),
+                ("Grassi (g)", mp.target_fats),
+                ("Note", mp.notes),
+                ("Creato da", _export_pdf_user_label(mp.created_by)),
+            ], col_w)
+
+    # Training Plans (TUTTI)
+    if training_plans:
+        story.append(Paragraph("8.4 Piani Allenamento", styles["SectionHeader"]))
+        for tp in training_plans:
+            _append_export_section(story, styles, f"{tp.name} ({_export_pdf_format_value(tp.start_date)} - {_export_pdf_format_value(tp.end_date)})", [
+                ("Attivo", tp.is_active),
+                ("Note", tp.notes),
+                ("Creato da", _export_pdf_user_label(tp.created_by)),
+            ], col_w)
+
+    # ── Build PDF ──
+    doc.build(story)
+    pdf_buffer.seek(0)
+
+    safe_name = (cliente.nome_cognome or f"cliente_{cliente_id}").strip().replace(" ", "_")
+    safe_name = "".join(ch for ch in safe_name if ch.isalnum() or ch in {"_", "-"}) or f"cliente_{cliente_id}"
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"cartella_clinica_{safe_name}.pdf",
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -8406,6 +9250,37 @@ def _normalize_specialty_group_for_rbac(user) -> str | None:
     return None
 
 
+def _apply_hm_page_scope(query):
+    """
+    Filtro RBAC specifico per la pagina Health Manager:
+    - Admin/CCO: vedono tutto (nessun filtro aggiuntivo)
+    - Team Leader HM: vedono i pazienti il cui health_manager_id è un membro del team
+    - Health Manager: vedono solo i pazienti assegnati a loro (health_manager_id)
+    """
+    user_role = getattr(current_user, "role", None)
+    role_value = user_role.value if hasattr(user_role, "value") else str(user_role or "")
+    specialty = getattr(current_user, "specialty", None)
+    specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
+    is_admin_or_cco = bool(
+        getattr(current_user, "is_admin", False)
+        or role_value == "admin"
+        or specialty_value.strip().lower() == "cco"
+    )
+    if is_admin_or_cco:
+        return query
+    # Team Leader HM: pazienti assegnati agli HM del proprio team
+    if role_value == "team_leader" and _is_team_leader_health_manager_scope(current_user):
+        team_member_ids = {current_user.id}
+        for team in (getattr(current_user, "teams_led", []) or []):
+            for member in (getattr(team, "members", []) or []):
+                team_member_ids.add(member.id)
+        return query.filter(Cliente.health_manager_id.in_(list(team_member_ids)))
+    # Health Manager: solo i propri pazienti
+    if role_value == "health_manager":
+        return query.filter(Cliente.health_manager_id == current_user.id)
+    return query
+
+
 def _is_team_leader_health_manager_scope(user) -> bool:
     role = getattr(user, "role", None)
     role_value = role.value if hasattr(role, "value") else str(role or "")
@@ -9260,23 +10135,6 @@ def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
         if isinstance(ai_notes, dict):
             hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
 
-#  Video Review (Marketing Tab)                                               #
-# --------------------------------------------------------------------------- #
-def _serialize_video_review_request(item: VideoReviewRequest) -> dict[str, Any]:
-    hm_calendar_link = ""
-    hm_user = item.hm_user or None
-    if hm_user is not None:
-        import json as _json
-
-        ai_notes = hm_user.assignment_ai_notes or {}
-        if isinstance(ai_notes, str):
-            try:
-                ai_notes = _json.loads(ai_notes)
-            except (ValueError, TypeError):
-                ai_notes = {}
-        if isinstance(ai_notes, dict):
-            hm_calendar_link = str(ai_notes.get("link_calendario") or "").strip()
-
     return {
         "id": item.id,
         "cliente_id": item.cliente_id,
@@ -9330,6 +10188,102 @@ def api_video_review_requests(cliente_id: int):
     return jsonify({"success": True, "data": [_serialize_video_review_request(r) for r in rows]})
 
 
+def _resolve_hm_user(cliente):
+    """Risolve l'Health Manager del paziente: prima FK, poi history."""
+    from corposostenibile.models import ClienteProfessionistaHistory
+
+    hm_id = getattr(cliente, "health_manager_id", None)
+    if hm_id:
+        hm = db.session.get(User, hm_id)
+        if hm:
+            return hm
+
+    # Fallback: cerca nella history
+    history_row = (
+        db.session.query(ClienteProfessionistaHistory)
+        .filter_by(cliente_id=cliente.cliente_id, tipo_professionista="health_manager", is_active=True)
+        .first()
+    )
+    if history_row and history_row.user_id:
+        return db.session.get(User, history_row.user_id)
+    return None
+
+
+def _resolve_hm_ghl_calendar(hm_user):
+    """Risolve il calendario GHL dell'HM: prima campo, poi ricerca automatica per ghl_user_id."""
+    if hm_user.ghl_calendar_id:
+        return hm_user.ghl_calendar_id
+
+    if not hm_user.ghl_user_id:
+        return None
+
+    try:
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            return None
+        calendars = service.get_calendars()
+        for cal in calendars:
+            name = (cal.get("name") or "").lower()
+            if "calendario follow up servizio clienti" not in name:
+                continue
+            for member in cal.get("teamMembers") or []:
+                if member.get("userId") == hm_user.ghl_user_id:
+                    # Cache per il futuro
+                    hm_user.ghl_calendar_id = cal["id"]
+                    db.session.commit()
+                    logger.info(f"[VideoReview] Auto-resolved calendar {cal['id']} for HM {hm_user.id}")
+                    return cal["id"]
+    except Exception as e:
+        logger.warning(f"[VideoReview] Calendar auto-resolve failed: {e}")
+    return None
+
+
+@api_bp.route("/<int:cliente_id>/video-review-calendar-slots", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_video_review_calendar_slots(cliente_id: int):
+    """Restituisce gli slot liberi del calendario GHL dell'HM assegnato al paziente."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND, description="Cliente non trovato.")
+
+    hm_user = _resolve_hm_user(cliente)
+    if not hm_user:
+        abort(HTTPStatus.CONFLICT, description="Nessun Health Manager assegnato al paziente.")
+
+    calendar_id = _resolve_hm_ghl_calendar(hm_user)
+    if not calendar_id:
+        abort(HTTPStatus.CONFLICT, description="Calendario GHL non trovato per l'Health Manager. Contattare il team IT.")
+
+    start = request.args.get("start")
+    end = request.args.get("end")
+    if not start or not end:
+        today = datetime.utcnow()
+        start = today.strftime("%Y-%m-%d")
+        end = (today + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    try:
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            return jsonify({"success": False, "message": "GHL non configurato"}), 503
+
+        slots = service.get_free_slots(
+            calendar_id,
+            start,
+            end,
+        )
+        return jsonify({
+            "success": True,
+            "slots": slots,
+            "hm_name": hm_user.full_name,
+            "calendar_id": calendar_id,
+        })
+    except Exception as e:
+        logger.error(f"[VideoReview] Error fetching HM calendar slots: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @api_bp.route("/<int:cliente_id>/video-review-requests/booked", methods=["POST"])
 @permission_required(CustomerPerm.EDIT)
 def api_video_review_booked(cliente_id: int):
@@ -9353,6 +10307,13 @@ def api_video_review_booked(cliente_id: int):
             description="Nessun Health Manager assegnato al paziente: assegna HM prima della prenotazione video recensione.",
         )
 
+    hm_user = _resolve_hm_user(cliente)
+    if not hm_user:
+        abort(
+            HTTPStatus.CONFLICT,
+            description="Nessun Health Manager assegnato al paziente: assegna HM prima della prenotazione video recensione.",
+        )
+
     existing_open = (
         db.session.query(VideoReviewRequest)
         .filter(
@@ -9370,26 +10331,88 @@ def api_video_review_booked(cliente_id: int):
         }), HTTPStatus.OK
 
     payload = request.get_json(silent=True) or {}
+    selected_slot = (payload.get("selected_slot") or "").strip()  # ISO datetime
     booking_date_str = (payload.get("booking_date") or "").strip()
     booking_time_str = (payload.get("booking_time") or "").strip()
 
     booking_date = None
-    if booking_date_str:
-        try:
-            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
-
     booking_time = None
-    if booking_time_str:
+
+    if selected_slot:
         try:
-            booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+            slot_dt = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
+            booking_date = slot_dt.date()
+            booking_time = slot_dt.time()
         except ValueError:
-            abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+            abort(HTTPStatus.BAD_REQUEST, description="Formato slot non valido.")
+    else:
+        if booking_date_str:
+            try:
+                booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                abort(HTTPStatus.BAD_REQUEST, description="Formato data non valido. Usa YYYY-MM-DD.")
+        if booking_time_str:
+            try:
+                booking_time = datetime.strptime(booking_time_str, "%H:%M").time()
+            except ValueError:
+                abort(HTTPStatus.BAD_REQUEST, description="Formato orario non valido. Usa HH:MM.")
+
+    # Crea appuntamento GHL — obbligatorio se slot selezionato
+    ghl_appointment_id = None
+    if selected_slot:
+        calendar_id = _resolve_hm_ghl_calendar(hm_user)
+        if not calendar_id:
+            abort(HTTPStatus.CONFLICT, description="Calendario GHL non trovato per l'Health Manager. Contattare il team IT.")
+
+        from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+        if not service.is_configured():
+            abort(HTTPStatus.SERVICE_UNAVAILABLE, description="Integrazione GHL non configurata.")
+
+        # Cerca il contatto GHL del paziente tramite email o telefono
+        ghl_contact_id = None
+        try:
+            if cliente.mail:
+                contacts = service.search_contacts(email=cliente.mail)
+                if contacts:
+                    ghl_contact_id = contacts[0].get("id")
+            if not ghl_contact_id and cliente.numero_telefono:
+                contacts = service.search_contacts(phone=cliente.numero_telefono)
+                if contacts:
+                    ghl_contact_id = contacts[0].get("id")
+        except Exception as e:
+            logger.error(f"[VideoReview] GHL contact search failed: {e}")
+
+        if not ghl_contact_id:
+            return jsonify({
+                "success": False,
+                "message": "Contatto non trovato su GHL. Verificare che il paziente abbia email o telefono corrispondente su GoHighLevel. Contattare il team IT per assistenza.",
+            }), HTTPStatus.CONFLICT
+
+        try:
+            start_time = datetime.fromisoformat(selected_slot.replace("Z", "+00:00"))
+            end_time = start_time + timedelta(minutes=30)
+            title = f"{cliente.nome_cognome} | Video Review"
+            result = service.create_appointment(
+                calendar_id=calendar_id,
+                contact_id=ghl_contact_id,
+                start_time=start_time.isoformat(),
+                end_time=end_time.isoformat(),
+                title=title,
+            )
+            ghl_appointment_id = result.get("id") or result.get("event", {}).get("id")
+            logger.info(f"[VideoReview] GHL appointment created: {ghl_appointment_id} for cliente {cliente_id}")
+        except Exception as e:
+            logger.error(f"[VideoReview] GHL appointment creation FAILED: {e}")
+            return jsonify({
+                "success": False,
+                "message": f"Errore nella creazione dell'appuntamento sul calendario GHL: {str(e)}",
+            }), HTTPStatus.INTERNAL_SERVER_ERROR
+
     request_item = VideoReviewRequest(
         cliente_id=cliente_id,
         requested_by_user_id=current_user.id,
-        hm_user_id=cliente.health_manager_id,
+        hm_user_id=hm_user.id,
         status="booked",
         booking_confirmed_at=datetime.utcnow(),
         booking_date=booking_date,
@@ -9400,6 +10423,7 @@ def api_video_review_booked(cliente_id: int):
     return jsonify({
         "success": True,
         "data": _serialize_video_review_request(request_item),
+        "ghl_appointment_id": ghl_appointment_id,
         "message": "Prenotazione video recensione registrata.",
     }), HTTPStatus.CREATED
 
@@ -10323,6 +11347,186 @@ def api_trustpilot_webhook():
         "event_type": fields.get("event_type"),
         "review_id": review.id,
     }), HTTPStatus.OK
+
+
+# --------------------------------------------------------------------------- #
+#  Marketing Consents                                                         #
+# --------------------------------------------------------------------------- #
+
+def _serialize_marketing_content(item):
+    return {
+        "id": item.id,
+        "content_type": item.content_type.value if hasattr(item.content_type, "value") else item.content_type,
+        "checked": bool(item.checked),
+        "checked_date": item.checked_date.isoformat() if item.checked_date else None,
+        "influencers": [
+            {
+                "influencer_id": link.influencer_id,
+                "name": getattr(link.influencer, "name", None),
+                "handle": getattr(link.influencer, "handle", None),
+            }
+            for link in (item.influencer_links or [])
+            if link.influencer
+        ],
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "updated_at": item.updated_at.isoformat() if item.updated_at else None,
+    }
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def get_marketing_consents(cliente_id):
+    """Retrieve marketing consents and content for a client."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    flag = ClienteMarketingFlag.query.filter_by(
+        cliente_id=cliente_id,
+        flag_type=MarketingFlagTypeEnum.usabile_marketing,
+    ).first()
+
+    contents = ClienteMarketingContent.query.filter_by(cliente_id=cliente_id).order_by(
+        ClienteMarketingContent.created_at.desc()
+    ).all()
+
+    grouped = {"stories": [], "carosello": [], "videofeedback": []}
+    for c in contents:
+        key = c.content_type.value if hasattr(c.content_type, "value") else c.content_type
+        if key in grouped:
+            grouped[key].append(_serialize_marketing_content(c))
+
+    return jsonify({
+        "note_marketing": cliente.note_marketing or "",
+        "usabile_marketing": {
+            "checked": bool(flag.checked) if flag else False,
+            "checked_date": flag.checked_date.isoformat() if flag and flag.checked_date else "",
+        },
+        "contents": grouped,
+    })
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_marketing_consents(cliente_id):
+    """Update marketing notes and usabile_marketing flag."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    cliente.note_marketing = data.get("note_marketing", cliente.note_marketing)
+
+    um = data.get("usabile_marketing", {})
+    flag = ClienteMarketingFlag.query.filter_by(
+        cliente_id=cliente_id,
+        flag_type=MarketingFlagTypeEnum.usabile_marketing,
+    ).first()
+
+    if not flag:
+        flag = ClienteMarketingFlag(
+            cliente_id=cliente_id,
+            flag_type=MarketingFlagTypeEnum.usabile_marketing,
+        )
+        db.session.add(flag)
+
+    flag.checked = bool(um.get("checked", False))
+    if flag.checked:
+        flag.checked_date = um.get("checked_date") or date.today()
+    else:
+        flag.checked_date = None
+
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.route("/<int:cliente_id>/marketing-consents/content", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def create_marketing_content(cliente_id):
+    """Create a new marketing content record."""
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    content_type = data.get("content_type", "stories")
+    checked = bool(data.get("checked", False))
+    checked_date = data.get("checked_date")
+    if checked and not checked_date:
+        checked_date = date.today().isoformat()
+
+    item = ClienteMarketingContent(
+        cliente_id=cliente_id,
+        content_type=content_type,
+        checked=checked,
+        checked_date=checked_date or None,
+    )
+    db.session.add(item)
+    db.session.flush()
+
+    for inf_id in data.get("influencer_ids", []):
+        db.session.add(ClienteMarketingInfluencer(
+            marketing_content_id=item.id,
+            influencer_id=inf_id,
+        ))
+
+    db.session.commit()
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)}), HTTPStatus.CREATED
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["PUT"])
+@permission_required(CustomerPerm.EDIT)
+def update_marketing_content(content_id):
+    """Update a marketing content record."""
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND)
+
+    data = request.get_json(force=True)
+    if "content_type" in data:
+        item.content_type = data["content_type"]
+    if "checked" in data:
+        item.checked = bool(data["checked"])
+    if "checked_date" in data:
+        item.checked_date = data["checked_date"] or None
+    if item.checked and not item.checked_date:
+        item.checked_date = date.today()
+    if not item.checked:
+        item.checked_date = None
+
+    if "influencer_ids" in data:
+        ClienteMarketingInfluencer.query.filter_by(marketing_content_id=item.id).delete()
+        for inf_id in data["influencer_ids"]:
+            db.session.add(ClienteMarketingInfluencer(
+                marketing_content_id=item.id,
+                influencer_id=inf_id,
+            ))
+
+    db.session.commit()
+    return jsonify({"success": True, "data": _serialize_marketing_content(item)})
+
+
+@api_bp.route("/marketing-consents/content/<int:content_id>", methods=["DELETE"])
+@permission_required(CustomerPerm.EDIT)
+def delete_marketing_content(content_id):
+    """Delete a marketing content record."""
+    item = db.session.get(ClienteMarketingContent, content_id)
+    if not item:
+        abort(HTTPStatus.NOT_FOUND)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({"success": True})
+
+
+@api_bp.route("/marketing-consents/influencers", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def list_marketing_influencers():
+    """Return all active influencers."""
+    influencers = Influencer.query.filter_by(active=True).order_by(Influencer.name).all()
+    return jsonify([
+        {"influencer_id": i.influencer_id, "name": i.name, "handle": i.handle}
+        for i in influencers
+    ])
 
 
 # --------------------------------------------------------------------------- #

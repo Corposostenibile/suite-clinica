@@ -1,6 +1,6 @@
-"""add booking_date to video_review_requests
+"""add booking_date and booking_time to video_review_requests
 
-Revision ID: video_review_requests_booking_date_01
+Revision ID: video_review_requests_01b
 Revises: video_review_requests_01
 Create Date: 2026-03-19 00:00:00.000000
 

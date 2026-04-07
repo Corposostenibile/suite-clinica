@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 
 from flask import current_app
 from corposostenibile.extensions import db
-from corposostenibile.models import User, UserSpecialtyEnum
+from corposostenibile.models import User, UserSpecialtyEnum, ProfessionistCapacity
 from .criteria_service import CriteriaService
 
 logger = logging.getLogger(__name__)
@@ -170,6 +170,35 @@ class AIMatchingService:
             User.is_active == True
         ).all()
 
+        # 1b. Fetch capacity data for all professionals
+        prof_ids = [p.id for p in professionals]
+        capacities = ProfessionistCapacity.query.filter(
+            ProfessionistCapacity.user_id.in_(prof_ids)
+        ).all() if prof_ids else []
+        capacity_map = {(c.user_id, c.role_type): c for c in capacities}
+
+        # 1c. Fetch active client counts & type breakdown for capacity %
+        from .api import (
+            _get_assigned_clients_count_map_active_by_role,
+            _get_assigned_clients_by_type,
+            _get_capacity_weights_by_role,
+            _calculate_capacity_metrics,
+            CAPACITY_SUPPORT_TYPES,
+        )
+        assigned_map = _get_assigned_clients_count_map_active_by_role(prof_ids)
+        type_breakdown_map = _get_assigned_clients_by_type(prof_ids)
+        weights_by_role = _get_capacity_weights_by_role()
+
+        # Map specialty → capacity role_type
+        def _cap_role(spec_val):
+            if spec_val in ('nutrizionista', 'nutrizione'):
+                return 'nutrizionista'
+            if spec_val == 'coach':
+                return 'coach'
+            if spec_val in ('psicologo', 'psicologia'):
+                return 'psicologa'
+            return None
+
         # 2. Score Matching (skip professionals marked as unavailable)
         for prof in professionals:
             ai_notes = prof.assignment_ai_notes or {}
@@ -209,17 +238,38 @@ class AIMatchingService:
             # Calculate percentage
             percentage = int((points / len(criteria_list) * 100)) if criteria_list else 0
             
+            # Capacity data
+            cap_role = _cap_role(spec_val)
+            cap = capacity_map.get((prof.id, cap_role))
+            assigned_clients = assigned_map.get((prof.id, cap_role), 0)
+            contractual = (cap.max_clients if cap else 0) or 0
+            type_counts = type_breakdown_map.get((prof.id, cap_role), {})
+            cap_metrics = _calculate_capacity_metrics(
+                role_type=cap_role or '',
+                assigned_clients=assigned_clients,
+                contractual_capacity=contractual,
+                type_counts=type_counts,
+                weights_by_role=weights_by_role,
+            )
+
             # Append result
             results[category].append({
                 'id': prof.id,
                 'name': f"{prof.first_name} {prof.last_name}",
                 'avatar_url': prof.avatar_path.replace('avatars/', '/uploads/avatars/', 1) if prof.avatar_path and prof.avatar_path.startswith('avatars/') else '/static/assets/immagini/logo_user.png',
-                'score': percentage, # Frontend expects percentage in score field
+                'score': percentage,
                 'points': points,
-                'match_reasons': matches, # Frontend expects match_reasons
+                'match_reasons': matches,
                 'total_criteria': len(criteria_list),
                 'match_percentage': percentage,
-                'is_available': ai_notes.get('disponibile_assegnazioni', True)
+                'is_available': ai_notes.get('disponibile_assegnazioni', True),
+                'capacity': {
+                    'assigned': assigned_clients,
+                    'max': contractual,
+                    'percentage': cap_metrics['percentuale_capienza'],
+                    'weighted_load': cap_metrics['capienza_ponderata'],
+                    'is_over': cap_metrics['is_over_capacity'],
+                },
             })
             
         # 3. Sort by Score DESC

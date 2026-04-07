@@ -345,11 +345,21 @@ function ClientiList() {
   };
 
   const isHealthManager = user?.role === 'health_manager';
+  const isTeamLeaderHm = Boolean(
+    user?.role === 'team_leader' && (
+      String(user?.specialty || '').toLowerCase() === 'health_manager' ||
+      String(user?.department?.name || '').toLowerCase().includes('health') ||
+      (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
+        const tt = team?.team_type?.value || team?.team_type;
+        return String(tt || '').toLowerCase() === 'health_manager';
+      }))
+    )
+  );
   const visibleProfessionalFilters = {
     nutrizione: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'nutrizione'),
     coach: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'coach'),
     psicologia: !isProfessionista && !isHealthManager && (!isTeamLeaderRestricted || teamLeaderSpecialtyGroup === 'psicologia'),
-    health_manager: isAdminOrCco || isHealthManager,
+    health_manager: isAdminOrCco || isHealthManager || isTeamLeaderHm,
   };
 
   const visualButtons = [
@@ -361,6 +371,7 @@ function ClientiList() {
   ].filter((btn) => {
     if (isInfluencer) return btn.key === 'generale';
     if (isHealthManager) return btn.key === 'generale' || btn.key === 'health_manager';
+    if (isTeamLeaderHm) return btn.key === 'generale' || btn.key === 'health_manager';
     if (isProfessionista) return btn.key === 'generale' || btn.key === teamLeaderSpecialtyGroup;
     if (isAdminOrCco) return true;
     if (!isTeamLeaderRestricted) return true;

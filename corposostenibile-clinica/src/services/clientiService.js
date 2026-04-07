@@ -509,6 +509,13 @@ const clientiService = {
     return response.data;
   },
 
+  // ==================== HM COORDINATRICI DASHBOARD ====================
+
+  async getHmCoordinatriciDashboard(params = {}) {
+    const response = await api.get(`${API_BASE}/hm-coordinatrici-dashboard`, { params });
+    return response.data;
+  },
+
   // ==================== RINNOVO INTERVENTIONS ====================
 
   async getRinnovoInterventions(id) {

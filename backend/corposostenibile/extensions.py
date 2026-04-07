@@ -26,12 +26,17 @@ Bootstrap di **tutte** le estensioni condivise:
 """
 from __future__ import annotations
 
-from werkzeug.security import check_password_hash
+from typing import Optional, Dict, Any, Callable
+import redis
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta
 import logging
-import redis
+import time
+
+# ────────────────────────────────────────────────────────────────────────────
+#  ORM + VERSIONING (SQLAlchemy-Continuum)
+# ────────────────────────────────────────────────────────────────────────────
 from sqlalchemy_continuum import make_versioned, versioning_manager
 
 # Configure versioning (user tracking disabled until database migration)
@@ -133,6 +138,62 @@ except ImportError:  # Continuum ≥ 1.4
     make_version_tables = None  # pyright: ignore[reportGeneralTypeIssues]
 
 # ────────────────────────────────────────────────────────────────────────────
+#  SLOW QUERY LISTENER
+# ────────────────────────────────────────────────────────────────────────────
+_slow_query_logger = logging.getLogger("perf.sql")
+_query_listener_registered = False
+
+
+def _register_slow_query_listener(app) -> None:
+    """Registra i listener SQLAlchemy per rilevare query lente.
+
+    Usa connection.info (un dict locale alla connessione) per passare il
+    timestamp tra before_ e after_cursor_execute, senza variabili globali
+    e senza interferire con altri thread o con flask.g.
+
+    Il listener è registrato sull'Engine (non sulla sessione), quindi
+    cattura anche le query dei task Celery e degli script CLI.
+
+    Viene registrato una sola volta per processo grazie al flag
+    _query_listener_registered.
+    """
+    global _query_listener_registered  # pylint: disable=global-statement
+    if _query_listener_registered:
+        return
+
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    threshold_ms: int = app.config.get("SLOW_QUERY_THRESHOLD_MS", 200)
+
+    @event.listens_for(Engine, "before_cursor_execute")
+    def _before(conn, cursor, statement, parameters, context, executemany):
+        # connection.info è un dict vuoto per connessione, thread-safe
+        conn.info["query_start"] = time.monotonic()
+
+    @event.listens_for(Engine, "after_cursor_execute")
+    def _after(conn, cursor, statement, parameters, context, executemany):
+        start = conn.info.pop("query_start", None)
+        if start is None:
+            return
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        if elapsed_ms > threshold_ms:
+            # Tronca la query per non intasare i log (le prime 200 char bastano
+            # per identificare quale tabella / operazione è la colpevole)
+            snippet = statement.strip().replace("\n", " ")[:200]
+            _slow_query_logger.warning(
+                "SLOW_QUERY  duration_ms=%d  sql=%.200s",
+                elapsed_ms,
+                snippet,
+            )
+
+    _query_listener_registered = True
+    app.logger.info(
+        "[extensions] Slow query listener registered (threshold=%dms)", threshold_ms
+    )
+
+
+# ────────────────────────────────────────────────────────────────────────────
 #  BOOTSTRAP FUNCTION
 # ────────────────────────────────────────────────────────────────────────────
 def init_app(app):  # noqa: D401
@@ -146,7 +207,21 @@ def init_app(app):  # noqa: D401
     db.init_app(app)
     ma.init_app(app)
     migrate.init_app(app, db)
-    
+
+    # ── Query lente: listener SQLAlchemy ──────────────────────────────────
+    # Viene registrato una sola volta per istanza applicazione.
+    # Soglia configurabile via SLOW_QUERY_THRESHOLD_MS (default 200ms).
+    #
+    # Come funziona:
+    #   - before_cursor_execute  → salva il timestamp su connection.info (dict
+    #     locale alla singola connessione, non condiviso tra thread/greenlet)
+    #   - after_cursor_execute   → calcola la durata e logga se sopra soglia
+    #
+    # Non usiamo flask.g qui perché i listener SQLAlchemy operano a livello
+    # di connessione (fuori dal ciclo request/response) e possono essere
+    # chiamati anche da task Celery, script CLI, ecc.
+    _register_slow_query_listener(app)
+
     # ── SQLAlchemy-Continuum Plugin ────────────────────────────────────
     # Plugin disabled until database migration for user_id column
     # try:

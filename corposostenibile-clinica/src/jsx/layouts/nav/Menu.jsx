@@ -19,11 +19,11 @@ export const MenuList = [
         iconStyle: SVGICON.Calendar,
         to: 'calendario',
     },
-    {
-        title: 'Libreria Loom',
-        iconStyle: SVGICON.Loom,
-        to: 'loom-library',
-    },
+    // {
+    //     title: 'Libreria Loom',
+    //     iconStyle: SVGICON.Loom,
+    //     to: 'loom-library',
+    // },
     // Chat
     {
         title: 'Chat',
