@@ -3553,16 +3553,54 @@ def api_azienda_stats():
         # --- RBAC ---
         accessible_query = get_accessible_clients_query()
 
-        # --- Helper: apply prof filters to a query that already has Cliente joined ---
+        # --- Helper: apply prof filters a query che ha già Cliente in JOIN ---
+        # Quando prof_id è specificato, precalcoliamo i cliente_id corrispondenti con
+        # una singola query (usando subquery sulle tabelle di associazione dirette) invece
+        # di aggiungere un EXISTS correlato a ciascuna delle 6+ query successive.
+        _precomputed_prof_cliente_ids = None
+        if prof_type and prof_id:
+            from corposostenibile.models import (
+                cliente_nutrizionisti as _cn_tbl,
+                cliente_coaches as _cc_tbl,
+                cliente_psicologi as _cp_tbl,
+            )
+            if prof_type == 'nutrizione':
+                from corposostenibile.models import cliente_consulenti as _ccons_tbl
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.nutrizionista_id == prof_id,
+                            Cliente.consulente_alimentare_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cn_tbl.c.cliente_id).where(_cn_tbl.c.user_id == prof_id)),
+                            Cliente.cliente_id.in_(select(_ccons_tbl.c.cliente_id).where(_ccons_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+            elif prof_type == 'coach':
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.coach_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cc_tbl.c.cliente_id).where(_cc_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+            elif prof_type == 'psicologia':
+                _precomputed_prof_cliente_ids = [
+                    row[0] for row in db.session.query(Cliente.cliente_id).filter(
+                        db.or_(
+                            Cliente.psicologa_id == prof_id,
+                            Cliente.cliente_id.in_(select(_cp_tbl.c.cliente_id).where(_cp_tbl.c.user_id == prof_id)),
+                        )
+                    ).all()
+                ]
+
         def _apply_prof_filters(q):
-            if prof_type and prof_id:
-                if prof_type == 'nutrizione':
-                    q = q.filter(db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id)))
-                elif prof_type == 'coach':
-                    q = q.filter(db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id)))
-                elif prof_type == 'psicologia':
-                    q = q.filter(db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id)))
+            if _precomputed_prof_cliente_ids is not None:
+                # IN list precomputata: evita EXISTS correlati su ogni query
+                q = q.filter(Cliente.cliente_id.in_(_precomputed_prof_cliente_ids))
             elif prof_type:
+                # Solo prof_type senza prof_id specifico: semplice check NOT NULL + any()
                 if prof_type == 'nutrizione':
                     q = q.filter(db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any()))
                 elif prof_type == 'coach':
@@ -3710,14 +3748,10 @@ def api_azienda_stats():
         # per le query di conteggio/stats. Qui serve la condizione grezza per
         # poterla passare a select().where().
         def _prof_filter_cond():
-            if prof_type and prof_id:
-                if prof_type == 'nutrizione':
-                    return db.or_(Cliente.nutrizionista_id == prof_id, Cliente.nutrizionisti_multipli.any(User.id == prof_id))
-                elif prof_type == 'coach':
-                    return db.or_(Cliente.coach_id == prof_id, Cliente.coaches_multipli.any(User.id == prof_id))
-                elif prof_type == 'psicologia':
-                    return db.or_(Cliente.psicologa_id == prof_id, Cliente.psicologi_multipli.any(User.id == prof_id))
-            elif prof_type:
+            # Se abbiamo già i cliente_ids precomputati, usiamo un IN clause semplice
+            if _precomputed_prof_cliente_ids is not None:
+                return Cliente.cliente_id.in_(_precomputed_prof_cliente_ids)
+            if prof_type:
                 if prof_type == 'nutrizione':
                     return db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any())
                 elif prof_type == 'coach':
@@ -4205,11 +4239,16 @@ def api_get_professionisti_by_type(prof_type: str):
 
             led_team_ids = [t.id for t in (getattr(current_user, 'teams_led', None) or [])]
             if led_team_ids:
-                # Includi sia i membri del team che il team leader stesso
+                # Includi sia i membri del team che il team leader stesso.
+                # Usiamo IN subquery invece di EXISTS correlata (più efficiente con index).
+                from corposostenibile.models import team_members as team_members_tbl
                 led_head_ids = [t.head_id for t in current_user.teams_led if t.head_id]
+                member_ids_sq = db.session.query(team_members_tbl.c.user_id).filter(
+                    team_members_tbl.c.team_id.in_(led_team_ids)
+                ).subquery()
                 professionals_query = professionals_query.filter(
                     db.or_(
-                        User.teams.any(Team.id.in_(led_team_ids)),
+                        User.id.in_(member_ids_sq),
                         User.id.in_(led_head_ids)
                     )
                 )

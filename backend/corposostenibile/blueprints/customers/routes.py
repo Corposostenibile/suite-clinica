@@ -2755,9 +2755,14 @@ def api_initial_check_attachment(cliente_id: int, lead_id: int, filename: str) -
 
     _require_cliente_scope_or_403(cliente_id)
 
-    # Verifica che il lead appartenga a questo cliente
-    cliente = customers_repo.get_one(cliente_id, eager=True)
-    if not cliente.original_lead or cliente.original_lead.id != lead_id:
+    # Verifica che il lead appartenga a questo cliente con una query minimale,
+    # evitando di caricare l'intero cliente con eager=True.
+    from corposostenibile.models import SalesLead as _SalesLead
+    lead_exists = db.session.query(_SalesLead.id).filter(
+        _SalesLead.id == lead_id,
+        _SalesLead.converted_to_client_id == cliente_id,
+    ).scalar()
+    if not lead_exists:
         abort(403, description="Lead non associato a questo cliente")
 
     # I file lead possono trovarsi in diverse posizioni:
@@ -3599,24 +3604,44 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         history.motivazione_interruzione = motivazione
         history.interrotto_da_id = current_user.id if current_user.is_authenticated else None
 
-        # Rimuovi dalla relazione many-to-many
-        user = db.session.query(User).filter_by(id=history.user_id).first()
-        if user:
-            if history.tipo_professionista == "nutrizionista":
-                if user in cliente.nutrizionisti_multipli:
-                    cliente.nutrizionisti_multipli.remove(user)
-            elif history.tipo_professionista == "coach":
-                if user in cliente.coaches_multipli:
-                    cliente.coaches_multipli.remove(user)
-            elif history.tipo_professionista == "psicologa":
-                if user in cliente.psicologi_multipli:
-                    cliente.psicologi_multipli.remove(user)
-            elif history.tipo_professionista == "consulente":
-                if user in cliente.consulenti_multipli:
-                    cliente.consulenti_multipli.remove(user)
-            elif history.tipo_professionista == "health_manager":
-                if cliente.health_manager_id == history.user_id:
-                    cliente.health_manager_id = None
+        # Rimuovi dalla relazione many-to-many usando DELETE diretto sulla tabella di
+        # associazione invece di caricare l'intera collezione con lazy load.
+        from corposostenibile.models import (
+            cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti,
+        )
+        tipo = history.tipo_professionista
+        user_id_to_remove = history.user_id
+        if tipo == "nutrizionista":
+            db.session.execute(
+                cliente_nutrizionisti.delete().where(
+                    cliente_nutrizionisti.c.cliente_id == cliente_id,
+                    cliente_nutrizionisti.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "coach":
+            db.session.execute(
+                cliente_coaches.delete().where(
+                    cliente_coaches.c.cliente_id == cliente_id,
+                    cliente_coaches.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "psicologa":
+            db.session.execute(
+                cliente_psicologi.delete().where(
+                    cliente_psicologi.c.cliente_id == cliente_id,
+                    cliente_psicologi.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "consulente":
+            db.session.execute(
+                cliente_consulenti.delete().where(
+                    cliente_consulenti.c.cliente_id == cliente_id,
+                    cliente_consulenti.c.user_id == user_id_to_remove,
+                )
+            )
+        elif tipo == "health_manager":
+            if cliente.health_manager_id == history.user_id:
+                cliente.health_manager_id = None
 
         db.session.commit()
 

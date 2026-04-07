@@ -12,7 +12,7 @@ from . import bp
 from .security import require_webhook_signature, require_permission, rate_limiter
 from .validators import WebhookValidator
 from .tasks import process_acconto_open_webhook, process_chiuso_won_webhook, retry_failed_webhook
-from corposostenibile.extensions import db, csrf
+from corposostenibile.extensions import db, csrf, get_redis_client
 from corposostenibile.models import (
     GHLOpportunity,
     GHLOpportunityData,
@@ -1098,6 +1098,8 @@ def api_get_calendar_team_members():
     - team_leader: solo i membri dei propri team (+ se stesso)
     - health_manager: nessun filtro (vede solo il suo)
     - professionista: solo se stesso (nessun filtro mostrato)
+
+    Risultato cachato su Redis per 5 minuti (dati statici, team non cambiano spesso).
     """
     specialty = getattr(current_user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
@@ -1108,6 +1110,18 @@ def api_get_calendar_team_members():
     if not is_admin and not is_tl:
         # Professionista / HM: nessun membro da mostrare (HM vede il suo calendario)
         return jsonify({'success': True, 'members': []})
+
+    # Tenta cache Redis (TTL 5 minuti)
+    rds = get_redis_client()
+    cache_key = f"ghl:calendar:team-members:{'admin' if is_admin else f'tl:{current_user.id}'}"
+    if rds:
+        try:
+            cached = rds.get(cache_key)
+            if cached:
+                import json as _json
+                return jsonify({'success': True, 'members': _json.loads(cached)})
+        except Exception:
+            pass  # Cache miss → continua con DB query
 
     if is_admin:
         # Admin vede tutti gli utenti con GHL configurato
@@ -1137,6 +1151,13 @@ def api_get_calendar_team_members():
             'role': role_val,
             'specialty': spec_val,
         })
+
+    if rds:
+        try:
+            import json as _json
+            rds.setex(cache_key, 300, _json.dumps(members))
+        except Exception:
+            pass
 
     return jsonify({'success': True, 'members': members})
 

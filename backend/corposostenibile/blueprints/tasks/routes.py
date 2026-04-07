@@ -170,27 +170,25 @@ def _apply_admin_filters(query):
 
 
 def _build_stats(scope_query):
-    open_counts_query = (
+    # Singola query GROUP BY (status, category) invece di due query separate
+    rows = (
         scope_query
-        .filter(Task.status != TaskStatusEnum.done)
-        .filter(Task.status != TaskStatusEnum.archived)
-        .with_entities(Task.category, func.count(Task.id))
-        .group_by(Task.category)
-    )
-    completed_total = (
-        scope_query
-        .filter(Task.status == TaskStatusEnum.done)
-        .with_entities(func.count(Task.id))
-        .scalar()
-        or 0
+        .with_entities(Task.status, Task.category, func.count(Task.id))
+        .group_by(Task.status, Task.category)
+        .all()
     )
 
     cat_counts = {c.value: 0 for c in TaskCategoryEnum}
     total_open = 0
-    for cat, count in open_counts_query.all():
-        val = cat.value if hasattr(cat, 'value') else cat
-        cat_counts[val] = count
-        total_open += count
+    completed_total = 0
+    for status, cat, count in rows:
+        status_val = status.value if hasattr(status, 'value') else status
+        if status_val == TaskStatusEnum.done.value:
+            completed_total += count
+        elif status_val != TaskStatusEnum.archived.value:
+            cat_val = cat.value if hasattr(cat, 'value') else cat
+            cat_counts[cat_val] = cat_counts.get(cat_val, 0) + count
+            total_open += count
 
     return {
         'by_category': cat_counts,
