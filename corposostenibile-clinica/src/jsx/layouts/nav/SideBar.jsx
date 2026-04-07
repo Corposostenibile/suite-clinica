@@ -92,9 +92,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'Calendario', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'CLIENTI', 'TEAM'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Calendario', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Dashboard', 'Pazienti', 'Check', 'MAIN MENU', 'CLIENTI'].includes(item.title))
             : user?.is_trial
