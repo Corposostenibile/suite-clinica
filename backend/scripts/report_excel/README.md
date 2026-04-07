@@ -1,8 +1,10 @@
-# Report Statistiche Check (KPI Professionisti)
+# Report Excel - Strumenti di Estrazione Dati
 
-Script per generare report Excel delle statistiche di check settimanali.
+Script per generare report Excel da dati di produzione.
 
-## Descrizione
+## Strumenti Disponibili
+
+### 1. Statistiche Check (KPI Professionisti)
 
 `generate_stats_prod.py` estrae i dati dal database di produzione e genera un report Excel con tre fogli:
 
@@ -19,11 +21,11 @@ Script per generare report Excel delle statistiche di check settimanali.
 - **Check ricevuti**: numero di check effettivamente compilati
 - **% Check saltati**: percentuale di check non compilati
 
-## Esecuzione in Produzione (GCP Kubernetes)
+#### Esecuzione in Produzione (GCP Kubernetes)
 
 **Non serve fare deploy/push!** Lo script viene copiato ed eseguito direttamente sul pod esistente.
 
-### Procedura
+##### Procedura
 
 Esegui dalla cartella `backend/scripts/report_excel/`:
 
@@ -52,7 +54,7 @@ Il comando:
 2. Genera il report Excel in `/tmp` sul pod
 3. Trasferisce il file direttamente in locale tramite redirect stdout
 
-## Output
+#### Output
 
 Il file generato sarà nella cartella corrente con nome:
 ```
@@ -61,8 +63,64 @@ Report_KPI_Professionisti_YYYYMMDD.xlsx
 
 Esempio: `Report_KPI_Professionisti_20260403.xlsx`
 
-## Note
+#### Note
 
 - Lo script considera solo clienti con stato "Attivo"
 - I check aspettati iniziano 14 giorni dopo la data di inizio servizio
 - La percentuale di check saltati può essere 0% se ricevuti > aspettati (non negativo)
+
+### 2. Clienti Scaduti Ultimi 12 Mesi
+
+`generate_scaduti_prod.py` estrae tutti i clienti la cui data di rinnovo (`data_rinnovo`) è scaduta negli ultimi 12 mesi, indipendentemente dallo stato.
+
+#### Contenuto del Report
+
+Il report Excel contiene un solo foglio con le seguenti colonne:
+- **ID**: identificativo univoco del cliente
+- **Nome e Cognome**: nome completo del cliente
+- **Data di Scadenza**: data di rinnovo (data di scadenza dell'abbonamento)
+- **Checkbox**: colonna vuota per inserire manualmente i checkbox
+
+#### Esecuzione in Produzione (GCP Kubernetes)
+
+Stessa procedura dello script precedente:
+
+```bash
+# 1. Crea la cartella report_excel sul pod (se non esiste)
+kubectl exec deploy/suite-clinica-backend -c backend -- mkdir -p /app/scripts/report_excel
+
+# 2. Copia lo script sul pod
+kubectl cp generate_scaduti_prod.py suite-clinica-backend-6ff4b7494d-qg72b:/app/scripts/report_excel/generate_scaduti_prod.py -c backend
+
+# 3. Esegui lo script e salva l'Excel in locale
+kubectl exec suite-clinica-backend-6ff4b7494d-qg72b -c backend -- bash -lc '
+  cd /app/scripts/report_excel
+  PYTHONPATH=/app python generate_scaduti_prod.py --out /tmp >/dev/null 2>&1
+  cat /tmp/Clienti_Scaduti_Ultimi_12_Mesi_*.xlsx
+' > ./Clienti_Scaduti_Ultimi_12_Mesi_$(date +%Y%m%d).xlsx
+```
+
+**Nota:** Sostituisci `suite-clinica-backend-6ff4b7494d-qg72b` con il nome attuale del pod. Per trovarlo:
+```bash
+kubectl get pods | grep backend | grep Running | head -1 | awk '{print $1}'
+```
+
+#### Output
+
+Il file generato sarà nella cartella corrente con nome:
+```
+Clienti_Scaduti_Ultimi_12_Mesi_YYYYMMDD.xlsx
+```
+
+Esempio: `Clienti_Scaduti_Ultimi_12_Mesi_20260407.xlsx`
+
+#### Parametri
+- `--mesi`: numero di mesi indietro da considerare (default: 12)
+- `--out`: directory di output
+- `--gcs-bucket`: bucket GCS per upload automatico
+
+#### Note
+- Lo script considera tutti i clienti, senza filtro per stato
+- Identifica i clienti scaduti tramite `data_rinnovo` (data di scadenza dell'abbonamento)
+- Include solo clienti con `data_rinnovo` non nulla, <= oggi e >= oggi - {mesi} mesi
+- La colonna "Checkbox" è vuota e pronta per l'inserimento manuale dei checkbox (da Excel)
