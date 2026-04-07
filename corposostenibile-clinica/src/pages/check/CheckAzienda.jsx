@@ -5,7 +5,7 @@ import DatePicker from '../../components/DatePicker';
 import checkService from '../../services/checkService';
 import GuidedTour from '../../components/GuidedTour';
 import SupportWidget from '../../components/SupportWidget';
-import { isProfessionistaStandard, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { isProfessionistaStandard, normalizeSpecialtyGroup, isHealthManagerUser, isHealthManagerTeamLeader } from '../../utils/rbacScope';
 import './CheckAzienda.css';
 
 // Professional type config
@@ -85,6 +85,8 @@ function CheckAzienda() {
   const [searchParams] = useSearchParams();
   const isProfessionista = isProfessionistaStandard(user);
   const isInfluencer = user?.role === 'influencer';
+  const isHmUser = isHealthManagerUser(user);
+  const isHmTeamLeader = isHealthManagerTeamLeader(user);
   const profSpecialtyGroup = useMemo(() => normalizeSpecialtyGroup(user?.specialty), [user?.specialty]);
 
   useEffect(() => {
@@ -342,7 +344,7 @@ function CheckAzienda() {
       {/* Header */}
       <div className="chk-header" data-tour="header">
         <div>
-          <h4>{isProfessionista ? 'I miei Check' : isTeamLeaderRestricted ? 'Check Team' : 'Check Azienda'}</h4>
+          <h4>{(isProfessionista || isHmUser) ? 'I miei Check' : (isTeamLeaderRestricted || isHmTeamLeader) ? 'Check Team' : 'Check Azienda'}</h4>
           <p>
             {(ratingFilter || showUnreadOnly) ? (
               <>{filteredResponses.length} risposte filtrate <span>({pagination.total || responses.length} totali nel periodo)</span></>

@@ -42,9 +42,9 @@ export function normalizeSpecialtyGroup(specialty) {
 }
 
 export function canAccessGlobalCheckPage(user) {
-  // Admin, CCO, Team Leader, e Professionisti standard (nutrizionista/coach/psicologo)
-  // Health Manager esclusi
-  return !isHealthManagerScopeUser(user);
+  if (!user) return false;
+  if (user.role === 'influencer') return false;
+  return true;
 }
 
 export function canAccessQualityPage(user) {

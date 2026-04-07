@@ -70,10 +70,30 @@ def get_accessible_clients_query():
                     Cliente.coach_id.in_(team_member_ids_with_leader),
                     Cliente.psicologa_id.in_(team_member_ids_with_leader),
                     Cliente.consulente_alimentare_id.in_(team_member_ids_with_leader),
+                    Cliente.health_manager_id.in_(team_member_ids_with_leader),
                     Cliente.nutrizionisti_multipli.any(User.id.in_(team_member_ids_with_leader)),
                     Cliente.coaches_multipli.any(User.id.in_(team_member_ids_with_leader)),
                     Cliente.psicologi_multipli.any(User.id.in_(team_member_ids_with_leader)),
                     Cliente.consulenti_multipli.any(User.id.in_(team_member_ids_with_leader)),
+                )
+            )
+        )
+    # Health Manager: propri clienti assegnati come HM
+    if getattr(current_user, 'role', None) == UserRoleEnum.health_manager:
+        cb_client_ids = _call_bonus_client_ids_for_user(current_user.id)
+        return (
+            db.session.query(Cliente.cliente_id)
+            .filter(
+                or_(
+                    Cliente.health_manager_id == current_user.id,
+                    Cliente.cliente_id.in_(cb_client_ids),
+                    db.session.query(ClienteProfessionistaHistory.cliente_id)
+                    .filter(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id == current_user.id,
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                    .exists(),
                 )
             )
         )
