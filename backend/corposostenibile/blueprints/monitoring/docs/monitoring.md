@@ -106,6 +106,34 @@ Browser → /api/monitoring/infrastructure
 }
 ```
 
+### 5. Dettaglio Errori (nuovo v2.2)
+```json
+{
+  "error_stats": {
+    "total_errors": 15,
+    "errors_4xx": 12,      // Errori client (400-499)
+    "errors_5xx": 3,       // Errori server (500+)
+    "error_rate_pct": 2.45, // Percentuale errori su totale richieste
+    "top_error_codes": {   // Codici più frequenti
+      "404": 8,
+      "401": 4,
+      "500": 2
+    },
+    "hourly_error_distribution": [...]  // Quando si verificano gli errori
+  },
+  "errors": [
+    {
+      "endpoint": "/api/customers/{id}",
+      "status": 404,
+      "count": 5,
+      "error_message": "Customer not found",  // Messaggio di errore
+      "error_variants": {"msg1": 3, "msg2": 2}, // Varianti del messaggio
+      "samples": [{"timestamp": "...", "status_message": "...", "user_agent": "..."}]
+    }
+  ]
+}
+```
+
 ---
 
 ## Endpoint
@@ -168,10 +196,52 @@ Dettaglio per endpoint da Cloud Logging (campione log). **~5-10 secondi** (prima
       "error_count": 2,
       "error_rate_pct": 2.3,
       "hourly_distribution": [...],
-      "weekday_distribution": [...]
+      "weekday_distribution": [...],
+      "status_message": "Not Found",  // Messaggio di errore (se disponibile)
+      "user_agent": "Mozilla/5.0...",  // User agent della richiesta
+      "remote_ip": "192.168.1.1"  // IP del client
     }
   ],
-  "errors": [...],
+  "errors": [
+    {
+      "endpoint": "/api/customers/{id}",
+      "status": 404,
+      "count": 5,
+      "last_seen": "2024-01-15T14:30:00Z",
+      "error_message": "Customer not found",  // Messaggio di errore più comune
+      "error_variants": {  // Tutti i messaggi con conteggio
+        "Customer not found": 3,
+        "Resource does not exist": 2
+      },
+      "hourly_distribution": [{"hour": 0, "count": 0}, ...],  // Distribuzione oraria errori
+      "top_user_agents": [  // User agent che generano errori
+        {"agent": "PostmanRuntime", "count": 3},
+        {"agent": "curl", "count": 2}
+      ],
+      "samples": [
+        {
+          "timestamp": "2024-01-15T14:30:00Z",
+          "status": 404,
+          "latency_ms": 45,
+          "status_message": "Customer not found",  // Messaggio specifico del sample
+          "user_agent": "PostmanRuntime/7.32.3"
+        }
+      ]
+    }
+  ],
+  "error_stats": {  // Statistiche aggregate degli errori
+    "total_errors": 15,
+    "errors_4xx": 12,
+    "errors_5xx": 3,
+    "error_rate_pct": 2.45,
+    "top_error_codes": {  // Codici di errore più frequenti
+      "404": 8,
+      "401": 4,
+      "500": 2,
+      "502": 1
+    },
+    "hourly_error_distribution": [{"hour": 0, "count": 0}, ...]
+  },
   "period_days": 7,
   "total_requests": 609,
   "fetched_entries": 609,

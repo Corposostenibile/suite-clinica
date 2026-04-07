@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -40,6 +40,9 @@ function Monitoring() {
   const [infraData, setInfraData] = useState(null);
   const [infraLoading, setInfraLoading] = useState(false);
   const [infraError, setInfraError] = useState(null);
+  // Errori
+  const [errorFilter, setErrorFilter] = useState('all'); // 'all', '4xx', '5xx'
+  const [selectedError, setSelectedError] = useState(null);
 
   // Carica overview all'avvio (veloce, Cloud Monitoring)
   const fetchOverview = useCallback(async () => {
@@ -428,134 +431,494 @@ function Monitoring() {
               </tr>
             </thead>
             <tbody>
-              {endpoints.map((ep, i) => (
-                <tr
-                  key={i}
-                  className={`${ep.avg_latency_ms > 5000 ? 'row-critical' : ep.avg_latency_ms > 2000 ? 'row-warning' : ''}`}
-                >
-                  <td>
-                    <span className={`badge-classification badge-${ep.classification}`}>
-                      {ep.classification === 'internal' ? 'INT' : 'EXT'}
-                    </span>
-                  </td>
-                  <td><span className={`method-badge method-${ep.method.toLowerCase()}`}>{ep.method}</span></td>
-                  <td className="endpoint-url" title={ep.url}>{ep.url}</td>
-                  <td className="text-end">
-                    <span className={`latency-value ${ep.avg_latency_ms > 5000 ? 'latency-critical' : ep.avg_latency_ms > 2000 ? 'latency-warning' : 'latency-ok'}`}>
-                      {ep.avg_latency_ms.toLocaleString()}ms
-                    </span>
-                  </td>
-                  <td className="text-end">{ep.p95_latency_ms.toLocaleString()}ms</td>
-                  <td className="text-end">{ep.max_latency_ms.toLocaleString()}ms</td>
-                  <td className="text-end">
-                    {ep.error_rate_pct > 0 && (
-                      <span className="badge bg-danger">{ep.error_rate_pct}%</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={() => setSelectedEndpoint(selectedEndpoint?.url === ep.url ? null : ep)}
-                      title="Dettaglio"
+              {endpoints.map((ep) => {
+                const epKey = `${ep.method}:${ep.url}`;
+                const isSelected = selectedEndpoint === epKey;
+                return (
+                  <React.Fragment key={epKey}>
+                    <tr
+                      className={`${ep.avg_latency_ms > 5000 ? 'row-critical' : ep.avg_latency_ms > 2000 ? 'row-warning' : ''}`}
                     >
-                      {selectedEndpoint?.url === ep.url ? '\u25B2' : '\u25BC'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      <td>
+                        <span className={`badge-classification badge-${ep.classification}`}>
+                          {ep.classification === 'internal' ? 'INT' : 'EXT'}
+                        </span>
+                      </td>
+                      <td><span className={`method-badge method-${ep.method.toLowerCase()}`}>{ep.method}</span></td>
+                      <td className="endpoint-url" title={ep.url}>{ep.url}</td>
+                      <td className="text-end">
+                        <span className={`latency-value ${ep.avg_latency_ms > 5000 ? 'latency-critical' : ep.avg_latency_ms > 2000 ? 'latency-warning' : 'latency-ok'}`}>
+                          {ep.avg_latency_ms.toLocaleString()}ms
+                        </span>
+                      </td>
+                      <td className="text-end">{ep.p95_latency_ms.toLocaleString()}ms</td>
+                      <td className="text-end">{ep.max_latency_ms.toLocaleString()}ms</td>
+                      <td className="text-end">
+                        {ep.error_rate_pct > 0 && (
+                          <span className="badge bg-danger">{ep.error_rate_pct}%</span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => setSelectedEndpoint(isSelected ? null : epKey)}
+                          title="Dettaglio"
+                        >
+                          {isSelected ? '\u25B2' : '\u25BC'}
+                        </button>
+                      </td>
+                    </tr>
+                    {isSelected && (
+                      <tr className="endpoint-detail-row">
+                        <td colSpan={8} style={{ padding: 0 }}>
+                          {renderEndpointDetail(ep)}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
               {endpoints.length === 0 && (
                 <tr><td colSpan={8} className="text-center text-muted">Nessun endpoint trovato</td></tr>
               )}
             </tbody>
           </table>
         </div>
-
-        {selectedEndpoint && renderEndpointDetail(selectedEndpoint)}
       </div>
     );
   };
 
-  const renderEndpointDetail = (ep) => (
-    <div className="endpoint-detail">
-      <h5>{ep.method} {ep.url}</h5>
-      <div className="detail-badges">
-        <span className={`badge-classification badge-${ep.classification}`}>
-          {CLASSIFICATION_LABELS[ep.classification]}
-        </span>
-        <span className="badge bg-secondary">{ep.total_requests} campioni</span>
-      </div>
+  const renderEndpointDetail = (ep) => {
+    // Cerca gli errori HTTP (dal LB) relativi a questo endpoint
+    const endpointKey = `${ep.method} ${ep.url}`;
+    const endpointErrors = (data?.errors || []).filter(
+      err => err.endpoint === endpointKey
+    );
 
-      <div className="charts-row">
-        <div className="chart-container">
-          <h6>Distribuzione oraria</h6>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={ep.hourly_distribution}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
-              <YAxis />
-              <Tooltip formatter={(val) => [val, 'Chiamate']} />
-              <Bar dataKey="count" fill={COLORS[ep.classification] || '#8884d8'} />
-            </BarChart>
-          </ResponsiveContainer>
+    // Cerca gli errori applicativi (dal backend) che potrebbero corrispondere
+    // Matching per URL nell'errore app (il messaggio spesso contiene l'URL)
+    const relatedAppErrors = (data?.app_errors || []).filter(appErr => {
+      const fp = (appErr.fingerprint || '').toLowerCase();
+      const urlPart = ep.url.replace(/\{[^}]+\}/g, '').toLowerCase();
+      // Match se il fingerprint contiene parte dell'URL o il metodo
+      return fp.includes(urlPart) || 
+        (appErr.samples || []).some(s => 
+          (s.message || '').toLowerCase().includes(urlPart)
+        );
+    });
+
+    return (
+      <div className="endpoint-detail">
+        <h5>{ep.method} {ep.url}</h5>
+        <div className="detail-badges">
+          <span className={`badge-classification badge-${ep.classification}`}>
+            {CLASSIFICATION_LABELS[ep.classification]}
+          </span>
+          <span className="badge bg-secondary">{ep.total_requests} campioni</span>
+          {ep.error_count > 0 && (
+            <span className="badge bg-danger">{ep.error_count} errori ({ep.error_rate_pct}%)</span>
+          )}
         </div>
 
-        <div className="chart-container">
-          <h6>Distribuzione settimanale (media/giorno)</h6>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={ep.weekday_distribution}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-              <YAxis />
-              <Tooltip formatter={(val) => [val, 'Media chiamate/giorno']} />
-              <Bar dataKey="avg_per_day" fill={COLORS[ep.classification] || '#8884d8'} />
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="charts-row">
+          <div className="chart-container">
+            <h6>Distribuzione oraria</h6>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={ep.hourly_distribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+                <YAxis />
+                <Tooltip formatter={(val) => [val, 'Chiamate']} />
+                <Bar dataKey="count" fill={COLORS[ep.classification] || '#8884d8'} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="chart-container">
+            <h6>Distribuzione settimanale (media/giorno)</h6>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={ep.weekday_distribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis />
+                <Tooltip formatter={(val) => [val, 'Media chiamate/giorno']} />
+                <Bar dataKey="avg_per_day" fill={COLORS[ep.classification] || '#8884d8'} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+
+        {/* Dettaglio errori per questo endpoint */}
+        {endpointErrors.length > 0 && (
+          <div className="endpoint-errors-detail">
+            <h6>Errori HTTP per questo endpoint</h6>
+            <div className="table-responsive">
+              <table className="table table-sm table-bordered mb-0">
+                <thead>
+                  <tr>
+                    <th className="text-center">Status</th>
+                    <th className="text-end">Occorrenze</th>
+                    <th>Ultimo</th>
+                    <th>Campioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {endpointErrors.map((err, j) => (
+                    <tr key={j}>
+                      <td className="text-center">
+                        <span className={`badge ${err.status >= 500 ? 'bg-danger' : 'bg-warning'}`}>
+                          {err.status}
+                        </span>
+                      </td>
+                      <td className="text-end fw-bold">{err.count}</td>
+                      <td className="small text-muted">
+                        {err.last_seen ? new Date(err.last_seen).toLocaleString('it-IT') : '-'}
+                      </td>
+                      <td className="small">
+                        {err.samples?.slice(0, 3).map((s, k) => (
+                          <div key={k}>
+                            {new Date(s.timestamp).toLocaleString('it-IT')} — {s.latency_ms}ms
+                            {s.status_message && <> — <code>{s.status_message}</code></>}
+                          </div>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Errori applicativi correlati (dal backend) */}
+        {relatedAppErrors.length > 0 && (
+          <div className="endpoint-app-errors-detail">
+            <h6>
+              <span className="badge bg-danger me-2">{relatedAppErrors.length}</span>
+              Errori applicativi correlati (dal backend)
+            </h6>
+            {relatedAppErrors.map((appErr, j) => (
+              <div key={j} className={`app-error-item severity-${(appErr.severity || 'error').toLowerCase()}`}>
+                <div className="app-error-header">
+                  <div className="app-error-meta">
+                    <span className={`badge ${appErr.severity === 'ERROR' || appErr.severity === 'CRITICAL' ? 'bg-danger' : 'bg-warning'}`}>
+                      {appErr.severity}
+                    </span>
+                    <span className="badge bg-secondary">{appErr.count}x</span>
+                  </div>
+                  <div className="app-error-fingerprint"><code>{appErr.fingerprint}</code></div>
+                </div>
+                {appErr.samples?.slice(0, 1).map((sample, k) => (
+                  <div key={k} className="app-error-samples">
+                    <pre className="app-error-message">{sample.message}</pre>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {ep.error_count > 0 && endpointErrors.length === 0 && relatedAppErrors.length === 0 && (
+          <div className="text-muted small mt-2">
+            <em>{ep.error_count} errori registrati ma dettagli non disponibili nel campione corrente</em>
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderErrors = () => {
     if (!data?.errors?.length) {
       return <div className="text-muted text-center p-4">Nessun errore nel periodo selezionato.</div>;
     }
 
+    // Filtra errori per tipo
+    const filteredErrors = data.errors.filter(err => {
+      if (errorFilter === '4xx') return err.status >= 400 && err.status < 500;
+      if (errorFilter === '5xx') return err.status >= 500;
+      return true;
+    });
+
+    // Calcola statistiche per il grafico a torta
+    const errorStats = data.error_stats || {};
+    const topErrorCodes = errorStats.top_error_codes || {};
+    const pieData = Object.entries(topErrorCodes).map(([code, count]) => ({
+      name: `${code}`,
+      value: count,
+    }));
+
     return (
       <div className="monitoring-errors">
-        <div className="table-responsive">
+        {/* Statistiche errori */}
+        <div className="error-stats-section">
+          <div className="charts-row">
+            {/* Riepilogo errori */}
+            <div className="chart-container">
+              <h5>Riepilogo Errori</h5>
+              <div className="error-summary-cards">
+                <div className="error-summary-card">
+                  <div className="error-summary-value text-danger">{errorStats.total_errors || 0}</div>
+                  <div className="error-summary-label">Errori totali</div>
+                </div>
+                <div className="error-summary-card">
+                  <div className="error-summary-value text-warning">{errorStats.errors_4xx || 0}</div>
+                  <div className="error-summary-label">Errori 4xx (Client)</div>
+                </div>
+                <div className="error-summary-card">
+                  <div className="error-summary-value text-danger">{errorStats.errors_5xx || 0}</div>
+                  <div className="error-summary-label">Errori 5xx (Server)</div>
+                </div>
+                <div className="error-summary-card">
+                  <div className="error-summary-value">{errorStats.error_rate_pct || 0}%</div>
+                  <div className="error-summary-label">Tasso errore</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Grafico errori per codice */}
+            <div className="chart-container">
+              <h5>Errori per Codice di Stato</h5>
+              {pieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    >
+                      {pieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.name.startsWith('5') ? '#f44336' : '#FF9800'} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(val) => [val.toLocaleString(), 'Occorrenze']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-muted text-center p-3">Nessun dato disponibile</div>
+              )}
+            </div>
+          </div>
+
+          {/* Grafico temporale errori */}
+          {errorStats.hourly_error_distribution && (
+            <div className="chart-container full-width">
+              <h5>Distribuzione Oraria Errori</h5>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={errorStats.hourly_error_distribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" tick={{ fontSize: 11 }} />
+                  <YAxis />
+                  <Tooltip formatter={(val) => [val.toLocaleString(), 'Errori']} />
+                  <Bar dataKey="count" fill="#f44336" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Filtri */}
+        <div className="filter-bar mt-3">
+          <label>Filtra per tipo:</label>
+          <select
+            className="form-select form-select-sm"
+            value={errorFilter}
+            onChange={e => setErrorFilter(e.target.value)}
+            style={{ maxWidth: 150 }}
+          >
+            <option value="all">Tutti</option>
+            <option value="4xx">Solo 4xx</option>
+            <option value="5xx">Solo 5xx</option>
+          </select>
+          <span className="text-muted small">{filteredErrors.length} endpoint con errori</span>
+        </div>
+
+        {/* Tabella dettaglio errori */}
+        <div className="table-responsive mt-3">
           <table className="table table-hover table-sm">
             <thead>
               <tr>
                 <th>Endpoint</th>
                 <th className="text-center">Status</th>
                 <th className="text-end">Occorrenze</th>
+                <th>Messaggio Errore</th>
                 <th>Ultimo errore</th>
-                <th>Campioni</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {data.errors.map((err, i) => (
-                <tr key={i}>
-                  <td className="endpoint-url">{err.endpoint}</td>
-                  <td className="text-center">
-                    <span className={`badge ${err.status >= 500 ? 'bg-danger' : 'bg-warning'}`}>
-                      {err.status}
-                    </span>
-                  </td>
-                  <td className="text-end fw-bold">{err.count}</td>
-                  <td className="small text-muted">
-                    {err.last_seen ? new Date(err.last_seen).toLocaleString('it-IT') : '-'}
-                  </td>
-                  <td className="small">
-                    {err.samples?.map((s, j) => (
-                      <div key={j}>{new Date(s.timestamp).toLocaleString('it-IT')} - {s.latency_ms}ms</div>
-                    ))}
-                  </td>
-                </tr>
+              {filteredErrors.map((err, i) => (
+                <React.Fragment key={i}>
+                  <tr 
+                    className={selectedError === i ? 'row-selected' : ''}
+                    onClick={() => setSelectedError(selectedError === i ? null : i)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <td className="endpoint-url">{err.endpoint}</td>
+                    <td className="text-center">
+                      <span className={`badge ${err.status >= 500 ? 'bg-danger' : 'bg-warning'}`}>
+                        {err.status}
+                      </span>
+                    </td>
+                    <td className="text-end fw-bold">{err.count}</td>
+                    <td className="small error-message-cell">
+                      {err.error_message ? (
+                        <span title={err.error_message}>
+                          {err.error_message.length > 60 
+                            ? err.error_message.substring(0, 60) + '...' 
+                            : err.error_message}
+                        </span>
+                      ) : (
+                        <span className="text-muted">-</span>
+                      )}
+                    </td>
+                    <td className="small text-muted">
+                      {err.last_seen ? new Date(err.last_seen).toLocaleString('it-IT') : '-'}
+                    </td>
+                    <td>
+                      <button className="btn btn-sm btn-outline-secondary">
+                        {selectedError === i ? '▲' : '▼'}
+                      </button>
+                    </td>
+                  </tr>
+                  {/* Dettaglio espanso */}
+                  {selectedError === i && (
+                    <tr>
+                      <td colSpan={6} className="error-detail-cell">
+                        <div className="error-detail-content">
+                          <div className="error-detail-section">
+                            <h6>Messaggi di Errore</h6>
+                            {err.error_variants && Object.keys(err.error_variants).length > 0 ? (
+                              <ul className="error-variants-list">
+                                {Object.entries(err.error_variants).map(([msg, count], j) => (
+                                  <li key={j}>
+                                    <span className="badge bg-secondary me-2">{count}x</span>
+                                    <code>{msg}</code>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-muted">Nessun messaggio disponibile</p>
+                            )}
+                          </div>
+                          
+                          <div className="error-detail-section">
+                            <h6>Campioni Recenti</h6>
+                            <div className="table-responsive">
+                              <table className="table table-sm table-bordered mb-0">
+                                <thead>
+                                  <tr>
+                                    <th>Timestamp</th>
+                                    <th>Latenza</th>
+                                    <th>Messaggio</th>
+                                    <th>User Agent</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {err.samples?.map((s, j) => (
+                                    <tr key={j}>
+                                      <td className="small">{new Date(s.timestamp).toLocaleString('it-IT')}</td>
+                                      <td className="small">{s.latency_ms}ms</td>
+                                      <td className="small">{s.status_message || '-'}</td>
+                                      <td className="small text-truncate" style={{maxWidth: '200px'}}>{s.user_agent || '-'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          {err.top_user_agents && err.top_user_agents.length > 0 && (
+                            <div className="error-detail-section">
+                              <h6>User Agent più frequenti</h6>
+                              <div className="d-flex gap-3 flex-wrap">
+                                {err.top_user_agents.map((ua, j) => (
+                                  <span key={j} className="badge bg-light text-dark">
+                                    {ua.agent}: {ua.count}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
+              {filteredErrors.length === 0 && (
+                <tr><td colSpan={6} className="text-center text-muted">Nessun errore trovato per il filtro selezionato</td></tr>
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Log Errori Applicativi Reali (dal backend k8s_container) */}
+        {data.app_errors && data.app_errors.length > 0 && (
+          <div className="app-errors-section mt-4">
+            <h5 className="section-title">
+              <span className="badge bg-danger me-2">{data.app_errors.length}</span>
+              Log Errori Applicativi
+              <span className="text-muted small ms-2">(dal backend)</span>
+            </h5>
+            <p className="text-muted small mb-3">
+              Messaggi di errore reali dal processo backend (stack trace, eccezioni Python, timeout DB, ecc.)
+            </p>
+            <div className="app-errors-list">
+              {data.app_errors.map((appErr, i) => (
+                <div key={i} className={`app-error-item severity-${(appErr.severity || 'ERROR').toLowerCase()}`}>
+                  <div className="app-error-header" onClick={() => setSelectedError(selectedError === `app-${i}` ? null : `app-${i}`)} style={{ cursor: 'pointer' }}>
+                    <div className="app-error-meta">
+                      <span className={`badge ${appErr.severity === 'ERROR' || appErr.severity === 'CRITICAL' ? 'bg-danger' : 'bg-warning'}`}>
+                        {appErr.severity}
+                      </span>
+                      <span className="badge bg-secondary">{appErr.count}x</span>
+                      {appErr.container && <span className="badge bg-light text-dark">{appErr.container}</span>}
+                    </div>
+                    <div className="app-error-fingerprint">
+                      <code>{appErr.fingerprint}</code>
+                    </div>
+                    <div className="app-error-times">
+                      <span className="small text-muted">
+                        {appErr.last_seen ? new Date(appErr.last_seen).toLocaleString('it-IT') : '-'}
+                        {appErr.first_seen && appErr.first_seen !== appErr.last_seen && (
+                          <> &mdash; da {new Date(appErr.first_seen).toLocaleString('it-IT')}</>
+                        )}
+                      </span>
+                      <button className="btn btn-sm btn-outline-secondary ms-2">
+                        {selectedError === `app-${i}` ? '\u25B2' : '\u25BC'}
+                      </button>
+                    </div>
+                  </div>
+                  {selectedError === `app-${i}` && appErr.samples && (
+                    <div className="app-error-samples">
+                      {appErr.samples.map((sample, j) => (
+                        <div key={j} className="app-error-sample">
+                          <div className="sample-meta">
+                            <span className="small text-muted">{new Date(sample.timestamp).toLocaleString('it-IT')}</span>
+                            {sample.pod && <span className="badge bg-light text-dark small">{sample.pod}</span>}
+                          </div>
+                          <pre className="app-error-message">{sample.message}</pre>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(!data.app_errors || data.app_errors.length === 0) && (
+          <div className="text-muted text-center p-3 mt-3">
+            <small>Nessun log di errore applicativo trovato nel periodo (k8s_container severity &ge; WARNING)</small>
+          </div>
+        )}
+
       </div>
     );
   };

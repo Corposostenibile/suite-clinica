@@ -235,7 +235,12 @@ def _fetch_logs_for_day_api(
             count = 0
             for page in response.pages:
                 for entry in page.entries:
-                    all_entries.append(_protobuf_entry_to_dict(entry))
+                    try:
+                        entry_d = _protobuf_entry_to_dict(entry)
+                        if entry_d.get('httpRequest'):  # Solo entry con httpRequest
+                            all_entries.append(entry_d)
+                    except Exception as exc:
+                        _log_error("[monitoring] entry_to_dict error: %s", exc)
                     count += 1
                     if count >= slice_limit:
                         break
@@ -255,31 +260,93 @@ def _fetch_logs_for_day_api(
 
 
 def _protobuf_entry_to_dict(entry) -> Dict[str, Any]:
-    """Converte un entry protobuf Cloud Logging in dict."""
+    """Converte un entry protobuf Cloud Logging in dict.
+    
+    Usa getattr + try/except ovunque perché gli attributi protobuf
+    possono non esistere o avere tipi inattesi a seconda della versione
+    della libreria google-cloud-logging.
+    """
     entry_dict = {}
     
-    # Timestamp
-    if entry.timestamp:
-        entry_dict['timestamp'] = entry.timestamp.isoformat()
+    try:
+        # Timestamp
+        ts = getattr(entry, 'timestamp', None)
+        if ts:
+            entry_dict['timestamp'] = ts.isoformat()
+    except Exception:
+        pass
     
     # HTTP Request
-    if entry.http_request:
+    hr = getattr(entry, 'http_request', None)
+    if hr:
         http_req = {}
-        if entry.http_request.request_url:
-            http_req['requestUrl'] = entry.http_request.request_url
-        if entry.http_request.request_method:
-            http_req['requestMethod'] = entry.http_request.request_method
-        if entry.http_request.status:
-            http_req['status'] = entry.http_request.status
-        if entry.http_request.latency:
-            latency = entry.http_request.latency
-            total_seconds = latency.seconds + latency.nanos / 1e9
-            http_req['latency'] = f"{total_seconds}s"
+        try:
+            request_url = getattr(hr, 'request_url', '') or ''
+            if request_url:
+                http_req['requestUrl'] = str(request_url)
+            request_method = getattr(hr, 'request_method', '') or ''
+            if request_method:
+                http_req['requestMethod'] = str(request_method)
+            status = getattr(hr, 'status', 0) or 0
+            if status:
+                http_req['status'] = int(status)
+            latency = getattr(hr, 'latency', None)
+            if latency:
+                secs = getattr(latency, 'seconds', 0) or 0
+                nanos = getattr(latency, 'nanos', 0) or 0
+                total_seconds = secs + nanos / 1e9
+                http_req['latency'] = f"{total_seconds}s"
+        except Exception as exc:
+            _log_error("[monitoring] http_request base parse error: %s", exc)
+
+        # Campi aggiuntivi per debugging errori
+        try:
+            user_agent = getattr(hr, 'user_agent', '') or ''
+            if user_agent:
+                http_req['userAgent'] = str(user_agent)[:500]
+            remote_ip = getattr(hr, 'remote_ip', '') or ''
+            if remote_ip:
+                http_req['remoteIp'] = str(remote_ip)
+            response_size = getattr(hr, 'response_size', 0) or 0
+            if response_size:
+                http_req['responseSize'] = int(response_size)
+        except Exception:
+            pass  # Non critico
+
         entry_dict['httpRequest'] = http_req
     
-    # Labels (per eventuali dati aggiuntivi)
-    if entry.labels:
-        entry_dict['labels'] = dict(entry.labels)
+    # Labels
+    try:
+        labels = getattr(entry, 'labels', None)
+        if labels:
+            entry_dict['labels'] = {str(k): str(v) for k, v in labels.items()}
+    except Exception:
+        pass
+    
+    # Text payload (può contenere il messaggio di errore per alcuni log)
+    try:
+        tp = getattr(entry, 'text_payload', None)
+        if tp:
+            entry_dict['textPayload'] = str(tp)[:1000]
+    except Exception:
+        pass
+    
+    # JSON payload — conversione sicura (protobuf Struct → dict)
+    try:
+        jp = getattr(entry, 'json_payload', None)
+        if jp:
+            # MessageToDict è il modo sicuro per convertire protobuf Struct
+            from google.protobuf.json_format import MessageToDict
+            entry_dict['jsonPayload'] = MessageToDict(jp)
+    except ImportError:
+        # Fallback senza MessageToDict
+        try:
+            if jp:
+                entry_dict['jsonPayload'] = {str(k): str(v) for k, v in jp.items()}
+        except Exception:
+            pass
+    except Exception:
+        pass
     
     return entry_dict
 
@@ -329,12 +396,232 @@ def _fetch_logs_api(
 
     # Salva in cache
     if use_cache and is_redis_available() and all_entries:
-        redis_client = get_redis_client()
-        cache_key = get_cache_key("monitoring:logs", days, limit_for_cache)
-        redis_client.setex(cache_key, cache_ttl, json.dumps(all_entries))
-        _log_info("[monitoring] Saved logs to cache: %s", cache_key)
+        try:
+            redis_client = get_redis_client()
+            cache_key = get_cache_key("monitoring:logs", days, limit_for_cache)
+            redis_client.setex(cache_key, cache_ttl, json.dumps(all_entries, default=str))
+            _log_info("[monitoring] Saved logs to cache: %s (%d entries)", cache_key, len(all_entries))
+        except (TypeError, ValueError) as e:
+            _log_error("[monitoring] Cache serialization error: %s", e)
+        except Exception as e:
+            _log_error("[monitoring] Cache save error: %s", e)
 
     return all_entries
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#              APP ERROR LOGS (k8s_container — errori reali del backend)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _fetch_app_error_logs(
+    days: int = 7,
+    limit: int = 200,
+    use_cache: bool = True,
+    cache_ttl: int = 300,
+    timeout_s: float = 20.0,
+) -> List[Dict[str, Any]]:
+    """
+    Scarica i log di errore dell'applicazione backend da k8s_container.
+    
+    A differenza dei log del Load Balancer (che hanno solo status code e latenza),
+    questi contengono il MESSAGGIO DI ERRORE REALE: stack trace, eccezioni Python,
+    errori di connessione DB, timeout, ecc.
+    
+    Una singola API call (non 28 come i log LB), molto leggera sulla quota.
+    """
+    # Check cache
+    if use_cache and is_redis_available():
+        try:
+            redis_client = get_redis_client()
+            cache_key = get_cache_key("monitoring:app_errors", days, limit)
+            cached = redis_client.get(cache_key)
+            if cached:
+                _log_info("[monitoring] Cache hit for app_errors: %s", cache_key)
+                return json.loads(cached)
+        except Exception:
+            pass
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+
+    filter_str = (
+        f'resource.type="k8s_container" '
+        f'resource.labels.namespace_name="default" '
+        f'severity>=WARNING '
+        f'timestamp>="{start.strftime("%Y-%m-%dT%H:%M:%SZ")}" '
+        f'timestamp<"{now.strftime("%Y-%m-%dT%H:%M:%SZ")}" '
+    )
+
+    entries: List[Dict[str, Any]] = []
+    try:
+        client = _get_logging_client()
+        request = ListLogEntriesRequest(
+            resource_names=["projects/suite-clinica"],
+            filter=filter_str,
+            page_size=min(limit, 1000),
+            order_by="timestamp desc",
+        )
+
+        response = client.list_log_entries(request=request, timeout=timeout_s)
+        for page in response.pages:
+            for entry in page.entries:
+                parsed = _parse_app_error_entry(entry)
+                if parsed:
+                    entries.append(parsed)
+                if len(entries) >= limit:
+                    break
+            if len(entries) >= limit:
+                break
+
+        _log_info("[monitoring] Fetched %d app error logs (%d days)", len(entries), days)
+
+    except GoogleAPIError as e:
+        _log_error("[monitoring] App error logs API error: %s", str(e)[:200])
+    except DefaultCredentialsError as e:
+        _log_error("[monitoring] Credentials error for app_errors: %s", e)
+    except Exception as e:
+        _log_error("[monitoring] App error logs unexpected error: %s", e)
+
+    # Salva in cache
+    if use_cache and is_redis_available() and entries:
+        try:
+            redis_client = get_redis_client()
+            cache_key = get_cache_key("monitoring:app_errors", days, limit)
+            redis_client.setex(cache_key, cache_ttl, json.dumps(entries, default=str))
+            _log_info("[monitoring] Saved app_errors to cache: %s (%d entries)", cache_key, len(entries))
+        except Exception as e:
+            _log_error("[monitoring] App error cache save error: %s", e)
+
+    return entries
+
+
+def _parse_app_error_entry(entry) -> Optional[Dict[str, Any]]:
+    """Parsa un log entry k8s_container in un dict strutturato."""
+    try:
+        result: Dict[str, Any] = {}
+
+        # Timestamp
+        ts = getattr(entry, 'timestamp', None)
+        if ts:
+            result['timestamp'] = ts.isoformat()
+        else:
+            return None
+
+        # Severity (enum -> stringa)
+        severity = getattr(entry, 'severity', None)
+        if severity:
+            sev_map = {
+                0: 'DEFAULT', 100: 'DEBUG', 200: 'INFO', 300: 'NOTICE',
+                400: 'WARNING', 500: 'ERROR', 600: 'CRITICAL',
+                700: 'ALERT', 800: 'EMERGENCY',
+            }
+            if isinstance(severity, int):
+                result['severity'] = sev_map.get(severity, str(severity))
+            elif hasattr(severity, 'name'):
+                result['severity'] = severity.name
+            elif hasattr(severity, 'value'):
+                result['severity'] = sev_map.get(severity.value, str(severity.value))
+            else:
+                result['severity'] = str(severity)
+        else:
+            result['severity'] = 'UNKNOWN'
+
+        # Messaggio -- text_payload (caso piu' comune per Flask/Gunicorn)
+        text = ''
+        tp = getattr(entry, 'text_payload', None)
+        if tp:
+            text = str(tp).strip()
+
+        # Fallback: json_payload
+        if not text:
+            jp = getattr(entry, 'json_payload', None)
+            if jp:
+                try:
+                    from google.protobuf.json_format import MessageToDict
+                    jp_dict = MessageToDict(jp)
+                    text = (
+                        jp_dict.get('message') or
+                        jp_dict.get('msg') or
+                        jp_dict.get('error') or
+                        jp_dict.get('textPayload') or
+                        json.dumps(jp_dict, ensure_ascii=False)
+                    )
+                except Exception:
+                    text = str(jp)
+
+        if not text:
+            return None
+
+        result['message'] = text[:3000]
+
+        # Resource labels (container name, pod name)
+        try:
+            resource = getattr(entry, 'resource', None)
+            if resource:
+                labels = getattr(resource, 'labels', None)
+                if labels:
+                    labels_dict = {str(k): str(v) for k, v in labels.items()}
+                    result['container'] = labels_dict.get('container_name', '')
+                    result['pod'] = labels_dict.get('pod_name', '')
+        except Exception:
+            pass
+
+        return result
+
+    except Exception as e:
+        _log_error("[monitoring] _parse_app_error_entry error: %s", e)
+        return None
+
+
+def _aggregate_app_errors(raw_errors: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Raggruppa i log di errore dell'app per messaggio simile.
+    Mostra il messaggio completo + conteggio occorrenze.
+    """
+    if not raw_errors:
+        return []
+
+    groups: Dict[str, Dict[str, Any]] = {}
+
+    for err in raw_errors:
+        msg = err.get('message', '')
+        # Fingerprint: prima riga, normalizzando numeri/timestamp variabili
+        first_line = msg.split('\n')[0][:200]
+        fp = re.sub(r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}[.,]?\d*', '<TS>', first_line)
+        fp = re.sub(r'\b\d+\b', '<N>', fp)
+        fp = re.sub(r'0x[0-9a-fA-F]+', '<ADDR>', fp)
+
+        if fp not in groups:
+            groups[fp] = {
+                'fingerprint': fp,
+                'severity': err.get('severity', 'ERROR'),
+                'count': 0,
+                'first_seen': err.get('timestamp', ''),
+                'last_seen': err.get('timestamp', ''),
+                'container': err.get('container', ''),
+                'samples': [],
+            }
+
+        g = groups[fp]
+        g['count'] += 1
+
+        ts = err.get('timestamp', '')
+        if ts and (not g['first_seen'] or ts < g['first_seen']):
+            g['first_seen'] = ts
+        if ts and ts > g['last_seen']:
+            g['last_seen'] = ts
+
+        # Mantieni fino a 3 campioni completi
+        if len(g['samples']) < 3:
+            g['samples'].append({
+                'timestamp': ts,
+                'message': msg[:3000],
+                'severity': err.get('severity', 'ERROR'),
+                'pod': err.get('pod', ''),
+            })
+
+    result = sorted(groups.values(), key=lambda x: x['count'], reverse=True)
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -364,6 +651,24 @@ def _parse_entries(raw_entries: List[Dict]) -> List[Dict[str, Any]]:
         except (ValueError, AttributeError, TypeError):
             continue
 
+        # Estrai informazioni aggiuntive per debugging errori
+        status_message = http_req.get('statusMessage', '')
+        user_agent = http_req.get('userAgent', '')
+        remote_ip = http_req.get('remoteIp', '')
+        
+        # Prova a estrarre il messaggio di errore dal payload
+        error_message = status_message
+        if not error_message and entry.get('textPayload'):
+            error_message = entry['textPayload'][:500]  # Limita lunghezza
+        if not error_message and entry.get('jsonPayload'):
+            json_payload = entry['jsonPayload']
+            if isinstance(json_payload, dict):
+                # Cerca campi comuni con messaggi di errore
+                for key in ['message', 'error', 'error_message', 'msg', 'detail']:
+                    if key in json_payload:
+                        error_message = str(json_payload[key])[:500]
+                        break
+        
         records.append({
             'url': normalized,
             'method': method,
@@ -374,6 +679,9 @@ def _parse_entries(raw_entries: List[Dict]) -> List[Dict[str, Any]]:
             'weekday': ts.weekday(),  # 0=Mon, 6=Sun
             'date_str': ts.strftime('%Y-%m-%d'),
             'classification': classification,
+            'status_message': error_message,
+            'user_agent': user_agent,
+            'remote_ip': remote_ip,
         })
 
     return records
@@ -491,36 +799,107 @@ def _aggregate_metrics(
     # Ordina per avg_per_day descending
     endpoints.sort(key=lambda e: e['avg_per_day'], reverse=True)
 
-    # Errori: raggruppa per endpoint + status
-    error_summary = defaultdict(lambda: {'count': 0, 'last_seen': '', 'samples': []})
+    # Errori: raggruppa per endpoint + status + messaggio
+    error_summary = defaultdict(lambda: {
+        'count': 0,
+        'last_seen': '',
+        'samples': [],
+        'status_messages': defaultdict(int),  # Conta occorrenze per messaggio
+        'hourly_distribution': defaultdict(int),  # Distribuzione oraria errori
+        'user_agents': defaultdict(int),  # User agent che generano errori
+    })
+    
     for e in errors:
+        # Chiave più specifica: include il messaggio di errore se disponibile
+        status_msg = e.get('status_message', '')
         key = f"{e['method']} {e['url']} [{e['status']}]"
+        
         error_summary[key]['count'] += 1
         ts_str = e['timestamp'].isoformat()
+        
         if ts_str > error_summary[key]['last_seen']:
             error_summary[key]['last_seen'] = ts_str
-        if len(error_summary[key]['samples']) < 3:
+        
+        # Conta i messaggi di errore
+        if status_msg:
+            error_summary[key]['status_messages'][status_msg[:200]] += 1
+        
+        # Distribuzione oraria
+        error_summary[key]['hourly_distribution'][e['hour']] += 1
+        
+        # User agent
+        user_agent = e.get('user_agent', '')
+        if user_agent:
+            # Estrai il nome del browser/app principale
+            ua_short = user_agent.split('/')[0].split(' ')[0][:50] if user_agent else 'Unknown'
+            error_summary[key]['user_agents'][ua_short] += 1
+        
+        # Aggiungi campione (massimo 5)
+        if len(error_summary[key]['samples']) < 5:
             error_summary[key]['samples'].append({
                 'timestamp': ts_str,
                 'status': e['status'],
                 'latency_ms': round(e['latency'] * 1000),
+                'status_message': status_msg[:300] if status_msg else '',
+                'user_agent': user_agent[:100] if user_agent else '',
             })
 
-    error_list = [
-        {
+    # Costruisci lista errori con statistiche
+    error_list = []
+    for k, v in error_summary.items():
+        # Trova il messaggio di errore più comune
+        most_common_msg = ''
+        if v['status_messages']:
+            most_common_msg = max(v['status_messages'].items(), key=lambda x: x[1])[0]
+        
+        # Costruisci distribuzione oraria
+        hourly_dist = [{'hour': h, 'count': v['hourly_distribution'].get(h, 0)} for h in range(24)]
+        
+        # Top user agent
+        top_user_agents = sorted(v['user_agents'].items(), key=lambda x: x[1], reverse=True)[:3]
+        
+        error_list.append({
             'endpoint': k.rsplit(' [', 1)[0],
             'status': int(k.rsplit('[', 1)[1].rstrip(']')),
             'count': v['count'],
             'last_seen': v['last_seen'],
             'samples': v['samples'],
-        }
-        for k, v in error_summary.items()
-    ]
+            'error_message': most_common_msg,
+            'error_variants': dict(v['status_messages']),  # Tutti i messaggi con conteggio
+            'hourly_distribution': hourly_dist,
+            'top_user_agents': [{'agent': ua, 'count': cnt} for ua, cnt in top_user_agents],
+        })
+    
     error_list.sort(key=lambda e: e['count'], reverse=True)
+    
+    # Statistiche aggregate sugli errori
+    error_stats = {
+        'total_errors': len(errors),
+        'errors_4xx': sum(1 for r in records if 400 <= r['status'] < 500),
+        'errors_5xx': sum(1 for r in records if r['status'] >= 500),
+        'error_rate_pct': round(len(errors) / max(len(records), 1) * 100, 2),
+        'top_error_codes': {},
+        'hourly_error_distribution': [{'hour': h, 'count': 0} for h in range(24)],
+    }
+    
+    # Conta errori per codice di stato
+    status_counts = defaultdict(int)
+    for r in records:
+        if r['status'] >= 400:
+            status_counts[r['status']] += 1
+    error_stats['top_error_codes'] = dict(sorted(status_counts.items(), key=lambda x: x[1], reverse=True)[:10])
+    
+    # Distribuzione oraria totale errori
+    hourly_errors = defaultdict(int)
+    for e in errors:
+        hourly_errors[e['hour']] += 1
+    for h in range(24):
+        error_stats['hourly_error_distribution'][h]['count'] = hourly_errors.get(h, 0)
 
     return {
         'endpoints': endpoints,
         'errors': error_list,
+        'error_stats': error_stats,
         'period_days': num_days,
         'total_requests': len(records),
     }
@@ -1211,14 +1590,48 @@ def get_monitoring_data(
     Dettaglio per endpoint: scarica log e aggrega.
     Usato solo per il tab "Dettaglio API" (non per overview).
     """
+    import traceback
+    
+    # 1) Fetch log LB (metriche traffico)
     raw = _fetch_logs_api(
         days=days,
         per_day_limit=per_day_limit,
         use_cache=use_cache,
         cache_ttl=cache_ttl
     )
-    records = _parse_entries(raw)
-    metrics = _aggregate_metrics(records, include_static=include_static)
+    
+    # 2) Fetch log applicativi (errori reali del backend) - 1 sola API call
+    app_errors_raw: List[Dict] = []
+    try:
+        app_errors_raw = _fetch_app_error_logs(
+            days=days,
+            limit=200,
+            use_cache=use_cache,
+            cache_ttl=cache_ttl,
+        )
+    except Exception as e:
+        _log_error("[monitoring] App error logs failed (non-blocking): %s", e)
+    
+    # 3) Parse + aggregate
+    try:
+        records = _parse_entries(raw)
+    except Exception as e:
+        _log_error("[monitoring] _parse_entries CRASH: %s\n%s", e, traceback.format_exc())
+        raise
+    
+    try:
+        metrics = _aggregate_metrics(records, include_static=include_static)
+    except Exception as e:
+        _log_error("[monitoring] _aggregate_metrics CRASH: %s\n%s", e, traceback.format_exc())
+        raise
+    
+    # 4) Aggrega errori applicativi
+    try:
+        metrics['app_errors'] = _aggregate_app_errors(app_errors_raw)
+    except Exception as e:
+        _log_error("[monitoring] _aggregate_app_errors error: %s", e)
+        metrics['app_errors'] = []
+    
     metrics['fetched_entries'] = len(raw)
     metrics['parsed_records'] = len(records)
     return metrics
