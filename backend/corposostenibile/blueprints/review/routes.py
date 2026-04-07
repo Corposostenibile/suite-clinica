@@ -962,7 +962,10 @@ def respond_request(request_id):
             db.session.commit()
             
             # Invia notifica di rifiuto
-            send_review_request_response_notification(training_request)
+            try:
+                send_review_request_response_notification(training_request)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to send request response notification: {e}")
             flash('Richiesta rifiutata.', 'info')
             return redirect(url_for('review.received_requests'))
     
@@ -1025,8 +1028,14 @@ def create_from_request(request_id):
         
         # Invia notifiche
         if not review.is_private:
-            send_review_notification(review)
-        send_review_request_response_notification(training_request)
+            try:
+                send_review_notification(review)
+            except Exception as e:
+                current_app.logger.warning(f"Failed to send review notification: {e}")
+        try:
+            send_review_request_response_notification(training_request)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to send request response notification: {e}")
         
         flash('Training creato con successo dalla richiesta!', 'success')
         return redirect(url_for('review.detail', user_id=training_request.requester_id))
