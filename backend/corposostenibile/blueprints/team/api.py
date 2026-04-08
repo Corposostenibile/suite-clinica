@@ -2268,8 +2268,17 @@ TEAM_TYPE_PROFESSIONAL_SPECIALTIES = {
 }
 
 
-def _serialize_team(team, include_members=False):
+def _serialize_team(team, include_members=False, precomputed_member_count=None):
     """Serialize team object to JSON-safe dict."""
+    # Usa conteggio precomputato dalla subquery se disponibile;
+    # altrimenti fallback a len(team.members) se già caricati in sessione.
+    if precomputed_member_count is not None:
+        m_count = precomputed_member_count
+    elif 'members' in team.__dict__:  # già caricato da selectinload
+        m_count = len(team.members) if team.members else 0
+    else:
+        m_count = 0
+
     data = {
         'id': team.id,
         'name': team.name,
@@ -2278,7 +2287,7 @@ def _serialize_team(team, include_members=False):
         'is_active': team.is_active,
         'head_id': team.head_id,
         'head': _serialize_user(team.head, include_teams_led=False) if team.head else None,
-        'member_count': len(team.members) if team.members else 0,
+        'member_count': m_count,
         'created_at': team.created_at.isoformat() if team.created_at else None,
         'updated_at': team.updated_at.isoformat() if team.updated_at else None,
     }
@@ -2310,13 +2319,24 @@ def get_teams():
     include_members_raw = request.args.get('include_members', '').strip().lower()
     include_members = include_members_raw in {'1', 'true', 'yes', 'on'}
 
-    # Eager load head (JOIN) e members (SELECT IN) in un colpo solo.
-    # Senza selectinload(Team.members), ogni chiamata a len(team.members)
-    # nel loop di serializzazione genera una query separata per team → N+1.
-    query = Team.query.options(
-        joinedload(Team.head),
-        selectinload(Team.members),
+    # Eager load head (JOIN).  NON carichiamo Team.members di default:
+    # selectinload(Team.members) caricava TUTTI i membri di TUTTI i team
+    # anche quando include_members=false, causando 4+ secondi di latenza.
+    # Il conteggio membri è ottenuto via subquery annotata (member_count_sq).
+    member_count_sq = (
+        select(func.count())
+        .select_from(team_members)
+        .where(team_members.c.team_id == Team.id)
+        .correlate(Team)
+        .scalar_subquery()
+        .label("member_count")
     )
+
+    base_options = [joinedload(Team.head)]
+    if include_members:
+        base_options.append(selectinload(Team.members))
+
+    query = Team.query.options(*base_options).add_columns(member_count_sq)
 
     # RBAC base scope
     if _can_view_all_team_module_data(current_user):
@@ -2347,9 +2367,19 @@ def get_teams():
     # Server-side pagination
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # pagination.items contiene tuple (Team, member_count) con add_columns
+    teams_data = []
+    for item in pagination.items:
+        team_obj, m_count = item if isinstance(item, tuple) else (item, None)
+        teams_data.append(_serialize_team(
+            team_obj,
+            include_members=include_members,
+            precomputed_member_count=m_count,
+        ))
+
     return jsonify({
         'success': True,
-        'teams': [_serialize_team(t, include_members=include_members) for t in pagination.items],
+        'teams': teams_data,
         'total': pagination.total,
         'page': pagination.page,
         'per_page': pagination.per_page,

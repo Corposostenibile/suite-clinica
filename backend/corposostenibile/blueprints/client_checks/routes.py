@@ -37,7 +37,7 @@ from flask import (
     abort,
 )
 from flask_login import current_user, login_required
-from sqlalchemy import desc, and_, exists, select, text, union_all, literal
+from sqlalchemy import desc, and_, exists, func, select, text, union_all, literal
 from sqlalchemy.orm import joinedload, defer
 from werkzeug.exceptions import HTTPException
 
@@ -2334,111 +2334,133 @@ def api_azienda_stats():
         include_minor = check_type in ('all', 'minor')
 
         # ============================================================
-        # 1) WEEKLY — count + paginated fetch
+        # Helper: condizione filtro professionista per select() core
         # ============================================================
-        weekly_count = 0
-        weekly_responses = []
+        def _prof_filter_cond():
+            # Se abbiamo già i cliente_ids precomputati, usiamo un IN clause semplice
+            if _precomputed_prof_cliente_ids is not None:
+                return Cliente.cliente_id.in_(_precomputed_prof_cliente_ids)
+            if prof_type:
+                if prof_type == 'nutrizione':
+                    return db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any())
+                elif prof_type == 'coach':
+                    return db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any())
+                elif prof_type == 'psicologia':
+                    return db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any())
+            return None
+
+        # ============================================================
+        # 1) COUNTS — singola query UNION ALL con GROUP BY tipo
+        # ============================================================
+        # Invece di 5 query COUNT separate, usiamo una UNION ALL che
+        # restituisce (check_type, cnt) in un solo round-trip al DB.
+        count_parts = []
+        prof_cond_for_counts = _prof_filter_cond() if (prof_type or _precomputed_prof_cliente_ids is not None) else None
+
+        def _add_count_filters(sel):
+            if period == 'custom':
+                sel = sel.where(sel.exported_columns['submit_date'] <= end_date)
+            if accessible_query is not None:
+                sel = sel.where(Cliente.cliente_id.in_(accessible_query))
+            if prof_cond_for_counts is not None:
+                sel = sel.where(prof_cond_for_counts)
+            return sel
+
         if include_weekly:
-            weekly_base = (
-                WeeklyCheckResponse.query
+            w_cnt = (
+                select(literal("weekly").label("check_type"), WeeklyCheckResponse.submit_date)
                 .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
                 .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-                .filter(WeeklyCheckResponse.submit_date >= start_date)
+                .where(WeeklyCheckResponse.submit_date >= start_date)
             )
-            if period == 'custom':
-                weekly_base = weekly_base.filter(WeeklyCheckResponse.submit_date <= end_date)
-            if accessible_query is not None:
-                weekly_base = weekly_base.filter(Cliente.cliente_id.in_(accessible_query))
-            weekly_base = _apply_prof_filters(weekly_base)
-            weekly_count = weekly_base.count()
+            w_cnt = _add_count_filters(w_cnt)
+            count_parts.append(select(literal("weekly").label("ct"), func.count().label("cnt")).select_from(w_cnt.subquery()))
 
-        # TypeForm responses (old weekly system) — counted together with weekly
-        typeform_count = 0
-        if include_weekly:
-            tf_base = (
-                TypeFormResponse.query
+            tf_cnt = (
+                select(literal("typeform").label("check_type"), TypeFormResponse.submit_date)
                 .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
-                .filter(TypeFormResponse.submit_date >= start_date)
+                .where(TypeFormResponse.submit_date >= start_date)
             )
-            if period == 'custom':
-                tf_base = tf_base.filter(TypeFormResponse.submit_date <= end_date)
-            if accessible_query is not None:
-                tf_base = tf_base.filter(Cliente.cliente_id.in_(accessible_query))
-            tf_base = _apply_prof_filters(tf_base)
-            typeform_count = tf_base.count()
+            tf_cnt = _add_count_filters(tf_cnt)
+            count_parts.append(select(literal("typeform").label("ct"), func.count().label("cnt")).select_from(tf_cnt.subquery()))
 
-        dca_count = 0
-        dca_responses_raw = []
         if include_dca:
-            dca_base = (
-                DCACheckResponse.query
+            d_cnt = (
+                select(literal("dca").label("check_type"), DCACheckResponse.submit_date)
                 .join(DCACheck, DCACheckResponse.dca_check_id == DCACheck.id)
                 .join(Cliente, DCACheck.cliente_id == Cliente.cliente_id)
-                .filter(DCACheckResponse.submit_date >= start_date)
+                .where(DCACheckResponse.submit_date >= start_date)
             )
-            if period == 'custom':
-                dca_base = dca_base.filter(DCACheckResponse.submit_date <= end_date)
-            if accessible_query is not None:
-                dca_base = dca_base.filter(Cliente.cliente_id.in_(accessible_query))
-            dca_base = _apply_prof_filters(dca_base)
-            dca_count = dca_base.count()
+            d_cnt = _add_count_filters(d_cnt)
+            count_parts.append(select(literal("dca").label("ct"), func.count().label("cnt")).select_from(d_cnt.subquery()))
 
-        minor_count = 0
-        minor_responses_raw = []
         if include_minor:
-            minor_base = (
-                MinorCheckResponse.query
+            m_cnt = (
+                select(literal("minor").label("check_type"), MinorCheckResponse.submit_date)
                 .join(MinorCheck, MinorCheckResponse.minor_check_id == MinorCheck.id)
                 .join(Cliente, MinorCheck.cliente_id == Cliente.cliente_id)
-                .filter(MinorCheckResponse.submit_date >= start_date)
+                .where(MinorCheckResponse.submit_date >= start_date)
             )
-            if period == 'custom':
-                minor_base = minor_base.filter(MinorCheckResponse.submit_date <= end_date)
-            if accessible_query is not None:
-                minor_base = minor_base.filter(Cliente.cliente_id.in_(accessible_query))
-            minor_base = _apply_prof_filters(minor_base)
-            minor_count = minor_base.count()
+            m_cnt = _add_count_filters(m_cnt)
+            count_parts.append(select(literal("minor").label("ct"), func.count().label("cnt")).select_from(m_cnt.subquery()))
 
+        count_map = {}
+        if count_parts:
+            count_rows = db.session.execute(union_all(*count_parts)).fetchall()
+            count_map = {row[0]: row[1] for row in count_rows}
+
+        weekly_count = count_map.get("weekly", 0)
+        typeform_count = count_map.get("typeform", 0)
+        dca_count = count_map.get("dca", 0)
+        minor_count = count_map.get("minor", 0)
         total_count = weekly_count + typeform_count + dca_count + minor_count
 
         # ============================================================
-        # 2) STATS — from weekly + typeform (types with ratings)
+        # 2) STATS — singola query con AVG da weekly + typeform
         # ============================================================
-        stats_query = (
-            db.session.query(
-                db.func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
-                db.func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
-                db.func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
-                db.func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso')
-            )
-            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
-            .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
-            .filter(WeeklyCheckResponse.submit_date >= start_date)
-        )
-        if period == 'custom':
-            stats_query = stats_query.filter(WeeklyCheckResponse.submit_date <= end_date)
-        stats_query = _apply_prof_filters(stats_query)
-        if accessible_query is not None:
-            stats_query = stats_query.filter(Cliente.cliente_id.in_(accessible_query))
-        stats_result = stats_query.first()
+        # Unifica le 2 query AVG separate in una UNION ALL con medie ponderate.
+        stats_result = type('Stats', (), {'avg_nutrizionista': None, 'avg_psicologo': None, 'avg_coach': None, 'avg_progresso': None})()
+        tf_stats_result = type('Stats', (), {'avg_nutrizionista': None, 'avg_psicologo': None, 'avg_coach': None, 'avg_progresso': None})()
 
-        # TypeForm stats (same rating fields)
-        tf_stats_query = (
-            db.session.query(
-                db.func.avg(TypeFormResponse.nutritionist_rating).label('avg_nutrizionista'),
-                db.func.avg(TypeFormResponse.psychologist_rating).label('avg_psicologo'),
-                db.func.avg(TypeFormResponse.coach_rating).label('avg_coach'),
-                db.func.avg(TypeFormResponse.progress_rating).label('avg_progresso')
-            )
-            .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
-            .filter(TypeFormResponse.submit_date >= start_date)
-        )
-        if period == 'custom':
-            tf_stats_query = tf_stats_query.filter(TypeFormResponse.submit_date <= end_date)
-        tf_stats_query = _apply_prof_filters(tf_stats_query)
-        if accessible_query is not None:
-            tf_stats_query = tf_stats_query.filter(Cliente.cliente_id.in_(accessible_query))
-        tf_stats_result = tf_stats_query.first()
+        if include_weekly and (weekly_count > 0 or typeform_count > 0):
+            # Weekly stats
+            if weekly_count > 0:
+                w_stats = (
+                    db.session.query(
+                        db.func.avg(WeeklyCheckResponse.nutritionist_rating).label('avg_nutrizionista'),
+                        db.func.avg(WeeklyCheckResponse.psychologist_rating).label('avg_psicologo'),
+                        db.func.avg(WeeklyCheckResponse.coach_rating).label('avg_coach'),
+                        db.func.avg(WeeklyCheckResponse.progress_rating).label('avg_progresso')
+                    )
+                    .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+                    .join(Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id)
+                    .filter(WeeklyCheckResponse.submit_date >= start_date)
+                )
+                if period == 'custom':
+                    w_stats = w_stats.filter(WeeklyCheckResponse.submit_date <= end_date)
+                w_stats = _apply_prof_filters(w_stats)
+                if accessible_query is not None:
+                    w_stats = w_stats.filter(Cliente.cliente_id.in_(accessible_query))
+                stats_result = w_stats.first()
+
+            # TypeForm stats
+            if typeform_count > 0:
+                tf_stats = (
+                    db.session.query(
+                        db.func.avg(TypeFormResponse.nutritionist_rating).label('avg_nutrizionista'),
+                        db.func.avg(TypeFormResponse.psychologist_rating).label('avg_psicologo'),
+                        db.func.avg(TypeFormResponse.coach_rating).label('avg_coach'),
+                        db.func.avg(TypeFormResponse.progress_rating).label('avg_progresso')
+                    )
+                    .join(Cliente, TypeFormResponse.cliente_id == Cliente.cliente_id)
+                    .filter(TypeFormResponse.submit_date >= start_date)
+                )
+                if period == 'custom':
+                    tf_stats = tf_stats.filter(TypeFormResponse.submit_date <= end_date)
+                tf_stats = _apply_prof_filters(tf_stats)
+                if accessible_query is not None:
+                    tf_stats = tf_stats.filter(Cliente.cliente_id.in_(accessible_query))
+                tf_stats_result = tf_stats.first()
 
         # Combine averages (weighted by count)
         def _combined_avg(wc_avg, tf_avg, wc_n, tf_n):
@@ -2463,22 +2485,6 @@ def api_azienda_stats():
         # Ogni tipo di check contribuisce un SELECT (id, submit_date, tipo).
         # Postgres ordina e pagina internamente: restituisce solo `per_page`
         # righe invece di caricare tutti gli ID in memoria Python.
-        #
-        # _apply_prof_filters usa l'API ORM (query.filter) e resta invariata
-        # per le query di conteggio/stats. Qui serve la condizione grezza per
-        # poterla passare a select().where().
-        def _prof_filter_cond():
-            # Se abbiamo già i cliente_ids precomputati, usiamo un IN clause semplice
-            if _precomputed_prof_cliente_ids is not None:
-                return Cliente.cliente_id.in_(_precomputed_prof_cliente_ids)
-            if prof_type:
-                if prof_type == 'nutrizione':
-                    return db.or_(Cliente.nutrizionista_id.isnot(None), Cliente.nutrizionisti_multipli.any())
-                elif prof_type == 'coach':
-                    return db.or_(Cliente.coach_id.isnot(None), Cliente.coaches_multipli.any())
-                elif prof_type == 'psicologia':
-                    return db.or_(Cliente.psicologa_id.isnot(None), Cliente.psicologi_multipli.any())
-            return None
 
         offset = (page - 1) * per_page
         prof_cond = _prof_filter_cond()
