@@ -12,7 +12,7 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct, literal
-from sqlalchemy.orm import joinedload, selectinload, load_only
+from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -2322,27 +2322,12 @@ def get_teams():
     # Eager load head (JOIN).  NON carichiamo Team.members di default:
     # selectinload(Team.members) caricava TUTTI i membri di TUTTI i team
     # anche quando include_members=false, causando 4+ secondi di latenza.
-    # Il conteggio membri è ottenuto via subquery annotata (member_count_sq).
-    member_count_sq = (
-        select(func.count())
-        .select_from(team_members)
-        .where(team_members.c.team_id == Team.id)
-        .correlate(Team)
-        .scalar_subquery()
-        .label("member_count")
-    )
-
-    base_options = [
-        joinedload(Team.head).load_only(
-            User.id, User.first_name, User.last_name, User.email,
-            User.avatar_path, User.is_admin, User.is_active,
-            User.role, User.specialty,
-        )
-    ]
+    # Il conteggio membri è ottenuto con una query batch separata dopo la paginazione.
+    base_options = [joinedload(Team.head)]
     if include_members:
         base_options.append(selectinload(Team.members))
 
-    query = Team.query.options(*base_options).add_columns(member_count_sq)
+    query = Team.query.options(*base_options)
 
     # RBAC base scope
     if _can_view_all_team_module_data(current_user):
@@ -2373,15 +2358,26 @@ def get_teams():
     # Server-side pagination
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    # pagination.items contiene tuple (Team, member_count) con add_columns
-    teams_data = []
-    for item in pagination.items:
-        team_obj, m_count = item if isinstance(item, tuple) else (item, None)
-        teams_data.append(_serialize_team(
-            team_obj,
+    # Batch query per conteggio membri (1 round-trip per tutti i team della pagina)
+    page_team_ids = [t.id for t in pagination.items]
+    member_counts = {}
+    if page_team_ids:
+        count_rows = db.session.query(
+            team_members.c.team_id,
+            func.count().label('cnt')
+        ).filter(
+            team_members.c.team_id.in_(page_team_ids)
+        ).group_by(team_members.c.team_id).all()
+        member_counts = {tid: cnt for tid, cnt in count_rows}
+
+    teams_data = [
+        _serialize_team(
+            t,
             include_members=include_members,
-            precomputed_member_count=m_count,
-        ))
+            precomputed_member_count=member_counts.get(t.id, 0),
+        )
+        for t in pagination.items
+    ]
 
     return jsonify({
         'success': True,
