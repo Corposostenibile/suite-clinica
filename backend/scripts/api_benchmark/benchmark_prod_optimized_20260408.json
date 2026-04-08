@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-04-08T11:27:00",
+  "env": "production-gke, codice ottimizzato (porta 9090) + indici applicati al DB",
+  "method": "kubectl exec → gunicorn test :9090 con file ottimizzati → benchmark interno",
+  "target_ms": 2000,
+  "iterations": 5,
+  "summary": {"ok": 8, "fail": 3, "err": 0, "skip": 0},
+  "note": "Produzione (:8080) ripristinata a fine test. Nessun impatto.",
+  "results": [
+    {"endpoint": "/api/tasks/",                                "dopo": 1530, "max": 1859, "passed": true},
+    {"endpoint": "/api/client-checks/professionisti/nutrizione","dopo": 1653, "max": 2338, "passed": true},
+    {"endpoint": "/api/client-checks/azienda/stats",           "dopo": 3714, "max": 4559, "passed": false},
+    {"endpoint": "/api/team/1/health_manager",                 "dopo": 6,    "max": 10,   "passed": true},
+    {"endpoint": "/api/team/1/coach",                          "dopo": 5,    "max": 6,    "passed": true},
+    {"endpoint": "/api/team/teams",                            "dopo": 4918, "max": 6412, "passed": false},
+    {"endpoint": "/api/team/1/nutrizione",                     "dopo": 5,    "max": 5,    "passed": true},
+    {"endpoint": "/api/team/professionals/criteria",           "dopo": 4549, "max": 5272, "passed": false},
+    {"endpoint": "/api/team/1/psicologia",                     "dopo": 6,    "max": 7,    "passed": true},
+    {"endpoint": "/old-suite/api/leads",                       "dopo": 1483, "max": 1843, "passed": true},
+    {"endpoint": "/api/client-checks/professionisti/coach",    "dopo": 1375, "max": 1778, "passed": true}
+  ]
+}
