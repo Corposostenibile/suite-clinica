@@ -1730,8 +1730,9 @@ def api_send_message(review_id):
     review = Review.query.get_or_404(review_id)
 
     # Verifica permessi
+    user_department_id = getattr(current_user, 'department_id', None)
     if not (current_user.is_admin or
-            current_user.department_id == 17 or
+            user_department_id == 17 or
             current_user.id == review.reviewer_id or
             current_user.id == review.reviewee_id):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
@@ -1786,8 +1787,9 @@ def api_mark_all_read(review_id):
     """
     review = Review.query.get_or_404(review_id)
 
+    user_department_id = getattr(current_user, 'department_id', None)
     if not (current_user.is_admin or
-            current_user.department_id == 17 or
+            user_department_id == 17 or
             current_user.id == review.reviewer_id or
             current_user.id == review.reviewee_id):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
