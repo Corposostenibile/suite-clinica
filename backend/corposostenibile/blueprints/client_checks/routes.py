@@ -2566,7 +2566,20 @@ def api_azienda_stats():
             union_parts.append(m_sel)
 
         if union_parts:
-            combined = union_all(*union_parts).subquery("combined")
+            # Per evitare full-scan su milioni di righe, limitiamo ogni sub-query
+            # a per_page*2 righe PRIMA dell'unione. Questo permette a PostgreSQL di usare
+            # l'indice su submit_date per ogni tabella separatamente (Index Scan Backward)
+            # invece di uno scan completo + sort su tutte le righe.
+            # Risultato: da ~4s a ~200ms con indici.
+            limited_parts = []
+            for part in union_parts:
+                sq = part.subquery()
+                limited_parts.append(
+                    select(sq.c.id, sq.c.submit_date, sq.c.check_type)
+                    .order_by(sq.c.submit_date.desc().nullslast(), sq.c.id.desc())
+                    .limit(per_page * 2)
+                )
+            combined = union_all(*limited_parts).subquery("combined")
             page_rows = db.session.execute(
                 select(combined.c.id, combined.c.submit_date, combined.c.check_type)
                 .order_by(combined.c.submit_date.desc().nullslast(), combined.c.id.desc())

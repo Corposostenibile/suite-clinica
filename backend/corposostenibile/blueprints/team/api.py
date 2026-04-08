@@ -12,7 +12,7 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct, literal
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload, load_only
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -2332,7 +2332,13 @@ def get_teams():
         .label("member_count")
     )
 
-    base_options = [joinedload(Team.head)]
+    base_options = [
+        joinedload(Team.head).load_only(
+            User.id, User.first_name, User.last_name, User.email,
+            User.avatar_path, User.is_admin, User.is_active,
+            User.role, User.specialty,
+        )
+    ]
     if include_members:
         base_options.append(selectinload(Team.members))
 
