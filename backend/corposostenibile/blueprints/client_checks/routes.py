@@ -2608,13 +2608,13 @@ def api_azienda_stats():
                     .defer(Cliente.check_saltati),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .selectinload(Cliente.nutrizionisti_multipli),
+                    .selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .selectinload(Cliente.coaches_multipli),
+                    .selectinload(Cliente.coaches_multipli).options(lazyload("*")),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .selectinload(Cliente.psicologi_multipli),
+                    .selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
                     .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
@@ -2639,11 +2639,11 @@ def api_azienda_stats():
                     joinedload(TypeFormResponse.cliente)
                     .defer(Cliente.check_saltati),
                     joinedload(TypeFormResponse.cliente)
-                    .selectinload(Cliente.nutrizionisti_multipli),
+                    .selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
-                    .selectinload(Cliente.coaches_multipli),
+                    .selectinload(Cliente.coaches_multipli).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
-                    .selectinload(Cliente.psicologi_multipli),
+                    .selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
                     .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
@@ -2667,13 +2667,13 @@ def api_azienda_stats():
                     .defer(Cliente.check_saltati),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .selectinload(Cliente.nutrizionisti_multipli),
+                    .selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .selectinload(Cliente.coaches_multipli),
+                    .selectinload(Cliente.coaches_multipli).options(lazyload("*")),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .selectinload(Cliente.psicologi_multipli),
+                    .selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
                     .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
@@ -2700,13 +2700,13 @@ def api_azienda_stats():
                     .defer(Cliente.check_saltati),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .selectinload(Cliente.nutrizionisti_multipli),
+                    .selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .selectinload(Cliente.coaches_multipli),
+                    .selectinload(Cliente.coaches_multipli).options(lazyload("*")),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .selectinload(Cliente.psicologi_multipli),
+                    .selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
                     .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),

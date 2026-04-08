@@ -16,7 +16,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
 
 from sqlalchemy import func, select, and_
-from sqlalchemy.orm import Query, joinedload, subqueryload, selectinload
+from sqlalchemy.orm import Query, joinedload, subqueryload, selectinload, lazyload
 from sqlalchemy_continuum import version_class
 from werkzeug.exceptions import NotFound
 
@@ -49,11 +49,11 @@ _DEFAULT_EAGER_LOAD = (
     # emette un singolo SELECT con IN clause invece di una subquery correlata.
     selectinload(Cliente.cartelle),
     # Professionisti per colonna Team nella lista
-    selectinload(Cliente.nutrizionisti_multipli),
-    selectinload(Cliente.coaches_multipli),
-    selectinload(Cliente.psicologi_multipli),
-    selectinload(Cliente.consulenti_multipli),   # era assente → lazy-load N+1
-    selectinload(Cliente.health_manager_user),
+    selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+    selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+    selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+    selectinload(Cliente.consulenti_multipli).options(lazyload("*")),   # era assente → lazy-load N+1
+    selectinload(Cliente.health_manager_user).options(lazyload("*")),
     # Piani attivi per colonne "Piano Dieta" / "Piano Allenamento" nelle visuali
     selectinload(Cliente.meal_plans),
     selectinload(Cliente.training_plans),

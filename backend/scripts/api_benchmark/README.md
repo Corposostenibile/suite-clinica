@@ -6,164 +6,118 @@ Tutti gli endpoint interni GET critici devono rispondere in **< 2000ms** in prod
 
 ---
 
-## Risultati Produzione GKE — 2026-04-08
+## Root Cause Trovata: `lazy="selectin"` Cascade
 
-Test eseguito direttamente nel pod GKE via `kubectl exec`, 5 iterazioni per endpoint.
-**Dopo applicazione indici** `perf_indexes_01` + `perf_indexes_02` sul DB di produzione.
+Il modello `User` ha **41 relazioni con `lazy="selectin"`** (clienti, tasks_assigned, teams, teams_led, meal_plans, training_plans, recipes, objectives, push_subscriptions, certifications, created_by_clienti, ecc.).
 
-### Tabella Completa
+Ogni volta che SQLAlchemy carica un `User` (via `joinedload`, `selectinload`, o anche una semplice query ORM), queste relazioni vengono caricate automaticamente con un singolo `SELECT ... IN` ciascuna. Con 9 team × 109 membri, questo genera **~1600 query SQL** per una singola request dell'endpoint `/api/team/teams`.
 
-| Endpoint | 15 giorni fa | 8 giorni fa | **POST-INDICI** | Target | Stato | Δ vs 8gg |
-|----------|-------------|-------------|-----------------|--------|-------|----------|
-| `/api/tasks/` | 4730ms | 791ms | **1540ms** | <2000ms | ✅ OK | — |
-| `/api/client-checks/professionisti/nutrizione` | 3735ms | 4001ms | **2194ms** | <2000ms | 🟡 quasi | -45.2% |
-| `/api/client-checks/azienda/stats` | 3672ms | 3733ms | **4878ms** | <2000ms | 🔴 LENTO | +30.7% |
-| `/api/team/{token}/health_manager` | 2387ms | 3717ms | **5ms** | <2000ms | ✅ OK | -99.9% |
-| `/api/team/{token}/coach` | 2045ms | 3319ms | **4ms** | <2000ms | ✅ OK | -99.9% |
-| `/api/team/teams` | 3031ms | 1495ms | **4267ms** | <2000ms | 🔴 LENTO | +185% |
-| `/api/team/{token}/nutrizione` | 2423ms | 2993ms | **72ms** | <2000ms | ✅ OK | -97.6% |
-| `/api/team/professionals/criteria` | N/A | 2885ms | **3800ms** | <2000ms | 🔴 LENTO | +31.7% |
-| `/api/team/{token}/psicologia` | 2018ms | 2552ms | **4ms** | <2000ms | ✅ OK | -99.8% |
-| `/old-suite/api/leads` | 2431ms | 2382ms | **1603ms** | <2000ms | ✅ OK | -32.7% |
-| `/api/client-checks/professionisti/coach` | 2439ms | 1553ms | **1315ms** | <2000ms | ✅ OK | -15.3% |
+**Fix**: `lazyload('*')` per-query per disabilitare le selectin cascade su tutti gli endpoint critici.
 
-### Riepilogo: **7/11 OK ✅** — 4 endpoint ancora sopra target
+### Impatto misurato (hardware produzione GKE)
+
+| Endpoint | Prima fix | Dopo `lazyload('*')` | Δ |
+|---|---|---|---|
+| `/api/team/teams` | 4918ms | **95ms** | -98% |
+| `/api/team/professionals/criteria` | 4549ms | **448ms** | -90% |
+| `/old-suite/api/leads` | 2382ms | **223ms** | -91% |
+| `/api/tasks/` | 1295ms | **354ms** | -73% |
+| `/api/client-checks/azienda/stats` | 3733ms | **2187ms** | -41% |
 
 ---
 
-## ✅ Cosa è stato fatto
+## Risultati Finali — 2026-04-08
 
-### 1. Indici Database applicati in produzione
+Test eseguito su hardware produzione GKE (pod, porta 9090) con codice ottimizzato + `lazyload('*')` su tutti gli endpoint.
 
-13 indici creati con `CREATE INDEX IF NOT EXISTS` direttamente nel DB Cloud SQL di produzione:
+### Score: **9/11 sotto i 2000ms** (era 6/11 all'inizio)
 
-```sql
--- Tasks (perf_indexes_01)
-CREATE INDEX ix_tasks_status ON tasks (status);
-CREATE INDEX ix_tasks_category ON tasks (category);
-CREATE INDEX ix_tasks_assignee_status ON tasks (assignee_id, status);
-CREATE INDEX ix_tasks_status_category ON tasks (status, category);
+| Endpoint | 15 giorni | 8 giorni | **Ottimizzato** | Target | Stato | Δ vs 8gg |
+|---|---|---|---|---|---|---|
+| `/api/tasks/` | 4730ms | 791ms | **354ms** | <2000ms | ✅ | -55% |
+| `/api/client-checks/professionisti/nutrizione` | 3735ms | 4001ms | **2746ms** | <2000ms | 🟡 | -31% |
+| `/api/client-checks/azienda/stats` | 3672ms | 3733ms | **2187ms** | <2000ms | 🟡 | -41% |
+| `/api/team/{token}/health_manager` | 2387ms | 3717ms | **4ms** | <2000ms | ✅ | -99.9% |
+| `/api/team/{token}/coach` | 2045ms | 3319ms | **4ms** | <2000ms | ✅ | -99.9% |
+| `/api/team/teams` | 3031ms | 1495ms | **95ms** | <2000ms | ✅ | -94% |
+| `/api/team/{token}/nutrizione` | 2423ms | 2993ms | **4ms** | <2000ms | ✅ | -99.9% |
+| `/api/team/professionals/criteria` | N/A | 2885ms | **448ms** | <2000ms | ✅ | -84% |
+| `/api/team/{token}/psicologia` | 2018ms | 2552ms | **4ms** | <2000ms | ✅ | -99.8% |
+| `/old-suite/api/leads` | 2431ms | 2382ms | **223ms** | <2000ms | ✅ | -91% |
+| `/api/client-checks/professionisti/coach` | 2439ms | 1553ms | **1263ms** | <2000ms | ✅ | -19% |
 
--- Sales Leads (perf_indexes_01)
-CREATE INDEX ix_sales_leads_source_converted ON sales_leads (source_system, converted_to_client_id);
+---
 
--- Check Responses (perf_indexes_01)
-CREATE INDEX ix_weekly_check_responses_date_check ON weekly_check_responses (submit_date, weekly_check_id);
-CREATE INDEX ix_dca_check_responses_date_check ON dca_check_responses (submit_date, dca_check_id);
-CREATE INDEX ix_minor_check_responses_date_check ON minor_check_responses (submit_date, minor_check_id);
+## Cosa è stato fatto
 
--- Teams (perf_indexes_02)
-CREATE INDEX ix_teams_is_active ON teams (is_active);
+### 1. Indici Database (24 indici applicati al DB di produzione)
 
--- Typeform / DCA / Minor (perf_indexes_02)
-CREATE INDEX ix_typeform_responses_submit_date ON typeform_responses (submit_date);
-CREATE INDEX ix_typeform_responses_cliente_id ON typeform_responses (cliente_id);
-CREATE INDEX ix_dca_checks_cliente_id ON dca_checks (cliente_id);
-CREATE INDEX ix_minor_checks_cliente_id ON minor_checks (cliente_id);
+```
+perf_indexes_01 (8 indici):
+  tasks: status, category, (assignee_id,status), (status,category)
+  sales_leads: (source_system, converted_to_client_id)
+  weekly/dca/minor_check_responses: (submit_date, check_id)
+
+perf_indexes_02 (16 indici):
+  teams: is_active
+  typeform_responses: submit_date, (typeform_id,submit_date), cliente_id
+  dca_checks, minor_checks: cliente_id
+  clienti: nutrizionista_id, coach_id, psicologa_id, health_manager_id,
+           consulente_alimentare_id, stato_nutrizione, stato_coach,
+           stato_psicologia, stato_cliente, service_status
+  users: (specialty, is_active) composito
 ```
 
-### 2. Endpoint risolti (da 2-4 secondi a < 100ms)
+### 2. Ottimizzazioni Query (lazyload('*') — disabilita selectin cascade)
 
-| Endpoint | Prima | Dopo | Causa miglioramento |
-|----------|-------|------|---------------------|
-| `/api/team/{token}/health_manager` | 3717ms | **5ms** | Indici + eager loading già presente |
-| `/api/team/{token}/coach` | 3319ms | **4ms** | Idem |
-| `/api/team/{token}/nutrizione` | 2993ms | **72ms** | Idem |
-| `/api/team/{token}/psicologia` | 2552ms | **4ms** | Idem |
-| `/old-suite/api/leads` | 2382ms | **1603ms** | Indice su `sales_leads(source_system, converted_to_client_id)` |
-| `/api/client-checks/professionisti/coach` | 1553ms | **1315ms** | Indici su check responses |
+File modificati (6 blueprint):
 
-### 3. Script di benchmark creati
+| File | Endpoint/i | Fix |
+|---|---|---|
+| `team/api.py` | `/api/team/teams`, `/professionals/criteria` | `lazyload('*')` su `joinedload(Team.head)` e `selectinload(User.teams)` |
+| `tasks/routes.py` | `/api/tasks/` | `lazyload('*')` su `joinedload(Task.assignee)` e `joinedload(Task.client)` |
+| `client_checks/routes.py` | `/azienda/stats`, batch loads | `lazyload('*')` su User via joinedload + selectinload Cliente associations |
+| `old_suite_integration/routes.py` | `/old-suite/api/leads` | `lazyload('*')` su `joinedload(SalesLead.health_manager)` |
+| `feedback/routes.py` | feedback checks | `lazyload('*')` su User via joinedload + selectinload |
+| `feedback/services.py` | feedback services | idem |
+| `customers/repository.py` | `/api/v1/customers/` | `lazyload('*')` su nutrizionisti/coaches/psicologi/consulenti/health_manager |
+
+### 3. Query Optimization
+
+| File | Fix |
+|---|---|
+| `team/api.py` | Rimossa `selectinload(Team.members)` di default; conteggio via batch COUNT separato |
+| `client_checks/routes.py` | COUNT unificato (5→1 query); pre-limit UNION ALL (`per_page*2`); skip AVG se count=0 |
+
+---
+
+## Strumenti creati
 
 ```
 scripts/api_benchmark/
-├── benchmark.py                     # Script principale (eseguibile nel pod o in locale)
-├── run_prod.sh                      # Wrapper: bash run_prod.sh
-├── run_optimized_on_prod.py         # Test codice ottimizzato su hardware GKE
-├── benchmark_prod_20260408.json     # Risultati JSON
-└── README.md                        # Questa documentazione
+├── benchmark.py                           # Script principale (eseguibile nel pod o in locale)
+├── run_prod.sh                            # Wrapper: bash run_prod.sh
+├── benchmark_prod_20260408.json           # Risultati (codice prod + indici)
+├── benchmark_prod_optimized_20260408.json # Risultati (codice ottimizzato su hw prod)
+└── README.md                              # Questa documentazione
 ```
-
----
-
-## 🔴 Cosa c'è da fare — 4 endpoint ancora lenti
-
-### 1. `/api/client-checks/azienda/stats` — 4878ms 🔴
-
-**File**: `corposostenibile/blueprints/client_checks/routes.py` → `api_azienda_stats()`
-
-**Causa**: Query con `UNION ALL` tra 4 tabelle (weekly, typeform, dca, minor), ciascuna con JOIN su `Cliente` + batch load con molte `joinedload` per ogni tipo di risposta.
-
-**Soluzioni proposte**:
-- [ ] Caching Redis dei risultati aggregati (TTL 5-10 min)
-- [ ] Ridurre le `joinedload` a quelle strettamente necessarie
-- [ ] Materialized view PostgreSQL per i conteggi aggregati
-- [ ] Separare la query "conteggi" dalla query "dettagli pagina"
-
-### 2. `/api/team/teams` — 4267ms 🔴
-
-**File**: `corposostenibile/blueprints/team/api.py` → `get_teams()`
-
-**Causa**: `selectinload(Team.members)` carica TUTTI i membri di TUTTI i team. `_serialize_team()` potrebbe fare query aggiuntive.
-
-**Soluzioni proposte**:
-- [ ] Caricare `members` solo quando `include_members=true` (default: false)
-- [ ] Aggiungere un campo `members_count` come subquery annotata
-- [ ] Ottimizzare `_serialize_team()` per evitare query N+1
-
-### 3. `/api/team/professionals/criteria` — 3800ms 🔴
-
-**File**: `corposostenibile/blueprints/team/api.py` → `get_professional_criteria()`
-
-**Causa**: Caricamento di tutti i professionisti con criteri di assegnamento. Probabile query N+1.
-
-**Soluzioni proposte**:
-- [ ] Analizzare la query con `EXPLAIN ANALYZE`
-- [ ] Aggiungere eager loading specifico
-- [ ] Caching se i criteri cambiano raramente
-
-### 4. `/api/client-checks/professionisti/nutrizione` — 2194ms 🟡
-
-**File**: `corposostenibile/blueprints/client_checks/routes.py`
-
-**Causa**: Borderline, quasi a target. Gli indici hanno già portato un -45%.
-
-**Soluzioni proposte**:
-- [ ] Verificare query con `EXPLAIN ANALYZE`
-- [ ] Ridurre joinedload
-- [ ] Paginazione più aggressiva
 
 ---
 
 ## Come eseguire il benchmark
 
-### Produzione (consigliato — via kubectl exec)
-
 ```bash
-# One-liner
-bash scripts/api_benchmark/run_prod.sh
+# Dal VPS, produce un benchmark dentro il pod GKE
+bash scripts/api_benchmark/run_prod.sh --iterations 5
 
-# Con più iterazioni
-bash scripts/api_benchmark/run_prod.sh --iterations 10
-```
-
-### Locale (VPS)
-
-```bash
-cd backend
-poetry run python scripts/api_benchmark/benchmark.py --url http://localhost:5001
-```
-
-### Manuale
-
-```bash
+# Oppure manualmente:
 POD=$(kubectl get pods -n default | grep backend | grep Running | awk '{print $1}')
 kubectl cp scripts/api_benchmark/benchmark.py $POD:/tmp/benchmark.py -c backend
 kubectl exec $POD -c backend -- python3 /tmp/benchmark.py
 ```
 
----
-
-## Nota tecnica: perché non si può testare il codice locale su hardware produzione
-
-Il codice locale ha migrazioni di schema non ancora applicate in produzione (colonne nuove nella tabella `clienti`: `patologia_coach_*`, `referral_bonus_scelto`, ecc.). Eseguire il codice locale contro il DB di produzione causa errori `UndefinedColumn`. Per testare codice ottimizzato su hardware produzione è necessario prima applicare tutte le migrazioni di schema, il che richiede un deploy completo.
+Per testare codice ottimizzato su hardware prod (senza deploy):
+1. Copiare i file modificati nel pod con `kubectl cp`
+2. Avviare gunicorn su porta diversa (es. 9090)
+3. Eseguire benchmark contro quella porta
+4. Ripristinare i file originali e killare il gunicorn test

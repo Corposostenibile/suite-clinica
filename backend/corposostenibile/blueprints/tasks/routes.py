@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request, abort, current_app
 from flask_login import login_required, current_user
 from datetime import datetime, date
 from sqlalchemy import desc, func, or_
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, lazyload
 
 from corposostenibile.models import Task, TaskStatusEnum, TaskCategoryEnum, TaskPriorityEnum, User, UserRoleEnum, Team, db, team_members
 
@@ -299,8 +299,8 @@ def list_tasks():
 
     scope_query = _apply_admin_filters(scope_query)
     query = scope_query.options(
-        joinedload(Task.assignee),
-        joinedload(Task.client),
+        joinedload(Task.assignee).options(lazyload('*')),
+        joinedload(Task.client).options(lazyload('*')),
     )
 
     # Filtri

@@ -108,7 +108,7 @@ def get_all_check_responses(start_date, end_date):
     Get all check responses (TypeForm, WeeklyCheck, DCACheck) in date range.
     Returns unified list of response objects with read confirmations loaded.
     """
-    from sqlalchemy.orm import joinedload, selectinload
+    from sqlalchemy.orm import joinedload, selectinload, lazyload
     from corposostenibile.models import ClientCheckReadConfirmation
     from datetime import date
 
@@ -117,12 +117,12 @@ def get_all_check_responses(start_date, end_date):
 
     # 1. TypeForm responses (old system - no read confirmations)
     typeform_responses = TypeFormResponse.query.options(
-        joinedload(TypeFormResponse.cliente).selectinload(Cliente.nutrizionisti_multipli),
-        joinedload(TypeFormResponse.cliente).selectinload(Cliente.psicologi_multipli),
-        joinedload(TypeFormResponse.cliente).selectinload(Cliente.coaches_multipli),
-        joinedload(TypeFormResponse.cliente).joinedload(Cliente.nutrizionista_user),
-        joinedload(TypeFormResponse.cliente).joinedload(Cliente.psicologa_user),
-        joinedload(TypeFormResponse.cliente).joinedload(Cliente.coach_user)
+        joinedload(TypeFormResponse.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+        joinedload(TypeFormResponse.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+        joinedload(TypeFormResponse.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+        joinedload(TypeFormResponse.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+        joinedload(TypeFormResponse.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+        joinedload(TypeFormResponse.cliente).joinedload(Cliente.coach_user).options(lazyload("*"))
     ).filter(
         and_(
             TypeFormResponse.submit_date >= start_date,
@@ -138,12 +138,12 @@ def get_all_check_responses(start_date, end_date):
     ).join(
         Cliente, WeeklyCheck.cliente_id == Cliente.cliente_id
     ).options(
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.nutrizionisti_multipli),
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.psicologi_multipli),
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.coaches_multipli),
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.nutrizionista_user),
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.psicologa_user),
-        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.coach_user)
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+        joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.coach_user).options(lazyload("*"))
     ).filter(
         and_(
             WeeklyCheckResponse.submit_date >= start_date,
@@ -169,12 +169,12 @@ def get_all_check_responses(start_date, end_date):
     ).join(
         Cliente, DCACheck.cliente_id == Cliente.cliente_id
     ).options(
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.nutrizionisti_multipli),
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.psicologi_multipli),
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.coaches_multipli),
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.nutrizionista_user),
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.psicologa_user),
-        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.coach_user)
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+        joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.coach_user).options(lazyload("*"))
     ).filter(
         and_(
             DCACheckResponse.submit_date >= start_date,

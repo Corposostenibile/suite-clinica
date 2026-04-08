@@ -17,7 +17,7 @@ from corposostenibile.models import (
     ClienteProfessionistaHistory, ServiceClienteNote,
     TipologiaClienteEnum,
 )
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, lazyload
 from . import bp
 from .package_parser import parse_package_name
 
@@ -413,7 +413,7 @@ def api_get_leads():
             SalesLead.query
             .filter_by(source_system='old_suite')
             .filter(SalesLead.converted_to_client_id.is_(None))
-            .options(joinedload(SalesLead.health_manager))
+            .options(joinedload(SalesLead.health_manager).options(lazyload('*')))
             .order_by(SalesLead.created_at.desc())
             .all()
         )

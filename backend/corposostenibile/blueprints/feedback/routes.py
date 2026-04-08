@@ -56,40 +56,40 @@ def get_response_details(response_id):
         abort(403)
 
     try:
-        from sqlalchemy.orm import joinedload, selectinload
+        from sqlalchemy.orm import joinedload, selectinload, lazyload
 
         # Try to find response in all three tables with eager loading
         response = TypeFormResponse.query.options(
-            joinedload(TypeFormResponse.cliente).selectinload(Cliente.nutrizionisti_multipli),
-            joinedload(TypeFormResponse.cliente).selectinload(Cliente.psicologi_multipli),
-            joinedload(TypeFormResponse.cliente).selectinload(Cliente.coaches_multipli),
-            joinedload(TypeFormResponse.cliente).joinedload(Cliente.nutrizionista_user),
-            joinedload(TypeFormResponse.cliente).joinedload(Cliente.psicologa_user),
-            joinedload(TypeFormResponse.cliente).joinedload(Cliente.coach_user)
+            joinedload(TypeFormResponse.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+            joinedload(TypeFormResponse.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+            joinedload(TypeFormResponse.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+            joinedload(TypeFormResponse.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+            joinedload(TypeFormResponse.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+            joinedload(TypeFormResponse.cliente).joinedload(Cliente.coach_user).options(lazyload("*")).options(lazyload("*"))
         ).filter_by(id=response_id).first()
         response_type = 'typeform'
 
         if not response:
             from corposostenibile.models import WeeklyCheck
             response = WeeklyCheckResponse.query.options(
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.nutrizionisti_multipli),
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.psicologi_multipli),
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.coaches_multipli),
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.nutrizionista_user),
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.psicologa_user),
-                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.coach_user)
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+                joinedload(WeeklyCheckResponse.assignment).joinedload(WeeklyCheck.cliente).joinedload(Cliente.coach_user).options(lazyload("*")).options(lazyload("*"))
             ).filter_by(id=response_id).first()
             response_type = 'weekly_check'
 
         if not response:
             from corposostenibile.models import DCACheck
             response = DCACheckResponse.query.options(
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.nutrizionisti_multipli),
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.psicologi_multipli),
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.coaches_multipli),
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.nutrizionista_user),
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.psicologa_user),
-                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.coach_user)
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.nutrizionisti_multipli).options(lazyload("*")),
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.psicologi_multipli).options(lazyload("*")),
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).selectinload(Cliente.coaches_multipli).options(lazyload("*")),
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.psicologa_user).options(lazyload("*")),
+                joinedload(DCACheckResponse.assignment).joinedload(DCACheck.cliente).joinedload(Cliente.coach_user).options(lazyload("*")).options(lazyload("*"))
             ).filter_by(id=response_id).first()
             response_type = 'dca_check'
 
