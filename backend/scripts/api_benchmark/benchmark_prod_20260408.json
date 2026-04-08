@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-04-08T07:26:57",
+  "env": "production-gke (pod interno, codice produzione + indici perf_indexes_01/02 applicati)",
+  "method": "kubectl exec → benchmark dentro pod → localhost:8080",
+  "target_ms": 2000,
+  "iterations": 5,
+  "summary": {"ok": 7, "fail": 4, "err": 0, "skip": 0},
+  "comparison": "PRIMA = media 8 giorni fa (senza indici), DOPO = media post-indici",
+  "results": [
+    {"endpoint": "/api/tasks/",                                "prima": 791,  "dopo": 1540, "max": 2370, "passed": true,  "note": "Migliorato da 4730 (15gg), borderline"},
+    {"endpoint": "/api/client-checks/professionisti/nutrizione","prima": 4001, "dopo": 2194, "max": 2730, "passed": false, "note": "Migliorato -45%, quasi a target"},
+    {"endpoint": "/api/client-checks/azienda/stats",           "prima": 3733, "dopo": 4878, "max": 7589, "passed": false, "note": "PEGGIORATO, serve ottimizzazione query/caching"},
+    {"endpoint": "/api/team/{token}/health_manager",           "prima": 3717, "dopo": 5,    "max": 5,    "passed": true,  "note": "Risolto -99.9%"},
+    {"endpoint": "/api/team/{token}/coach",                    "prima": 3319, "dopo": 4,    "max": 5,    "passed": true,  "note": "Risolto -99.9%"},
+    {"endpoint": "/api/team/teams",                            "prima": 1495, "dopo": 4267, "max": 4354, "passed": false, "note": "PEGGIORATO, serve ottimizzazione selectinload"},
+    {"endpoint": "/api/team/{token}/nutrizione",               "prima": 2993, "dopo": 72,   "max": 142,  "passed": true,  "note": "Risolto -97.6%"},
+    {"endpoint": "/api/team/professionals/criteria",           "prima": 2885, "dopo": 3800, "max": 4229, "passed": false, "note": "PEGGIORATO, serve analisi query"},
+    {"endpoint": "/api/team/{token}/psicologia",               "prima": 2552, "dopo": 4,    "max": 6,    "passed": true,  "note": "Risolto -99.8%"},
+    {"endpoint": "/old-suite/api/leads",                       "prima": 2382, "dopo": 1603, "max": 2130, "passed": true,  "note": "Migliorato -32.7%"},
+    {"endpoint": "/api/client-checks/professionisti/coach",    "prima": 1553, "dopo": 1315, "max": 1783, "passed": true,  "note": "Migliorato -15.3%"}
+  ]
+}
