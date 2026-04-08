@@ -2948,7 +2948,9 @@ def api_get_professionisti_by_type(prof_type: str):
         specialties = specialty_map[prof_type]
 
         # Query users with matching specialty
-        professionals_query = User.query.filter(
+        professionals_query = User.query.options(
+            lazyload('*')
+        ).filter(
             User.specialty.in_(specialties),
             User.is_active == True
         )
