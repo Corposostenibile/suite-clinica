@@ -12,7 +12,7 @@ from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import and_, or_, func, cast, String, select, union_all, distinct, literal
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import joinedload, selectinload, lazyload
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
@@ -1307,7 +1307,8 @@ def api_get_professionals_criteria():
     ]
     
     prof_query = User.query.options(
-        selectinload(User.teams)
+        selectinload(User.teams),
+        lazyload('*'),  # Disabilita selectin cascade (clienti, tasks, ecc.)
     ).filter(
         User.specialty.in_(target_specialties),
         User.is_active == True
@@ -2321,11 +2322,18 @@ def get_teams():
 
     # Eager load head (JOIN).  NON carichiamo Team.members di default:
     # selectinload(Team.members) caricava TUTTI i membri di TUTTI i team
-    # anche quando include_members=false, causando 4+ secondi di latenza.
-    # Il conteggio membri è ottenuto con una query batch separata dopo la paginazione.
-    base_options = [joinedload(Team.head)]
+    # e ogni User caricato scatenava ~15 relazioni selectin in cascata
+    # (clienti, tasks, meal_plans, ecc.) → ~1600 query per 9 team.
+    # Fix: lazyload('*') disabilita tutte le selectin cascade.
+    base_options = [
+        joinedload(Team.head).options(lazyload('*')),
+        lazyload(Team.members),
+    ]
     if include_members:
-        base_options.append(selectinload(Team.members))
+        base_options = [
+            joinedload(Team.head).options(lazyload('*')),
+            selectinload(Team.members).options(lazyload('*')),
+        ]
 
     query = Team.query.options(*base_options)
 

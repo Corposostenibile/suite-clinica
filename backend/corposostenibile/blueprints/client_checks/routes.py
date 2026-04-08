@@ -38,7 +38,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from sqlalchemy import desc, and_, exists, func, select, text, union_all, literal
-from sqlalchemy.orm import joinedload, defer
+from sqlalchemy.orm import joinedload, defer, lazyload
 from werkzeug.exceptions import HTTPException
 
 from corposostenibile.extensions import db, csrf
@@ -2617,13 +2617,13 @@ def api_azienda_stats():
                     .selectinload(Cliente.psicologi_multipli),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .joinedload(Cliente.nutrizionista_user),
+                    .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .joinedload(Cliente.coach_user),
+                    .joinedload(Cliente.coach_user).options(lazyload("*")),
                     joinedload(WeeklyCheckResponse.assignment)
                     .joinedload(WeeklyCheck.cliente)
-                    .joinedload(Cliente.psicologa_user),
+                    .joinedload(Cliente.psicologa_user).options(lazyload("*")),
                 )
                 .all()
             )
@@ -2645,11 +2645,11 @@ def api_azienda_stats():
                     joinedload(TypeFormResponse.cliente)
                     .selectinload(Cliente.psicologi_multipli),
                     joinedload(TypeFormResponse.cliente)
-                    .joinedload(Cliente.nutrizionista_user),
+                    .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
-                    .joinedload(Cliente.coach_user),
+                    .joinedload(Cliente.coach_user).options(lazyload("*")),
                     joinedload(TypeFormResponse.cliente)
-                    .joinedload(Cliente.psicologa_user),
+                    .joinedload(Cliente.psicologa_user).options(lazyload("*")),
                 )
                 .all()
             )
@@ -2676,13 +2676,13 @@ def api_azienda_stats():
                     .selectinload(Cliente.psicologi_multipli),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .joinedload(Cliente.nutrizionista_user),
+                    .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .joinedload(Cliente.coach_user),
+                    .joinedload(Cliente.coach_user).options(lazyload("*")),
                     joinedload(DCACheckResponse.assignment)
                     .joinedload(DCACheck.cliente)
-                    .joinedload(Cliente.psicologa_user),
+                    .joinedload(Cliente.psicologa_user).options(lazyload("*")),
                 )
                 .all()
             )
@@ -2709,13 +2709,13 @@ def api_azienda_stats():
                     .selectinload(Cliente.psicologi_multipli),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .joinedload(Cliente.nutrizionista_user),
+                    .joinedload(Cliente.nutrizionista_user).options(lazyload("*")),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .joinedload(Cliente.coach_user),
+                    .joinedload(Cliente.coach_user).options(lazyload("*")),
                     joinedload(MinorCheckResponse.assignment)
                     .joinedload(MinorCheck.cliente)
-                    .joinedload(Cliente.psicologa_user),
+                    .joinedload(Cliente.psicologa_user).options(lazyload("*")),
                 )
                 .all()
             )
