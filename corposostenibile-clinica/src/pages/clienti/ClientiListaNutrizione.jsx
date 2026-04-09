@@ -106,8 +106,8 @@ function ClientiListaNutrizione() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
-  const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showAnamnesiModal, setShowAnamnesiModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showPatologieModal, setShowPatologieModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -116,6 +116,19 @@ function ClientiListaNutrizione() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [modalValue, setModalValue] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Anamnesi states
+  const [anamnesiData, setAnamnesiData] = useState(null);
+  const [anamnesiContent, setAnamnesiContent] = useState('');
+  const [loadingAnamnesi, setLoadingAnamnesi] = useState(false);
+  const [savingAnamnesi, setSavingAnamnesi] = useState(false);
+
+  // Diario states
+  const [diarioEntries, setDiarioEntries] = useState([]);
+  const [loadingDiario, setLoadingDiario] = useState(false);
+  const [newDiarioContent, setNewDiarioContent] = useState('');
+  const [newDiarioDate, setNewDiarioDate] = useState('');
+  const [savingDiario, setSavingDiario] = useState(false);
 
   // Fetch nutrizionisti on mount
   useEffect(() => {
@@ -275,11 +288,7 @@ function ClientiListaNutrizione() {
     setSaving(true);
     try {
       await clientiService.updateField(clienteId, field, value || null);
-      // Refresh the list
       fetchClienti();
-      // Close modals
-      setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowCheckDayModal(false);
@@ -293,16 +302,80 @@ function ClientiListaNutrizione() {
   };
 
   // Open modal helpers
-  const openStoriaModal = (cliente) => {
+  const openAnamnesiModal = async (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.storia_nutrizionale || '');
-    setShowStoriaModal(true);
+    setAnamnesiData(null);
+    setAnamnesiContent('');
+    setShowAnamnesiModal(true);
+    setLoadingAnamnesi(true);
+    try {
+      const res = await clientiService.getAnamnesi(cliente.cliente_id || cliente.clienteId, 'nutrizione');
+      if (res?.anamnesi) {
+        setAnamnesiData(res.anamnesi);
+        setAnamnesiContent(res.anamnesi.content || '');
+      }
+    } catch (err) {
+      console.error('Error loading anamnesi:', err);
+    } finally {
+      setLoadingAnamnesi(false);
+    }
   };
 
-  const openNoteModal = (cliente) => {
+  const handleSaveAnamnesi = async () => {
+    if (!selectedCliente) return;
+    setSavingAnamnesi(true);
+    try {
+      await clientiService.saveAnamnesi(selectedCliente.cliente_id || selectedCliente.clienteId, 'nutrizione', anamnesiContent);
+      const res = await clientiService.getAnamnesi(selectedCliente.cliente_id || selectedCliente.clienteId, 'nutrizione');
+      if (res?.anamnesi) {
+        setAnamnesiData(res.anamnesi);
+        setAnamnesiContent(res.anamnesi.content || '');
+      }
+    } catch (err) {
+      console.error('Error saving anamnesi:', err);
+      alert('Errore nel salvataggio anamnesi');
+    } finally {
+      setSavingAnamnesi(false);
+    }
+  };
+
+  const openDiarioModal = async (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_nutrizionista || '');
-    setShowNoteModal(true);
+    setDiarioEntries([]);
+    setNewDiarioContent('');
+    setNewDiarioDate(new Date().toISOString().slice(0, 10));
+    setShowDiarioModal(true);
+    setLoadingDiario(true);
+    try {
+      const res = await clientiService.getDiaryEntries(cliente.cliente_id || cliente.clienteId, 'nutrizione');
+      setDiarioEntries(res?.entries || []);
+    } catch (err) {
+      console.error('Error loading diario:', err);
+    } finally {
+      setLoadingDiario(false);
+    }
+  };
+
+  const handleAddDiarioEntry = async () => {
+    if (!selectedCliente || !newDiarioContent.trim()) return;
+    setSavingDiario(true);
+    try {
+      await clientiService.createDiaryEntry(
+        selectedCliente.cliente_id || selectedCliente.clienteId,
+        'nutrizione',
+        newDiarioContent.trim(),
+        newDiarioDate || null,
+      );
+      const res = await clientiService.getDiaryEntries(selectedCliente.cliente_id || selectedCliente.clienteId, 'nutrizione');
+      setDiarioEntries(res?.entries || []);
+      setNewDiarioContent('');
+      setNewDiarioDate(new Date().toISOString().slice(0, 10));
+    } catch (err) {
+      console.error('Error adding diario entry:', err);
+      alert('Errore nel salvataggio nota diario');
+    } finally {
+      setSavingDiario(false);
+    }
   };
 
   const openStatoModal = (cliente) => {
@@ -540,8 +613,8 @@ function ClientiListaNutrizione() {
                     <th style={{ minWidth: '100px' }}>Reach Out</th>
                     <th style={{ textAlign: 'center', minWidth: '110px' }}>Patologie</th>
                     <th style={{ textAlign: 'center', minWidth: '100px' }}>Piano Dieta</th>
-                    <th style={{ textAlign: 'center', minWidth: '80px' }}>Storia</th>
-                    <th style={{ textAlign: 'center', minWidth: '90px' }}>Note Extra</th>
+                    <th style={{ textAlign: 'center', minWidth: '90px' }}>Anamnesi</th>
+                    <th style={{ textAlign: 'center', minWidth: '80px' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '80px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -685,30 +758,26 @@ function ClientiListaNutrizione() {
                           <button
                             className="cl-action-btn"
                             style={{
-                              background: cliente.storia_nutrizionale
-                                ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
                               color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                             }}
-                            onClick={() => openStoriaModal(cliente)}
+                            onClick={() => openAnamnesiModal(cliente)}
                           >
-                            <i className="ri-file-text-line" style={{ marginRight: '4px' }}></i>
-                            {cliente.storia_nutrizionale ? 'Vedi' : '+'}
+                            <i className="ri-stethoscope-line" style={{ marginRight: '4px' }}></i>
+                            Apri
                           </button>
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
                             className="cl-action-btn"
                             style={{
-                              background: cliente.note_extra_nutrizionista
-                                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                               color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                             }}
-                            onClick={() => openNoteModal(cliente)}
+                            onClick={() => openDiarioModal(cliente)}
                           >
-                            <i className="ri-sticky-note-line" style={{ marginRight: '4px' }}></i>
-                            {cliente.note_extra_nutrizionista ? 'Vedi' : '+'}
+                            <i className="ri-book-open-line" style={{ marginRight: '4px' }}></i>
+                            Apri
                           </button>
                         </td>
                         <td style={{ textAlign: 'right' }}>
@@ -751,50 +820,105 @@ function ClientiListaNutrizione() {
         </>
       )}
 
-      {/* Modal Storia Nutrizionale */}
-      {renderModal(showStoriaModal, () => setShowStoriaModal(false), 'Storia Nutrizionale', 'ri-file-text-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci la storia nutrizionale..."
-        />,
+      {/* Modal Anamnesi Nutrizionale */}
+      {renderModal(showAnamnesiModal, () => setShowAnamnesiModal(false), 'Anamnesi Nutrizionale', 'ri-stethoscope-line',
+        loadingAnamnesi ? (
+          <div className="text-center py-4">
+            <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+            <p className="cl-loading-text">Caricamento anamnesi...</p>
+          </div>
+        ) : (
+          <>
+            {anamnesiData && (
+              <div className="mb-3" style={{ fontSize: '12px', color: '#64748b' }}>
+                {anamnesiData.created_by && <span>Creato da <strong>{anamnesiData.created_by}</strong> il {anamnesiData.created_at}</span>}
+                {anamnesiData.last_modified_by && <span> &bull; Ultima modifica da <strong>{anamnesiData.last_modified_by}</strong> il {anamnesiData.updated_at}</span>}
+              </div>
+            )}
+            <textarea
+              className="form-control"
+              rows="12"
+              value={anamnesiContent}
+              onChange={(e) => setAnamnesiContent(e.target.value)}
+              placeholder="Anamnesi patologica remota e prossima, anamnesi familiare, stile di vita e abitudini, terapie e allergie..."
+            />
+          </>
+        ),
         <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowStoriaModal(false)}>
+          <button className="cl-modal-btn-reset" onClick={() => setShowAnamnesiModal(false)}>
             <i className="ri-close-line"></i> Chiudi
           </button>
           <button
             className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'storia_nutrizionale', modalValue)}
-            disabled={saving}
+            onClick={handleSaveAnamnesi}
+            disabled={savingAnamnesi || loadingAnamnesi}
           >
-            {saving ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}
+            {savingAnamnesi ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}
           </button>
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>
-            <i className="ri-close-line"></i> Chiudi
-          </button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_nutrizionista', modalValue)}
-            disabled={saving}
-          >
-            {saving ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-save-line"></i> Salva</>}
-          </button>
-        </>
+      {/* Modal Diario Nutrizionale */}
+      {renderModal(showDiarioModal, () => setShowDiarioModal(false), 'Diario Nutrizionale', 'ri-book-open-line',
+        loadingDiario ? (
+          <div className="text-center py-4">
+            <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+            <p className="cl-loading-text">Caricamento diario...</p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-3 p-3" style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: '13px' }}>Aggiungi nuova nota</label>
+              <div className="d-flex gap-2 mb-2">
+                <input
+                  type="date"
+                  className="form-control"
+                  style={{ maxWidth: '160px' }}
+                  value={newDiarioDate}
+                  onChange={(e) => setNewDiarioDate(e.target.value)}
+                />
+              </div>
+              <textarea
+                className="form-control mb-2"
+                rows="3"
+                value={newDiarioContent}
+                onChange={(e) => setNewDiarioContent(e.target.value)}
+                placeholder="Scrivi una nuova nota nel diario..."
+              />
+              <button
+                className="cl-modal-btn-apply"
+                style={{ fontSize: '12px', padding: '6px 16px' }}
+                onClick={handleAddDiarioEntry}
+                disabled={savingDiario || !newDiarioContent.trim()}
+              >
+                {savingDiario ? <><i className="ri-loader-4-line"></i> Salvando...</> : <><i className="ri-add-line"></i> Aggiungi</>}
+              </button>
+            </div>
+            {diarioEntries.length > 0 ? (
+              <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                {diarioEntries.map((entry) => (
+                  <div key={entry.id} className="mb-2 p-3" style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <span className="cl-badge" style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)', color: 'white', fontSize: '11px' }}>
+                        {entry.entry_date_display || entry.entry_date}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>{entry.author}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <i className="ri-book-open-line" style={{ fontSize: '36px', color: '#cbd5e1' }}></i>
+                <p style={{ color: '#64748b', marginTop: '8px', marginBottom: 0, fontSize: '13px' }}>Nessuna nota nel diario</p>
+              </div>
+            )}
+          </>
+        ),
+        <button className="cl-modal-btn-reset" onClick={() => setShowDiarioModal(false)}>
+          <i className="ri-close-line"></i> Chiudi
+        </button>
       )}
 
       {/* Modal Stato Nutrizione */}

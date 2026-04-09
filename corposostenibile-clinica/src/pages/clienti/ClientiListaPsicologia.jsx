@@ -97,8 +97,8 @@ function ClientiListaPsicologia() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Modal states
-  const [showStoriaModal, setShowStoriaModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showAnamnesiModal, setShowAnamnesiModal] = useState(false);
+  const [showDiarioModal, setShowDiarioModal] = useState(false);
   const [showPatologieModal, setShowPatologieModal] = useState(false);
   const [showStatoModal, setShowStatoModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
@@ -108,6 +108,19 @@ function ClientiListaPsicologia() {
   const [selectedCliente, setSelectedCliente] = useState(null);
   const [modalValue, setModalValue] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Anamnesi states
+  const [anamnesiData, setAnamnesiData] = useState(null);
+  const [anamnesiContent, setAnamnesiContent] = useState('');
+  const [loadingAnamnesi, setLoadingAnamnesi] = useState(false);
+  const [savingAnamnesi, setSavingAnamnesi] = useState(false);
+
+  // Diario states
+  const [diarioEntries, setDiarioEntries] = useState([]);
+  const [loadingDiario, setLoadingDiario] = useState(false);
+  const [newDiarioContent, setNewDiarioContent] = useState('');
+  const [newDiarioDate, setNewDiarioDate] = useState('');
+  const [savingDiario, setSavingDiario] = useState(false);
 
   // Fetch psicologi on mount
   useEffect(() => {
@@ -263,8 +276,6 @@ function ClientiListaPsicologia() {
     try {
       await clientiService.updateField(clienteId, field, value === '' ? null : value);
       fetchClienti();
-      setShowStoriaModal(false);
-      setShowNoteModal(false);
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowReachOutModal(false);
@@ -279,16 +290,80 @@ function ClientiListaPsicologia() {
   };
 
   // Open modal helpers
-  const openStoriaModal = (cliente) => {
+  const openAnamnesiModal = async (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.storia_psicologia || '');
-    setShowStoriaModal(true);
+    setAnamnesiData(null);
+    setAnamnesiContent('');
+    setShowAnamnesiModal(true);
+    setLoadingAnamnesi(true);
+    try {
+      const res = await clientiService.getAnamnesi(cliente.cliente_id || cliente.clienteId, 'psicologia');
+      if (res?.anamnesi) {
+        setAnamnesiData(res.anamnesi);
+        setAnamnesiContent(res.anamnesi.content || '');
+      }
+    } catch (err) {
+      console.error('Error loading anamnesi:', err);
+    } finally {
+      setLoadingAnamnesi(false);
+    }
   };
 
-  const openNoteModal = (cliente) => {
+  const handleSaveAnamnesi = async () => {
+    if (!selectedCliente) return;
+    setSavingAnamnesi(true);
+    try {
+      await clientiService.saveAnamnesi(selectedCliente.cliente_id || selectedCliente.clienteId, 'psicologia', anamnesiContent);
+      const res = await clientiService.getAnamnesi(selectedCliente.cliente_id || selectedCliente.clienteId, 'psicologia');
+      if (res?.anamnesi) {
+        setAnamnesiData(res.anamnesi);
+        setAnamnesiContent(res.anamnesi.content || '');
+      }
+    } catch (err) {
+      console.error('Error saving anamnesi:', err);
+      alert('Errore nel salvataggio anamnesi');
+    } finally {
+      setSavingAnamnesi(false);
+    }
+  };
+
+  const openDiarioModal = async (cliente) => {
     setSelectedCliente(cliente);
-    setModalValue(cliente.note_extra_psicologa || '');
-    setShowNoteModal(true);
+    setDiarioEntries([]);
+    setNewDiarioContent('');
+    setNewDiarioDate(new Date().toISOString().slice(0, 10));
+    setShowDiarioModal(true);
+    setLoadingDiario(true);
+    try {
+      const res = await clientiService.getDiaryEntries(cliente.cliente_id || cliente.clienteId, 'psicologia');
+      setDiarioEntries(res?.entries || []);
+    } catch (err) {
+      console.error('Error loading diario:', err);
+    } finally {
+      setLoadingDiario(false);
+    }
+  };
+
+  const handleAddDiarioEntry = async () => {
+    if (!selectedCliente || !newDiarioContent.trim()) return;
+    setSavingDiario(true);
+    try {
+      await clientiService.createDiaryEntry(
+        selectedCliente.cliente_id || selectedCliente.clienteId,
+        'psicologia',
+        newDiarioContent.trim(),
+        newDiarioDate || null,
+      );
+      const res = await clientiService.getDiaryEntries(selectedCliente.cliente_id || selectedCliente.clienteId, 'psicologia');
+      setDiarioEntries(res?.entries || []);
+      setNewDiarioContent('');
+      setNewDiarioDate(new Date().toISOString().slice(0, 10));
+    } catch (err) {
+      console.error('Error adding diario entry:', err);
+      alert('Errore nel salvataggio nota diario');
+    } finally {
+      setSavingDiario(false);
+    }
   };
 
   const openStatoModal = (cliente) => {
@@ -532,7 +607,8 @@ function ClientiListaPsicologia() {
                     <th style={{ minWidth: '90px', textAlign: 'center' }}>Patologie</th>
                     <th style={{ minWidth: '80px', textAlign: 'center' }}>Comprate</th>
                     <th style={{ minWidth: '80px', textAlign: 'center' }}>Svolte</th>
-                    <th style={{ minWidth: '80px', textAlign: 'center' }}>Storia</th>
+                    <th style={{ minWidth: '90px', textAlign: 'center' }}>Anamnesi</th>
+                    <th style={{ minWidth: '80px', textAlign: 'center' }}>Diario</th>
                     <th style={{ textAlign: 'right', minWidth: '100px' }}>Azioni</th>
                   </tr>
                 </thead>
@@ -664,15 +740,26 @@ function ClientiListaPsicologia() {
                           <button
                             className="cl-action-btn"
                             style={{
-                              background: cliente.storia_psicologia
-                                ? 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
-                                : 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)',
+                              background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)',
                               color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
                             }}
-                            onClick={() => openStoriaModal(cliente)}
+                            onClick={() => openAnamnesiModal(cliente)}
                           >
-                            <i className={`ri-file-text-line${!cliente.storia_psicologia ? ' me-1' : ''}`}></i>
-                            {!cliente.storia_psicologia && '+'}
+                            <i className="ri-stethoscope-line" style={{ marginRight: '4px' }}></i>
+                            Apri
+                          </button>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            className="cl-action-btn"
+                            style={{
+                              background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                              color: 'white', borderColor: 'transparent', width: 'auto', padding: '4px 10px', fontSize: '12px', fontWeight: 600,
+                            }}
+                            onClick={() => openDiarioModal(cliente)}
+                          >
+                            <i className="ri-book-open-line" style={{ marginRight: '4px' }}></i>
+                            Apri
                           </button>
                         </td>
                         <td style={{ textAlign: 'right' }}>
@@ -718,46 +805,101 @@ function ClientiListaPsicologia() {
         </>
       )}
 
-      {/* Modal Storia Psicologia */}
-      {renderModal(showStoriaModal, () => setShowStoriaModal(false), 'Storia Psicologia', 'ri-file-text-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci la storia psicologia..."
-        />,
+      {/* Modal Anamnesi Psicologica */}
+      {renderModal(showAnamnesiModal, () => setShowAnamnesiModal(false), 'Anamnesi Psicologica', 'ri-stethoscope-line',
+        loadingAnamnesi ? (
+          <div className="text-center py-4">
+            <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+            <p className="cl-loading-text">Caricamento anamnesi...</p>
+          </div>
+        ) : (
+          <>
+            {anamnesiData && (
+              <div className="mb-3" style={{ fontSize: '12px', color: '#64748b' }}>
+                {anamnesiData.created_by && <span>Creato da <strong>{anamnesiData.created_by}</strong> il {anamnesiData.created_at}</span>}
+                {anamnesiData.last_modified_by && <span> &bull; Ultima modifica da <strong>{anamnesiData.last_modified_by}</strong> il {anamnesiData.updated_at}</span>}
+              </div>
+            )}
+            <textarea
+              className="form-control"
+              rows="12"
+              value={anamnesiContent}
+              onChange={(e) => setAnamnesiContent(e.target.value)}
+              placeholder="Storia clinica, motivazioni, obiettivi terapeutici, note iniziali..."
+            />
+          </>
+        ),
         <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowStoriaModal(false)}>Chiudi</button>
+          <button className="cl-modal-btn-reset" onClick={() => setShowAnamnesiModal(false)}>Chiudi</button>
           <button
             className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'storia_psicologia', modalValue)}
-            disabled={saving}
+            onClick={handleSaveAnamnesi}
+            disabled={savingAnamnesi || loadingAnamnesi}
           >
-            {saving ? 'Salvando...' : 'Salva'}
+            {savingAnamnesi ? 'Salvando...' : 'Salva'}
           </button>
         </>
       )}
 
-      {/* Modal Note Extra */}
-      {renderModal(showNoteModal, () => setShowNoteModal(false), 'Note Extra', 'ri-sticky-note-line',
-        <textarea
-          className="form-control"
-          rows="12"
-          value={modalValue}
-          onChange={(e) => setModalValue(e.target.value)}
-          placeholder="Inserisci note extra..."
-        />,
-        <>
-          <button className="cl-modal-btn-reset" onClick={() => setShowNoteModal(false)}>Chiudi</button>
-          <button
-            className="cl-modal-btn-apply"
-            onClick={() => handleUpdateField(selectedCliente.cliente_id || selectedCliente.clienteId, 'note_extra_psicologa', modalValue)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salva'}
-          </button>
-        </>
+      {/* Modal Diario Psicologico */}
+      {renderModal(showDiarioModal, () => setShowDiarioModal(false), 'Diario Psicologico', 'ri-book-open-line',
+        loadingDiario ? (
+          <div className="text-center py-4">
+            <div className="cl-spinner" style={{ margin: '0 auto' }}></div>
+            <p className="cl-loading-text">Caricamento diario...</p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-3 p-3" style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <label className="form-label" style={{ fontWeight: 600, fontSize: '13px' }}>Aggiungi nuova nota</label>
+              <div className="d-flex gap-2 mb-2">
+                <input
+                  type="date"
+                  className="form-control"
+                  style={{ maxWidth: '160px' }}
+                  value={newDiarioDate}
+                  onChange={(e) => setNewDiarioDate(e.target.value)}
+                />
+              </div>
+              <textarea
+                className="form-control mb-2"
+                rows="3"
+                value={newDiarioContent}
+                onChange={(e) => setNewDiarioContent(e.target.value)}
+                placeholder="Scrivi una nuova nota nel diario..."
+              />
+              <button
+                className="cl-modal-btn-apply"
+                style={{ fontSize: '12px', padding: '6px 16px' }}
+                onClick={handleAddDiarioEntry}
+                disabled={savingDiario || !newDiarioContent.trim()}
+              >
+                {savingDiario ? 'Salvando...' : 'Aggiungi'}
+              </button>
+            </div>
+            {diarioEntries.length > 0 ? (
+              <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                {diarioEntries.map((entry) => (
+                  <div key={entry.id} className="mb-2 p-3" style={{ background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <span className="cl-badge" style={{ background: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)', color: 'white', fontSize: '11px' }}>
+                        {entry.entry_date_display || entry.entry_date}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>{entry.author}</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '13px', whiteSpace: 'pre-wrap' }}>{entry.content}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <i className="ri-book-open-line" style={{ fontSize: '36px', color: '#cbd5e1' }}></i>
+                <p style={{ color: '#64748b', marginTop: '8px', marginBottom: 0, fontSize: '13px' }}>Nessuna nota nel diario</p>
+              </div>
+            )}
+          </>
+        ),
+        <button className="cl-modal-btn-reset" onClick={() => setShowDiarioModal(false)}>Chiudi</button>
       )}
 
       {/* Modal Stato Psicologia */}

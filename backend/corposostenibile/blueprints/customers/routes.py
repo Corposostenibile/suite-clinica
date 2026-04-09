@@ -1606,7 +1606,7 @@ def api_expiring() -> Any:
     range_start = today if days == 30 else today + timedelta(days=days - 30)
     hm_filter = request.args.get("health_manager_id", type=int)
 
-    query = _apply_hm_page_scope(apply_role_filtering(
+    query = _apply_hm_page_scope(
         db.session.query(Cliente).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
@@ -1614,7 +1614,7 @@ def api_expiring() -> Any:
             Cliente.data_rinnovo <= limit_date,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    ))
+    )
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1662,14 +1662,14 @@ def api_expiring() -> Any:
         })
 
     # Conteggi per fascia
-    count_base = _apply_hm_page_scope(apply_role_filtering(
+    count_base = _apply_hm_page_scope(
         db.session.query(db.func.count(Cliente.cliente_id)).filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo >= today,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
-    ))
+    )
     count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
     count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
     count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
@@ -1764,7 +1764,7 @@ def api_unsatisfied() -> Any:
     )
 
     # Query principale: clienti con media sotto la soglia
-    query = _apply_hm_page_scope(apply_role_filtering(
+    query = _apply_hm_page_scope(
         db.session.query(
             Cliente, subq.c.avg_rating,
             subq.c.avg_nutrizione, subq.c.avg_coach, subq.c.avg_psicologia, subq.c.avg_percorso,
@@ -1777,7 +1777,7 @@ def api_unsatisfied() -> Any:
             subq.c.avg_rating < threshold,
             *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
         )
-    ))
+    )
 
     if hm_filter:
         query = query.filter(Cliente.health_manager_id == hm_filter)
@@ -1846,7 +1846,7 @@ def api_unsatisfied() -> Any:
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
     )
-    count_base = _apply_hm_page_scope(apply_role_filtering(count_base))
+    count_base = _apply_hm_page_scope(count_base)
     count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
     count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
     count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
@@ -1955,7 +1955,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
     )
     hm_name_expr = hm_name_sql.label("health_manager_name")
 
-    query = _apply_hm_page_scope(apply_role_filtering(
+    query = _apply_hm_page_scope(
         db.session.query(
             Cliente,
             checkin_subq.c.last_check_in_call_date,
@@ -1971,10 +1971,10 @@ def api_hm_coordinatrici_dashboard() -> Any:
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.health_manager_id.isnot(None),
         )
-    ))
+    )
 
     hm_options_rows = (
-        _apply_hm_page_scope(apply_role_filtering(
+        _apply_hm_page_scope(
             db.session.query(
                 Cliente.health_manager_id.label("id"),
                 hm_name_expr,
@@ -1984,7 +1984,7 @@ def api_hm_coordinatrici_dashboard() -> Any:
                 Cliente.show_in_clienti_lista.is_(True),
                 Cliente.health_manager_id.isnot(None),
             )
-        ))
+        )
         .group_by(Cliente.health_manager_id, hm_name_sql)
         .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
         .all()
