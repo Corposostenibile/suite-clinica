@@ -11,6 +11,25 @@ function Calendario() {
   const [events, setEvents] = useState([]);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [createEventError, setCreateEventError] = useState('');
+  const [createEventSuccess, setCreateEventSuccess] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [newEventForm, setNewEventForm] = useState(() => {
+    const now = new Date();
+    return {
+      title: '',
+      date: now.toISOString().slice(0, 10),
+      time: '09:00',
+      duration_minutes: 30,
+      notes: '',
+      timezone: 'Europe/Rome',
+    };
+  });
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedMemberId, setSelectedMemberId] = useState(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -40,6 +59,21 @@ function Calendario() {
   const canFilter = isAdmin || isTeamLeader || isTeamLeaderHm;
 
   const formatDate = (d) => d.toISOString().split('T')[0];
+
+  const getDefaultEventForm = useCallback(() => {
+    const now = new Date();
+    const minutes = now.getMinutes() < 30 ? '30' : '00';
+    const hours = minutes === '30' ? now.getHours() : now.getHours() + 1;
+    const paddedHours = String(hours).padStart(2, '0');
+    return {
+      title: '',
+      date: now.toISOString().slice(0, 10),
+      time: `${paddedHours}:${minutes}`,
+      duration_minutes: 30,
+      notes: '',
+      timezone: 'Europe/Rome',
+    };
+  }, []);
 
   const getWeekEnd = (start) => {
     const end = new Date(start);
@@ -117,6 +151,84 @@ function Calendario() {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const query = customerSearch.trim();
+    if (query.length < 2) {
+      setCustomerSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchingCustomers(true);
+      try {
+        const res = await ghlService.searchCustomers(query, 8);
+        setCustomerSearchResults(Array.isArray(res.customers) ? res.customers : []);
+      } catch {
+        setCustomerSearchResults([]);
+      } finally {
+        setSearchingCustomers(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [customerSearch, showCreateModal]);
+
+  const openCreateModal = () => {
+    setCreateEventError('');
+    setCreateEventSuccess('');
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setCustomerSearchResults([]);
+    setNewEventForm(getDefaultEventForm());
+    setShowCreateModal(true);
+  };
+
+  const handleCreateCalendarEvent = async () => {
+    setCreateEventError('');
+    setCreateEventSuccess('');
+
+    if (!newEventForm.date || !newEventForm.time) {
+      setCreateEventError('Data e orario sono obbligatori.');
+      return;
+    }
+
+    const start = new Date(`${newEventForm.date}T${newEventForm.time}`);
+    if (Number.isNaN(start.getTime())) {
+      setCreateEventError('Formato data/ora non valido.');
+      return;
+    }
+
+    setCreatingEvent(true);
+    try {
+      const payload = {
+        title: newEventForm.title,
+        start_time: start.toISOString(),
+        duration_minutes: Number(newEventForm.duration_minutes) || 30,
+        notes: newEventForm.notes,
+        timezone: newEventForm.timezone || 'Europe/Rome',
+        user_id: selectedMemberId || undefined,
+        cliente_id: selectedCustomer?.cliente_id || undefined,
+      };
+
+      const res = await ghlService.createCalendarEvent(payload);
+      if (!res?.success) {
+        setCreateEventError(res?.message || 'Errore durante la creazione evento.');
+        return;
+      }
+
+      setCreateEventSuccess(res.mocked
+        ? 'Mock mode attivo: evento simulato (nessuna creazione reale su GHL).'
+        : 'Evento creato con successo.');
+      await fetchEvents();
+      setTimeout(() => setShowCreateModal(false), 700);
+    } catch (err) {
+      setCreateEventError(err.response?.data?.message || 'Errore durante la creazione evento.');
+    } finally {
+      setCreatingEvent(false);
+    }
+  };
 
   const prevWeek = () => {
     setCurrentWeekStart((prev) => {
@@ -344,6 +456,10 @@ function Calendario() {
           </button>
           <button className="cal-nav-btn" onClick={fetchEvents} title="Aggiorna">
             <i className="ri-refresh-line"></i>
+          </button>
+          <button className="cal-nav-btn cal-nav-today" onClick={openCreateModal} title="Crea evento">
+            <i className="ri-add-line"></i>
+            Nuovo evento
           </button>
         </div>
       </div>
@@ -593,6 +709,125 @@ function Calendario() {
           </div>
         );
       })(), document.body)}
+
+      {showCreateModal && createPortal(
+        <div className="cal-modal-backdrop" onClick={() => setShowCreateModal(false)}>
+          <div className="cal-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cal-modal-header" style={{ background: 'rgba(37,179,106,0.12)' }}>
+              <h5><i className="ri-calendar-event-line" style={{ marginRight: 8 }}></i>Nuovo evento calendario</h5>
+              <button className="cal-modal-close" onClick={() => setShowCreateModal(false)}>
+                <i className="ri-close-line"></i>
+              </button>
+            </div>
+
+            <div className="cal-modal-body">
+              <div className="mb-3">
+                <label className="form-label">Titolo</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Titolo evento"
+                  value={newEventForm.title}
+                  onChange={(e) => setNewEventForm((p) => ({ ...p, title: e.target.value }))}
+                />
+              </div>
+
+              <div className="row g-2 mb-3">
+                <div className="col-6">
+                  <label className="form-label">Data</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={newEventForm.date}
+                    onChange={(e) => setNewEventForm((p) => ({ ...p, date: e.target.value }))}
+                  />
+                </div>
+                <div className="col-6">
+                  <label className="form-label">Ora</label>
+                  <input
+                    type="time"
+                    className="form-control"
+                    value={newEventForm.time}
+                    onChange={(e) => setNewEventForm((p) => ({ ...p, time: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label">Durata (minuti)</label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  className="form-control"
+                  value={newEventForm.duration_minutes}
+                  onChange={(e) => setNewEventForm((p) => ({ ...p, duration_minutes: e.target.value }))}
+                />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label">Cliente (opzionale)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Cerca cliente per nome (min 2 caratteri)"
+                  value={customerSearch}
+                  onChange={(e) => {
+                    setCustomerSearch(e.target.value);
+                    setSelectedCustomer(null);
+                  }}
+                />
+                {searchingCustomers && <small className="text-muted">Ricerca clienti...</small>}
+                {!searchingCustomers && customerSearchResults.length > 0 && (
+                  <div className="border rounded mt-2" style={{ maxHeight: 180, overflowY: 'auto' }}>
+                    {customerSearchResults.map((c) => (
+                      <button
+                        key={c.cliente_id}
+                        type="button"
+                        className="btn btn-link text-start w-100"
+                        onClick={() => {
+                          setSelectedCustomer(c);
+                          setCustomerSearch(c.nome_cognome || '');
+                          setCustomerSearchResults([]);
+                        }}
+                      >
+                        <strong>{c.nome_cognome}</strong>
+                        {c.email ? <span className="text-muted"> · {c.email}</span> : null}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedCustomer && (
+                  <small className="text-success d-block mt-1">Cliente selezionato: {selectedCustomer.nome_cognome}</small>
+                )}
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label">Note (opzionale)</label>
+                <textarea
+                  className="form-control"
+                  rows="3"
+                  value={newEventForm.notes}
+                  onChange={(e) => setNewEventForm((p) => ({ ...p, notes: e.target.value }))}
+                />
+              </div>
+
+              {createEventError && <div className="alert alert-danger py-2">{createEventError}</div>}
+              {createEventSuccess && <div className="alert alert-success py-2">{createEventSuccess}</div>}
+            </div>
+
+            <div className="cal-modal-footer">
+              <button className="cal-modal-btn cal-modal-btn-outline" onClick={() => setShowCreateModal(false)}>
+                Annulla
+              </button>
+              <button className="cal-modal-btn cal-modal-btn-primary" onClick={handleCreateCalendarEvent} disabled={creatingEvent}>
+                {creatingEvent ? 'Creazione...' : 'Crea evento'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

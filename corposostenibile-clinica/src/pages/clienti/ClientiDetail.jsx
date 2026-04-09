@@ -1002,6 +1002,8 @@ function ClientiDetail() {
     patologia_coach_spondilolisi: false,
     patologia_coach_altro_check: false,
     patologia_coach_altro: '',
+    live_trainings_acquistate: 0,
+    live_trainings_svolte: 0,
     storia_coach: '',
     note_extra_coach: '',
     alert_coaching: '',
@@ -2943,6 +2945,8 @@ function ClientiDetail() {
       patologia_coach_spondilolisi: c.patologia_coach_spondilolisi || false,
       patologia_coach_altro_check: c.patologia_coach_altro_check || (!!c.patologia_coach_altro) || false,
       patologia_coach_altro: c.patologia_coach_altro || '',
+      live_trainings_acquistate: c.live_trainings_acquistate ?? 0,
+      live_trainings_svolte: c.live_trainings_svolte ?? 0,
       storia_coach: c.storia_coach || c.storiaCoach || '',
       note_extra_coach: c.note_extra_coach || c.noteExtraCoach || '',
       alert_coaching: c.alert_coaching || c.alertCoaching || '',
@@ -5219,6 +5223,7 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
                       </div>
                     </div>
                   )}
@@ -5386,6 +5391,7 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
                       </div>
                     </div>
                   )}
@@ -5738,6 +5744,7 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
                       </div>
                     </div>
                   )}
@@ -5773,6 +5780,7 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
+
                       </div>
                     </div>
                   )}
@@ -6240,6 +6248,52 @@ function ClientiDetail() {
                                 }
                               </span>
                             )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="cd-section-title">Live Trainings Acquistate</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle cart xl">
+                                  <i className="ri-shopping-cart-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Live Trainings Acquistate</span>
+                              </div>
+                              <input
+                                type="number"
+                                className="cd-input sm cd-number-input-sm"
+                                min="0"
+                                value={formData.live_trainings_acquistate || 0}
+                                onChange={(e) => handleInputChange('live_trainings_acquistate', parseInt(e.target.value, 10) || 0)}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="cd-section-title">Live Trainings Svolte</div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="cd-inner-card-header-left">
+                                <div className="cd-icon-circle check-done xl">
+                                  <i className="ri-check-double-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Live Trainings Svolte</span>
+                              </div>
+                              <input
+                                type="number"
+                                className="cd-input sm cd-number-input-sm"
+                                min="0"
+                                value={formData.live_trainings_svolte || 0}
+                                onChange={(e) => handleInputChange('live_trainings_svolte', parseInt(e.target.value, 10) || 0)}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>

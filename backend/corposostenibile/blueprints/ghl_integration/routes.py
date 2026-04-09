@@ -18,6 +18,7 @@ from corposostenibile.models import (
     GHLOpportunityData,
     ServiceClienteAssignment,
     Cliente,
+    Meeting,
     Team,
     User,
     UserRoleEnum,
@@ -153,6 +154,72 @@ def _get_team_leader_member_ids(user_id: int) -> set[int]:
         team_members.c.team_id.in_(team_ids)
     ).distinct().all()
     return {int(row[0]) for row in rows}
+
+
+def _resolve_calendar_view_user(target_user_id: int | None):
+    """Resolve target user for calendar read/write with RBAC checks."""
+    if not target_user_id or target_user_id == current_user.id:
+        return current_user, current_user.id, None
+
+    is_admin = current_user.is_admin
+    is_tl = _is_team_leader_user(current_user)
+
+    if not is_admin and not is_tl:
+        return None, None, (jsonify({
+            'success': False,
+            'message': 'Non hai i permessi per vedere o creare eventi su questo calendario',
+        }), 403)
+
+    if is_tl and not is_admin:
+        allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+        if target_user_id not in allowed_ids:
+            return None, None, (jsonify({
+                'success': False,
+                'message': 'Utente non nel tuo team',
+            }), 403)
+
+    view_user = User.query.get(target_user_id)
+    if not view_user:
+        return None, None, (jsonify({
+            'success': False,
+            'message': 'Utente non trovato',
+        }), 404)
+
+    return view_user, target_user_id, None
+
+
+def _parse_iso_datetime(value: str | None):
+    if not value:
+        return None
+    raw = str(value).strip()
+    if not raw:
+        return None
+    return datetime.fromisoformat(raw.replace('Z', '+00:00'))
+
+
+def _resolve_contact_id_for_calendar(service, cliente: Cliente | None, explicit_contact_id: str | None):
+    if explicit_contact_id:
+        return explicit_contact_id
+
+    if not cliente:
+        return None
+
+    if cliente.ghl_contact_id:
+        return cliente.ghl_contact_id
+
+    found_contacts = []
+    if cliente.mail:
+        found_contacts = service.search_contacts(email=cliente.mail, limit=5)
+    if not found_contacts and cliente.numero_telefono:
+        found_contacts = service.search_contacts(phone=cliente.numero_telefono, limit=5)
+
+    if found_contacts:
+        contact_id = found_contacts[0].get('id')
+        if contact_id:
+            cliente.ghl_contact_id = contact_id
+            return contact_id
+
+    return None
 
 
 def _assignment_in_team_leader_scope(assignment: ServiceClienteAssignment, allowed_ids: set[int]) -> bool:
@@ -1227,6 +1294,138 @@ def api_get_calendar_events():
             'message': str(e),
             'events': []
         })
+
+
+@bp.route('/api/calendar/events', methods=['POST'])
+@login_required
+def api_create_calendar_event():
+    """Crea appuntamento GHL dal frontend calendario."""
+    payload = request.get_json(silent=True) or {}
+
+    target_user_id = None
+    if isinstance(payload, dict):
+        raw_user_id = payload.get('user_id')
+        try:
+            target_user_id = int(raw_user_id) if raw_user_id is not None else None
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'message': 'user_id non valido'}), 400
+    if not target_user_id:
+        target_user_id = current_user.id
+
+    view_user, target_user_id, error_response = _resolve_calendar_view_user(target_user_id)
+    if error_response is not None:
+        return error_response
+
+    try:
+        start_dt = _parse_iso_datetime(payload.get('start_time'))
+    except Exception:
+        return jsonify({'success': False, 'message': 'Formato start_time non valido'}), 400
+
+    if not start_dt:
+        return jsonify({'success': False, 'message': 'start_time obbligatorio'}), 400
+
+    end_dt = None
+    try:
+        end_dt = _parse_iso_datetime(payload.get('end_time'))
+    except Exception:
+        return jsonify({'success': False, 'message': 'Formato end_time non valido'}), 400
+
+    if not end_dt:
+        duration_minutes = int(payload.get('duration_minutes') or 30)
+        end_dt = start_dt + timedelta(minutes=max(duration_minutes, 1))
+
+    if end_dt <= start_dt:
+        return jsonify({'success': False, 'message': 'end_time deve essere successivo a start_time'}), 400
+
+    title = (payload.get('title') or '').strip() or 'Nuovo appuntamento'
+    notes = (payload.get('notes') or '').strip() or None
+    timezone = (payload.get('timezone') or 'Europe/Rome').strip() or 'Europe/Rome'
+
+    try:
+        from .calendar_service import get_ghl_calendar_service
+        service = get_ghl_calendar_service()
+
+        if not service.is_configured():
+            return jsonify({'success': False, 'message': 'GHL non configurato'}), 400
+
+        calendar_id = (payload.get('ghl_calendar_id') or view_user.ghl_calendar_id or '').strip()
+        if not calendar_id:
+            return jsonify({'success': False, 'message': 'Calendario GHL non configurato per questo utente'}), 400
+
+        cliente = None
+        cliente_id = payload.get('cliente_id')
+        if cliente_id:
+            cliente = Cliente.query.get(cliente_id)
+            if not cliente:
+                return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
+
+        contact_id = _resolve_contact_id_for_calendar(service, cliente, payload.get('contact_id'))
+        if not contact_id:
+            return jsonify({
+                'success': False,
+                'message': 'Contatto GHL non trovato. Associa il contatto cliente prima di creare evento.',
+            }), 400
+
+        created = service.create_appointment(
+            calendar_id=calendar_id,
+            contact_id=contact_id,
+            start_time=start_dt,
+            end_time=end_dt,
+            title=title,
+            notes=notes,
+            timezone=timezone,
+        )
+
+        appointment = created.get('appointment') if isinstance(created, dict) and created.get('appointment') else created
+        ghl_event_id = (
+            (appointment or {}).get('id')
+            or (appointment or {}).get('_id')
+            or (appointment or {}).get('appointmentId')
+        )
+
+        if ghl_event_id:
+            meeting = Meeting.query.filter_by(ghl_event_id=ghl_event_id).first()
+            if not meeting:
+                meeting = Meeting(
+                    ghl_event_id=ghl_event_id,
+                    title=title,
+                    description=notes,
+                    start_time=start_dt,
+                    end_time=end_dt,
+                    cliente_id=cliente.cliente_id if cliente else None,
+                    user_id=target_user_id,
+                    status='scheduled',
+                )
+                db.session.add(meeting)
+            else:
+                meeting.title = title
+                meeting.description = notes
+                meeting.start_time = start_dt
+                meeting.end_time = end_dt
+                meeting.cliente_id = cliente.cliente_id if cliente else None
+                meeting.user_id = target_user_id
+                meeting.status = 'scheduled'
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'mocked': False,
+            'message': 'Evento creato con successo',
+            'event': {
+                'id': ghl_event_id,
+                'title': title,
+                'start': start_dt.isoformat(),
+                'end': end_dt.isoformat(),
+                'ghl_calendar_id': calendar_id,
+                'cliente_id': cliente.cliente_id if cliente else None,
+                'user_id': target_user_id,
+            },
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"[GHL] Error creating calendar event: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @bp.route('/api/calendar/free-slots', methods=['GET'])

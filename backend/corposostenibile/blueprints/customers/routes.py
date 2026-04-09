@@ -622,6 +622,7 @@ def update_multiple_fields(cliente_id: int):
                     value = None
             # Gestione campi Integer (es. recensione_stelle, durata_*_giorni)
             elif field in ['recensione_stelle', 'sedute_psicologia_comprate', 'sedute_psicologia_svolte',
+                           'live_trainings_acquistate', 'live_trainings_svolte',
                            'durata_programma_giorni', 'durata_nutrizione_giorni', 'durata_coach_giorni', 'durata_psicologia_giorni']:
                 if value:
                     try:

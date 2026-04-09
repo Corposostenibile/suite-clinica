@@ -2085,6 +2085,9 @@ class Cliente(TimestampMixin, db.Model):
     # Sedute psicologia
     sedute_psicologia_comprate = db.Column(db.Integer)  # Numero sedute acquistate
     sedute_psicologia_svolte = db.Column(db.Integer)    # Numero sedute effettuate
+    # Live trainings coaching
+    live_trainings_acquistate = db.Column(db.Integer)  # Numero live trainings acquistate
+    live_trainings_svolte = db.Column(db.Integer)      # Numero live trainings svolte
 
     # ───────────────────── FREEZE MANAGEMENT ─────────────────────── #
     # Campi per gestione stato FREEZE
