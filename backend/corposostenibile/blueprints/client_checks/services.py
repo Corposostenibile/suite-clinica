@@ -826,23 +826,18 @@ class NotificationService:
 
         try:
             # Raccogli tutti i professionisti associati al cliente
+            # Fonte autoritativa: relazioni M2M (nutrizionisti_multipli, psicologi_multipli, coaches_multipli).
+            # Le relazioni singole (nutrizionista_id, ecc.) sono legacy e non devono essere usate
+            # per determinare chi riceve le notifiche, per evitare di notificare professionisti
+            # non più associati al cliente.
             professionals = []
 
-            # Professionisti multipli
             if cliente.nutrizionisti_multipli:
                 professionals.extend(cliente.nutrizionisti_multipli)
             if cliente.psicologi_multipli:
                 professionals.extend(cliente.psicologi_multipli)
             if cliente.coaches_multipli:
                 professionals.extend(cliente.coaches_multipli)
-
-            # Professionisti singoli (se non già nella lista)
-            if cliente.nutrizionista_user and cliente.nutrizionista_user not in professionals:
-                professionals.append(cliente.nutrizionista_user)
-            if cliente.psicologa_user and cliente.psicologa_user not in professionals:
-                professionals.append(cliente.psicologa_user)
-            if cliente.coach_user and cliente.coach_user not in professionals:
-                professionals.append(cliente.coach_user)
 
             # Filtra solo professionisti con email
             professionals_with_email = [p for p in professionals if p and p.email]
