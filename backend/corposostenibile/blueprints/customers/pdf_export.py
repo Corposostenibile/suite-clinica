@@ -289,7 +289,6 @@ def _section_header(ss, number: str, title: str, color=None):
         ("LEFTPADDING", (1, 0), (1, 0), 10),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("ROUNDEDCORNERS", [4, 4, 4, 4]),
     ]))
     return bar
 
@@ -1263,8 +1262,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     # 10.1 Consensi
     story.append(_sub_header(ss, '<a name="section_10_1"/>10.1 Consensi e Contenuti Marketing'))
     marketing_rows = [
-        ("Note Marketing", cliente.note_marketing),
-        ("Usabile Marketing", getattr(cliente, "usabile_marketing", None)),
+        ("Note Marketing", getattr(cliente, "note_marketing", None)),
         ("Consenso Social Richiesto", cliente.consenso_social_richiesto),
         ("Consenso Social Accettato", cliente.consenso_social_accettato),
         ("Consenso Social Note", cliente.consenso_social_note),
@@ -1286,15 +1284,18 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
         story.append(Spacer(1, 6))
         story.append(_sub_sub_header(ss, "Contenuti Marketing"))
         for mc in marketing_contents:
-            ct = getattr(mc, "content_type", "")
+            ct = _fv(getattr(mc, "content_type", ""))
             checked = "Editato" if getattr(mc, "checked", False) else "Non editato"
             d = _fv(getattr(mc, "checked_date", None))
             influencers = ""
-            if hasattr(mc, "influencers") and mc.influencers:
-                influencers = ", ".join(
-                    getattr(inf, "name", "") or getattr(inf, "handle", "")
-                    for inf in mc.influencers
-                )
+            links = getattr(mc, "influencer_links", None) or []
+            if links:
+                inf_names = []
+                for link in links:
+                    inf = getattr(link, "influencer", None)
+                    if inf:
+                        inf_names.append(getattr(inf, "name", "") or getattr(inf, "handle", "") or str(inf))
+                influencers = ", ".join(inf_names)
             story.append(_data_table(ss, [
                 ("Tipo", ct), ("Stato", checked), ("Data", d), ("Influencer", influencers or "-"),
             ]))
@@ -1307,7 +1308,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
         for vr in video_reviews:
             story.append(_data_table(ss, [
                 ("Stato", getattr(vr, "status", "-")),
-                ("Richiesto da", _user(getattr(vr, "requested_by", None))),
+                ("Richiesto da", _user(getattr(vr, "requested_by_user", None))),
                 ("Confermato il", _fv(getattr(vr, "booking_confirmed_at", None))),
                 ("Loom Link", getattr(vr, "loom_link", None)),
             ]))
@@ -1323,7 +1324,8 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
             story.append(_data_table(ss, [
                 ("Data Richiesta", cb.data_richiesta),
                 ("Stato", cb.status),
-                ("Note", getattr(cb, "notes", None)),
+                ("Note Richiesta", getattr(cb, "note_richiesta", None)),
+                ("Note HM", getattr(cb, "note_hm", None)),
             ]))
             story.append(Spacer(1, 4))
     else:
@@ -1346,8 +1348,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
         for tr in trustpilot_reviews:
             story.append(_data_table(ss, [
                 ("Data Richiesta", tr.data_richiesta),
-                ("Stato", getattr(tr, "status", None)),
-                ("Stelle", getattr(tr, "stars", None)),
+                ("Stelle", getattr(tr, "stelle", None)),
             ]))
             story.append(Spacer(1, 4))
     else:
@@ -1370,8 +1371,8 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     if cartelle:
         story.append(Spacer(1, 6))
         for cc in cartelle:
-            story.append(_sub_sub_header(ss, f"Cartella: {getattr(cc, 'name', 'N/D')}"))
-            cc_rows = [("Note", getattr(cc, "notes", None))]
+            story.append(_sub_sub_header(ss, f"Cartella: {getattr(cc, 'nome', 'N/D')}"))
+            cc_rows = [("Note", getattr(cc, "note", None))]
             for alleg in (cc.allegati or []):
                 cc_rows.append((
                     f"Allegato: {getattr(alleg, 'file_type', 'file')}",
