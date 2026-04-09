@@ -275,7 +275,7 @@ def _section_header(ss, number: str, title: str, color=None):
     anchor = f"section_{number.replace('.', '_')}"
     # Colored bar with number + title
     bar_data = [[
-        Paragraph(f'<a name="{anchor}"/><b>{_esc(number)}</b>', ss["SectionNum"]),
+        Paragraph(f'<b>{_esc(number)}</b>', ss["SectionNum"]),
         Paragraph(f"<b>{_esc(title)}</b>",
                   ParagraphStyle("_sh", parent=ss["SectionTitle"], textColor=c)),
     ]]
@@ -423,14 +423,12 @@ _TOC_SECTIONS = [
 def _build_toc(story, ss):
     story.append(Paragraph("Indice", ss["TOCHeading"]))
     for num, title, subs in _TOC_SECTIONS:
-        anchor = f"section_{num.replace('.', '_')}"
         story.append(Paragraph(
-            f'<a href="#{anchor}" color="#2563eb"><b>{num}.</b> {_esc(title)}</a>',
+            f'<b>{num}.</b>  {_esc(title)}',
             ss["TOCEntry"]))
         for sub_num, sub_title in subs:
-            sub_anchor = f"section_{sub_num.replace('.', '_')}"
             story.append(Paragraph(
-                f'<a href="#{sub_anchor}" color="#64748b">{sub_num} {_esc(sub_title)}</a>',
+                f'{sub_num}  {_esc(sub_title)}',
                 ss["TOCSubEntry"]))
     story.append(PageBreak())
 
@@ -585,7 +583,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 1.1
-    story.append(_sub_header(ss, '<a name="section_1_1"/>1.1 Dati Personali'))
+    story.append(_sub_header(ss, '1.1 Dati Personali'))
     story.append(_data_table(ss, [
         ("Nome e Cognome", cliente.nome_cognome),
         ("Data di Nascita", cliente.data_di_nascita),
@@ -600,7 +598,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 1.2
-    story.append(_sub_header(ss, '<a name="section_1_2"/>1.2 Storia e Obiettivi'))
+    story.append(_sub_header(ss, '1.2 Storia e Obiettivi'))
     story.append(_data_table(ss, [
         ("Storia del Cliente", cliente.storia_cliente),
         ("Problema", cliente.problema),
@@ -610,7 +608,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 1.3
-    story.append(_sub_header(ss, '<a name="section_1_3"/>1.3 Programma e Abbonamento'))
+    story.append(_sub_header(ss, '1.3 Programma e Abbonamento'))
     story.append(_data_table(ss, [
         ("Programma Attuale", cliente.programma_attuale),
         ("Dettaglio Programma", cliente.programma_attuale_dettaglio),
@@ -631,7 +629,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 1.4
-    story.append(_sub_header(ss, '<a name="section_1_4"/>1.4 Date Piani Servizio'))
+    story.append(_sub_header(ss, '1.4 Date Piani Servizio'))
     story.append(_data_table(ss, [
         ("Inizio Nutrizione", cliente.data_inizio_nutrizione),
         ("Durata Nutrizione (gg)", cliente.durata_nutrizione_giorni),
@@ -656,7 +654,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 2.1
-    story.append(_sub_header(ss, '<a name="section_2_1"/>2.1 Team Attuale'))
+    story.append(_sub_header(ss, '2.1 Team Attuale'))
     story.append(_data_table(ss, [
         ("Nutrizionista", _users_m2m(cliente.nutrizionisti_multipli, cliente.nutrizionista_user)),
         ("Coach", _users_m2m(cliente.coaches_multipli, cliente.coach_user)),
@@ -667,7 +665,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 2.2
-    story.append(_sub_header(ss, '<a name="section_2_2"/>2.2 Storico Assegnazioni'))
+    story.append(_sub_header(ss, '2.2 Storico Assegnazioni'))
     if team_history:
         rows = []
         for h in team_history:
@@ -690,7 +688,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 3.1 Onboarding
-    story.append(_sub_header(ss, '<a name="section_3_1"/>3.1 Onboarding'))
+    story.append(_sub_header(ss, '3.1 Onboarding'))
     story.append(_data_table(ss, [
         ("Data Onboarding", cliente.onboarding_date),
         ("Note Criticità Iniziali", cliente.note_criticita_iniziali),
@@ -699,7 +697,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     def _intervention_section(anchor, title, items):
-        story.append(_sub_header(ss, f'<a name="{anchor}"/>{title}'))
+        story.append(_sub_header(ss, f'{title}'))
         if items:
             rows = []
             for i in items:
@@ -723,7 +721,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 4.1
-    story.append(_sub_header(ss, '<a name="section_4_1"/>4.1 Stato e Configurazione'))
+    story.append(_sub_header(ss, '4.1 Stato e Configurazione'))
     story.append(_data_table(ss, [
         ("Nutrizionista", _users_m2m(cliente.nutrizionisti_multipli, cliente.nutrizionista_user)),
         ("Stato Servizio", cliente.stato_nutrizione),
@@ -738,7 +736,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 4.2 Patologie
-    story.append(_sub_header(ss, '<a name="section_4_2"/>4.2 Patologie'))
+    story.append(_sub_header(ss, '4.2 Patologie'))
     pat_nutri = []
     if cliente.nessuna_patologia:
         pat_nutri.append(("Nessuna Patologia", "Sì"))
@@ -763,7 +761,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 4.3 Alert e Note
-    story.append(_sub_header(ss, '<a name="section_4_3"/>4.3 Alert e Note'))
+    story.append(_sub_header(ss, '4.3 Alert e Note'))
     story.append(_data_table(ss, [
         ("Alert", cliente.alert_nutrizione),
         ("Anamnesi (vecchio campo)", cliente.storia_nutrizione),
@@ -772,7 +770,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 4.4 Anamnesi
-    story.append(_sub_header(ss, '<a name="section_4_4"/>4.4 Anamnesi'))
+    story.append(_sub_header(ss, '4.4 Anamnesi'))
     anamnesi_nutri = next((a for a in anamnesi_entries if a.service_type == "nutrizione"), None)
     if anamnesi_nutri:
         story.append(_data_table(ss, [
@@ -784,7 +782,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 4.5 Diario
-    story.append(_sub_header(ss, '<a name="section_4_5"/>4.5 Diario'))
+    story.append(_sub_header(ss, '4.5 Diario'))
     diary_nutri = [d for d in diary_entries if d.service_type == "nutrizione"]
     if diary_nutri:
         rows = [(_fv(d.entry_date), f"{_user(d.author)}: {d.content}") for d in diary_nutri]
@@ -794,7 +792,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 4.6 Piani Alimentari
-    story.append(_sub_header(ss, '<a name="section_4_6"/>4.6 Piani Alimentari'))
+    story.append(_sub_header(ss, '4.6 Piani Alimentari'))
     if meal_plans:
         for mp in meal_plans:
             story.append(_sub_sub_header(ss, f"{mp.name} ({_fv(mp.start_date)} - {_fv(mp.end_date)})"))
@@ -819,7 +817,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 5.1
-    story.append(_sub_header(ss, '<a name="section_5_1"/>5.1 Stato e Configurazione'))
+    story.append(_sub_header(ss, '5.1 Stato e Configurazione'))
     story.append(_data_table(ss, [
         ("Coach", _users_m2m(cliente.coaches_multipli, cliente.coach_user)),
         ("Stato Servizio", cliente.stato_coach),
@@ -837,7 +835,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.2 Patologie
-    story.append(_sub_header(ss, '<a name="section_5_2"/>5.2 Patologie'))
+    story.append(_sub_header(ss, '5.2 Patologie'))
     pat_coach = []
     if getattr(cliente, "nessuna_patologia_coach", False):
         pat_coach.append(("Nessuna Patologia", "Sì"))
@@ -868,7 +866,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.3 Alert e Note
-    story.append(_sub_header(ss, '<a name="section_5_3"/>5.3 Alert e Note'))
+    story.append(_sub_header(ss, '5.3 Alert e Note'))
     story.append(_data_table(ss, [
         ("Alert", cliente.alert_coaching),
         ("Anamnesi (vecchio campo)", cliente.storia_coach),
@@ -877,7 +875,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.4 Anamnesi
-    story.append(_sub_header(ss, '<a name="section_5_4"/>5.4 Anamnesi'))
+    story.append(_sub_header(ss, '5.4 Anamnesi'))
     anamnesi_coach = next((a for a in anamnesi_entries if a.service_type == "coaching"), None)
     if anamnesi_coach:
         story.append(_data_table(ss, [("Contenuto", anamnesi_coach.content), ("Creato il", anamnesi_coach.created_at)]))
@@ -886,7 +884,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.5 Diario
-    story.append(_sub_header(ss, '<a name="section_5_5"/>5.5 Diario'))
+    story.append(_sub_header(ss, '5.5 Diario'))
     diary_coach = [d for d in diary_entries if d.service_type == "coaching"]
     if diary_coach:
         story.append(_data_table(ss, [(_fv(d.entry_date), f"{_user(d.author)}: {d.content}") for d in diary_coach]))
@@ -895,7 +893,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.6 Luoghi
-    story.append(_sub_header(ss, '<a name="section_5_6"/>5.6 Luoghi Allenamento'))
+    story.append(_sub_header(ss, '5.6 Luoghi Allenamento'))
     if training_locations:
         story.append(_data_table(ss, [
             (f"{_fv(tl.location)} dal {_fv(tl.start_date)}", tl.notes or "-") for tl in training_locations
@@ -905,7 +903,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.7 Piani Allenamento
-    story.append(_sub_header(ss, '<a name="section_5_7"/>5.7 Piani Allenamento'))
+    story.append(_sub_header(ss, '5.7 Piani Allenamento'))
     if training_plans:
         for tp in training_plans:
             story.append(_sub_sub_header(ss, f"{tp.name} ({_fv(tp.start_date)} - {_fv(tp.end_date)})"))
@@ -918,7 +916,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 5.8 Live Trainings
-    story.append(_sub_header(ss, '<a name="section_5_8"/>5.8 Live Trainings'))
+    story.append(_sub_header(ss, '5.8 Live Trainings'))
     story.append(_data_table(ss, [
         ("Acquistate", getattr(cliente, "live_trainings_acquistate", None)),
         ("Svolte", getattr(cliente, "live_trainings_svolte", None)),
@@ -932,7 +930,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 6.1
-    story.append(_sub_header(ss, '<a name="section_6_1"/>6.1 Stato e Configurazione'))
+    story.append(_sub_header(ss, '6.1 Stato e Configurazione'))
     story.append(_data_table(ss, [
         ("Psicologa", _users_m2m(cliente.psicologi_multipli, cliente.psicologa_user)),
         ("Stato Servizio", cliente.stato_psicologia),
@@ -946,7 +944,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 6.2 Patologie
-    story.append(_sub_header(ss, '<a name="section_6_2"/>6.2 Patologie'))
+    story.append(_sub_header(ss, '6.2 Patologie'))
     pat_psico = []
     if getattr(cliente, "nessuna_patologia_psico", False):
         pat_psico.append(("Nessuna Patologia", "Sì"))
@@ -967,7 +965,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 6.3 Alert e Note
-    story.append(_sub_header(ss, '<a name="section_6_3"/>6.3 Alert e Note'))
+    story.append(_sub_header(ss, '6.3 Alert e Note'))
     story.append(_data_table(ss, [
         ("Alert", cliente.alert_psicologia),
         ("Anamnesi (vecchio campo)", cliente.storia_psicologica),
@@ -976,7 +974,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 6.4 Anamnesi
-    story.append(_sub_header(ss, '<a name="section_6_4"/>6.4 Anamnesi'))
+    story.append(_sub_header(ss, '6.4 Anamnesi'))
     anamnesi_psico = next((a for a in anamnesi_entries if a.service_type == "psicologia"), None)
     if anamnesi_psico:
         story.append(_data_table(ss, [("Contenuto", anamnesi_psico.content), ("Creato il", anamnesi_psico.created_at)]))
@@ -985,7 +983,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 6.5 Diario
-    story.append(_sub_header(ss, '<a name="section_6_5"/>6.5 Diario'))
+    story.append(_sub_header(ss, '6.5 Diario'))
     diary_psico = [d for d in diary_entries if d.service_type == "psicologia"]
     if diary_psico:
         story.append(_data_table(ss, [(_fv(d.entry_date), f"{_user(d.author)}: {d.content}") for d in diary_psico]))
@@ -1000,7 +998,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 7.1 Peso
-    story.append(_sub_header(ss, '<a name="section_7_1"/>7.1 Peso'))
+    story.append(_sub_header(ss, '7.1 Peso'))
     story.append(_data_table(ss, [
         ("Peso Iniziale", f"{first_weight} kg" if first_weight else "-"),
         ("Peso Attuale", f"{last_weight} kg" if last_weight else "-"),
@@ -1010,7 +1008,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 7.2 Medie
-    story.append(_sub_header(ss, '<a name="section_7_2"/>7.2 Medie Benessere'))
+    story.append(_sub_header(ss, '7.2 Medie Benessere'))
     labels = {"energy": "Energia", "sleep": "Sonno", "mood": "Umore",
               "motivation": "Motivazione", "digestion": "Digestione",
               "strength": "Forza", "hunger": "Fame"}
@@ -1026,7 +1024,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 8.1 Risposte Form
-    story.append(_sub_header(ss, '<a name="section_8_1"/>8.1 Risposte Form'))
+    story.append(_sub_header(ss, '8.1 Risposte Form'))
     if check_assignments:
         for ca in check_assignments:
             form = ca.form
@@ -1065,7 +1063,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 8.2 Foto
-    story.append(_sub_header(ss, '<a name="section_8_2"/>8.2 Foto Check Iniziali'))
+    story.append(_sub_header(ss, '8.2 Foto Check Iniziali'))
     story.append(Paragraph("Le foto sono inserite inline nelle risposte sopra, quando disponibili.", ss["Meta"]))
     story.append(Spacer(1, 8))
 
@@ -1076,7 +1074,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 9.1 Config
-    story.append(_sub_header(ss, '<a name="section_9_1"/>9.1 Configurazione'))
+    story.append(_sub_header(ss, '9.1 Configurazione'))
     story.append(_data_table(ss, [
         ("Weekly Check Configurati", len(weekly_checks)),
         ("Weekly Check Risposte", len(weekly_responses)),
@@ -1088,7 +1086,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 9.2 Weekly Check (TUTTI)
-    story.append(_sub_header(ss, '<a name="section_9_2"/>9.2 Weekly Check'))
+    story.append(_sub_header(ss, '9.2 Weekly Check'))
     if weekly_responses:
         for idx, wr in enumerate(weekly_responses, 1):
             story.append(_sub_sub_header(ss, f"Weekly #{idx} — {_fv(wr.submit_date)}"))
@@ -1138,7 +1136,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 9.3 Minor Check
-    story.append(_sub_header(ss, '<a name="section_9_3"/>9.3 Minor Check'))
+    story.append(_sub_header(ss, '9.3 Minor Check'))
     if minor_responses:
         for idx, mr in enumerate(minor_responses, 1):
             story.append(_sub_sub_header(ss, f"Minor Check #{idx} — {_fv(mr.submit_date)}"))
@@ -1214,7 +1212,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 9.4 DCA Check
-    story.append(_sub_header(ss, '<a name="section_9_4"/>9.4 DCA Check'))
+    story.append(_sub_header(ss, '9.4 DCA Check'))
     if dca_responses:
         for idx, dr in enumerate(dca_responses, 1):
             story.append(_sub_sub_header(ss, f"DCA #{idx} — {_fv(dr.submit_date)}"))
@@ -1260,7 +1258,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 4))
 
     # 10.1 Consensi
-    story.append(_sub_header(ss, '<a name="section_10_1"/>10.1 Consensi e Contenuti Marketing'))
+    story.append(_sub_header(ss, '10.1 Consensi e Contenuti Marketing'))
     marketing_rows = [
         ("Note Marketing", getattr(cliente, "note_marketing", None)),
         ("Consenso Social Richiesto", cliente.consenso_social_richiesto),
@@ -1303,7 +1301,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 10.2 Video Recensione
-    story.append(_sub_header(ss, '<a name="section_10_2"/>10.2 Video Recensione'))
+    story.append(_sub_header(ss, '10.2 Video Recensione'))
     if video_reviews:
         for vr in video_reviews:
             story.append(_data_table(ss, [
@@ -1318,7 +1316,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 10.3 Call Bonus
-    story.append(_sub_header(ss, '<a name="section_10_3"/>10.3 Call Bonus'))
+    story.append(_sub_header(ss, '10.3 Call Bonus'))
     if call_bonus_list:
         for cb in call_bonus_list:
             story.append(_data_table(ss, [
@@ -1333,7 +1331,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 10.4 Referral
-    story.append(_sub_header(ss, '<a name="section_10_4"/>10.4 Referral'))
+    story.append(_sub_header(ss, '10.4 Referral'))
     story.append(_data_table(ss, [
         ("Bonus Scelto", cliente.referral_bonus_scelto),
         ("Bonus Utilizzato", cliente.referral_bonus_utilizzato),
@@ -1343,7 +1341,7 @@ def generate_clinical_folder_pdf(cliente, db_session) -> BytesIO:
     story.append(Spacer(1, 8))
 
     # 10.5 Trustpilot
-    story.append(_sub_header(ss, '<a name="section_10_5"/>10.5 Trustpilot'))
+    story.append(_sub_header(ss, '10.5 Trustpilot'))
     if trustpilot_reviews:
         for tr in trustpilot_reviews:
             story.append(_data_table(ss, [
