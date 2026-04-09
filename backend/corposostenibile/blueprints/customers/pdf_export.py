@@ -190,13 +190,40 @@ def _resolve_image_path(path_or_url: str | None) -> str | None:
     return None
 
 
+_IMG_MAX_PX = 800  # max pixel dimension for embedded photos (keeps RAM low)
+_IMG_JPEG_QUALITY = 65
+
+
 def _make_image(path: str | None, max_w=PHOTO_W, max_h=PHOTO_H):
-    """Create a reportlab Image flowable, or None if unavailable."""
+    """Create a reportlab Image flowable, or None if unavailable.
+
+    Uses Pillow to downscale photos before embedding, so even hundreds
+    of images won't cause OOM.  Each photo is compressed to ~40-80 KB
+    in a BytesIO buffer instead of loading the full-res file.
+    """
     resolved = _resolve_image_path(path)
     if not resolved:
         return None
     try:
-        img = Image(resolved)
+        from PIL import Image as PILImage
+
+        with PILImage.open(resolved) as pil_img:
+            # Convert RGBA/palette to RGB for JPEG
+            if pil_img.mode in ("RGBA", "P", "LA"):
+                pil_img = pil_img.convert("RGB")
+            elif pil_img.mode != "RGB":
+                pil_img = pil_img.convert("RGB")
+
+            # Downscale keeping aspect ratio
+            pil_img.thumbnail((_IMG_MAX_PX, _IMG_MAX_PX), PILImage.LANCZOS)
+
+            # Save compressed to in-memory buffer
+            img_buf = BytesIO()
+            pil_img.save(img_buf, format="JPEG", quality=_IMG_JPEG_QUALITY, optimize=True)
+            img_buf.seek(0)
+
+        # Create ReportLab Image from buffer
+        img = Image(img_buf)
         iw, ih = img.imageWidth, img.imageHeight
         if iw <= 0 or ih <= 0:
             return None
