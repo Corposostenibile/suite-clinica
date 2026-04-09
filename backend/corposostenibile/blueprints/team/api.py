@@ -71,6 +71,7 @@ def _calculate_capacity_metrics(
     contractual_capacity: int,
     type_counts: dict[str, int] | None,
     weights_by_role: dict[str, dict[str, float]],
+    coach_live_training_load: float = 0.0,
 ) -> dict[str, float | int | bool]:
     """
     Calcola breakdown e metriche di capienza.
@@ -95,6 +96,8 @@ def _calculate_capacity_metrics(
             + clienti_c * role_weights.get("c", 1.0)
             + clienti_secondario * role_weights.get("secondario", 1.0)
         )
+        if role_type == "coach":
+            weighted_load += float(coach_live_training_load or 0.0)
 
     capacity_percentage = (
         0
@@ -624,6 +627,54 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
     ).group_by(Cliente.health_manager_id, Cliente.tipologia_cliente).all()
     _merge(hm_rows, 'health_manager')
 
+    return result
+
+
+def _get_coach_live_training_load_map(user_ids: list[int]) -> dict[int, float]:
+    """
+    Somma live_trainings_svolte per coach su clienti attivi.
+    Ogni live svolta pesa 0.3 nel carico di capienza.
+    """
+    if not user_ids:
+        return {}
+
+    coach_sources = [
+        select(
+            Cliente.coach_id.label("user_id"),
+            Cliente.cliente_id.label("cliente_id"),
+            func.coalesce(Cliente.live_trainings_svolte, 0).label("live_trainings_svolte"),
+        ).where(
+            Cliente.coach_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+        select(
+            cliente_coaches.c.user_id.label("user_id"),
+            cliente_coaches.c.cliente_id.label("cliente_id"),
+            func.coalesce(Cliente.live_trainings_svolte, 0).label("live_trainings_svolte"),
+        ).select_from(
+            cliente_coaches.join(Cliente, cliente_coaches.c.cliente_id == Cliente.cliente_id)
+        ).where(
+            cliente_coaches.c.user_id.in_(user_ids),
+            Cliente.stato_coach == StatoClienteEnum.attivo,
+        ),
+    ]
+
+    coach_sq = union_all(*coach_sources).subquery()
+
+    # Deduplica assegnazioni duplicate (FK + M2M stesso cliente) prendendo max live per coppia user/cliente.
+    per_client_rows = db.session.query(
+        coach_sq.c.user_id.label("user_id"),
+        coach_sq.c.cliente_id.label("cliente_id"),
+        func.max(coach_sq.c.live_trainings_svolte).label("live_trainings_svolte"),
+    ).group_by(
+        coach_sq.c.user_id,
+        coach_sq.c.cliente_id,
+    ).all()
+
+    result: dict[int, float] = {}
+    for user_id, _, live_trainings_svolte in per_client_rows:
+        uid = int(user_id)
+        result[uid] = result.get(uid, 0.0) + (float(live_trainings_svolte or 0) * 0.3)
     return result
 
 
@@ -1275,6 +1326,7 @@ def api_get_professionals_criteria():
     assigned_map = _get_assigned_clients_count_map_active_by_role(prof_ids)
     type_breakdown = _get_assigned_clients_by_type(prof_ids)
     weights = _get_capacity_weights_by_role()
+    coach_live_training_map = _get_coach_live_training_load_map(prof_ids)
 
     results = []
     import json
@@ -1323,6 +1375,7 @@ def api_get_professionals_criteria():
             contractual_capacity=contractual,
             type_counts=t_counts,
             weights_by_role=weights,
+            coach_live_training_load=coach_live_training_map.get(p.id, 0.0),
         )
 
         results.append({
@@ -2749,6 +2802,7 @@ def get_professionals_capacity():
     assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
     type_breakdown_map = _get_assigned_clients_by_type(user_ids)
     weights_by_role = _get_capacity_weights_by_role()
+    coach_live_training_map = _get_coach_live_training_load_map(user_ids)
     hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
     hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
 
@@ -2791,6 +2845,7 @@ def get_professionals_capacity():
             contractual_capacity=contractual_capacity,
             type_counts=type_counts,
             weights_by_role=weights_by_role,
+            coach_live_training_load=coach_live_training_map.get(prof.id, 0.0),
         )
 
         row_data = {
@@ -2975,12 +3030,14 @@ def update_professional_capacity(user_id: int):
     db.session.commit()
 
     type_counts = _get_assigned_clients_by_type([user.id]).get((user.id, role_type), {})
+    coach_live_training_load = _get_coach_live_training_load_map([user.id]).get(user.id, 0.0)
     metrics = _calculate_capacity_metrics(
         role_type=role_type,
         assigned_clients=assigned_clients,
         contractual_capacity=max_clients,
         type_counts=type_counts,
         weights_by_role=_get_capacity_weights_by_role(),
+        coach_live_training_load=coach_live_training_load,
     )
     return jsonify({
         'success': True,
