@@ -203,17 +203,22 @@ def _get_weekly_professional_snapshot(cliente: Cliente | None) -> Dict[str, int 
             "coach_user_id": None,
         }
 
-    nutritionist_id = cliente.nutrizionista_id
-    if not nutritionist_id and cliente.nutrizionisti_multipli:
-        nutritionist_id = cliente.nutrizionisti_multipli[0].id
+    # Priorità M2M: fonte autoritativa per le associazioni correnti.
+    # Fallback sul campo singolo solo per clienti con dati legacy (nessuna M2M impostata).
+    nutritionist_id = (
+        cliente.nutrizionisti_multipli[0].id if cliente.nutrizionisti_multipli
+        else cliente.nutrizionista_id
+    )
 
-    psychologist_id = cliente.psicologa_id
-    if not psychologist_id and cliente.psicologi_multipli:
-        psychologist_id = cliente.psicologi_multipli[0].id
+    psychologist_id = (
+        cliente.psicologi_multipli[0].id if cliente.psicologi_multipli
+        else cliente.psicologa_id
+    )
 
-    coach_id = cliente.coach_id
-    if not coach_id and cliente.coaches_multipli:
-        coach_id = cliente.coaches_multipli[0].id
+    coach_id = (
+        cliente.coaches_multipli[0].id if cliente.coaches_multipli
+        else cliente.coach_id
+    )
 
     return {
         "nutritionist_user_id": nutritionist_id,
