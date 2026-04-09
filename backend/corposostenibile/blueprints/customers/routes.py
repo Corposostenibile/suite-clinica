@@ -4957,6 +4957,32 @@ def api_storico_patologie_coach(cliente_id: int):
 #  CLINICAL FOLDER PDF EXPORT                                                 #
 # --------------------------------------------------------------------------- #
 
+@customers_bp.route("/<int:cliente_id>/clinical-folder-export", methods=["GET"])
+@csrf.exempt
+@permission_required(CustomerPerm.VIEW)
+def api_clinical_folder_export_pdf(cliente_id: int):
+    """Genera ed esporta la cartella clinica completa del paziente in formato PDF."""
+    from flask import send_file
+    from corposostenibile.blueprints.customers.pdf_export import generate_clinical_folder_pdf
+
+    _require_cliente_scope_or_403(cliente_id)
+    cliente = db.session.query(Cliente).filter_by(cliente_id=cliente_id).one_or_404()
+
+    pdf_buffer = generate_clinical_folder_pdf(cliente, db.session)
+
+    safe_name = (cliente.nome_cognome or f"cliente_{cliente_id}").strip().replace(" ", "_")
+    safe_name = "".join(ch for ch in safe_name if ch.isalnum() or ch in {"_", "-"}) or f"cliente_{cliente_id}"
+
+    return send_file(
+        pdf_buffer,
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=f"cartella_clinica_{safe_name}.pdf",
+    )
+
+
+# ── Legacy PDF helpers (kept for reference, no longer used) ──────────────
+
 def _export_pdf_format_value(value):
     """Formatta un qualsiasi valore per la visualizzazione nel PDF."""
     if value is None:
@@ -5025,11 +5051,8 @@ def _append_export_section(story, styles, title, rows, col_widths):
     story.append(Spacer(1, 10))
 
 
-@customers_bp.route("/<int:cliente_id>/clinical-folder-export", methods=["GET"])
-@csrf.exempt
-@permission_required(CustomerPerm.VIEW)
-def api_clinical_folder_export_pdf(cliente_id: int):
-    """Genera ed esporta la cartella clinica completa del paziente in formato PDF."""
+def _legacy_clinical_folder_export_pdf_UNUSED(cliente_id: int):
+    """LEGACY: vecchia implementazione PDF — non più utilizzata."""
     from io import BytesIO
     from reportlab.lib import colors as rl_colors
     from reportlab.lib.pagesizes import A4
