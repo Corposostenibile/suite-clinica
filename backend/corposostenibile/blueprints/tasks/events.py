@@ -184,15 +184,33 @@ def trigger_check_task(mapper, connection, target):
 
 
 def _get_cliente_professional_ids(cliente) -> set[int]:
-    """Restituisce tutti gli ID dei professionisti assegnati al cliente."""
+    """Restituisce tutti gli ID dei professionisti assegnati al cliente.
+
+    Priorità M2M: le relazioni many-to-many sono la fonte autoritativa.
+    I campi singoli (nutrizionista_id, ecc.) vengono usati solo come
+    fallback per clienti legacy che non hanno ancora dati M2M.
+    """
     prof_ids = set()
-    for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id', 'health_manager_id'):
-        uid = getattr(cliente, attr, None)
-        if uid:
-            prof_ids.add(uid)
+
+    # Fonte autoritativa: relazioni M2M
+    m2m_found = False
     for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli'):
         for u in (getattr(cliente, rel, None) or []):
             prof_ids.add(u.id)
+            m2m_found = True
+
+    # Fallback legacy: campi singoli FK solo se nessuna M2M è impostata
+    if not m2m_found:
+        for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id'):
+            uid = getattr(cliente, attr, None)
+            if uid:
+                prof_ids.add(uid)
+
+    # health_manager_id è ancora un campo singolo (non ha M2M)
+    hm_id = getattr(cliente, 'health_manager_id', None)
+    if hm_id:
+        prof_ids.add(hm_id)
+
     return prof_ids
 
 

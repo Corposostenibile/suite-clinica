@@ -3120,14 +3120,20 @@ def api_da_leggere():
                 db.session.query(Cliente.cliente_id)
                 .filter(
                     db.or_(
+                        # Campi singoli FK (legacy/fallback)
                         Cliente.nutrizionista_id.in_(team_members_query),
                         Cliente.coach_id.in_(team_members_query),
                         Cliente.psicologa_id.in_(team_members_query),
                         Cliente.consulente_alimentare_id.in_(team_members_query),
+                        # Relazioni M2M (fonte autoritativa)
+                        Cliente.nutrizionisti_multipli.any(User.id.in_(team_members_query)),
+                        Cliente.coaches_multipli.any(User.id.in_(team_members_query)),
+                        Cliente.psicologi_multipli.any(User.id.in_(team_members_query)),
+                        Cliente.consulenti_multipli.any(User.id.in_(team_members_query)),
                     )
                 )
             )
-            
+
         # 3. Professional (default)
         else:
             my_clienti_query = (
