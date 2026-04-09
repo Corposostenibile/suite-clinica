@@ -10677,6 +10677,93 @@ function ClientiDetail() {
                           </div>
                         </div>
                       )}
+
+                      {/* Nuovo Questionario Adolescenti — risposte qualitative */}
+                      {(() => {
+                        const rd = selectedCheckResponse.responses_data || {};
+                        const hasAdolescentData = rd.sentire_generale != null || rd.difficolta || rd.percorso_vissuto != null;
+                        if (!hasAdolescentData) return null;
+
+                        const radioLabels = {
+                          sentire_generale: ['Molto bene', 'Bene', 'Cos\u00ec cos\u00ec', 'Non molto bene', 'Male'],
+                          percorso_vissuto: ['Mi sta aiutando molto', 'Mi trovo bene', '\u00c8 ok', 'Mi crea qualche difficolt\u00e0', 'Non mi trovo bene'],
+                          ascoltato: ['S\u00ec', 'A volte', 'No'],
+                          pratica_quotidiana: ['Quasi sempre', 'Spesso', 'A volte', 'Raramente'],
+                          riconoscere_fame: ['S\u00ec', 'A volte', 'No'],
+                          riconoscere_sazieta: ['S\u00ec', 'A volte', 'No'],
+                          mangiare_senza_fame: ['Spesso', 'A volte', 'Raramente'],
+                          energia: ['Alta', 'Adeguata', 'Bassa'],
+                          sonno: ['Bene', 'Abbastanza bene', 'Male'],
+                          sentimento_peso: ['Sereno/a', 'Indifferente', 'A disagio'],
+                        };
+                        const rLabel = (field, val) => {
+                          if (val == null) return '-';
+                          const labels = radioLabels[field];
+                          return labels && labels[val] != null ? labels[val] : val;
+                        };
+                        const ta = (label, value) => {
+                          if (!value) return null;
+                          return <div className="chk-feedback-block neutral" key={label}><label>{label}</label><p>{value}</p></div>;
+                        };
+                        const rb = (label, field, val) => (
+                          <div className="chk-feedback-block neutral" key={field}><label>{label}</label><p>{rLabel(field, val)}</p></div>
+                        );
+                        const cb = (label, field, vals) => {
+                          if (!vals || !vals.length) return null;
+                          return <div className="chk-feedback-block neutral" key={field}><label>{label}</label><p>{vals.join(', ')}</p></div>;
+                        };
+
+                        return (
+                          <>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-emotion-line"></i> Come ti senti</span>
+                              {rb('Come ti senti nelle ultime settimane', 'sentire_generale', rd.sentire_generale)}
+                              {ta('Difficolt\u00e0 o preoccupazioni', rd.difficolta)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-restaurant-line"></i> Il percorso alimentare</span>
+                              {rb('Come stai vivendo il percorso', 'percorso_vissuto', rd.percorso_vissuto)}
+                              {ta('Racconto sul percorso', rd.percorso_racconto)}
+                              {cb('Aspetti difficili', 'aspetti_difficili', rd.aspetti_difficili)}
+                              {ta('Dettaglio aspetti difficili', rd.aspetti_difficili_dettaglio)}
+                              {rb('Ti senti ascoltato/a e rispettato/a', 'ascoltato', rd.ascoltato)}
+                              {ta('Situazioni in cui non ti senti ascoltato/a', rd.ascoltato_situazioni)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-cup-line"></i> Cibo e quotidianit\u00e0</span>
+                              {rb('Mettere in pratica le indicazioni', 'pratica_quotidiana', rd.pratica_quotidiana)}
+                              {cb('Situazioni di fatica', 'fatica_situazioni', rd.fatica_situazioni)}
+                              {ta('Alimenti o momenti di disagio', rd.alimenti_disagio)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-heart-pulse-line"></i> Fame, saziet\u00e0 e ascolto del corpo</span>
+                              {rb('Riconosci quando hai fame', 'riconoscere_fame', rd.riconoscere_fame)}
+                              {rb('Riconosci quando sei sazio/a', 'riconoscere_sazieta', rd.riconoscere_sazieta)}
+                              {rb('Mangi in assenza di fame', 'mangiare_senza_fame', rd.mangiare_senza_fame)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-flashlight-line"></i> Energia, digestione e sonno</span>
+                              {rb('Energia durante la giornata', 'energia', rd.energia)}
+                              {ta('Disturbi fisici', rd.disturbi_fisici)}
+                              {rb('Come stai dormendo', 'sonno', rd.sonno)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-scales-3-line"></i> Peso e crescita</span>
+                              <div className="chk-stats-row">
+                                <div className="chk-stat-box"><label>Peso attuale</label><span>{selectedCheckResponse.peso_attuale ? `${selectedCheckResponse.peso_attuale} kg` : (rd.peso_attuale ? `${rd.peso_attuale} kg` : '-')}</span></div>
+                                <div className="chk-stat-box"><label>Data misurazione</label><span>{rd.data_misurazione || '-'}</span></div>
+                              </div>
+                              {rb('Come ti senti rispetto al peso', 'sentimento_peso', rd.sentimento_peso)}
+                            </div>
+                            <div className="chk-modal-section">
+                              <span className="chk-modal-label"><i className="ri-lightbulb-line"></i> Cosa possiamo migliorare</span>
+                              {ta('Modifiche al percorso', rd.modifiche_percorso)}
+                              {ta('Cosa funziona bene', rd.funzionamento_bene)}
+                              {ta('Aspetti da approfondire', rd.approfondire)}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </>
                   )}
 

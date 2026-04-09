@@ -2594,8 +2594,31 @@ def minor_check_response_view(response_id: int):
                     "score_weight_concern": round(response.score_weight_concern, 2) if response.score_weight_concern else None,
                     "score_global": round(response.score_global, 2) if response.score_global else None,
 
-                    # Risposte raw
+                    # Risposte raw (include sia EDE-Q6 legacy che nuovo questionario adolescenti)
                     "responses_data": response.responses_data,
+
+                    # Nuovo questionario adolescenti (compatibilità frontend)
+                    "sentire_generale": response.responses_data.get("sentire_generale") if response.responses_data else None,
+                    "difficolta": response.responses_data.get("difficolta") if response.responses_data else None,
+                    "percorso_vissuto": response.responses_data.get("percorso_vissuto") if response.responses_data else None,
+                    "percorso_racconto": response.responses_data.get("percorso_racconto") if response.responses_data else None,
+                    "aspetti_difficili": response.responses_data.get("aspetti_difficili") if response.responses_data else None,
+                    "ascoltato": response.responses_data.get("ascoltato") if response.responses_data else None,
+                    "ascoltato_situazioni": response.responses_data.get("ascoltato_situazioni") if response.responses_data else None,
+                    "pratica_quotidiana": response.responses_data.get("pratica_quotidiana") if response.responses_data else None,
+                    "fatica_situazioni": response.responses_data.get("fatica_situazioni") if response.responses_data else None,
+                    "alimenti_disagio": response.responses_data.get("alimenti_disagio") if response.responses_data else None,
+                    "riconoscere_fame": response.responses_data.get("riconoscere_fame") if response.responses_data else None,
+                    "riconoscere_sazieta": response.responses_data.get("riconoscere_sazieta") if response.responses_data else None,
+                    "mangiare_senza_fame": response.responses_data.get("mangiare_senza_fame") if response.responses_data else None,
+                    "energia": response.responses_data.get("energia") if response.responses_data else None,
+                    "disturbi_fisici": response.responses_data.get("disturbi_fisici") if response.responses_data else None,
+                    "sonno": response.responses_data.get("sonno") if response.responses_data else None,
+                    "sentimento_peso": response.responses_data.get("sentimento_peso") if response.responses_data else None,
+                    "modifiche_percorso": response.responses_data.get("modifiche_percorso") if response.responses_data else None,
+                    "funzionamento_bene": response.responses_data.get("funzionamento_bene") if response.responses_data else None,
+                    "approfondire": response.responses_data.get("approfondire") if response.responses_data else None,
+                    "data_misurazione": response.responses_data.get("data_misurazione") if response.responses_data else None,
                 }
             })
 
@@ -2910,6 +2933,8 @@ def api_cliente_checks(cliente_id: int):
                 "assigned_at": minor_check.assigned_at.strftime('%d/%m/%Y %H:%M') if minor_check.assigned_at else None
             }
             for resp in minor_check.responses.order_by(MinorCheckResponse.submit_date.desc()).all():
+                rd = resp.responses_data or {}
+                has_adolescent = rd.get('sentire_generale') is not None or rd.get('difficolta') is not None
                 result["responses"].append({
                     "id": resp.id,
                     "type": "minor",
@@ -2917,7 +2942,9 @@ def api_cliente_checks(cliente_id: int):
                     "submit_date_iso": resp.submit_date.isoformat() if resp.submit_date else None,
                     "peso": resp.peso_attuale,
                     "score_global": resp.score_global,
-                    "is_read": True  # Minor checks don't track read status
+                    "is_read": True,  # Minor checks don't track read status
+                    "has_adolescent_data": has_adolescent,
+                    "responses_data": rd,
                 })
 
         # TypeForm Responses (old check system) — show as "weekly" sub-type "typeform"
@@ -4703,7 +4730,12 @@ def api_public_submit_dca(token: str):
 @client_checks_bp.route("/api/public/minor/<token>", methods=["POST"])
 def api_public_submit_minor(token: str):
     """
-    API pubblica: Salva risposta check minori (EDE-Q6).
+    API pubblica: Salva risposta check minori.
+
+    Supporta due formati:
+    1. EDE-Q6 legacy (domande q1-q28, peso_attuale, altezza)
+    2. Nuovo questionario adolescenti (campi qualitativi: sentire_generale,
+       difficolta, percorso_vissuto, ecc.)
     """
     from corposostenibile.models import MinorCheck, MinorCheckResponse
 
@@ -4714,8 +4746,10 @@ def api_public_submit_minor(token: str):
 
         data = request.get_json() if request.is_json else request.form.to_dict()
 
-        # Build responses_data JSON from all q1-q28 questions
+        # ─── Build responses_data JSON ─────────────────────────────────
         responses_data = {}
+
+        # A) EDE-Q6 legacy: q1-q28
         for i in range(1, 29):
             key = f'q{i}'
             if data.get(key) is not None:
@@ -4723,6 +4757,44 @@ def api_public_submit_minor(token: str):
                     responses_data[key] = int(data.get(key))
                 except (ValueError, TypeError):
                     responses_data[key] = data.get(key)
+
+        # B) Nuovo questionario adolescenti – campi qualitativi
+        #    Radio / numeric (valori semplici)
+        simple_fields = [
+            'sentire_generale', 'percorso_vissuto', 'ascoltato',
+            'pratica_quotidiana', 'riconoscere_fame', 'riconoscere_sazieta',
+            'mangiare_senza_fame', 'energia', 'sonno', 'sentimento_peso',
+        ]
+        for field in simple_fields:
+            val = data.get(field)
+            if val is not None and val != '':
+                try:
+                    responses_data[field] = int(val)
+                except (ValueError, TypeError):
+                    responses_data[field] = val
+
+        #    Textarea / stringhe
+        text_fields = [
+            'difficolta', 'percorso_racconto', 'aspetti_difficili_dettaglio',
+            'ascoltato_situazioni', 'alimenti_disagio', 'disturbi_fisici',
+            'modifiche_percorso', 'funzionamento_bene', 'approfondire',
+            'data_misurazione',
+        ]
+        for field in text_fields:
+            val = data.get(field)
+            if val is not None and val != '':
+                responses_data[field] = str(val)
+
+        #    Checkbox (liste)
+        checkbox_fields = ['aspetti_difficili', 'fatica_situazioni']
+        for field in checkbox_fields:
+            val = data.get(field)
+            if val is not None:
+                if isinstance(val, list):
+                    responses_data[field] = val
+                elif isinstance(val, str):
+                    # Potrebbe arrivare come stringa comma-separata
+                    responses_data[field] = [x.strip() for x in val.split(',') if x.strip()]
 
         # Create response with correct model field names
         response = MinorCheckResponse(
@@ -4732,12 +4804,12 @@ def api_public_submit_minor(token: str):
             user_agent=request.user_agent.string if request.user_agent else None,
             # Store all questions as JSON
             responses_data=responses_data,
-            # Physical fields
+            # Physical fields (compatibilità EDE-Q6 + nuovo form)
             peso_attuale=float(data.get('peso_attuale')) if data.get('peso_attuale') else None,
             altezza=float(data.get('altezza')) if data.get('altezza') else None,
         )
 
-        # Calculate scores after creation
+        # Calculate scores (funziona solo se ci sono dati EDE-Q6)
         response.calculate_scores()
 
         db.session.add(response)

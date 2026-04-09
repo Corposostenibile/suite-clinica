@@ -1209,6 +1209,102 @@
   margin-bottom: 16px;
 }
 
+/* --- Radio Selector (Adolescent Check) --- */
+.check-radio-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.check-radio-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 10px 12px;
+  border-radius: var(--check-radius-sm);
+  border: 2px solid var(--check-border);
+  background: var(--check-card-bg);
+  color: var(--check-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  text-align: center;
+  line-height: 1.3;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.check-radio-btn:active {
+  transform: scale(0.95);
+}
+.check-radio-btn.selected {
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.check-radio-btn:focus-visible {
+  outline: 2px solid var(--check-primary);
+  outline-offset: 2px;
+}
+
+/* --- Checkbox Group (Adolescent Check) --- */
+.check-checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.check-checkbox-btn {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 14px;
+  border-radius: var(--check-radius-sm);
+  border: 2px solid var(--check-border);
+  background: var(--check-card-bg);
+  color: var(--check-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  text-align: center;
+  line-height: 1.3;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.check-checkbox-btn i {
+  font-size: 14px;
+}
+.check-checkbox-btn:active {
+  transform: scale(0.95);
+}
+.check-checkbox-btn.selected {
+  border-color: transparent;
+  background: var(--check-primary);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+.check-checkbox-btn:focus-visible {
+  outline: 2px solid var(--check-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .check-radio-btn,
+  .check-checkbox-btn {
+    min-width: 80px;
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
+
 /* --- Question Gap (replaces inline marginBottom) --- */
 .check-question-gap {
   margin-bottom: 16px;

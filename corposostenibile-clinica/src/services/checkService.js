@@ -33,7 +33,7 @@ export const CHECK_TYPES = {
   minor: {
     key: 'minor',
     label: 'Check Minori',
-    description: 'Questionario screening disturbi alimentari - 28 domande',
+    description: 'Questionario percorso adolescenti (14-18 anni)',
     icon: 'ri-mental-health-line',
     color: '#f59e0b',
     bgColor: '#fef3c7'

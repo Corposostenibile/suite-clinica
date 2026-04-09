@@ -1,98 +1,133 @@
 /**
- * MinorCheckForm - Form pubblico per il Check Minori (EDE-Q6)
- * Questionario screening disturbi alimentari - 28 domande
+ * MinorCheckForm - Form pubblico per il Check Minori (Adolescenti 14-18 anni)
+ * Questionario percorso adolescenziale - sezioni qualitative + EDE-Q6 legacy
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import publicCheckService from '../../../services/publicCheckService';
 import './PublicChecks.css';
 
-// Frequency scale (0-6 days)
-const FREQ_LABELS = ['Mai', '1-5 gg', '6-12 gg', '13-15 gg', '16-22 gg', '23-27 gg', 'Ogni giorno'];
-
-// Intensity scale (0-6)
-const INTENSITY_LABELS = ['Per niente', 'Poco', 'Lievemente', 'Moderatam.', 'Abbastanza', 'Molto', 'Notevolm.'];
-
-const FREQUENCY_QUESTIONS = [
-  { field: 'q1', label: 'Hai deliberatamente limitato la quantità di cibo per influenzare il tuo corpo o il tuo peso?' },
-  { field: 'q2', label: 'Hai passato lunghi periodi (8 ore o più) senza mangiare per influenzare il tuo corpo o il tuo peso?' },
-  { field: 'q3', label: 'Hai escluso dalla tua dieta cibi che ti piacciono per influenzare il tuo corpo o il tuo peso?' },
-  { field: 'q4', label: 'Hai seguito regole rigide sull\'alimentazione o sul limite di calorie?' },
-  { field: 'q5', label: 'Hai avuto il desiderio di avere lo stomaco vuoto per influenzare il tuo corpo o il tuo peso?' },
-  { field: 'q6', label: 'Hai avuto il desiderio di avere la pancia totalmente piatta?' },
-  { field: 'q7', label: 'I pensieri sul cibo, mangiare o calorie ti hanno reso difficile concentrarti?' },
-  { field: 'q8', label: 'I pensieri sul corpo o sul peso ti hanno reso difficile concentrarti?' },
-  { field: 'q9', label: 'Hai avuto paura di perdere il controllo su quello che mangi?' },
-  { field: 'q10', label: 'Hai avuto paura di ingrassare?' },
-  { field: 'q11', label: 'Ti sei sentito/a grasso/a o in sovrappeso?' },
-  { field: 'q12', label: 'Hai avuto un forte desiderio di perdere peso?' },
+// ─── Radio option maps ─────────────────────────────────────────────────────
+const SENTIRE_OPTIONS = [
+  { value: 0, label: 'Molto bene' },
+  { value: 1, label: 'Bene' },
+  { value: 2, label: 'Così così' },
+  { value: 3, label: 'Non molto bene' },
+  { value: 4, label: 'Male' },
 ];
 
-const EPISODE_QUESTIONS = [
-  { field: 'q13', label: 'Quante volte hai mangiato una quantità di cibo insolitamente grande?' },
-  { field: 'q14', label: 'Quante volte hai sentito di aver perso il controllo su quello che stavi mangiando?' },
-  { field: 'q15', label: 'In quanti giorni ci sono stati episodi di abbuffata? (0-28 giorni)', max: 28 },
-  { field: 'q16', label: 'Quante volte ti sei provocato/a il vomito per controllare peso o corpo?' },
-  { field: 'q17', label: 'Quante volte hai usato lassativi per controllare peso o corpo?' },
-  { field: 'q18', label: 'Quante volte ti sei allenato/a in modo eccessivo o compulsivo?' },
+const PERCORSO_OPTIONS = [
+  { value: 0, label: 'Mi sta aiutando molto' },
+  { value: 1, label: 'Mi trovo bene' },
+  { value: 2, label: 'È ok' },
+  { value: 3, label: 'Mi crea qualche difficoltà' },
+  { value: 4, label: 'Non mi trovo bene' },
 ];
 
-const BEHAVIOR_QUESTIONS = [
-  { field: 'q19', label: 'In quanti giorni hai mangiato di nascosto?', type: 'freq' },
-  { field: 'q20', label: 'In che proporzione di volte ti sei sentito/a in colpa dopo aver mangiato?', labels: ['Nessuna volta', 'Poche volte', 'Meno della metà', 'Metà', 'Più della metà', 'Quasi sempre', 'Ogni volta'] },
-  { field: 'q21', label: 'Quanto ti sei preoccupato/a che altre persone ti potessero vedere mentre mangiavi?', type: 'intensity' },
+const ASCOLTO_OPTIONS = [
+  { value: 0, label: 'Sì' },
+  { value: 1, label: 'A volte' },
+  { value: 2, label: 'No' },
 ];
 
-const SELF_ASSESSMENT_QUESTIONS = [
-  { field: 'q22', label: 'Quanto il tuo peso ha influenzato il modo in cui giudichi te stesso/a?' },
-  { field: 'q23', label: 'Quanto la forma del tuo corpo ha influenzato il modo in cui giudichi te stesso/a?' },
-  { field: 'q24', label: 'Quanto ti preoccuperesti se ti chiedessero di pesarti una volta alla settimana?' },
-  { field: 'q25', label: 'Quanto sei stato/a insoddisfatto/a del tuo peso?' },
-  { field: 'q26', label: 'Quanto sei stato/a insoddisfatto/a della forma del tuo corpo?' },
-  { field: 'q27', label: 'Quanto ti ha dato fastidio vedere il tuo corpo (es. nello specchio)?' },
-  { field: 'q28', label: 'Quanto ti ha dato fastidio che gli altri vedessero il tuo corpo?' },
+const PRATICA_OPTIONS = [
+  { value: 0, label: 'Quasi sempre' },
+  { value: 1, label: 'Spesso' },
+  { value: 2, label: 'A volte' },
+  { value: 3, label: 'Raramente' },
 ];
 
+const RICONOSCI_OPTIONS = [
+  { value: 0, label: 'Sì' },
+  { value: 1, label: 'A volte' },
+  { value: 2, label: 'No' },
+];
+
+const MANGIARE_SENZA_FAME_OPTIONS = [
+  { value: 0, label: 'Spesso' },
+  { value: 1, label: 'A volte' },
+  { value: 2, label: 'Raramente' },
+];
+
+const ENERGIA_OPTIONS = [
+  { value: 0, label: 'Alta' },
+  { value: 1, label: 'Adeguata' },
+  { value: 2, label: 'Bassa' },
+];
+
+const SONNO_OPTIONS = [
+  { value: 0, label: 'Bene' },
+  { value: 1, label: 'Abbastanza bene' },
+  { value: 2, label: 'Male' },
+];
+
+const SENTIMENTO_PESO_OPTIONS = [
+  { value: 0, label: 'Sereno/a' },
+  { value: 1, label: 'Indifferente' },
+  { value: 2, label: 'A disagio' },
+];
+
+const FATICHE_SITUAZIONI = [
+  { value: 'colazione', label: 'Colazione' },
+  { value: 'pranzo', label: 'Pranzo' },
+  { value: 'cena', label: 'Cena' },
+  { value: 'fuori_casa', label: 'Fuori casa' },
+  { value: 'scuola', label: 'A scuola' },
+  { value: 'amici', label: 'Con amici' },
+  { value: 'famiglia', label: 'In famiglia' },
+];
+
+const ASPETTI_DIFFICILI = [
+  { value: 'troppo_impegnativi', label: 'Troppo impegnativi' },
+  { value: 'ripetitivi', label: 'Poco stimolanti o ripetitivi' },
+  { value: 'poco_chiari', label: 'Poco chiari' },
+];
+
+// ─── Sections definition ────────────────────────────────────────────────────
 const ALL_SECTIONS = [
   {
-    id: 'frequency',
-    title: 'Frequenza negli ultimi 28 giorni',
-    icon: 'ri-calendar-line',
+    id: 'sentire',
+    title: 'Come ti senti in questo periodo',
+    icon: 'ri-emotion-line',
     color: '#f59e0b',
-    description: 'Indica in quanti giorni hai sperimentato quanto descritto',
-    questions: FREQUENCY_QUESTIONS,
-    type: 'freq',
-    startNum: 1,
   },
   {
-    id: 'episodes',
-    title: 'Episodi Specifici',
-    icon: 'ri-error-warning-line',
-    color: '#ef4444',
-    description: 'Indica il numero di episodi negli ultimi 28 giorni',
-    questions: EPISODE_QUESTIONS,
-    type: 'episode',
-    startNum: 13,
-  },
-  {
-    id: 'behavior',
-    title: 'Comportamenti Alimentari',
-    icon: 'ri-user-heart-line',
+    id: 'percorso',
+    title: 'Il percorso alimentare',
+    icon: 'ri-restaurant-line',
     color: '#3b82f6',
-    questions: BEHAVIOR_QUESTIONS,
-    type: 'mixed',
-    startNum: 19,
   },
   {
-    id: 'self',
-    title: 'Autovalutazione',
-    icon: 'ri-mental-health-line',
+    id: 'cibo',
+    title: 'Cibo e quotidianità',
+    icon: 'ri-cup-line',
     color: '#8b5cf6',
-    description: 'Indica quanto ti riconosci in queste affermazioni',
-    questions: SELF_ASSESSMENT_QUESTIONS,
-    type: 'intensity',
-    startNum: 22,
+  },
+  {
+    id: 'fame',
+    title: 'Fame, sazietà e ascolto del corpo',
+    icon: 'ri-heart-pulse-line',
+    color: '#ec4899',
+  },
+  {
+    id: 'energia',
+    title: 'Energia, digestione e sonno',
+    icon: 'ri-flashlight-line',
+    color: '#22c55e',
+  },
+  {
+    id: 'peso',
+    title: 'Peso e crescita',
+    icon: 'ri-scales-3-line',
+    color: '#64748b',
+    subtitle: 'Solo se concordato con il professionista',
+  },
+  {
+    id: 'migliorare',
+    title: 'Cosa possiamo migliorare',
+    icon: 'ri-lightbulb-line',
+    color: '#f97316',
   },
 ];
 
@@ -105,10 +140,10 @@ function MinorCheckForm() {
   const [checkInfo, setCheckInfo] = useState(null);
   const [formData, setFormData] = useState({});
   const [collapsedSections, setCollapsedSections] = useState({});
-  const questionRefs = useRef({});
 
   useEffect(() => {
     loadCheckInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const loadCheckInfo = async () => {
@@ -131,20 +166,14 @@ function MinorCheckForm() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Auto-scroll to next unanswered question in same section after answering
-  const handleFreqChange = (field, value, sectionQuestions, currentIdx) => {
-    handleChange(field, value);
-    // Find next unanswered in same section
-    for (let i = currentIdx + 1; i < sectionQuestions.length; i++) {
-      const nextField = sectionQuestions[i].field;
-      if (formData[nextField] == null) {
-        setTimeout(() => {
-          const el = questionRefs.current[nextField];
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 150);
-        break;
+  const handleCheckboxChange = (field, value) => {
+    setFormData(prev => {
+      const current = prev[field] || [];
+      if (current.includes(value)) {
+        return { ...prev, [field]: current.filter(v => v !== value) };
       }
-    }
+      return { ...prev, [field]: [...current, value] };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -170,56 +199,71 @@ function MinorCheckForm() {
     setCollapsedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
 
-  // Count all questions
-  const allFields = ALL_SECTIONS.flatMap(s => s.questions.map(q => q.field));
+  // Count answered fields
+  const allFields = [
+    'sentire_generale', 'difficolta',
+    'percorso_vissuto', 'percorso_racconto',
+    'aspetti_difficili', 'aspetti_difficili_dettaglio',
+    'ascoltato', 'ascoltato_situazioni',
+    'pratica_quotidiana', 'fatica_situazioni', 'alimenti_disagio',
+    'riconoscere_fame', 'riconoscere_sazieta', 'mangiare_senza_fame',
+    'energia', 'disturbi_fisici', 'sonno',
+    'peso_attuale', 'data_misurazione', 'sentimento_peso',
+    'modifiche_percorso', 'funzionamento_bene', 'approfondire',
+  ];
   const totalQuestions = allFields.length;
-  const answeredCount = allFields.filter(f => formData[f] != null).length;
+  const answeredCount = allFields.filter(f => {
+    const val = formData[f];
+    if (Array.isArray(val)) return val.length > 0;
+    return val != null && val !== '';
+  }).length;
   const overallProgress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
 
-  const getSectionCompletion = useCallback((section) => {
-    const answered = section.questions.filter(q => formData[q.field] != null).length;
-    return { answered, total: section.questions.length };
-  }, [formData]);
-
   // Subcomponents
-  const FrequencySelector = ({ value, onChange, labels = FREQ_LABELS }) => (
-    <div className="check-freq-grid">
-      {labels.map((label, idx) => (
+  const RadioSelector = ({ options, value, onChange, color }) => (
+    <div className="check-radio-grid">
+      {options.map(opt => (
         <button
-          key={idx}
+          key={opt.value}
           type="button"
-          className={`check-freq-btn${value === idx ? ' selected' : ''}`}
-          onClick={() => onChange(idx)}
+          className={`check-radio-btn${value === opt.value ? ' selected' : ''}`}
+          onClick={() => onChange(opt.value)}
+          style={value === opt.value ? { background: color, borderColor: color } : {}}
         >
-          {label}
+          {opt.label}
         </button>
       ))}
     </div>
   );
 
-  const EpisodeStepper = ({ value, onChange, max = 999 }) => {
-    const val = value || 0;
+  const CheckboxGroup = ({ options, value, onChange }) => {
+    const current = value || [];
     return (
-      <div className="check-stepper">
-        <button
-          type="button"
-          className="check-stepper-btn"
-          onClick={() => onChange(Math.max(0, val - 1))}
-          disabled={val <= 0}
-        >
-          -
-        </button>
-        <div className="check-stepper-value">{val}</div>
-        <button
-          type="button"
-          className="check-stepper-btn"
-          onClick={() => onChange(Math.min(max, val + 1))}
-        >
-          +
-        </button>
+      <div className="check-checkbox-grid">
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            className={`check-checkbox-btn${current.includes(opt.value) ? ' selected' : ''}`}
+            onClick={() => onChange(opt.value)}
+          >
+            {current.includes(opt.value) && <i className="ri-check-line"></i>}
+            {opt.label}
+          </button>
+        ))}
       </div>
     );
   };
+
+  const TextareaField = ({ value, onChange, placeholder }) => (
+    <textarea
+      className="check-textarea"
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={3}
+    />
+  );
 
   if (loading) {
     return (
@@ -244,6 +288,8 @@ function MinorCheckForm() {
     );
   }
 
+  const f = formData;
+
   return (
     <div className="check-card check-theme-minor">
       {/* Header */}
@@ -255,7 +301,7 @@ function MinorCheckForm() {
           È il momento del tuo check. Raccontaci come stai!
         </p>
         <p className="check-header-hint">
-          <i className="ri-time-line"></i> Compilazione: ~10 min · Rispondi pensando agli ultimi 28 giorni
+          <i className="ri-time-line"></i> Compilazione: ~10 min
         </p>
       </div>
 
@@ -273,141 +319,376 @@ function MinorCheckForm() {
             </div>
           </div>
 
-          {/* Sections */}
-          {ALL_SECTIONS.map(section => {
-            const { answered, total } = getSectionCompletion(section);
-            const isCollapsed = collapsedSections[section.id];
-            const badgeClass = answered === 0 ? 'pending' : answered === total ? 'complete' : 'partial';
-
-            return (
-              <div
-                key={section.id}
-                className={`check-section${isCollapsed ? ' collapsed' : ''}`}
-              >
-                <div className="check-section-header" onClick={() => toggleSection(section.id)}>
-                  <div
-                    className="check-section-icon"
-                    style={{ background: `${section.color}15`, color: section.color }}
-                  >
-                    <i className={section.icon}></i>
-                  </div>
-                  <span className="check-section-title">{section.title}</span>
-                  <span className={`check-section-badge ${badgeClass}`}>
-                    {answered === total && total > 0 ? (
-                      <><i className="ri-check-line" style={{ marginRight: 2 }}></i> Fatto</>
-                    ) : (
-                      `${answered}/${total}`
-                    )}
-                  </span>
-                  <i className="ri-arrow-down-s-line check-section-chevron"></i>
-                </div>
-
-                <div className="check-section-body">
-                  {section.description && (
-                    <p style={{ fontSize: '0.82rem', color: 'var(--check-text-muted)', marginBottom: 16 }}>
-                      {section.description}
-                    </p>
-                  )}
-
-                  {section.questions.map((q, idx) => {
-                    const qNum = section.startNum + idx;
-                    const isEpisode = section.type === 'episode';
-                    const isMixed = section.type === 'mixed';
-
-                    // Determine which selector to use
-                    let selector;
-                    if (isEpisode) {
-                      selector = (
-                        <EpisodeStepper
-                          value={formData[q.field]}
-                          onChange={(val) => handleChange(q.field, val)}
-                          max={q.max || 999}
-                        />
-                      );
-                    } else if (isMixed) {
-                      const labels = q.labels || (q.type === 'intensity' ? INTENSITY_LABELS : FREQ_LABELS);
-                      selector = (
-                        <FrequencySelector
-                          value={formData[q.field]}
-                          onChange={(val) => handleFreqChange(q.field, val, section.questions, idx)}
-                          labels={labels}
-                        />
-                      );
-                    } else if (section.type === 'intensity') {
-                      selector = (
-                        <FrequencySelector
-                          value={formData[q.field]}
-                          onChange={(val) => handleFreqChange(q.field, val, section.questions, idx)}
-                          labels={INTENSITY_LABELS}
-                        />
-                      );
-                    } else {
-                      selector = (
-                        <FrequencySelector
-                          value={formData[q.field]}
-                          onChange={(val) => handleFreqChange(q.field, val, section.questions, idx)}
-                        />
-                      );
-                    }
-
-                    return (
-                      <div
-                        key={q.field}
-                        ref={el => questionRefs.current[q.field] = el}
-                        className={`check-question${formData[q.field] != null ? ' answered' : ''}`}
-                      >
-                        <div className="check-question-label">
-                          <span className="check-question-number">{qNum}</span>
-                          {q.label}
-                        </div>
-                        {selector}
-                      </div>
-                    );
-                  })}
-                </div>
+          {/* ═══ SEZIONE 1: Come ti senti ═══ */}
+          <div className={`check-section${collapsedSections.sentire ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('sentire')}>
+              <div className="check-section-icon" style={{ background: '#f59e0b15', color: '#f59e0b' }}>
+                <i className="ri-emotion-line"></i>
               </div>
-            );
-          })}
-
-          {/* Final Info Section */}
-          <div className="check-section">
-            <div className="check-section-header" style={{ cursor: 'default' }}>
-              <div
-                className="check-section-icon"
-                style={{ background: '#22c55e15', color: '#22c55e' }}
-              >
-                <i className="ri-scales-line"></i>
-              </div>
-              <span className="check-section-title">Informazioni Finali</span>
+              <span className="check-section-title">Come ti senti in questo periodo</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
             </div>
-
             <div className="check-section-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label className="check-textarea-label">Peso attuale (kg)</label>
+              {/* Q1 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  In generale, come ti senti nelle ultime settimane?
+                </div>
+                <RadioSelector
+                  options={SENTIRE_OPTIONS}
+                  value={f.sentire_generale}
+                  onChange={(v) => handleChange('sentire_generale', v)}
+                  color="#f59e0b"
+                />
+              </div>
+              {/* Q2 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  C'è qualcosa che in questo periodo ti sta mettendo in difficoltà o ti sta pesando?
+                  <br /><small style={{ color: 'var(--check-text-muted)' }}>(scuola, relazioni, famiglia, sport, corpo, alimentazione, altro…)</small>
+                </div>
+                <TextareaField
+                  value={f.difficolta}
+                  onChange={(v) => handleChange('difficolta', v)}
+                  placeholder="Raccontaci liberamente..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 2: Il percorso alimentare ═══ */}
+          <div className={`check-section${collapsedSections.percorso ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('percorso')}>
+              <div className="check-section-icon" style={{ background: '#3b82f615', color: '#3b82f6' }}>
+                <i className="ri-restaurant-line"></i>
+              </div>
+              <span className="check-section-title">Il percorso alimentare</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              {/* Q3 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Come stai vivendo il percorso che stai facendo?
+                </div>
+                <RadioSelector
+                  options={PERCORSO_OPTIONS}
+                  value={f.percorso_vissuto}
+                  onChange={(v) => handleChange('percorso_vissuto', v)}
+                  color="#3b82f6"
+                />
+              </div>
+              {/* Q4 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Se vuoi, racconta meglio come ti senti rispetto al percorso.
+                </div>
+                <TextareaField
+                  value={f.percorso_racconto}
+                  onChange={(v) => handleChange('percorso_racconto', v)}
+                  placeholder="Scrivi qui i tuoi pensieri..."
+                />
+              </div>
+              {/* Q5 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Ci sono aspetti che trovi:
+                </div>
+                <CheckboxGroup
+                  options={ASPETTI_DIFFICILI}
+                  value={f.aspetti_difficili}
+                  onChange={(v) => handleCheckboxChange('aspetti_difficili', v)}
+                />
+              </div>
+              {/* Q5b */}
+              {(f.aspetti_difficili?.length > 0) && (
+                <div className="check-question">
+                  <div className="check-question-label">
+                    Se sì, quali? Puoi spiegarlo meglio?
+                  </div>
+                  <TextareaField
+                    value={f.aspetti_difficili_dettaglio}
+                    onChange={(v) => handleChange('aspetti_difficili_dettaglio', v)}
+                    placeholder="Descrivi quali aspetti trovi difficili..."
+                  />
+                </div>
+              )}
+              {/* Q6 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Ti senti ascoltato/a e rispettato/a nelle tue opinioni e nei tuoi tempi?
+                </div>
+                <RadioSelector
+                  options={ASCOLTO_OPTIONS}
+                  value={f.ascoltato}
+                  onChange={(v) => handleChange('ascoltato', v)}
+                  color="#3b82f6"
+                />
+              </div>
+              {/* Q6b */}
+              {(f.ascoltato === 1 || f.ascoltato === 2) && (
+                <div className="check-question">
+                  <div className="check-question-label">
+                    In quali situazioni ti sei sentito/a così?
+                  </div>
+                  <TextareaField
+                    value={f.ascoltato_situazioni}
+                    onChange={(v) => handleChange('ascoltato_situazioni', v)}
+                    placeholder="Raccontaci quando ti è capitato..."
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 3: Cibo e quotidianità ═══ */}
+          <div className={`check-section${collapsedSections.cibo ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('cibo')}>
+              <div className="check-section-icon" style={{ background: '#8b5cf615', color: '#8b5cf6' }}>
+                <i className="ri-cup-line"></i>
+              </div>
+              <span className="check-section-title">Cibo e quotidianità</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              {/* Q7 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Quanto riesci a mettere in pratica le indicazioni nella tua vita quotidiana?
+                </div>
+                <RadioSelector
+                  options={PRATICA_OPTIONS}
+                  value={f.pratica_quotidiana}
+                  onChange={(v) => handleChange('pratica_quotidiana', v)}
+                  color="#8b5cf6"
+                />
+              </div>
+              {/* Q8 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  In quali situazioni fai più fatica?
+                </div>
+                <CheckboxGroup
+                  options={FATICHE_SITUAZIONI}
+                  value={f.fatica_situazioni}
+                  onChange={(v) => handleCheckboxChange('fatica_situazioni', v)}
+                />
+              </div>
+              {/* Q9 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Ci sono alimenti o momenti del pasto che ti generano disagio (fisico o emotivo)?
+                </div>
+                <TextareaField
+                  value={f.alimenti_disagio}
+                  onChange={(v) => handleChange('alimenti_disagio', v)}
+                  placeholder="Descrivi se ci sono situazioni che ti creano difficoltà..."
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 4: Fame, sazietà e ascolto del corpo ═══ */}
+          <div className={`check-section${collapsedSections.fame ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('fame')}>
+              <div className="check-section-icon" style={{ background: '#ec489915', color: '#ec4899' }}>
+                <i className="ri-heart-pulse-line"></i>
+              </div>
+              <span className="check-section-title">Fame, sazietà e ascolto del corpo</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              {/* Q10 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Riesci a riconoscere quando hai realmente fame?
+                </div>
+                <RadioSelector
+                  options={RICONOSCI_OPTIONS}
+                  value={f.riconoscere_fame}
+                  onChange={(v) => handleChange('riconoscere_fame', v)}
+                  color="#ec4899"
+                />
+              </div>
+              {/* Q11 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Riesci a riconoscere quando sei sazio/a?
+                </div>
+                <RadioSelector
+                  options={RICONOSCI_OPTIONS}
+                  value={f.riconoscere_sazieta}
+                  onChange={(v) => handleChange('riconoscere_sazieta', v)}
+                  color="#ec4899"
+                />
+              </div>
+              {/* Q12 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Ti capita di mangiare anche in assenza di fame (per noia, stress, emozioni, abitudine)?
+                </div>
+                <RadioSelector
+                  options={MANGIARE_SENZA_FAME_OPTIONS}
+                  value={f.mangiare_senza_fame}
+                  onChange={(v) => handleChange('mangiare_senza_fame', v)}
+                  color="#ec4899"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 5: Energia, digestione e sonno ═══ */}
+          <div className={`check-section${collapsedSections.energia ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('energia')}>
+              <div className="check-section-icon" style={{ background: '#22c55e15', color: '#22c55e' }}>
+                <i className="ri-flashlight-line"></i>
+              </div>
+              <span className="check-section-title">Energia, digestione e sonno</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              {/* Q13 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Come valuti la tua energia durante la giornata?
+                </div>
+                <RadioSelector
+                  options={ENERGIA_OPTIONS}
+                  value={f.energia}
+                  onChange={(v) => handleChange('energia', v)}
+                  color="#22c55e"
+                />
+              </div>
+              {/* Q14 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Hai avuto disturbi fisici nelle ultime settimane?
+                  <br /><small style={{ color: 'var(--check-text-muted)' }}>(es. gonfiore, mal di pancia, mal di testa, nausea, irregolarità intestinale…)</small>
+                </div>
+                <TextareaField
+                  value={f.disturbi_fisici}
+                  onChange={(v) => handleChange('disturbi_fisici', v)}
+                  placeholder="Descrivi eventuali disturbi..."
+                />
+              </div>
+              {/* Q15 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Come stai dormendo ultimamente?
+                </div>
+                <RadioSelector
+                  options={SONNO_OPTIONS}
+                  value={f.sonno}
+                  onChange={(v) => handleChange('sonno', v)}
+                  color="#22c55e"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 6: Peso e crescita ═══ */}
+          <div className={`check-section${collapsedSections.peso ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('peso')}>
+              <div className="check-section-icon" style={{ background: '#64748b15', color: '#64748b' }}>
+                <i className="ri-scales-3-line"></i>
+              </div>
+              <span className="check-section-title">Peso e crescita</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              <p style={{ fontSize: '0.82rem', color: 'var(--check-text-muted)', marginBottom: 16 }}>
+                <i className="ri-information-line"></i> Questa sezione viene utilizzata solo se concordata con il professionista.
+              </p>
+              {/* Q16 - Peso */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Peso attuale (se richiesto)
+                </div>
+                <div style={{ maxWidth: 160 }}>
                   <input
                     type="number"
                     className="check-input"
                     step="0.1"
                     min="30"
                     max="300"
-                    value={formData.peso_attuale || ''}
-                    onChange={(e) => handleChange('peso_attuale', parseFloat(e.target.value))}
+                    value={f.peso_attuale ?? ''}
+                    onChange={(e) => handleChange('peso_attuale', e.target.value ? parseFloat(e.target.value) : null)}
                     placeholder="Es: 55.5"
                   />
+                  <div className="check-input-hint">kg</div>
                 </div>
-                <div>
-                  <label className="check-textarea-label">Altezza (cm)</label>
+              </div>
+              {/* Q17 - Data misurazione */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Data della misurazione
+                </div>
+                <div style={{ maxWidth: 200 }}>
                   <input
-                    type="number"
+                    type="date"
                     className="check-input"
-                    min="100"
-                    max="250"
-                    value={formData.altezza || ''}
-                    onChange={(e) => handleChange('altezza', parseInt(e.target.value))}
-                    placeholder="Es: 165"
+                    value={f.data_misurazione || ''}
+                    onChange={(e) => handleChange('data_misurazione', e.target.value)}
                   />
                 </div>
+              </div>
+              {/* Q18 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  Come ti senti rispetto al peso o alle misurazioni?
+                </div>
+                <RadioSelector
+                  options={SENTIMENTO_PESO_OPTIONS}
+                  value={f.sentimento_peso}
+                  onChange={(v) => handleChange('sentimento_peso', v)}
+                  color="#64748b"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ═══ SEZIONE 9: Cosa possiamo migliorare ═══ */}
+          <div className={`check-section${collapsedSections.migliorare ? ' collapsed' : ''}`}>
+            <div className="check-section-header" onClick={() => toggleSection('migliorare')}>
+              <div className="check-section-icon" style={{ background: '#f9731615', color: '#f97316' }}>
+                <i className="ri-lightbulb-line"></i>
+              </div>
+              <span className="check-section-title">Cosa possiamo migliorare</span>
+              <i className="ri-arrow-down-s-line check-section-chevron"></i>
+            </div>
+            <div className="check-section-body">
+              {/* Q19 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  C'è qualcosa che vorresti modificare nel percorso per sentirlo più adatto a te?
+                </div>
+                <TextareaField
+                  value={f.modifiche_percorso}
+                  onChange={(v) => handleChange('modifiche_percorso', v)}
+                  placeholder="Scrivi le tue idee..."
+                />
+              </div>
+              {/* Q20 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  C'è qualcosa che senti stia funzionando particolarmente bene?
+                </div>
+                <TextareaField
+                  value={f.funzionamento_bene}
+                  onChange={(v) => handleChange('funzionamento_bene', v)}
+                  placeholder="Cosa ti sta aiutando di più?"
+                />
+              </div>
+              {/* Q21 */}
+              <div className="check-question">
+                <div className="check-question-label">
+                  C'è un aspetto del tuo rapporto con il cibo o con il corpo che vorresti approfondire di più?
+                </div>
+                <TextareaField
+                  value={f.approfondire}
+                  onChange={(v) => handleChange('approfondire', v)}
+                  placeholder="Cosa ti piacerebbe esplorare?"
+                />
               </div>
             </div>
           </div>
