@@ -7475,8 +7475,8 @@ def _apply_hm_page_scope(query):
     """
     Filtro RBAC specifico per la pagina Health Manager:
     - Admin/CCO: vedono tutto (nessun filtro aggiuntivo)
-    - Team Leader HM: vedono i pazienti il cui health_manager_id è un membro del team
-    - Health Manager: vedono solo i pazienti assegnati a loro (health_manager_id)
+    - HM che guida un team: vedono i pazienti di tutti i membri del team
+    - Health Manager semplice: vedono solo i pazienti assegnati a loro
     """
     user_role = getattr(current_user, "role", None)
     role_value = user_role.value if hasattr(user_role, "value") else str(user_role or "")
@@ -7489,37 +7489,45 @@ def _apply_hm_page_scope(query):
     )
     if is_admin_or_cco:
         return query
-    # Team Leader HM: pazienti assegnati agli HM del proprio team
-    if role_value == "team_leader" and _is_team_leader_health_manager_scope(current_user):
+    # Chi guida un team HM (qualsiasi ruolo: team_leader O health_manager)
+    # vede i pazienti di TUTTI i membri del proprio team
+    if _leads_hm_team(current_user):
         team_member_ids = {current_user.id}
         for team in (getattr(current_user, "teams_led", []) or []):
-            for member in (getattr(team, "members", []) or []):
-                team_member_ids.add(member.id)
+            team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
+            if str(team_type or "").strip().lower() == "health_manager":
+                for member in (getattr(team, "members", []) or []):
+                    team_member_ids.add(member.id)
         return query.filter(Cliente.health_manager_id.in_(list(team_member_ids)))
-    # Health Manager: solo i propri pazienti
+    # Health Manager semplice: solo i propri pazienti
     if role_value == "health_manager":
         return query.filter(Cliente.health_manager_id == current_user.id)
     return query
 
 
-def _is_team_leader_health_manager_scope(user) -> bool:
-    role = getattr(user, "role", None)
-    role_value = role.value if hasattr(role, "value") else str(role or "")
-    if role_value != "team_leader":
-        return False
+def _leads_hm_team(user) -> bool:
+    """True se l'utente guida almeno un team di tipo health_manager."""
     teams_led = getattr(user, "teams_led", []) or []
     for team in teams_led:
         team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
         if str(team_type or "").strip().lower() == "health_manager":
             return True
+    return False
+
+
+def _is_team_leader_health_manager_scope(user) -> bool:
+    if _leads_hm_team(user):
+        return True
+    role = getattr(user, "role", None)
+    role_value = role.value if hasattr(role, "value") else str(role or "")
+    if role_value != "team_leader":
+        return False
     specialty = getattr(user, "specialty", None)
     specialty_value = specialty.value if hasattr(specialty, "value") else str(specialty or "")
     specialty_value = specialty_value.strip().lower()
     if specialty_value == "health_manager":
         return True
-    department_name = getattr(getattr(user, "department", None), "name", "")
-    department_name = str(department_name or "").strip().lower()
-    return ("health" in department_name) or ("customer success" in department_name)
+    return False
 
 
 def _team_leader_visible_member_ids(user) -> set[int]:
