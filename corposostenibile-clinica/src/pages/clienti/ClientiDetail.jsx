@@ -776,6 +776,7 @@ function ClientiDetail() {
   const [savingMarketingConsents, setSavingMarketingConsents] = useState(false);
   const [showMarketingContentModal, setShowMarketingContentModal] = useState(false);
   const [editingMarketingContent, setEditingMarketingContent] = useState(null);
+  const [showStoriaModal, setShowStoriaModal] = useState(false);
   const [marketingContentForm, setMarketingContentForm] = useState({
     content_type: 'stories',
     checked: true,
@@ -3668,7 +3669,19 @@ function ClientiDetail() {
                       Storia e Obiettivi
                     </div>
                     <div className="cd-field">
-                      <label className="cd-field-label">Storia del Cliente</label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <label className="cd-field-label" style={{ marginBottom: 0 }}>Storia del Cliente</label>
+                        {formData.storia_cliente && (
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm"
+                            style={{ fontSize: '0.75rem', padding: '2px 10px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4 }}
+                            onClick={() => setShowStoriaModal(true)}
+                          >
+                            <i className="ri-book-read-line"></i> Leggi storia
+                          </button>
+                        )}
+                      </div>
                       <textarea
                         className="cd-textarea"
                         rows="3"
@@ -9328,6 +9341,48 @@ function ClientiDetail() {
               <button className="cd-btn-save" onClick={handleSaveMarketingContent} disabled={savingMarketingConsents}>
                 {savingMarketingConsents ? <span className="spinner-border spinner-border-sm"></span> : <><i className="ri-save-line" style={{ marginRight: 4 }}></i>Salva</>}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Storia Cliente Modal */}
+      {showStoriaModal && (
+        <div className="cd-modal-backdrop" onClick={() => setShowStoriaModal(false)}>
+          <div className="cd-modal lg" onClick={(e) => e.stopPropagation()}>
+            <div className="cd-modal-header">
+              <h5><i className="ri-book-read-line" style={{ marginRight: 8 }}></i>Storia del Cliente</h5>
+              <button className="cd-modal-close" onClick={() => setShowStoriaModal(false)}><i className="ri-close-line"></i></button>
+            </div>
+            <div className="cd-modal-body scrollable" style={{ maxHeight: '70vh', padding: '20px 24px' }}>
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem', lineHeight: 1.7, color: '#1e293b' }}>
+                {formData.storia_cliente || 'Nessuna storia registrata.'}
+              </div>
+              {(formData.problema || formData.paure || formData.conseguenze) && (
+                <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+                  {formData.problema && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#64748b', marginBottom: 4 }}>Problema</div>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6, color: '#334155' }}>{formData.problema}</div>
+                    </div>
+                  )}
+                  {formData.paure && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#64748b', marginBottom: 4 }}>Paure</div>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6, color: '#334155' }}>{formData.paure}</div>
+                    </div>
+                  )}
+                  {formData.conseguenze && (
+                    <div style={{ marginBottom: 14 }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#64748b', marginBottom: 4 }}>Conseguenze</div>
+                      <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.6, color: '#334155' }}>{formData.conseguenze}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="cd-modal-footer">
+              <button className="cd-btn-back" onClick={() => setShowStoriaModal(false)}>Chiudi</button>
             </div>
           </div>
         </div>
