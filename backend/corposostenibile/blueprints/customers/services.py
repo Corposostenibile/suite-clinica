@@ -943,9 +943,22 @@ def update_cliente(
         _track_patologie_psico_changes(cliente, data)
         _track_patologie_coach_changes(cliente, data)
 
-        # Evita race tra stato globale e stati servizi + scadenze ricalcolate
+        # Evita race tra stato globale e stati servizi + scadenze ricalcolate.
+        # Nota: consideriamo "cambio stato servizio" solo quando il valore cambia davvero,
+        # non solo perché la chiave è presente nel payload.
         _servizi_stato_keys = {"stato_nutrizione", "stato_coach", "stato_psicologia"}
-        _has_service_state_change = bool(_servizi_stato_keys & data.keys())
+
+        def _normalize_state_value(value):
+            if hasattr(value, "value"):
+                return value.value
+            return value
+
+        _service_state_keys_in_payload = _servizi_stato_keys & data.keys()
+        _has_service_state_change = any(
+            _normalize_state_value(data.get(service_key))
+            != _normalize_state_value(getattr(cliente, service_key, None))
+            for service_key in _service_state_keys_in_payload
+        )
         _scadenza_skip_if_stato_updated = {
             "data_scadenza_nutrizione": "stato_nutrizione",
             "data_scadenza_coach": "stato_coach",
