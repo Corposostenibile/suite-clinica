@@ -208,7 +208,7 @@ function Profilo() {
   const isCurrentUserCco = currentUser?.specialty === 'cco';
   const isCurrentUserAdmin = Boolean(currentUser?.is_admin || currentUser?.role === 'admin');
   const isCurrentUserProfessionista = isProfessionistaStandard(currentUser);
-  const canViewCapacityTab = Boolean(isCurrentUserAdmin || currentUser?.role === 'team_leader' || isCurrentUserCco);
+  const canViewCapacityTab = Boolean(isCurrentUserAdmin || currentUser?.role === 'team_leader' || currentUser?.role === 'health_manager' || isCurrentUserCco);
   const canEditCapacity = Boolean(isCurrentUserAdmin || isCurrentUserCco);
   const canViewQualityTab = Boolean(isCurrentUserAdmin || isCurrentUserCco);
 
@@ -1143,43 +1143,94 @@ function Profilo() {
                   <div className="tl-alert info">Nessun dato capienza disponibile per questo professionista.</div>
                 ) : (
                   <div className="tl-table-wrap" style={{ overflowX: 'auto' }}>
-                    <table className="tl-table">
-                      <thead>
-                        <tr><th>Professionista</th><th>Capienza contrattuale</th><th>Clienti assegnati</th><th>% Capienza</th></tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="tl-cell-name">{capacityRow.full_name}</td>
-                          <td>
-                            {canEditCapacity ? (
-                              <div className="tl-capacity-edit">
-                                <input type="number" min="0" className="tl-capacity-input" value={capacityInput}
-                                  onChange={(e) => setCapacityInput(e.target.value)} />
-                                <button className="tl-capacity-save" disabled={capacitySaving}
-                                  onClick={async () => {
-                                    if (capacityInput === '' || Number.isNaN(Number(capacityInput))) return;
-                                    setCapacitySaving(true);
-                                    try {
-                                      const res = await teamService.updateProfessionalCapacity(user.id, Number(capacityInput));
-                                      setCapacityRow(res.row); setCapacityInput(String(res.row.capienza_contrattuale ?? ''));
-                                    } catch (err) {
-                                      alert(err?.response?.data?.message || 'Errore nel salvataggio della capienza contrattuale');
-                                    } finally { setCapacitySaving(false); }
-                                  }}>
-                                  {capacitySaving ? '...' : 'Salva'}
-                                </button>
-                              </div>
-                            ) : <span>{capacityRow.capienza_contrattuale}</span>}
-                          </td>
-                          <td>
-                            <span className={`tl-badge ${capacityRow.is_over_capacity ? 'danger' : 'neutral'}`}>
-                              {capacityRow.clienti_assegnati}
-                            </span>
-                          </td>
-                          <td>{(capacityRow.percentuale_capienza || 0).toFixed(1)}%</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    {capacityRow.role_type === 'health_manager' ? (
+                      /* Tabella capienza HM con colonne specifiche */
+                      <table className="tl-table">
+                        <thead>
+                          <tr>
+                            <th>Health Manager</th>
+                            <th>Capienza contrattuale</th>
+                            <th>Clienti convertiti</th>
+                            <th>Lead in attesa</th>
+                            <th>Totale</th>
+                            <th>% Capienza</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="tl-cell-name">{capacityRow.full_name}</td>
+                            <td>
+                              {canEditCapacity ? (
+                                <div className="tl-capacity-edit">
+                                  <input type="number" min="0" className="tl-capacity-input" value={capacityInput}
+                                    onChange={(e) => setCapacityInput(e.target.value)} />
+                                  <button className="tl-capacity-save" disabled={capacitySaving}
+                                    onClick={async () => {
+                                      if (capacityInput === '' || Number.isNaN(Number(capacityInput))) return;
+                                      setCapacitySaving(true);
+                                      try {
+                                        const res = await teamService.updateProfessionalCapacity(user.id, Number(capacityInput));
+                                        setCapacityRow(res.row); setCapacityInput(String(res.row.capienza_contrattuale ?? ''));
+                                      } catch (err) {
+                                        alert(err?.response?.data?.message || 'Errore nel salvataggio della capienza contrattuale');
+                                      } finally { setCapacitySaving(false); }
+                                    }}>
+                                    {capacitySaving ? '...' : 'Salva'}
+                                  </button>
+                                </div>
+                              ) : <span>{capacityRow.capienza_contrattuale}</span>}
+                            </td>
+                            <td><span className="tl-badge success">{capacityRow.clienti_convertiti ?? 0}</span></td>
+                            <td><span className={`tl-badge ${capacityRow.lead_in_attesa > 0 ? 'warning' : 'neutral'}`}>{capacityRow.lead_in_attesa ?? 0}</span></td>
+                            <td>
+                              <span className={`tl-badge ${capacityRow.is_over_capacity ? 'danger' : 'neutral'}`}>
+                                {capacityRow.clienti_assegnati}
+                              </span>
+                            </td>
+                            <td>{(capacityRow.percentuale_capienza || 0).toFixed(1)}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    ) : (
+                      /* Tabella capienza standard per professionisti */
+                      <table className="tl-table">
+                        <thead>
+                          <tr><th>Professionista</th><th>Capienza contrattuale</th><th>Clienti assegnati</th><th>% Capienza</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="tl-cell-name">{capacityRow.full_name}</td>
+                            <td>
+                              {canEditCapacity ? (
+                                <div className="tl-capacity-edit">
+                                  <input type="number" min="0" className="tl-capacity-input" value={capacityInput}
+                                    onChange={(e) => setCapacityInput(e.target.value)} />
+                                  <button className="tl-capacity-save" disabled={capacitySaving}
+                                    onClick={async () => {
+                                      if (capacityInput === '' || Number.isNaN(Number(capacityInput))) return;
+                                      setCapacitySaving(true);
+                                      try {
+                                        const res = await teamService.updateProfessionalCapacity(user.id, Number(capacityInput));
+                                        setCapacityRow(res.row); setCapacityInput(String(res.row.capienza_contrattuale ?? ''));
+                                      } catch (err) {
+                                        alert(err?.response?.data?.message || 'Errore nel salvataggio della capienza contrattuale');
+                                      } finally { setCapacitySaving(false); }
+                                    }}>
+                                    {capacitySaving ? '...' : 'Salva'}
+                                  </button>
+                                </div>
+                              ) : <span>{capacityRow.capienza_contrattuale}</span>}
+                            </td>
+                            <td>
+                              <span className={`tl-badge ${capacityRow.is_over_capacity ? 'danger' : 'neutral'}`}>
+                                {capacityRow.clienti_assegnati}
+                              </span>
+                            </td>
+                            <td>{(capacityRow.percentuale_capienza || 0).toFixed(1)}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 )}
               </div>

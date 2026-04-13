@@ -5,10 +5,11 @@
 
 ## Da Implementare
 
-### 1. Capienza HM (1 a 1 il valore)
-- Implementare un campo "capienza" per gli Health Manager
-- Valore numerico che indica quanti pazienti può gestire un HM
-- Relazione 1 a 1 tra HM e capienza
+### 1. Capienza HM (1 a 1 il valore) ✅
+- Implementare un campo "capienza" per gli Health Manager ✅
+- Valore numerico che indica quanti pazienti può gestire un HM ✅
+- Relazione 1 a 1 tra HM e capienza ✅
+- **Nota**: La struttura base esisteva già (`ProfessionistCapacity` con `role_type='health_manager'`). Aggiunte colonne specifiche HM nel profilo (clienti_convertiti, lead_in_attesa) e permessi per visualizzazione HM.
 
 ### 2. Team HM con 2 Leader
 - Modificare la struttura del team HM per supportare 2 team leader invece di 1
