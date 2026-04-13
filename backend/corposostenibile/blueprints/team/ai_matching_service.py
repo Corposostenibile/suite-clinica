@@ -2,6 +2,7 @@
 import os
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 
 from flask import current_app
@@ -24,6 +25,65 @@ class AIMatchingService:
     """
     Service for AI-powered lead analysis and professional matching.
     """
+
+    @staticmethod
+    def _parse_json_response(text: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse JSON response from AI, handling common malformations.
+        
+        Handles:
+        - Extra closing braces at the end
+        - JSON wrapped in markdown code blocks
+        - Extra text before/after JSON
+        
+        Returns parsed dict or None if parsing fails.
+        """
+        if not text:
+            return None
+        
+        text = text.strip()
+        
+        # Try parsing as-is first
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        
+        # Remove markdown code blocks if present
+        text = re.sub(r'^```(?:json)?\s*', '', text)
+        text = re.sub(r'\s*```$', '', text)
+        text = text.strip()
+        
+        # Try parsing again after removing markdown
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+        
+        # Try to extract JSON object from the text
+        # Find first { and last }
+        first_brace = text.find('{')
+        last_brace = text.rfind('}')
+        
+        if first_brace != -1 and last_brace > first_brace:
+            json_candidate = text[first_brace:last_brace + 1]
+            try:
+                return json.loads(json_candidate)
+            except json.JSONDecodeError:
+                pass
+            
+            # Try removing trailing braces (common Gemini issue)
+            while last_brace > first_brace:
+                json_candidate = text[first_brace:last_brace]
+                try:
+                    return json.loads(json_candidate + '}')
+                except json.JSONDecodeError:
+                    last_brace = text.rfind('}', 0, last_brace)
+                    continue
+                break
+        
+        logger.warning(f"Could not parse JSON from AI response: {text[:200]}")
+        return None
 
     @staticmethod
     def _get_client():
@@ -117,7 +177,10 @@ class AIMatchingService:
             
             if response.text:
                 try:
-                    analysis = json.loads(response.text)
+                    analysis = cls._parse_json_response(response.text)
+                    if analysis is None:
+                        return {'summary': 'Errore analisi', 'criteria': [], 'suggested_focus': []}
+                    
                     # Verify criteria are valid
                     extracted = analysis.get('criteria', [])
                     valid_extracted = [tag for tag in extracted if tag in allowed_criteria]
@@ -127,8 +190,8 @@ class AIMatchingService:
                         'criteria': valid_extracted,
                         'suggested_focus': analysis.get('suggested_focus', [])
                     }
-                except json.JSONDecodeError:
-                    logger.error(f"Failed to parse JSON from AI response: {response.text}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from AI response: {response.text[:500]}")
                     return {'summary': 'Errore analisi', 'criteria': [], 'suggested_focus': []}
             
             return {'summary': 'Nessuna risposta dall\'AI', 'criteria': [], 'suggested_focus': []}
