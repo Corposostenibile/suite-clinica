@@ -425,18 +425,14 @@ def _get_assigned_clients_count_map_active_by_role(user_ids: list[int]) -> dict[
         result[(int(user_id), 'psicologa')] = int(cnt)
 
     # Health Manager:
-    # - clienti effettivi attivi
-    # - lead pre-onboarding (service_status = pending_assignment)
-    # Entrambi conteggiati da Cliente.health_manager_id, valorizzato dal bridge GHL.
+    # - SOLO clienti con stato_cliente == attivo (per capienza e %)
+    # - I lead_in_attesa NON sono inclusi nel conteggio capienza
     hm_rows = db.session.query(
         Cliente.health_manager_id.label('user_id'),
         func.count(distinct(Cliente.cliente_id)).label('cnt'),
     ).filter(
         Cliente.health_manager_id.in_(user_ids),
-        or_(
-            Cliente.stato_cliente == StatoClienteEnum.attivo,
-            Cliente.service_status == 'pending_assignment',
-        ),
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
     ).group_by(Cliente.health_manager_id).all()
     for user_id, cnt in hm_rows:
         result[(int(user_id), 'health_manager')] = int(cnt)
@@ -610,17 +606,14 @@ def _get_assigned_clients_by_type(user_ids: list[int]) -> dict[tuple[int, str], 
     ).group_by(psico_sq.c.user_id, psico_sq.c.tipo).all()
     _merge(psico_rows, 'psicologa')
 
-    # Health Manager: health_manager_id, stato_cliente = attivo OR service_status = pending_assignment
+    # Health Manager: health_manager_id, SOLO stato_cliente = attivo (lead_in_attesa esclusi dalla capienza)
     hm_rows = db.session.query(
         Cliente.health_manager_id.label('user_id'),
         Cliente.tipologia_cliente.label('tipo'),
         func.count(distinct(Cliente.cliente_id)).label('cnt'),
     ).filter(
         Cliente.health_manager_id.in_(user_ids),
-        or_(
-            Cliente.stato_cliente == StatoClienteEnum.attivo,
-            Cliente.service_status == 'pending_assignment',
-        ),
+        Cliente.stato_cliente == StatoClienteEnum.attivo,
     ).group_by(Cliente.health_manager_id, Cliente.tipologia_cliente).all()
     _merge(hm_rows, 'health_manager')
 
