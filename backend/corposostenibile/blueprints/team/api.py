@@ -228,8 +228,11 @@ def _is_health_manager_team_leader(user) -> bool:
     """True se team leader HM (team_type HM guidato, specialty o dipartimento)."""
     if _get_user_role(user) != 'team_leader':
         return False
+    # Teams dove l'utente è head (includes head_2 via relationship)
     teams_led = getattr(user, 'teams_led', []) or []
-    for team in teams_led:
+    teams_led_2 = getattr(user, 'teams_led_2', []) or []
+    all_teams = teams_led + teams_led_2
+    for team in all_teams:
         team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
         if str(team_type or '').strip().lower() == 'health_manager':
             return True
@@ -241,9 +244,13 @@ def _is_health_manager_team_leader(user) -> bool:
 
 
 def _get_team_leader_member_ids(user_id: int) -> set[int]:
-    """Ritorna ID membri dei team guidati dal team leader (incluso il TL stesso)."""
+    """Ritorna ID membri dei team guidati dal team leader (head o head_2, incluso il TL stesso)."""
+    # Teams dove l'utente è head_id O head_2_id
     team_ids = db.session.query(Team.id).filter(
-        Team.head_id == user_id,
+        or_(
+            Team.head_id == user_id,
+            Team.head_2_id == user_id
+        ),
         Team.is_active == True
     )
     rows = db.session.query(team_members.c.user_id).filter(
@@ -736,11 +743,20 @@ def get_members():
 
     # Role filter - include team leader as "grade" of professional domains.
     if role_filter:
-        hm_team_leader_ids_sq = db.session.query(Team.head_id).filter(
+        # HM team leaders: include both head_id and head_2_id
+        hm_team_leader_ids_sq = db.session.query(
+            Team.head_id
+        ).filter(
             Team.head_id.isnot(None),
             Team.is_active == True,
             Team.team_type == TeamTypeEnum.health_manager,
-        ).distinct().subquery()
+        ).distinct().union_all(
+            db.session.query(Team.head_2_id).filter(
+                Team.head_2_id.isnot(None),
+                Team.is_active == True,
+                Team.team_type == TeamTypeEnum.health_manager,
+            ).distinct()
+        ).subquery()
 
         if role_filter == 'admin':
             # Fallback for old API calls
@@ -1198,14 +1214,18 @@ def get_team_stats():
     total_trial = visible_users.filter(User.is_trial == True, User.is_active == True).count()
 
     # Count team leaders by active teams' head_id (source of truth), not only by user.role
-    total_team_leaders = db.session.query(func.count(distinct(Team.head_id))).join(
-        User, User.id == Team.head_id
-    ).filter(
+    # Include both head_id and head_2_id
+    from sqlalchemy import union_all
+    head_ids_sq = db.session.query(Team.head_id).filter(
         Team.is_active == True,
         Team.head_id.isnot(None),
-        User.is_active == True,
-        User.role.isnot(None),
-    ).scalar() or 0
+    ).union_all(
+        db.session.query(Team.head_2_id).filter(
+            Team.is_active == True,
+            Team.head_2_id.isnot(None),
+        )
+    ).distinct().subquery()
+    total_team_leaders = db.session.query(func.count(distinct(head_ids_sq.c.head_id))).scalar() or 0
 
     total_professionisti = visible_users.filter(
         User.is_active == True,
@@ -2175,6 +2195,8 @@ def _serialize_team(team, include_members=False):
         'is_active': team.is_active,
         'head_id': team.head_id,
         'head': _serialize_user(team.head, include_teams_led=False) if team.head else None,
+        'head_2_id': team.head_2_id,
+        'head_2': _serialize_user(team.head_2, include_teams_led=False) if team.head_2 else None,
         'member_count': len(team.members) if team.members else 0,
         'created_at': team.created_at.isoformat() if team.created_at else None,
         'updated_at': team.updated_at.isoformat() if team.updated_at else None,
@@ -2211,14 +2233,21 @@ def get_teams():
 
     # Base query with eager loading for head only (fast)
     query = Team.query.options(
-        joinedload(Team.head)  # Eager load team head only
+        joinedload(Team.head),  # Eager load team head only
+        joinedload(Team.head_2)  # Eager load second team head
     )
 
     # RBAC base scope
     if _can_view_all_team_module_data(current_user):
         pass
     elif _get_user_role(current_user) == 'team_leader':
-        query = query.filter(Team.head_id == current_user.id)
+        from sqlalchemy import or_
+        query = query.filter(
+            or_(
+                Team.head_id == current_user.id,
+                Team.head_2_id == current_user.id
+            )
+        )
     else:
         query = query.filter(Team.members.any(User.id == current_user.id))
 
@@ -2325,6 +2354,7 @@ def create_team():
             description=data.get('description'),
             team_type=TeamTypeEnum(team_type_str),
             head_id=data.get('head_id'),
+            head_2_id=data.get('head_2_id'),
             is_active=True
         )
 
@@ -2335,6 +2365,7 @@ def create_team():
             team.members = members
 
         _promote_team_head_to_team_leader(team.head_id)
+        _promote_team_head_to_team_leader(team.head_2_id)
 
         db.session.add(team)
         db.session.commit()
@@ -2396,6 +2427,11 @@ def update_team(team_id):
         if 'head_id' in data:
             team.head_id = data['head_id'] if data['head_id'] else None
             _promote_team_head_to_team_leader(team.head_id)
+
+        # Update head_2_id
+        if 'head_2_id' in data:
+            team.head_2_id = data['head_2_id'] if data['head_2_id'] else None
+            _promote_team_head_to_team_leader(team.head_2_id)
 
         # Update is_active
         if 'is_active' in data:

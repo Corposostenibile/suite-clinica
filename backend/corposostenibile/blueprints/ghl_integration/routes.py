@@ -146,8 +146,12 @@ def _is_team_leader_user(user) -> bool:
 
 
 def _get_team_leader_member_ids(user_id: int) -> set[int]:
+    # Include both head_id and head_2_id
     team_ids = db.session.query(Team.id).filter(
-        Team.head_id == user_id,
+        or_(
+            Team.head_id == user_id,
+            Team.head_2_id == user_id
+        ),
         Team.is_active == True,
     )
     rows = db.session.query(team_members.c.user_id).filter(

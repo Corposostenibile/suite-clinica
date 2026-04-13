@@ -39,13 +39,19 @@ def _is_admin_hr_or_cco(user) -> bool:
 
 
 def _get_led_team_member_ids(user):
-    """Restituisce gli ID membri dei team guidati dall'utente (many-to-many), includendo sé stesso."""
+    """Restituisce gli ID membri dei team guidati dall'utente (head o head_2), includendo sé stesso."""
     visible_ids = set()
     if not getattr(user, 'is_authenticated', False):
         return visible_ids
 
     visible_ids.add(user.id)
+    # Teams dove l'utente è head_id
     for team in (getattr(user, 'teams_led', None) or []):
+        for member in (getattr(team, 'members', None) or []):
+            if getattr(member, 'id', None):
+                visible_ids.add(member.id)
+    # Teams dove l'utente è head_2_id
+    for team in (getattr(user, 'teams_led_2', None) or []):
         for member in (getattr(team, 'members', None) or []):
             if getattr(member, 'id', None):
                 visible_ids.add(member.id)
@@ -91,7 +97,7 @@ def can_view_member_reviews(user, member):
     # Fallback legacy (team_id diretto)
     if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
-        if team and team.head_id == user.id:
+        if team and (team.head_id == user.id or team.head_2_id == user.id):
             return True
 
     # Eccezione speciale: User #2 può vedere review di User #64
@@ -139,7 +145,7 @@ def can_write_review(user, member):
     # Fallback legacy (team_id diretto)
     if member.department_id == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
-        if team and team.head_id == user.id:
+        if team and (team.head_id == user.id or team.head_2_id == user.id):
             return True
 
     # Eccezione speciale: User #2 può scrivere review a User #64

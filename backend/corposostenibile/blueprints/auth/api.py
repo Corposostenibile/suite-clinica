@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime
 from flask import Blueprint, jsonify, request, session
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from corposostenibile.extensions import db, csrf
@@ -440,8 +441,12 @@ def _user_to_dict(user: User) -> dict:
     is_hm_team_leader = False
     if role_value == "team_leader":
         # Query esplicita per evitare edge-case di lazy-loading sulla relazione teams_led.
+        # Include both head_id and head_2_id
         is_hm_team_leader = db.session.query(Team.id).filter(
-            Team.head_id == user.id,
+            or_(
+                Team.head_id == user.id,
+                Team.head_2_id == user.id
+            ),
             Team.is_active == True,
             Team.team_type == TeamTypeEnum.health_manager,
         ).first() is not None

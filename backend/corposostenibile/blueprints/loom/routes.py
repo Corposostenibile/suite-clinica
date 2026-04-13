@@ -185,7 +185,14 @@ def _is_health_manager_user(user) -> bool:
 
 
 def _team_member_ids_for_leader(leader_id: int) -> set[int]:
-    team_ids = db.session.query(Team.id).filter(Team.head_id == leader_id, Team.is_active == True)
+    # Include both head_id and head_2_id
+    team_ids = db.session.query(Team.id).filter(
+        or_(
+            Team.head_id == leader_id,
+            Team.head_2_id == leader_id
+        ),
+        Team.is_active == True
+    )
     rows = (
         db.session.query(team_members.c.user_id)
         .filter(team_members.c.team_id.in_(team_ids))

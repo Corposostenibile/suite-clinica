@@ -895,6 +895,16 @@ class Team(TimestampMixin, db.Model):
         index=True
     )
 
+    # Secondo Team leader (opzionale, per team HM con 2 leader)
+    head_2_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id",
+                      name="fk_teams_head_2_id",
+                      ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
+
     # Stato attivo/inattivo
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
@@ -908,6 +918,13 @@ class Team(TimestampMixin, db.Model):
         "User",
         foreign_keys=[head_id],
         back_populates="teams_led"
+    )
+
+    # Secondo team leader relationship
+    head_2 = relationship(
+        "User",
+        foreign_keys=[head_2_id],
+        back_populates="teams_led_2"
     )
 
     # Membri del team (many-to-many via team_members)
@@ -945,8 +962,17 @@ class Team(TimestampMixin, db.Model):
         return user in self.members if self.members else False
 
     def is_head(self, user) -> bool:
-        """Verifica se l'utente è il team leader."""
-        return self.head_id == user.id
+        """Verifica se l'utente è uno dei team leader (head o head_2)."""
+        return user.id == self.head_id or user.id == self.head_2_id
+
+    def get_all_heads(self) -> list:
+        """Ritorna lista di tutti i team leader (head e head_2)."""
+        heads = []
+        if self.head_id:
+            heads.append(self.head_id)
+        if self.head_2_id:
+            heads.append(self.head_2_id)
+        return heads
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Team {self.name!r} (type={self.team_type.value if self.team_type else None})>"
@@ -1223,6 +1249,9 @@ class User(UserMixin, TimestampMixin, db.Model):
 
     teams_led        = relationship("Team", back_populates="head",
                                     lazy="selectin", foreign_keys="Team.head_id")
+
+    teams_led_2      = relationship("Team", back_populates="head_2",
+                                    lazy="selectin", foreign_keys="Team.head_2_id")
 
     # Team di cui l'utente è membro (many-to-many via team_members)
     teams            = relationship("Team", secondary="team_members",

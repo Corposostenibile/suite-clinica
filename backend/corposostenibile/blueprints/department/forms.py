@@ -330,6 +330,14 @@ class TeamForm(FlaskForm):
         description="Responsabile del team (deve essere membro del dipartimento)."
     )
 
+    head_2_id = SelectField(
+        "Secondo Team Leader",
+        coerce=int,
+        validators=[Optional()],
+        choices=[],  # popolato in __init__
+        description="Secondo responsabile del team (opzionale)."
+    )
+
     submit = SubmitField("Salva Team")
 
     # ─────────────────── init dinamico ────────────────────────── #
@@ -344,13 +352,12 @@ class TeamForm(FlaskForm):
 
         if department:
             # Popola choices con membri del dipartimento
-            self.head_id.choices = [(0, "— Nessun leader —")] + [
-                (user.id, user.full_name)
-                for user in department.all_members
-                if user.is_active
-            ]
+            member_choices = [(user.id, user.full_name) for user in department.all_members if user.is_active]
+            self.head_id.choices = [(0, "— Nessun leader —")] + member_choices
+            self.head_2_id.choices = [(0, "— Nessun leader —")] + member_choices
         else:
             self.head_id.choices = [(0, "— Nessun leader —")]
+            self.head_2_id.choices = [(0, "— Nessun leader —")]
 
     # ─────────────────── validazioni custom ────────────────────── #
     def validate_head_id(self, field: SelectField):
@@ -361,6 +368,18 @@ class TeamForm(FlaskForm):
                 raise ValidationError("Team leader non trovato.")
             if not user.is_active:
                 raise ValidationError("Il team leader deve essere un utente attivo.")
+
+    def validate_head_2_id(self, field: SelectField):
+        """Valida che il secondo team leader sia un membro attivo e diverso dal primo."""
+        if field.data and field.data != 0:
+            user = db.session.get(User, field.data)
+            if not user:
+                raise ValidationError("Secondo team leader non trovato.")
+            if not user.is_active:
+                raise ValidationError("Il secondo team leader deve essere un utente attivo.")
+            # Verifica che head_2_id sia diverso da head_id
+            if self.head_id.data and self.head_id.data == field.data:
+                raise ValidationError("Il secondo team leader deve essere diverso dal primo.")
 
     def validate_name(self, field: StringField):
         """

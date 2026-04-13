@@ -112,6 +112,7 @@ def team_create(dept_id: int):
             description=form.description.data.strip() if form.description.data else None,
             department_id=dept.id,
             head_id=form.head_id.data if form.head_id.data != 0 else None,
+            head_2_id=form.head_2_id.data if form.head_2_id.data != 0 else None,
         )
 
         try:
@@ -175,6 +176,7 @@ def team_edit(team_id: int):
         team.name = form.name.data.strip()
         team.description = form.description.data.strip() if form.description.data else None
         team.head_id = form.head_id.data if form.head_id.data != 0 else None
+        team.head_2_id = form.head_2_id.data if form.head_2_id.data != 0 else None
 
         try:
             db.session.commit()

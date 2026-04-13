@@ -61,10 +61,14 @@ def _require_assignment_permission() -> None:
         return
     if role_value == 'team_leader':
         from corposostenibile.models import Team, TeamTypeEnum
-        is_hm_team_leader = Team.query.filter_by(
-            head_id=current_user.id,
-            team_type=TeamTypeEnum.health_manager,
-            is_active=True,
+        from sqlalchemy import or_
+        is_hm_team_leader = Team.query.filter(
+            or_(
+                Team.head_id == current_user.id,
+                Team.head_2_id == current_user.id
+            ),
+            Team.team_type == TeamTypeEnum.health_manager,
+            Team.is_active == True,
         ).first() is not None
         if is_hm_team_leader:
             return
@@ -90,14 +94,22 @@ def _require_assignment_permission() -> None:
                 return
             # Team Leader (head di un team nel dipartimento Nutrizione)
             from corposostenibile.models import Team
-            is_team_leader = Team.query.filter_by(head_id=current_user.id).first() is not None
+            from sqlalchemy import or_
+            is_team_leader = Team.query.filter(
+                or_(Team.head_id == current_user.id, Team.head_2_id == current_user.id),
+                Team.is_active == True
+            ).first() is not None
             if is_team_leader:
                 return
 
         # Team Leader area HM / Customer Success
         if current_user.department.name in ['Health Manager', 'Customer Success']:
             from corposostenibile.models import Team
-            is_team_leader = Team.query.filter_by(head_id=current_user.id).first() is not None
+            from sqlalchemy import or_
+            is_team_leader = Team.query.filter(
+                or_(Team.head_id == current_user.id, Team.head_2_id == current_user.id),
+                Team.is_active == True
+            ).first() is not None
             if is_team_leader:
                 return
 
