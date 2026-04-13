@@ -1379,36 +1379,56 @@ def apply_role_filtering(query):
     
     # Team Leader: vede i pazienti assegnati ai membri del suo team
     elif user_role == UserRoleEnum.team_leader:
-        team_member_ids = set()
-        team_member_ids.add(current_user.id)  # Il TL deve vedere anche i propri pazienti
-        for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
+        # Separare i team per tipo per applicare il filtro corretto
+        hm_team_member_ids = set()
+        hm_team_member_ids.add(current_user.id)
+        prof_team_member_ids = set()
+        prof_team_member_ids.add(current_user.id)
         
-        if team_member_ids:
-            member_ids_list = list(team_member_ids)
-            return query.filter(
-                or_(
-                    # Assegnazione tramite FK singola
-                    Cliente.nutrizionista_id.in_(member_ids_list),
-                    Cliente.coach_id.in_(member_ids_list),
-                    Cliente.psicologa_id.in_(member_ids_list),
-                    Cliente.consulente_alimentare_id.in_(member_ids_list),
-                    # Assegnazione tramite M2M
-                    exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(member_ids_list))),
-                    exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(member_ids_list))),
-                    exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(member_ids_list))),
-                    exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(member_ids_list))),
-                    # Assegnazione tramite history (es. Medico nel team)
-                    exists(
-                        select(ClienteProfessionistaHistory.cliente_id).where(
-                            ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                            ClienteProfessionistaHistory.user_id.in_(member_ids_list),
-                            ClienteProfessionistaHistory.is_active == True,
-                        )
-                    ),
-                )
-            )
+        for team in (current_user.teams_led or []):
+            team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+            team_type_str = str(team_type or '').strip().lower()
+            
+            if team_type_str == 'health_manager':
+                # Team HM: raccogli membri per filtro health_manager_id
+                for member in (team.members or []):
+                    hm_team_member_ids.add(member.id)
+            else:
+                # Team altre specialità: raccogli membri per filtri professionisti
+                for member in (team.members or []):
+                    prof_team_member_ids.add(member.id)
+        
+        filters = []
+        
+        # Filtro per team HM: pazienti con health_manager_id nel team
+        if len(hm_team_member_ids) > 1:  # Più di solo il current_user
+            hm_ids_list = list(hm_team_member_ids)
+            filters.append(Cliente.health_manager_id.in_(hm_ids_list))
+        
+        # Filtro per team altre specialità: pazienti con professionisti nel team
+        if len(prof_team_member_ids) > 1:  # Più di solo il current_user
+            prof_ids_list = list(prof_team_member_ids)
+            filters.extend([
+                Cliente.nutrizionista_id.in_(prof_ids_list),
+                Cliente.coach_id.in_(prof_ids_list),
+                Cliente.psicologa_id.in_(prof_ids_list),
+                Cliente.consulente_alimentare_id.in_(prof_ids_list),
+                exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(prof_ids_list))),
+                exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(prof_ids_list))),
+                exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(prof_ids_list))),
+                exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(prof_ids_list))),
+                # Assegnazione tramite history (es. Medico nel team)
+                exists(
+                    select(ClienteProfessionistaHistory.cliente_id).where(
+                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                        ClienteProfessionistaHistory.user_id.in_(prof_ids_list),
+                        ClienteProfessionistaHistory.is_active == True,
+                    )
+                ),
+            ])
+        
+        if filters:
+            return query.filter(or_(*filters))
         return query.filter(False)
     
     # Professionista: vede solo i propri pazienti (FK singola + M2M + history assegnazioni Medico/altro)

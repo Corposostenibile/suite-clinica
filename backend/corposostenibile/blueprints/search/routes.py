@@ -38,30 +38,60 @@ def global_search():
     
     # helper for role-based cliente filtering
     def get_clienti_query_filtered(query):
-        if current_user.role == UserRoleEnum.admin:
+        if current_user.role == UserRoleEnum.admin or current_user.role == UserRoleEnum.health_manager:
             return query
         elif current_user.role == UserRoleEnum.team_leader:
-            team_member_ids = set()
-            for team in (current_user.teams_led or []):
-                for member in (team.members or []):
-                    team_member_ids.add(member.id)
+            # Separare i team per tipo per applicare il filtro corretto
+            hm_team_member_ids = {current_user.id}
+            prof_team_member_ids = {current_user.id}
             
-            if team_member_ids:
-                m_ids = list(team_member_ids)
-                return query.filter(
-                    or_(
-                        exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
-                        exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
-                        exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
-                        exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
-                    )
-                )
-            else:
-                return query.filter(False)
+            for team in (current_user.teams_led or []):
+                team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+                team_type_str = str(team_type or '').strip().lower()
+                
+                if team_type_str == 'health_manager':
+                    for member in (team.members or []):
+                        hm_team_member_ids.add(member.id)
+                else:
+                    for member in (team.members or []):
+                        prof_team_member_ids.add(member.id)
+            
+            filters = []
+            
+            # Filtro per team HM
+            if len(hm_team_member_ids) > 1:
+                hm_ids = list(hm_team_member_ids)
+                filters.append(Cliente.health_manager_id.in_(hm_ids))
+            
+            # Filtro per team altre specialità
+            if len(prof_team_member_ids) > 1:
+                prof_ids = list(prof_team_member_ids)
+                filters.extend([
+                    Cliente.nutrizionista_id.in_(prof_ids),
+                    Cliente.coach_id.in_(prof_ids),
+                    Cliente.psicologa_id.in_(prof_ids),
+                    Cliente.consulente_alimentare_id.in_(prof_ids),
+                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(prof_ids)),
+                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(prof_ids)),
+                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(prof_ids)),
+                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(prof_ids))
+                ])
+            
+            if filters:
+                return query.filter(or_(*filters))
+            return query.filter(False)
         else: # professionista
             u_id = current_user.id
             return query.filter(
                 or_(
+                    # Assegnazione tramite FK singola
+                    Cliente.nutrizionista_id == u_id,
+                    Cliente.coach_id == u_id,
+                    Cliente.psicologa_id == u_id,
+                    Cliente.consulente_alimentare_id == u_id,
+                    # Assegnazione Health Manager (FK)
+                    Cliente.health_manager_id == u_id,
+                    # Assegnazione tramite M2M
                     exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
                     exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
                     exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
@@ -119,29 +149,61 @@ def global_search():
         )
     
     # Apply role filtering (re-using patient filter logic but on the joined Cliente)
-    if current_user.role == UserRoleEnum.admin:
+    if current_user.role == UserRoleEnum.admin or current_user.role == UserRoleEnum.health_manager:
         pass
     elif current_user.role == UserRoleEnum.team_leader:
-        team_member_ids = set()
+        # Separare i team per tipo per applicare il filtro corretto
+        hm_team_member_ids = {current_user.id}
+        prof_team_member_ids = {current_user.id}
+        
         for team in (current_user.teams_led or []):
-            for member in (team.members or []):
-                team_member_ids.add(member.id)
-        if team_member_ids:
-            m_ids = list(team_member_ids)
-            check_base_query = check_base_query.filter(
-                or_(
-                    exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(m_ids)),
-                    exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(m_ids)),
-                    exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(m_ids)),
-                    exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(m_ids))
-                )
-            )
+            team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+            team_type_str = str(team_type or '').strip().lower()
+            
+            if team_type_str == 'health_manager':
+                for member in (team.members or []):
+                    hm_team_member_ids.add(member.id)
+            else:
+                for member in (team.members or []):
+                    prof_team_member_ids.add(member.id)
+        
+        filters = []
+        
+        # Filtro per team HM
+        if len(hm_team_member_ids) > 1:
+            hm_ids = list(hm_team_member_ids)
+            filters.append(Cliente.health_manager_id.in_(hm_ids))
+        
+        # Filtro per team altre specialità
+        if len(prof_team_member_ids) > 1:
+            prof_ids = list(prof_team_member_ids)
+            filters.extend([
+                Cliente.nutrizionista_id.in_(prof_ids),
+                Cliente.coach_id.in_(prof_ids),
+                Cliente.psicologa_id.in_(prof_ids),
+                Cliente.consulente_alimentare_id.in_(prof_ids),
+                exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id.in_(prof_ids)),
+                exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id.in_(prof_ids)),
+                exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id.in_(prof_ids)),
+                exists().where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id.in_(prof_ids))
+            ])
+        
+        if filters:
+            check_base_query = check_base_query.filter(or_(*filters))
         else:
             check_base_query = check_base_query.filter(False)
     else: # professionista
         u_id = current_user.id
         check_base_query = check_base_query.filter(
             or_(
+                # Assegnazione tramite FK singola
+                Cliente.nutrizionista_id == u_id,
+                Cliente.coach_id == u_id,
+                Cliente.psicologa_id == u_id,
+                Cliente.consulente_alimentare_id == u_id,
+                # Assegnazione Health Manager (FK)
+                Cliente.health_manager_id == u_id,
+                # Assegnazione tramite M2M
                 exists().where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == u_id),
                 exists().where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == u_id),
                 exists().where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == u_id),
