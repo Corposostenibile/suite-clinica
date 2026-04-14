@@ -109,6 +109,11 @@ export default defineConfig(({ mode }) => {
               target: backendUrl,
               changeOrigin: true,
             },
+            // Proxy Old Suite integration routes
+            '/old-suite': {
+              target: backendUrl,
+              changeOrigin: true,
+            },
             // Proxy Quality routes
             '/quality/api': {
               target: backendUrl,

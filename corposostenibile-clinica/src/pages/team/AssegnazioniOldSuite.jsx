@@ -53,6 +53,16 @@ function AssegnazioniOldSuite() {
   const [checkError, setCheckError] = useState('');
   const [checkResponse, setCheckResponse] = useState(null);
 
+  // Modal crea lead
+  const [showCreaLeadModal, setShowCreaLeadModal] = useState(false);
+  const [creaLeadForm, setCreaLeadForm] = useState({
+    first_name: '', last_name: '', email: '', phone: '',
+    roles: { nutrition: false, coach: false, psychology: false },
+    duration_days: '', client_story: '',
+  });
+  const [creaLeadLoading, setCreaLeadLoading] = useState(false);
+  const [creaLeadError, setCreaLeadError] = useState('');
+
   // Toast
   const [toastState, setToastState] = useState({ show: false, message: '' });
 
@@ -153,6 +163,38 @@ function AssegnazioniOldSuite() {
   }, [leads, leadFilter, leadSearch, hmFilter, onboardingFilter]);
 
   // --- CHECK HANDLERS ---
+
+  const handleCreaLeadSubmit = async (e) => {
+    e.preventDefault();
+    setCreaLeadError('');
+    if (!creaLeadForm.first_name.trim() || !creaLeadForm.last_name.trim() || !creaLeadForm.email.trim()) {
+      setCreaLeadError('Nome, cognome ed email sono obbligatori');
+      return;
+    }
+    setCreaLeadLoading(true);
+    try {
+      const payload = {
+        first_name: creaLeadForm.first_name.trim(),
+        last_name: creaLeadForm.last_name.trim(),
+        email: creaLeadForm.email.trim(),
+        phone: creaLeadForm.phone.trim() || undefined,
+        roles: creaLeadForm.roles,
+        duration_days: creaLeadForm.duration_days ? parseInt(creaLeadForm.duration_days, 10) : undefined,
+        client_story: creaLeadForm.client_story.trim() || undefined,
+      };
+      const result = await oldSuiteService.createLead(payload);
+      if (!result.success) throw new Error(result.message || 'Errore nella creazione');
+      setShowCreaLeadModal(false);
+      setCreaLeadForm({ first_name: '', last_name: '', email: '', phone: '', roles: { nutrition: false, coach: false, psychology: false }, duration_days: '', client_story: '' });
+      setToastState({ show: true, message: `Lead ${result.data.full_name} creata con successo` });
+      setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 3000);
+      fetchLeads();
+    } catch (err) {
+      setCreaLeadError(err?.message || 'Errore durante la creazione');
+    } finally {
+      setCreaLeadLoading(false);
+    }
+  };
 
   const handleCopyCheckLink = (url) => {
     if (!url) return;
@@ -258,7 +300,10 @@ function AssegnazioniOldSuite() {
 
         <Form.Control type="search" placeholder="Cerca paziente..." value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} style={{ maxWidth: '220px' }} />
 
-        <div className="ms-auto">
+        <div className="ms-auto d-flex align-items-center gap-2">
+          <Button variant="primary" size="sm" onClick={() => { setCreaLeadError(''); setShowCreaLeadModal(true); }}>
+            <i className="ri-user-add-line me-1"></i>Crea Lead
+          </Button>
           <button className="ai-refresh-btn" onClick={fetchLeads} disabled={loading}>
             <i className={`ri-refresh-line ${loading ? 'ai-spin' : ''}`}></i>
           </button>
@@ -405,6 +450,98 @@ function AssegnazioniOldSuite() {
           </div>
         </div>
       )}
+
+      {/* Crea Lead Modal */}
+      <Modal show={showCreaLeadModal} onHide={() => setShowCreaLeadModal(false)}>
+        <Form onSubmit={handleCreaLeadSubmit}>
+          <Modal.Header closeButton>
+            <Modal.Title>Crea nuova lead</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {creaLeadError && <Alert variant="danger" className="mb-3">{creaLeadError}</Alert>}
+            <div className="row g-3">
+              <div className="col-6">
+                <Form.Label>Nome *</Form.Label>
+                <Form.Control
+                  value={creaLeadForm.first_name}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, first_name: e.target.value }))}
+                  placeholder="Mario"
+                  required
+                />
+              </div>
+              <div className="col-6">
+                <Form.Label>Cognome *</Form.Label>
+                <Form.Control
+                  value={creaLeadForm.last_name}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, last_name: e.target.value }))}
+                  placeholder="Rossi"
+                  required
+                />
+              </div>
+              <div className="col-7">
+                <Form.Label>Email *</Form.Label>
+                <Form.Control
+                  type="email"
+                  value={creaLeadForm.email}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="mario@email.com"
+                  required
+                />
+              </div>
+              <div className="col-5">
+                <Form.Label>Telefono</Form.Label>
+                <Form.Control
+                  value={creaLeadForm.phone}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="+39 000 000 0000"
+                />
+              </div>
+              <div className="col-8">
+                <Form.Label>Pacchetto</Form.Label>
+                <div className="d-flex gap-3">
+                  {[{ key: 'nutrition', label: 'N' }, { key: 'coach', label: 'C' }, { key: 'psychology', label: 'P' }].map(r => (
+                    <Form.Check
+                      key={r.key}
+                      type="checkbox"
+                      label={r.label}
+                      checked={creaLeadForm.roles[r.key]}
+                      onChange={(e) => setCreaLeadForm(f => ({ ...f, roles: { ...f.roles, [r.key]: e.target.checked } }))}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="col-4">
+                <Form.Label>Durata (gg)</Form.Label>
+                <Form.Control
+                  type="number"
+                  min="1"
+                  value={creaLeadForm.duration_days}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, duration_days: e.target.value }))}
+                  placeholder="90"
+                />
+              </div>
+              <div className="col-12">
+                <Form.Label>Storia cliente</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={creaLeadForm.client_story}
+                  onChange={(e) => setCreaLeadForm(f => ({ ...f, client_story: e.target.value }))}
+                  placeholder="Descrizione del paziente, motivazioni, situazione..."
+                />
+              </div>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowCreaLeadModal(false)} disabled={creaLeadLoading}>
+              Annulla
+            </Button>
+            <Button type="submit" variant="primary" disabled={creaLeadLoading}>
+              {creaLeadLoading ? <><Spinner size="sm" className="me-1" />Creazione...</> : 'Crea Lead'}
+            </Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
 
       {/* Check Response Modal */}
       <Modal show={showCheckModal} onHide={() => setShowCheckModal(false)} size="lg">

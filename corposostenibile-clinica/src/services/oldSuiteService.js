@@ -74,6 +74,15 @@ const oldSuiteService = {
     const response = await oldSuiteApi.post('/confirm-assignment', payload);
     return response.data;
   },
+
+  /**
+   * Crea una lead manualmente (Team Leader HM o Admin)
+   * @param {{ first_name, last_name, email, phone?, roles?, duration_days?, client_story? }} data
+   */
+  async createLead(data) {
+    const response = await oldSuiteApi.post('/leads/create', data);
+    return response.data;
+  },
 };
 
 export default oldSuiteService;

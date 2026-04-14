@@ -9,13 +9,13 @@ from datetime import datetime
 
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from corposostenibile.extensions import db, csrf
 from corposostenibile.models import (
     SalesLead, User, Cliente, ServiceClienteAssignment,
     ClienteProfessionistaHistory, ServiceClienteNote,
-    TipologiaClienteEnum,
+    TipologiaClienteEnum, Team, TeamTypeEnum,
 )
 from . import bp
 from .package_parser import parse_package_name
@@ -400,6 +400,42 @@ def _update_checks_from_payload(lead, checks_data):
 
 
 # =============================================================================
+# RBAC HELPER
+# =============================================================================
+
+def _require_create_lead_permission():
+    """Verifica che l'utente possa creare lead da assegnare.
+    Consentito a: Admin, Health Manager (ruolo), Team Leader del team HM.
+    """
+    if not current_user.is_authenticated:
+        from http import HTTPStatus
+        from flask import abort
+        abort(HTTPStatus.FORBIDDEN)
+
+    if current_user.is_admin:
+        return
+
+    role = getattr(current_user, 'role', None)
+    role_value = role.value if hasattr(role, 'value') else str(role or '')
+
+    if role_value == 'health_manager':
+        return
+
+    if role_value == 'team_leader':
+        is_hm_tl = Team.query.filter(
+            or_(Team.head_id == current_user.id, Team.head_2_id == current_user.id),
+            Team.team_type == TeamTypeEnum.health_manager,
+            Team.is_active == True,
+        ).first() is not None
+        if is_hm_tl:
+            return
+
+    from http import HTTPStatus
+    from flask import abort
+    abort(HTTPStatus.FORBIDDEN)
+
+
+# =============================================================================
 # API ENDPOINTS (login_required)
 # =============================================================================
 
@@ -410,7 +446,7 @@ def api_get_leads():
     try:
         leads = (
             SalesLead.query
-            .filter_by(source_system='old_suite')
+            .filter(SalesLead.source_system.in_(['old_suite', 'manual']))
             .filter(SalesLead.converted_to_client_id.is_(None))
             .order_by(SalesLead.created_at.desc())
             .all()
@@ -428,11 +464,69 @@ def api_get_leads():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@bp.route("/api/leads/create", methods=["POST"])
+@login_required
+def api_create_lead():
+    """Crea una lead manualmente da assegnare (Team Leader HM o Admin)."""
+    _require_create_lead_permission()
+
+    data = request.get_json() or {}
+
+    first_name = (data.get('first_name') or '').strip()
+    last_name = (data.get('last_name') or '').strip()
+    email = (data.get('email') or '').strip()
+
+    if not first_name or not last_name or not email:
+        return jsonify({'success': False, 'message': 'Nome, cognome ed email sono obbligatori'}), 400
+
+    # Genera custom_package_name dal payload ruoli + durata (es. "N/C-90gg")
+    roles = data.get('roles', {})
+    role_parts = [k.upper()[0] for k in ['nutrition', 'coach', 'psychology'] if roles.get(k)]
+    duration = data.get('duration_days')
+    custom_package_name = None
+    if role_parts:
+        pkg = '/'.join(role_parts)
+        if duration:
+            pkg += f'-{duration}gg'
+        custom_package_name = pkg
+
+    import uuid
+    unique_code = f"LEAD-{datetime.now().year}-{str(uuid.uuid4())[:8].upper()}"
+
+    lead = SalesLead(
+        first_name=first_name,
+        last_name=last_name,
+        email=email,
+        phone=(data.get('phone') or '').strip() or None,
+        unique_code=unique_code,
+        source_system='manual',
+        status='PENDING_ASSIGNMENT',
+        custom_package_name=custom_package_name,
+        client_story=data.get('client_story') or None,
+        form_responses={
+            '_manual_entry': True,
+            '_created_by': current_user.id,
+            '_created_by_name': f"{current_user.first_name} {current_user.last_name}",
+        },
+    )
+
+    db.session.add(lead)
+    db.session.commit()
+
+    logger.info(f"[Old Suite] Lead manuale creata da {current_user.id} ({current_user.email}): {lead.id} - {lead.full_name}")
+
+    parsed = parse_package_name(lead.custom_package_name)
+    return jsonify({'success': True, 'data': _serialize_lead(lead, parsed)}), 201
+
+
 @bp.route("/api/leads/<int:lead_id>", methods=["GET"])
 @login_required
 def api_get_lead(lead_id):
     """Dettaglio singola lead."""
-    lead = SalesLead.query.filter_by(id=lead_id, source_system='old_suite').first()
+    lead = SalesLead.query.filter(
+        SalesLead.id == lead_id,
+        SalesLead.source_system.in_(['old_suite', 'manual'])
+    ).first()
     if not lead:
         return jsonify({'success': False, 'message': 'Lead non trovata'}), 404
 
@@ -447,7 +541,10 @@ def api_get_check_detail(lead_id, check_number):
     if check_number not in (1, 2, 3):
         return jsonify({'success': False, 'message': 'Check number non valido'}), 400
 
-    lead = SalesLead.query.filter_by(id=lead_id, source_system='old_suite').first()
+    lead = SalesLead.query.filter(
+        SalesLead.id == lead_id,
+        SalesLead.source_system.in_(['old_suite', 'manual'])
+    ).first()
     if not lead:
         return jsonify({'success': False, 'message': 'Lead non trovata'}), 404
 
@@ -492,7 +589,10 @@ def api_confirm_assignment():
         return jsonify({'success': False, 'message': 'lead_id mancante'}), 400
 
     try:
-        lead = SalesLead.query.filter_by(id=lead_id, source_system='old_suite').first()
+        lead = SalesLead.query.filter(
+            SalesLead.id == lead_id,
+            SalesLead.source_system.in_(['old_suite', 'manual'])
+        ).first()
         if not lead:
             return jsonify({'success': False, 'message': 'Lead non trovata'}), 404
 
