@@ -132,3 +132,53 @@ def test_global_returns_attivo_when_one_assigned_service_is_not_ghost(monkeypatc
         services.update_cliente(cliente, payload, updated_by_user=None)
 
     assert cliente.stato_cliente == StatoClienteEnum.attivo
+
+
+def test_manual_global_ghost_is_reconciled_to_attivo_if_a_service_is_active(monkeypatch) -> None:
+    """
+    Regola business: stato globale non modificabile manualmente in contraddizione
+    con i servizi. Se almeno un servizio assegnato è attivo, il globale deve
+    riallinearsi ad attivo.
+    """
+    app = Flask(__name__)
+    cliente = _FakeCliente()
+    cliente.stato_cliente = StatoClienteEnum.attivo
+    cliente.stato_nutrizione = StatoClienteEnum.attivo
+    cliente.nutrizionisti_multipli = [object()]
+
+    monkeypatch.setattr(services, "_commit_or_rollback", lambda: nullcontext())
+    monkeypatch.setattr(services.db, "session", _FakeSession())
+    monkeypatch.setattr(services, "_track_patologie_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "_track_patologie_psico_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "_track_patologie_coach_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "emit_updated", lambda *_args, **_kwargs: None)
+
+    with app.app_context():
+        services.update_cliente(cliente, {"stato_cliente": "ghost"}, updated_by_user=None)
+
+    assert cliente.stato_cliente == StatoClienteEnum.attivo
+
+
+def test_manual_global_pausa_is_reconciled_to_attivo_if_a_service_is_active(monkeypatch) -> None:
+    """
+    Regola business: stato globale non modificabile manualmente in contraddizione
+    con i servizi. Se almeno un servizio assegnato è attivo, il globale non può
+    restare pausa.
+    """
+    app = Flask(__name__)
+    cliente = _FakeCliente()
+    cliente.stato_cliente = StatoClienteEnum.attivo
+    cliente.stato_nutrizione = StatoClienteEnum.attivo
+    cliente.nutrizionisti_multipli = [object()]
+
+    monkeypatch.setattr(services, "_commit_or_rollback", lambda: nullcontext())
+    monkeypatch.setattr(services.db, "session", _FakeSession())
+    monkeypatch.setattr(services, "_track_patologie_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "_track_patologie_psico_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "_track_patologie_coach_changes", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(services, "emit_updated", lambda *_args, **_kwargs: None)
+
+    with app.app_context():
+        services.update_cliente(cliente, {"stato_cliente": "pausa"}, updated_by_user=None)
+
+    assert cliente.stato_cliente == StatoClienteEnum.attivo

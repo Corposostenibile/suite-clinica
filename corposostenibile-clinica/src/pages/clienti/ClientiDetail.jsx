@@ -3040,6 +3040,8 @@ function ClientiDetail() {
         'stato_nutrizione_data',
         'stato_coach_data',
         'stato_psicologia_data',
+        // Stato globale derivato dagli stati servizio (M2M): solo visualizzazione.
+        'stato_cliente',
         'cliente_id',
         'created_at',
         'updated_at',
@@ -3735,13 +3737,16 @@ function ClientiDetail() {
                       <select
                         className="cd-select"
                         value={formData.stato_cliente}
-                        onChange={(e) => handleInputChange('stato_cliente', e.target.value)}
+                        disabled
                       >
                         <option value="">Seleziona...</option>
                         {Object.entries(STATO_LABELS).map(([value, label]) => (
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                      <small className="text-muted mt-1 d-block">
+                        Stato globale informativo: viene calcolato automaticamente dagli stati dei servizi assegnati (M2M).
+                      </small>
                     </div>
                     <div className="cd-field">
                       <label className="cd-field-label">Tipologia supporto nutrizione</label>

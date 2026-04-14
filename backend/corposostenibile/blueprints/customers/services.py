@@ -1050,15 +1050,18 @@ def update_cliente(
                 if k not in changes:
                     changes[k] = v
 
-        # ⚡ LOGICA GHOST AUTOMATICA ⚡
-        # Se sono stati modificati stati servizi o professionisti, controlla se devo aggiornare stato_cliente
+        # ⚡ LOGICA STATO GLOBALE DERIVATA DA SERVIZI M2M ⚡
+        # Lo stato globale non deve mai contraddire gli stati servizio assegnati.
+        # Se cambia manualmente stato_cliente, ricalcoliamo comunque per riallineare.
         stati_servizi_modificati = any(k in changes for k in ['stato_nutrizione', 'stato_coach', 'stato_psicologia'])
         professionisti_modificati = any(k in changes for k in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli'])
+        stato_globale_modificato = 'stato_cliente' in changes
 
-        if stati_servizi_modificati or professionisti_modificati:
+        if stati_servizi_modificati or professionisti_modificati or stato_globale_modificato:
             # Flush per assicurarsi che le modifiche siano visibili
             db.session.flush()
-            # Controlla e aggiorna automaticamente stato_cliente (ghost/pausa)
+            # Controlla e aggiorna automaticamente stato_cliente (ghost/pausa),
+            # applicando le regole M2M anche dopo eventuali edit manuali.
             _check_and_update_global_ghost_status(cliente, updated_by_user)
             _check_and_update_global_pausa_status(cliente, updated_by_user)
 
