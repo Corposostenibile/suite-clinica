@@ -21,6 +21,7 @@ function TeamsAdd() {
     name: '',
     team_type: '',
     head_id: '',
+    head_2_id: '',
     description: '',
     member_ids: [],
   });
@@ -56,6 +57,7 @@ function TeamsAdd() {
         name: data.name || '',
         team_type: data.team_type || '',
         head_id: data.head_id || '',
+        head_2_id: data.head_2_id || '',
         description: data.description || '',
         member_ids: (data.members || []).map(m => m.id),
       });
@@ -92,9 +94,10 @@ function TeamsAdd() {
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
 
-      // Reset head_id and member_ids when team_type changes
+      // Reset head_id, head_2_id and member_ids when team_type changes
       if (name === 'team_type') {
         newData.head_id = '';
+        newData.head_2_id = '';
         newData.member_ids = [];
       }
 
@@ -132,6 +135,7 @@ function TeamsAdd() {
         name: formData.name.trim(),
         team_type: formData.team_type,
         head_id: formData.head_id || null,
+        head_2_id: formData.head_2_id || null,
         description: formData.description.trim() || null,
         member_ids: formData.member_ids,
       };
@@ -241,7 +245,7 @@ function TeamsAdd() {
                 <div className="d-flex justify-content-center gap-4 mt-3 pt-3 border-top">
                   <div className="text-center">
                     <div className="fw-bold text-primary">
-                      {formData.head_id ? '1' : '0'}
+                      {(formData.head_id ? 1 : 0) + (formData.head_2_id ? 1 : 0)}
                     </div>
                     <small className="text-muted">Leader</small>
                   </div>
@@ -315,7 +319,7 @@ function TeamsAdd() {
                 {/* Team Leader Section */}
                 <h6 className="mb-3">Team Leader</h6>
                 <div className="row g-3 mb-4">
-                  <div className="col-12">
+                  <div className="col-md-6">
                     {loadingLeaders ? (
                       <div className="text-center py-3">
                         <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -324,6 +328,7 @@ function TeamsAdd() {
                       </div>
                     ) : formData.team_type ? (
                       <>
+                        <label className="form-label">Team Leader 1</label>
                         <select
                           className="form-select"
                           name="head_id"
@@ -341,6 +346,44 @@ function TeamsAdd() {
                           <small className="text-warning">
                             <i className="ri-alert-line me-1"></i>
                             Nessun Team Leader disponibile per questo tipo
+                          </small>
+                        )}
+                      </>
+                    ) : (
+                      <div className="form-control bg-light text-muted">
+                        Seleziona prima il tipo di team
+                      </div>
+                    )}
+                  </div>
+                  <div className="col-md-6">
+                    {loadingLeaders ? (
+                      <div className="text-center py-3">
+                        <div className="spinner-border spinner-border-sm text-primary" role="status">
+                          <span className="visually-hidden">Caricamento...</span>
+                        </div>
+                      </div>
+                    ) : formData.team_type ? (
+                      <>
+                        <label className="form-label">Team Leader 2</label>
+                        <select
+                          className="form-select"
+                          name="head_2_id"
+                          value={formData.head_2_id}
+                          onChange={handleChange}
+                        >
+                          <option value="">Nessun Team Leader</option>
+                          {availableLeaders
+                            .filter(leader => leader.id !== formData.head_id)
+                            .map(leader => (
+                              <option key={leader.id} value={leader.id}>
+                                {leader.full_name} ({leader.email})
+                              </option>
+                            ))}
+                        </select>
+                        {formData.head_id && availableLeaders.filter(l => l.id !== formData.head_id).length === 0 && (
+                          <small className="text-warning">
+                            <i className="ri-alert-line me-1"></i>
+                            Nessun altro Team Leader disponibile
                           </small>
                         )}
                       </>

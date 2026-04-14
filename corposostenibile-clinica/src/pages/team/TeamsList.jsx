@@ -171,9 +171,14 @@ function TeamsList() {
         <>
           <div className="tl-grid">
             {teams.map((team) => {
-              const leaderAvatar = normalizeAvatarPath(team.head?.avatar_path || team.head?.avatar_url);
-              const leaderInitials = `${team.head?.first_name?.[0] || ''}${team.head?.last_name?.[0] || ''}`.toUpperCase();
-              const leaderDisplayName = team.head?.full_name || 'Nessun leader';
+              // Leader 1
+              const leader1Avatar = normalizeAvatarPath(team.head?.avatar_path || team.head?.avatar_url);
+              const leader1Initials = `${team.head?.first_name?.[0] || ''}${team.head?.last_name?.[0] || ''}`.toUpperCase();
+              const leader1DisplayName = team.head?.full_name || 'Nessun leader';
+              // Leader 2
+              const leader2Avatar = normalizeAvatarPath(team.head_2?.avatar_path || team.head_2?.avatar_url);
+              const leader2Initials = `${team.head_2?.first_name?.[0] || ''}${team.head_2?.last_name?.[0] || ''}`.toUpperCase();
+              const hasTwoLeaders = team.head && team.head_2;
 
               return (
                 <div key={team.id} className="tl-card">
@@ -186,22 +191,31 @@ function TeamsList() {
                     <div className="tl-card-badge-right">
                       <span className="tl-mini-badge light">{TEAM_TYPE_LABELS[team.team_type]}</span>
                     </div>
-                    <div className="tl-avatar-wrap">
-                      {leaderAvatar ? (
-                        <img src={leaderAvatar} alt={team.head?.full_name || 'Team leader'} className="tl-avatar" />
-                      ) : leaderInitials ? (
-                        <div className="tl-avatar-initials">{leaderInitials}</div>
+                    {/* Two leader avatars */}
+                    <div className="tl-avatar-multi-wrap">
+                      {leader1Avatar ? (
+                        <img src={leader1Avatar} alt={team.head?.full_name || 'Team leader'} className="tl-avatar-multi" />
+                      ) : leader1Initials ? (
+                        <div className="tl-avatar-multi-initials">{leader1Initials}</div>
                       ) : (
-                        <div className="tl-avatar-initials">
-                          <i className={`${TEAM_TYPE_ICONS[team.team_type]}`} style={{ fontSize: '22px' }}></i>
+                        <div className="tl-avatar-multi-initials">
+                          <i className={`${TEAM_TYPE_ICONS[team.team_type]}`} style={{ fontSize: '16px' }}></i>
                         </div>
                       )}
+                      {leader2Avatar ? (
+                        <img src={leader2Avatar} alt={team.head_2?.full_name || 'Team leader 2'} className="tl-avatar-multi tl-avatar-multi-over" />
+                      ) : leader2Initials ? (
+                        <div className="tl-avatar-multi-initials tl-avatar-multi-over">{leader2Initials}</div>
+                      ) : hasTwoLeaders ? (
+                        <div className="tl-avatar-multi-initials tl-avatar-multi-over"><i className="ri-user-add-line" style={{ fontSize: '12px' }}></i></div>
+                      ) : null}
                     </div>
                   </div>
 
                   <div className="tl-card-body">
                     <div className="tl-card-name">
-                      <Link to={`/teams-dettaglio/${team.id}`}>{leaderDisplayName}</Link>
+                      <Link to={`/teams-dettaglio/${team.id}`}>{leader1DisplayName}</Link>
+                      {team.head_2 && <span className="text-muted small ms-1">+1</span>}
                     </div>
                     <div className="tl-card-sub">{team.name || 'Team senza nome'}</div>
                     <div className="tl-card-sub" style={{ marginTop: '-4px' }}>

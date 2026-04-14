@@ -374,6 +374,67 @@ function TeamsDetail() {
                       </div>
                     )}
                   </div>
+
+                  {/* Second Team Leader Info */}
+                  <div className="col-md-6">
+                    <h6 className="text-uppercase text-muted small fw-semibold mb-3">
+                      Team Leader 2
+                    </h6>
+                    {team?.head_2 ? (
+                      <>
+                        <div className="d-flex align-items-center mb-3">
+                          <div className="flex-shrink-0">
+                            {team.head_2.avatar_path ? (
+                              <img
+                                src={team.head_2.avatar_path}
+                                alt={team.head_2.full_name}
+                                className="rounded-circle"
+                                style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                              />
+                            ) : (
+                              <div
+                                className="rounded-circle bg-warning d-flex align-items-center justify-content-center text-white"
+                                style={{ width: '40px', height: '40px' }}
+                              >
+                                {team.head_2.first_name?.[0]}{team.head_2.last_name?.[0]}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-grow-1 ms-3">
+                            <div className="text-muted small">Nome</div>
+                            <div className="fw-medium">{team.head_2.full_name}</div>
+                          </div>
+                        </div>
+                        <div className="d-flex align-items-center mb-3">
+                          <div className="flex-shrink-0">
+                            <div className="bg-info-subtle rounded-circle d-flex align-items-center justify-content-center"
+                                 style={{ width: '40px', height: '40px' }}>
+                              <i className="ri-mail-line text-info"></i>
+                            </div>
+                          </div>
+                          <div className="flex-grow-1 ms-3">
+                            <div className="text-muted small">Email</div>
+                            <div className="fw-medium">{team.head_2.email}</div>
+                          </div>
+                        </div>
+                        <Link
+                          to={`/team-dettaglio/${team.head_2.id}`}
+                          className="btn btn-sm btn-outline-primary"
+                        >
+                          <i className="ri-eye-line me-1"></i>
+                          Vedi Profilo
+                        </Link>
+                      </>
+                    ) : (
+                      <div className="text-center py-4 text-muted">
+                        <div className="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-2"
+                             style={{ width: '48px', height: '48px' }}>
+                          <i className="ri-user-unfollow-line fs-4"></i>
+                        </div>
+                        <p className="mb-0">Nessun Secondo Team Leader</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

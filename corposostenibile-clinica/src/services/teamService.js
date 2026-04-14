@@ -261,7 +261,7 @@ const teamService = {
 
   /**
    * Create new team
-   * @param {Object} data - { name, team_type, head_id, description, member_ids }
+   * @param {Object} data - { name, team_type, head_id, head_2_id, description, member_ids }
    */
   async createTeam(data) {
     const response = await api.post('/team/teams', data);
@@ -271,7 +271,7 @@ const teamService = {
   /**
    * Update team
    * @param {number} id - Team ID
-   * @param {Object} data - { name, head_id, description, is_active, member_ids }
+   * @param {Object} data - { name, head_id, head_2_id, description, is_active, member_ids }
    */
   async updateTeam(id, data) {
     const response = await api.put(`/team/teams/${id}`, data);
