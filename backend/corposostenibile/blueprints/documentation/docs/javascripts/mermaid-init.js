@@ -1,16 +1,34 @@
 document$.subscribe(function() {
-  mermaid.initialize({
-    startOnLoad: false,
-    theme: 'base',
-    themeVariables: {
-      primaryColor: '#d1fae5',
-      primaryTextColor: '#065f46',
-      primaryBorderColor: '#10b981',
-      lineColor: '#6b7280',
-    },
-    securityLevel: 'loose',
+  // Converti tutti i code block "language-mermaid" in div.mermaid
+  document.querySelectorAll('code.language-mermaid').forEach(function(block) {
+    var pre = block.parentElement;
+    var div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = block.textContent;
+    div.setAttribute('data-processed', 'false');
+    pre.replaceWith(div);
   });
-  mermaid.run({
-    querySelector: '.mermaid',
-  });
+
+  // Inizializza mermaid su tutti i blocchi .mermaid non ancora processati
+  var pending = document.querySelectorAll('.mermaid:not([data-processed="true"])');
+  if (pending.length > 0) {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#d1fae5',
+        primaryTextColor: '#065f46',
+        primaryBorderColor: '#10b981',
+        lineColor: '#6b7280',
+      },
+      securityLevel: 'loose',
+    });
+    mermaid.run({
+      querySelector: '.mermaid',
+    }).then(function() {
+      pending.forEach(function(el) {
+        el.setAttribute('data-processed', 'true');
+      });
+    });
+  }
 });
