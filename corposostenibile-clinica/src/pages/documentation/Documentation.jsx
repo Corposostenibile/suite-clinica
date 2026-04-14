@@ -333,7 +333,26 @@ function DocumentationInner() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Trova l'item nella navConfig per una data key
+  const findNavItem = (key) => {
+    for (const group of navConfig) {
+      if (group.key === key) return group;
+      if (group.items) {
+        const found = group.items.find(item => item.key === key);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
   const handleGuideClick = (guideKey) => {
+    // Se e un group header senza path proprio (solo header), non cambiare guida
+    const navItem = findNavItem(guideKey);
+    if (navItem && navItem.isGroup && !navItem.path) {
+      // E solo un header, chiudi drawer e basta
+      setDrawerOpen(false);
+      return;
+    }
     openGuide(guideKey);
     setDrawerOpen(false);
   };

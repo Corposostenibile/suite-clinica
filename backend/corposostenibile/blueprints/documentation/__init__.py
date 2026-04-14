@@ -12,8 +12,21 @@ MKDOCS_YML = os.path.join(MKDOCS_DIR, 'mkdocs.yml')
 
 ALLOWED_SPECIALTY_KEYS = {'nutrizione', 'coaching', 'psicologia'}
 
-# Sezioni riservate ad admin/cco
-ADMIN_ONLY_SECTIONS = {'infrastruttura', 'sviluppo'}
+# Sezioni riservate ad admin/cco (tutto il contenuto)
+ADMIN_ONLY_SECTIONS = {'infrastruttura', 'sviluppo', 'SYSTEM_DOCUMENTATION'}
+
+# Sezioni accessibili ad admin + team leader (non professionisti)
+ADMIN_AND_TL_SECTIONS = {'team', 'strumenti', 'comunicazione'}
+
+# Sezioni con controllo specialty per guide ruolo
+# Costruisce mapping: slug parziale -> specialty richiesta
+GUIDE_RUOLI_SPECIALTY_MAP = {
+    'guida-team-leader': None,  # tutti i team leader
+    'guida-coach': 'coach',
+    'guida-nutrizionista': 'nutrizione',
+    'guida-psicologo': 'psicologia',
+    'guida-health-manager': None,  # hm hanno proprio ruolo
+}
 
 def scalar_value(val):
     if val is None:
@@ -26,6 +39,16 @@ def is_admin_or_cco_user(user):
         or scalar_value(getattr(user, 'role', '')).lower() == 'admin'
         or scalar_value(getattr(user, 'specialty', '')).lower() == 'cco'
     )
+
+def is_team_leader_user(user):
+    """Check se utente ha ruolo team_leader."""
+    return scalar_value(getattr(user, 'role', '')).lower() == 'team_leader'
+
+def is_health_manager_user(user):
+    """Check se utente e health manager."""
+    specialty = normalize_specialty_key(scalar_value(getattr(user, 'specialty', '')))
+    role = scalar_value(getattr(user, 'role', '')).lower()
+    return specialty == 'health_manager' or role == 'health_manager'
 
 def normalize_specialty_key(specialty):
     normalized = scalar_value(specialty).lower()
@@ -63,36 +86,86 @@ def check_path_permission(path):
     if is_admin_or_cco_user(current_user):
         return True
 
-    # Estrai la prima componente del percorso
+    # Estrai componenti del percorso
     parts = [part for part in String(path).split('/') if part]
     if not parts:
         return True
 
     first_section = parts[0]
 
-    # Controllo sezione admin-only (nega accesso a non-admin)
+    # ── Regola 1: sezioni admin-only ──
     if first_section in ADMIN_ONLY_SECTIONS:
         return False
 
-    # Controllo team_leader nei path
-    if 'team_leader' in path:
-        return can_view_audience('team_leader')
+    # ── Regola 2: guide ruolo (accesso per specialty/ruolo) ──
+    if first_section == 'guide-ruoli' and len(parts) >= 2:
+        guide_slug = parts[1]
+        return _check_guide_ruoli_access(guide_slug)
 
-    # Sezioni standard con controllo specialty
-    if first_section not in {'pazienti', 'professionisti', 'azienda', 'guide-ruoli', 'team', 'clienti-core', 'strumenti', 'comunicazione', 'panoramica'}:
+    # ── Regola 3: team (solo admin + team leader) ──
+    if first_section == 'team':
+        return is_team_leader_user(current_user)
+
+    # ── Regola 4: strumenti/quality-score (solo TL) ──
+    if first_section == 'strumenti' and len(parts) >= 2:
+        if parts[1] == 'quality-score' or parts[1] == 'quality_score':
+            return is_team_leader_user(current_user)
+        return True  # altri strumenti accessibili
+
+    # ── Regola 5: comunicazione/ (limitata per alcune sezioni) ──
+    if first_section == 'comunicazione':
+        return True  # accesso generico, controlli granulari a livello app
+
+    # ── Regola 6: guide con varianti (pazienti, professionisti, azienda) ──
+    if first_section in {'pazienti', 'professionisti', 'azienda'}:
+        # Controllo team_leader nei path
+        if 'team_leader' in path:
+            return can_view_audience('team_leader')
+        # Controllo specialty
+        if len(parts) >= 2:
+            doc_slug = parts[1]
+            requested_specialty = next(
+                (s for s in ALLOWED_SPECIALTY_KEYS if f'_{s}' in doc_slug),
+                None
+            )
+            if requested_specialty:
+                user_specialty = normalize_specialty_key(getattr(current_user, 'specialty', ''))
+                return user_specialty == requested_specialty
         return True
 
-    # Se abbiamo un secondo livello, controlla la specialty
-    if len(parts) < 2:
-        return True
+    # ── Regola 7: tutto il resto (panoramica, clienti-core, etc.) ──
+    return True
 
-    doc_slug = parts[1]
-    requested_specialty = next((specialty for specialty in ALLOWED_SPECIALTY_KEYS if f'_{specialty}' in doc_slug), None)
-    if not requested_specialty:
-        return True
 
-    user_specialty = normalize_specialty_key(getattr(current_user, 'specialty', ''))
-    return user_specialty == requested_specialty
+def _check_guide_ruoli_access(guide_slug):
+    """
+    Verifica accesso alle guide ruolo.
+    - guida-team-leader: solo team leader
+    - guida-coach: solo specialty coaching
+    - guida-nutrizionista: solo specialty nutrizione
+    - guida-psicologo: solo specialty psicologia
+    - guida-health-manager: solo health manager
+    - overview: tutti
+    """
+    # Mappa slug -> check function
+    guide_access = {
+        'guida-team-leader': lambda: is_team_leader_user(current_user),
+        'guida-coach': lambda: normalize_specialty_key(scalar_value(
+            getattr(current_user, 'specialty', ''))) in ('coaching', 'coach'),
+        'guida-nutrizionista': lambda: normalize_specialty_key(scalar_value(
+            getattr(current_user, 'specialty', ''))) in ('nutrizione', 'nutrizionista'),
+        'guida-psicologo': lambda: normalize_specialty_key(scalar_value(
+            getattr(current_user, 'specialty', ''))) in ('psicologia', 'psicologo'),
+        'guida-health-manager': lambda: is_health_manager_user(current_user),
+        'overview': lambda: True,  # overview accessibile a tutti
+    }
+    
+    check_fn = guide_access.get(guide_slug)
+    if check_fn:
+        return check_fn()
+    
+    # Slug non riconosciuto: nega per sicurezza
+    return False
 
 @documentation_bp.route('/')
 @login_required
@@ -158,7 +231,7 @@ def _load_mkdocs_nav():
 
 def _is_admin_only_section(section_key):
     """Check se una sezione e admin-only."""
-    admin_section_keys = {'infrastruttura', 'sviluppo'}
+    admin_section_keys = {'infrastruttura', 'sviluppo', 'amministrazione-e-it', 'system-documentation'}
     return section_key in admin_section_keys
 
 def _extract_key_from_title(title):
@@ -251,22 +324,116 @@ def get_navigation():
     REST endpoint che restituisce la configurazione della navigazione
     derivata da mkdocs.yml, strutturata per il frontend.
     
-    Filtra le sezioni admin-only per utenti non-admin.
+    Filtra sezioni per permessi utente:
+    - admin/cco: accesso completo
+    - team leader: area clinica + strumenti + comunicazione + team
+    - professionista: area clinica + strumenti + comunicazione base
+    - guida ruolo: solo la propria guida
     """
     nav = _load_mkdocs_nav()
+    user = current_user
+    user_is_admin = is_admin_or_cco_user(user)
+    user_is_tl = is_team_leader_user(user)
+    user_specialty = normalize_specialty_key(scalar_value(
+        getattr(user, 'specialty', '')))
     
-    # Processa la navigazione
     processed_nav = []
     for item in nav:
         processed = _normalize_nav_item(item)
-        if processed:
-            # Filtra sezioni admin-only per non-admin
-            if processed.get('isAdminOnly') and not is_admin_or_cco_user(current_user):
+        if not processed:
+            continue
+        
+        section_key = processed.get('key', '')
+        
+        # ── Admin-only sections ──
+        if processed.get('isAdminOnly') and not user_is_admin:
+            continue
+        
+        # ── Team section: solo admin + team leader ──
+        if section_key == 'team' and not user_is_admin and not user_is_tl:
+            continue
+        
+        # ── Guide Ruolo: filtra items per specialty ──
+        if section_key == 'guide-per-ruolo' and not user_is_admin:
+            processed = _filter_guide_ruoli_for_user(processed, user_is_tl, user_specialty)
+            if not processed or not processed.get('items'):
                 continue
-            processed_nav.append(processed)
+        
+        # ── Strumenti: quality-score solo per admin + TL ──
+        if section_key == 'strumenti' and not user_is_admin:
+            items = processed.get('items', [])
+            filtered_items = [
+                i for i in items
+                if not _is_tl_only_item(i)
+            ]
+            processed['items'] = filtered_items
+        
+        processed_nav.append(processed)
     
     return jsonify({
         'success': True,
         'data': processed_nav,
-        'isAdmin': is_admin_or_cco_user(current_user),
+        'isAdmin': user_is_admin,
     })
+
+
+def _is_tl_only_item(item):
+    """Check se un item e accessibile solo a team leader."""
+    slug = item.get('key', '')
+    tl_only = {'quality-score', 'quality_score'}
+    return slug in tl_only
+
+
+def _filter_guide_ruoli_for_user(group, user_is_tl, user_specialty):
+    """
+    Filtra gli items di guide-ruoli in base al ruolo/specialty dell'utente.
+    """
+    if not group.get('items'):
+        return group
+    
+    filtered = []
+    for item in group['items']:
+        slug = item.get('key', '')
+        
+        # overview accessibile a tutti
+        if slug == 'overview':
+            filtered.append(item)
+            continue
+        
+        # Guida team leader: solo TL
+        if 'team-leader' in slug or 'team_leader' in slug:
+            if user_is_tl:
+                filtered.append(item)
+            continue
+        
+        # Guida coach: solo specialty coaching
+        if 'coach' in slug:
+            if user_specialty in ('coaching', 'coach'):
+                filtered.append(item)
+            continue
+        
+        # Guida nutrizionista: solo specialty nutrizione
+        if 'nutrizionista' in slug or 'nutrizione' in slug:
+            if user_specialty in ('nutrizione', 'nutrizionista'):
+                filtered.append(item)
+            continue
+        
+        # Guida psicologo: solo specialty psicologia
+        if 'psicologo' in slug or 'psicologia' in slug:
+            if user_specialty in ('psicologia', 'psicologo', 'psicologa'):
+                filtered.append(item)
+            continue
+        
+        # Guida health manager: solo HM
+        if 'health-manager' in slug or 'health_manager' in slug:
+            hm_role = scalar_value(getattr(current_user, 'role', '')).lower()
+            hm_spec = scalar_value(getattr(current_user, 'specialty', '')).lower()
+            if hm_role == 'health_manager' or 'health_manager' in hm_spec:
+                filtered.append(item)
+            continue
+        
+        # Default: mostra
+        filtered.append(item)
+    
+    group['items'] = filtered
+    return group
