@@ -125,7 +125,7 @@ def dump_production_db(source_url: str, out_file: Path) -> None:
     log(f"[step] dump produzione completato in {fmt_seconds(time.time() - started)}")
 
 
-def restore_dump_to_local(target_url: str, dump_file: Path) -> None:
+def restore_dump_to_local(target_url: str, dump_file: Path, continue_on_error: bool = False) -> None:
     if not dump_file.exists():
         raise FileNotFoundError(f"Dump non trovato: {dump_file}")
     kind = detect_dump_kind(dump_file)
@@ -133,12 +133,16 @@ def restore_dump_to_local(target_url: str, dump_file: Path) -> None:
     log(f"[step] restore locale da dump ({kind})")
     reset_target_db(target_url)
     if kind == "custom":
+        pg_restore_flags = ["--no-owner", "--no-privileges"]
+        if continue_on_error:
+            # pg_restore di default continua con gli errori, non aggiungere --exit-on-error
+            log("[info] Modalità continue-on-error: ignora tabelle/colonne mancanti")
+        else:
+            pg_restore_flags.append("--exit-on-error")
         run_passthrough(
             [
                 "pg_restore",
-                "--no-owner",
-                "--no-privileges",
-                "--exit-on-error",
+                *pg_restore_flags,
                 "--dbname",
                 target_url,
                 str(dump_file),
@@ -157,12 +161,15 @@ def restore_dump_to_local(target_url: str, dump_file: Path) -> None:
                     if line.startswith("SET transaction_timeout"):
                         continue
                     dst.write(line)
+            on_error_stop = "0" if continue_on_error else "1"
+            if continue_on_error:
+                log("[info] Modalità continue-on-error: ignora errori SQL")
             run_passthrough(
                 [
                     "psql",
                     target_url,
                     "-v",
-                    "ON_ERROR_STOP=1",
+                    f"ON_ERROR_STOP={on_error_stop}",
                     "-f",
                     str(filtered_path),
                 ]
@@ -191,11 +198,12 @@ def show_counts(db_url: str) -> None:
 def usage() -> str:
     return (
         "Uso:\n"
-        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --source-url <PROD_DATABASE_URL> [--dump-file <path>] [--keep-dump]\n"
-        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --dump-file <path>\n\n"
+        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --source-url <PROD_DATABASE_URL> [--dump-file <path>] [--keep-dump] [--continue-on-error]\n"
+        "  poetry run python scripts/local_db_ops/import_cached_migrated_sql.py --dump-file <path> [--continue-on-error]\n\n"
         "Note:\n"
         "  - DATABASE_URL locale letto da env o backend/.env\n"
         "  - Nessun reset utente dev: il DB viene importato 'as is' dalla produzione\n"
+        "  - --continue-on-error: continua l'import anche se ci sono tabelle/colonne mancanti\n"
     )
 
 
@@ -204,6 +212,7 @@ def parse_args(argv: list[str]) -> dict[str, object]:
     dump_file: Path | None = None
     keep_dump = False
     use_temp_dump = False
+    continue_on_error = False
 
     i = 0
     while i < len(argv):
@@ -220,6 +229,8 @@ def parse_args(argv: list[str]) -> dict[str, object]:
             dump_file = Path(argv[i]).resolve()
         elif a == "--keep-dump":
             keep_dump = True
+        elif a == "--continue-on-error":
+            continue_on_error = True
         elif a in {"-h", "--help"}:
             print(usage())
             raise SystemExit(0)
@@ -244,6 +255,7 @@ def parse_args(argv: list[str]) -> dict[str, object]:
         "dump_file": dump_file,
         "keep_dump": keep_dump,
         "use_temp_dump": use_temp_dump,
+        "continue_on_error": continue_on_error,
     }
 
 
@@ -255,6 +267,7 @@ def main() -> int:
         source_url = args["source_url"]
         dump_file = args["dump_file"]
         keep_dump = bool(args["keep_dump"])
+        continue_on_error = bool(args["continue_on_error"])
 
         if not dump_file:
             raise RuntimeError("Serve --source-url oppure --dump-file (o DEFAULT_DUMP_FILE esistente)")
@@ -271,7 +284,7 @@ def main() -> int:
         else:
             log("[start] restore dump produzione già disponibile -> locale")
 
-        restore_dump_to_local(target_url, dump_path)
+        restore_dump_to_local(target_url, dump_path, continue_on_error=continue_on_error)
         show_counts(target_url)
         log(f"[ok] Import DB produzione completato (durata totale={fmt_seconds(time.time() - started)})")
 

@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers
 revision = 'hm_team_second_leader_01'
-down_revision = '90f0ea3788d9_sync_team_heads_to_team_leader_role'
+down_revision = '90f0ea3788d9'
 branch_labels = None
 depends_on = None
 
