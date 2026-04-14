@@ -11,14 +11,23 @@ theme:
 
 extra_css:
   - stylesheets/extra.css
+  - mermaid-styles.css
 
 extra_javascript:
   - javascripts/nav-scope.js
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
 
 markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 3
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 
 nav:
   - Getting Started:
@@ -98,18 +107,18 @@ nav:
     - Guida Health Manager: guide-ruoli/guida-health-manager.md
   - Amministrazione e IT:
     - Organizzazione:
-      - Autenticazione: team/autenticazione.md
+      - Overview: team/autenticazione.md
       - Team & Professionisti: team/team-professionisti.md
       - KPI & Performance: team/kpi-performance.md
     - Infrastruttura:
-      - CI/CD Analysis: infrastruttura/ci_cd_analysis.md
+      - Overview: infrastruttura/ci_cd_analysis.md
       - GCP Setup: infrastruttura/gcp_infrastructure_setup_report.md
       - Compliance: infrastruttura/infrastructure_compliance_report.md
       - Rapporto 2026: infrastruttura/rapporto_infrastruttura_2026.md
       - Procedura Migrazione: infrastruttura/procedura_migrazione.md
       - DuckDNS VPS: infrastruttura/duckdns_local_dev_vps.md
     - Sviluppo:
-      - Refactor Status: sviluppo/refactor_status_report.md
+      - Overview: sviluppo/refactor_status_report.md
       - Refactor Plan: sviluppo/refining_refactor_plan.md
       - Completamento Docs: sviluppo/report-completamento-documentazione.md
     - System Documentation: SYSTEM_DOCUMENTATION.md

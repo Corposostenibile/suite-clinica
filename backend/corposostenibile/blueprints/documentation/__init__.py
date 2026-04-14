@@ -306,10 +306,18 @@ def _normalize_nav_item(item, parent_key=None):
                 if processed:
                     processed_children.append(processed)
             
+            # Il path del primo child con path serve per rendere l'header cliccabile
+            first_child_path = None
+            for c in processed_children:
+                if c.get('path'):
+                    first_child_path = c['path']
+                    break
+            
             return {
                 'key': section_key,
                 'label': title,
                 'section': section_key,
+                'path': first_child_path,  # header cliccabile se ha un child con path
                 'isAdminOnly': is_admin_section,
                 'items': processed_children,
                 'isGroup': len(processed_children) > 0,
