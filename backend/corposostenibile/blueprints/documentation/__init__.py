@@ -226,7 +226,7 @@ def _normalize_nav_item(item, parent_key=None):
     
     return None
 
-@documentation_bp.route('/api/nav')
+@documentation_bp.route('/nav')
 @login_required
 def get_navigation():
     """
