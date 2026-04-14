@@ -46,7 +46,7 @@ La Ricerca Globale è lo strumento di navigazione rapida della Suite. Consente d
 ```mermaid
 flowchart TD
     User[Utente] --> SearchPage[GlobalSearchPage]
-    SearchPage --> SearchApi[/api/search/global]
+    SearchPage --> SearchApi["/api/search/global"]
     SearchApi --> Pazienti[(Cliente)]
     SearchApi --> Checks[(WeeklyCheckResponse)]
     SearchApi --> Users[(User)]

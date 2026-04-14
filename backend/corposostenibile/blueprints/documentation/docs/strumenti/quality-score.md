@@ -47,7 +47,7 @@ Il modulo Quality Score è il sistema di governance clinica della Suite. Misura 
 ```mermaid
 flowchart TD
     Admin[Admin/CCO] --> QualityUI[Quality dashboard]
-    QualityUI --> QualityApi[/quality/api/*]
+    QualityUI --> QualityApi["/quality/api/*"]
     QualityApi --> Eligibility[EligibilityService]
     QualityApi --> Calculator[QualityScoreCalculator]
     QualityApi --> SuperMalus[SuperMalusService]

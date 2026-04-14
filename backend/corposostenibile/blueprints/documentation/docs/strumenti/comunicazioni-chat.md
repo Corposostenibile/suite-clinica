@@ -46,10 +46,10 @@ Quest'area comprende gli strumenti di comunicazione interna strutturata e i cana
 ```mermaid
 flowchart TD
     Author[Admin o Head] --> CommUI[UI Comunicazioni]
-    CommUI --> CommRoutes[/communications/*]
+    CommUI --> CommRoutes["/communications/*"]
     CommRoutes --> CommDB[(communications + reads)]
     Reader[Collaboratore] --> CommUI
-    Reader --> MarkRead[/communications/:id/mark-read]
+    Reader --> MarkRead["/communications/:id/mark-read"]
     Reader --> ChatPage[/chat placeholder]
 ```
 

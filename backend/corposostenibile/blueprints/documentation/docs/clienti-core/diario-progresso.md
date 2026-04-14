@@ -59,9 +59,9 @@ L'area Diario e Progresso raccoglie due funzionalità complementari per il monit
 flowchart TD
     User[Professionista] --> DiarioUI[DiarioModal o tab Diario]
     User --> ProgressoUI[ProgressoTab]
-    DiarioUI --> DiaryApi[/api/v1/customers/:id/diary/:serviceType]
-    ProgressoUI --> MetricsApi[/api/v1/customers/:id/feedback-metrics]
-    ProgressoUI --> ChecksApi[/api/v1/customers/:id/weekly-checks-metrics]
+    DiarioUI --> DiaryApi["/api/v1/customers/:id/diary/:serviceType"]
+    ProgressoUI --> MetricsApi["/api/v1/customers/:id/feedback-metrics"]
+    ProgressoUI --> ChecksApi["/api/v1/customers/:id/weekly-checks-metrics"]
     DiaryApi --> DiaryTable[(service_diary_entries)]
     MetricsApi --> WeeklyChecks[(weekly_check_responses)]
     MetricsApi --> DcaChecks[(dca_check_responses)]
