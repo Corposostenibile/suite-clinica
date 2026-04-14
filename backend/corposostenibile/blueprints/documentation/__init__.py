@@ -197,18 +197,36 @@ def _normalize_nav_item(item, parent_key=None):
             # Determina se la sezione e admin-only
             is_admin_section = _is_admin_only_section(section_key)
             
+            # children puo essere:
+            # - None: sezione senza path proprio
+            # - str: path diretto (es. "index.md")
+            # - list: lista di figli (altri items o dicts)
+            
             if children is None:
-                # Sezione senza figli (path diretto)
+                # Sezione senza path proprio (solo header)
                 return {
                     'key': section_key,
                     'label': title,
                     'path': None,
                     'section': section_key,
                     'isAdminOnly': is_admin_section,
+                    'isGroup': True,
                     'isStatic': True,
                 }
             
-            # Sezione con figli
+            if isinstance(children, str):
+                # Path diretto - questa sezione ha un file proprio
+                path = children.strip().replace('.md', '/')
+                return {
+                    'key': section_key,
+                    'label': title,
+                    'path': path,
+                    'section': section_key,
+                    'isAdminOnly': is_admin_section,
+                    'isStatic': True,
+                }
+            
+            # Lista di figli
             processed_children = []
             for child in children:
                 processed = _normalize_nav_item(child, section_key)
@@ -221,7 +239,7 @@ def _normalize_nav_item(item, parent_key=None):
                 'section': section_key,
                 'isAdminOnly': is_admin_section,
                 'items': processed_children,
-                'isGroup': len(processed_children) > 1,
+                'isGroup': len(processed_children) > 0,
             }
     
     return None
