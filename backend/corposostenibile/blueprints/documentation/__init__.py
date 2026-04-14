@@ -9,6 +9,9 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 
 ALLOWED_SPECIALTY_KEYS = {'nutrizione', 'coaching', 'psicologia'}
 
+# Sezioni riservate ad admin/cco
+ADMIN_ONLY_SECTIONS = {'infrastruttura', 'sviluppo'}
+
 def scalar_value(val):
     if val is None:
         return ""
@@ -50,21 +53,39 @@ def can_view_audience(audience):
 
 # Helper per gestire il check dell'audience nel percorso del file
 def check_path_permission(path):
-    if 'team_leader' in path:
-        return can_view_audience('team_leader')
     if not current_user.is_authenticated:
         return False
 
+    # Admin/CCO hanno accesso completo
+    if is_admin_or_cco_user(current_user):
+        return True
+
+    # Estrai la prima componente del percorso
     parts = [part for part in String(path).split('/') if part]
-    if len(parts) < 2 or parts[0] not in {'pazienti', 'professionisti', 'azienda'}:
+    if not parts:
+        return True
+
+    first_section = parts[0]
+
+    # Controllo sezione admin-only (nega accesso a non-admin)
+    if first_section in ADMIN_ONLY_SECTIONS:
+        return False
+
+    # Controllo team_leader nei path
+    if 'team_leader' in path:
+        return can_view_audience('team_leader')
+
+    # Sezioni standard con controllo specialty
+    if first_section not in {'pazienti', 'professionisti', 'azienda', 'guide-ruoli', 'team', 'clienti-core', 'strumenti', 'comunicazione', 'panoramica'}:
+        return True
+
+    # Se abbiamo un secondo livello, controlla la specialty
+    if len(parts) < 2:
         return True
 
     doc_slug = parts[1]
     requested_specialty = next((specialty for specialty in ALLOWED_SPECIALTY_KEYS if f'_{specialty}' in doc_slug), None)
     if not requested_specialty:
-        return True
-
-    if is_admin_or_cco_user(current_user):
         return True
 
     user_specialty = normalize_specialty_key(getattr(current_user, 'specialty', ''))

@@ -22,6 +22,9 @@ markdown_extensions:
 
 nav:
   - Benvenuto: index.md
+  - Panoramica:
+    - Panoramica Generale: panoramica/overview.md
+    - Template Documento: panoramica/template-documento.md
   - Gestione Pazienti:
     - Lista Pazienti:
       - Team Leader: pazienti/lista_team_leader.md
@@ -60,6 +63,38 @@ nav:
       - Professionista Nutrizione: professionisti/formazione_professionista_nutrizione.md
       - Professionista Coaching: professionisti/formazione_professionista_coaching.md
       - Professionista Psicologia: professionisti/formazione_professionista_psicologia.md
+  - Team e Organizzazione:
+    - Autenticazione: team/autenticazione.md
+    - Team e Professionisti: team/team-professionisti.md
+    - KPI e Performance: team/kpi-performance.md
+  - Clienti Core:
+    - Gestione Clienti: clienti-core/gestione-clienti.md
+    - Check Periodici: clienti-core/check-periodici.md
+    - Modulo Nutrizione: clienti-core/modulo-nutrizione.md
+    - Diario Progresso: clienti-core/diario-progresso.md
+    - Piano Medico Nutrizione: clienti-core/piano_medico_nutrizione.md
+    - Test Medico: clienti-core/test_medico_passo_passo.md
+  - Strumenti Operativi:
+    - Task e Calendario: strumenti/task-calendario.md
+    - Ticket Supporto: strumenti/ticket-supporto.md
+    - Comunicazioni Chat: strumenti/comunicazioni-chat.md
+    - Quality Score: strumenti/quality-score.md
+    - Ricerca Globale: strumenti/ricerca-globale.md
+  - Comunicazione:
+    - Overview: comunicazione/README.md
+    - Comunicazione Interna: comunicazione/comunicazione-interna.md
+    - Integrazione Respond.io: comunicazione/integrazione-respond-io.md
+    - Appointment Setting: comunicazione/appointment-setting.md
+    - Notifiche Push: comunicazione/notifiche-push.md
+    - Integrazione GHL: comunicazione/integrazione-gohighlevel-webhook.md
+    - SuiteMind AI Chatbot: comunicazione/suitemind-ai-sop-chatbot.md
+    - Trustpilot Review: comunicazione/trustpilot-review-automation.md
+  - Guide Ruoli:
+    - Guida Team Leader: guide-ruoli/guida-team-leader.md
+    - Guida Coach: guide-ruoli/guida-coach.md
+    - Guida Nutrizionista: guide-ruoli/guida-nutrizionista.md
+    - Guida Psicologo: guide-ruoli/guida-psicologo.md
+    - Guida Health Manager: guide-ruoli/guida-health-manager.md
   - Gestione Azienda:
     - Check Azienda:
       - Team Leader: azienda/check_azienda_team_leader.md
@@ -70,3 +105,16 @@ nav:
       - Professionista Nutrizione: azienda/check_azienda_professionista_nutrizione.md
       - Professionista Coaching: azienda/check_azienda_professionista_coaching.md
       - Professionista Psicologia: azienda/check_azienda_professionista_psicologia.md
+  - Infrastruttura:
+    - CI/CD Analysis: infrastruttura/ci_cd_analysis.md
+    - GCP Setup: infrastruttura/gcp_infrastructure_setup_report.md
+    - Infrastructure Compliance: infrastruttura/infrastructure_compliance_report.md
+    - Rapporto 2026: infrastruttura/rapporto_infrastruttura_2026.md
+    - Procedura Migrazione: infrastruttura/procedura_migrazione.md
+    - DuckDNS VPS: infrastruttura/duckdns_local_dev_vps.md
+  - Sviluppo:
+    - Refactor Status: sviluppo/refactor_status_report.md
+    - Refactor Plan: sviluppo/refining_refactor_plan.md
+    - Completamento Docs: sviluppo/report-completamento-documentazione.md
+  - Documentazione Sistema:
+    - System Documentation (Developer): SYSTEM_DOCUMENTATION.md
