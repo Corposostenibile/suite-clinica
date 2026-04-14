@@ -9,8 +9,63 @@ import {
 } from '../../utils/tourScope';
 import './Documentation.css';
 
-/* ─── Data (invariato) ──────────────────────────────────────────────── */
+/* ─── Data ───────────────────────────────────────────────────────── */
 
+// Guide con path fisso (senza varianti ruolo/specialty)
+const STATIC_GUIDES = {
+  panoramica: {
+    label: 'Panoramica',
+    icon: 'ri-book-open-line',
+    path: 'panoramica/overview/',
+    description: 'Panoramica generale del progetto e template documentazione.',
+  },
+  team: {
+    label: 'Team e Organizzazione',
+    icon: 'ri-org-chart',
+    path: 'team/team-professionisti/',
+    description: 'Autenticazione, team professionisti, KPI e performance.',
+  },
+  'clienti-core': {
+    label: 'Clienti Core',
+    icon: 'ri-user-heart-line',
+    path: 'clienti-core/gestione-clienti/',
+    description: 'Gestione clienti, check periodici, nutrizione, diario.',
+  },
+  strumenti: {
+    label: 'Strumenti Operativi',
+    icon: 'ri-tools-line',
+    path: 'strumenti/task-calendario/',
+    description: 'Task, calendario, ticket, chat, ricerca.',
+  },
+  comunicazione: {
+    label: 'Comunicazione',
+    icon: 'ri-message-3-line',
+    path: 'comunicazione/README/',
+    description: 'GHL, respond.io, notifiche, chatbot.',
+  },
+  'guide-ruoli': {
+    label: 'Guide Ruoli',
+    icon: 'ri-user-guide-line',
+    path: 'guide-ruoli/overview/',
+    description: 'Guide operative per Coach, Nutrizionista, Psicologo.',
+  },
+  infrastruttura: {
+    label: 'Infrastruttura',
+    icon: 'ri-server-line',
+    path: 'infrastruttura/ci_cd_analysis/',
+    description: 'CI/CD, GCP, migrazione. Solo admin.',
+    adminOnly: true,
+  },
+  sviluppo: {
+    label: 'Sviluppo',
+    icon: 'ri-code-s-slash-line',
+    path: 'sviluppo/refactor_status_report/',
+    description: 'Refactor, piani sviluppo. Solo admin.',
+    adminOnly: true,
+  },
+};
+
+// Guide con varianti ruolo/specialty
 const createGuideVariants = (basePath) => ({
   team_leader: {
     all: `${basePath}_team_leader/`,
@@ -141,6 +196,77 @@ const GUIDE_GROUPS = [
       },
     ],
   },
+  {
+    id: 'generale',
+    label: 'Generale',
+    icon: 'ri-book-3-line',
+    items: [
+      {
+        key: 'panoramica',
+        label: 'Panoramica',
+        icon: 'ri-book-open-line',
+        staticPath: 'panoramica/overview/',
+        description: 'Panoramica generale del progetto e template documentazione.',
+      },
+      {
+        key: 'team',
+        label: 'Team e Organizzazione',
+        icon: 'ri-org-chart',
+        staticPath: 'team/team-professionisti/',
+        description: 'Autenticazione, team professionisti, KPI e performance.',
+      },
+      {
+        key: 'clienti-core',
+        label: 'Clienti Core',
+        icon: 'ri-user-heart-line',
+        staticPath: 'clienti-core/gestione-clienti/',
+        description: 'Gestione clienti, check periodici, nutrizione, diario.',
+      },
+      {
+        key: 'strumenti',
+        label: 'Strumenti Operativi',
+        icon: 'ri-tools-line',
+        staticPath: 'strumenti/task-calendario/',
+        description: 'Task, calendario, ticket, chat, ricerca.',
+      },
+      {
+        key: 'comunicazione',
+        label: 'Comunicazione',
+        icon: 'ri-message-3-line',
+        staticPath: 'comunicazione/README/',
+        description: 'GHL, respond.io, notifiche, chatbot.',
+      },
+      {
+        key: 'guide-ruoli',
+        label: 'Guide Ruoli',
+        icon: 'ri-user-guide-line',
+        staticPath: 'guide-ruoli/overview/',
+        description: 'Guide operative per Coach, Nutrizionista, Psicologo.',
+      },
+    ],
+  },
+  {
+    id: 'amministrazione',
+    label: 'Amministrazione',
+    icon: 'ri-admin-line',
+    adminOnly: true,
+    items: [
+      {
+        key: 'infrastruttura',
+        label: 'Infrastruttura',
+        icon: 'ri-server-line',
+        staticPath: 'infrastruttura/ci_cd_analysis/',
+        description: 'CI/CD, GCP, migrazione.',
+      },
+      {
+        key: 'sviluppo',
+        label: 'Sviluppo',
+        icon: 'ri-code-s-slash-line',
+        staticPath: 'sviluppo/refactor_status_report/',
+        description: 'Refactor, piani sviluppo.',
+      },
+    ],
+  },
 ];
 
 const DEFAULT_GUIDE_BY_AUDIENCE = {
@@ -178,8 +304,10 @@ function DocumentationInner() {
     : (requestedSpecialty || 'all');
 
   const allGuides = useMemo(
-    () => GUIDE_GROUPS.flatMap((group) => group.items.map((item) => ({ ...item, groupId: group.id, groupLabel: group.label }))),
-    []
+    () => GUIDE_GROUPS
+      .filter((group) => !group.adminOnly || isAdminOrCco)
+      .flatMap((group) => group.items.map((item) => ({ ...item, groupId: group.id, groupLabel: group.label }))),
+    [isAdminOrCco]
   );
 
   const hashKey = location.hash.replace('#', '');
@@ -196,11 +324,21 @@ function DocumentationInner() {
   };
 
   const resolveGuideDescription = (guide, guideAudience, guideSpecialty) => {
+    // Se ha description statica, usala
+    if (guide.description) {
+      return guide.description;
+    }
+    // Altrimenti cerca nelle varianti
     const audienceDescriptions = guide.descriptions?.[guideAudience] || guide.descriptions?.professionista || {};
     return audienceDescriptions[guideSpecialty] || audienceDescriptions.all || '';
   };
 
-  const iframeUrl = `/api/documentation/static/${resolveVariantPath(activeGuide, audience, specialty)}`;
+  const iframeUrl = useMemo(() => {
+    if (activeGuide.staticPath) {
+      return `/api/documentation/static/${activeGuide.staticPath}`;
+    }
+    return `/api/documentation/static/${resolveVariantPath(activeGuide, audience, specialty)}`;
+  }, [activeGuide, audience, specialty]);
 
   const updateRoute = (nextAudience, nextSpecialty, nextGuideKey = activeGuideKey) => {
     const params = new URLSearchParams(location.search || '');
