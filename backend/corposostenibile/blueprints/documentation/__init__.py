@@ -225,7 +225,7 @@ def _load_mkdocs_nav():
         return []
     
     with open(MKDOCS_YML, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
     
     return config.get('nav', []) if config else []
 
