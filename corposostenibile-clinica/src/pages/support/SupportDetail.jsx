@@ -8,6 +8,14 @@ const DOCS_REDIRECT = {
     formazione: 'formazione',
     pazienti: 'lista-pazienti',
     check: 'check-azienda',
+    panoramica: 'panoramica',
+    'team-org': 'team',
+    'clienti-core': 'clienti-core',
+    strumenti: 'strumenti',
+    comunicazione: 'comunicazione',
+    'guide-ruoli': 'guide-ruoli',
+    infrastruttura: 'infrastruttura',
+    sviluppo: 'sviluppo',
 };
 
 const SECTIONS = {
@@ -88,6 +96,54 @@ const SECTIONS = {
         subtitle: 'Guida alla gestione utenti in prova',
         icon: 'ri-user-follow-line',
         gradient: 'linear-gradient(135deg, #a855f7, #9333ea)',
+    },
+    panoramica: {
+        title: 'Panoramica',
+        subtitle: 'Panoramica generale del progetto',
+        icon: 'ri-book-open-line',
+        gradient: 'linear-gradient(135deg, #10B9A7, #0D9488)',
+    },
+    'team-org': {
+        title: 'Team e Organizzazione',
+        subtitle: 'Autenticazione, team, KPI e performance',
+        icon: 'ri-org-chart',
+        gradient: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+    },
+    'clienti-core': {
+        title: 'Clienti Core',
+        subtitle: 'Gestione clienti, check, nutrizione, diario',
+        icon: 'ri-user-heart-line',
+        gradient: 'linear-gradient(135deg, #10B981, #059669)',
+    },
+    strumenti: {
+        title: 'Strumenti Operativi',
+        subtitle: 'Task, calendario, ticket, chat, ricerca',
+        icon: 'ri-tools-line',
+        gradient: 'linear-gradient(135deg, #F59E0B, #D97706)',
+    },
+    comunicazione: {
+        title: 'Comunicazione',
+        subtitle: 'GHL, respond.io, notifiche, chatbot',
+        icon: 'ri-message-3-line',
+        gradient: 'linear-gradient(135deg, #06B6D4, #0891B2)',
+    },
+    'guide-ruoli': {
+        title: 'Guide Ruoli',
+        subtitle: 'Guide operative per ogni ruolo',
+        icon: 'ri-user-guide-line',
+        gradient: 'linear-gradient(135deg, #EC4899, #DB2777)',
+    },
+    infrastruttura: {
+        title: 'Infrastruttura',
+        subtitle: 'CI/CD, GCP, migrazione (admin)',
+        icon: 'ri-server-line',
+        gradient: 'linear-gradient(135deg, #EF4444, #DC2626)',
+    },
+    sviluppo: {
+        title: 'Sviluppo',
+        subtitle: 'Refactor, piani sviluppo (admin)',
+        icon: 'ri-code-s-slash-line',
+        gradient: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
     },
 };
 

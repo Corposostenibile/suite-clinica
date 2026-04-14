@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import AuthContext from '../../context/AuthContext';
 import './Support.css';
 
 const SUPPORT_SECTIONS = [
@@ -99,16 +100,90 @@ const SUPPORT_SECTIONS = [
         icon: 'ri-user-follow-line',
         gradient: 'linear-gradient(135deg, #a855f7, #9333ea)',
     },
+    {
+        id: 'panoramica',
+        title: 'Panoramica',
+        description: 'Panoramica generale del progetto e template documentazione.',
+        icon: 'ri-book-open-line',
+        gradient: 'linear-gradient(135deg, #10B9A7, #0D9488)',
+        docsGuideKey: 'panoramica',
+    },
+    {
+        id: 'team-org',
+        title: 'Team e Organizzazione',
+        description: 'Autenticazione, team professionisti, KPI e performance.',
+        icon: 'ri-org-chart',
+        gradient: 'linear-gradient(135deg, #6366F1, #4F46E5)',
+        docsGuideKey: 'team',
+    },
+    {
+        id: 'clienti-core',
+        title: 'Clienti Core',
+        description: 'Gestione clienti, check periodici, nutrizione, diario progresso.',
+        icon: 'ri-user-heart-line',
+        gradient: 'linear-gradient(135deg, #10B981, #059669)',
+        docsGuideKey: 'clienti-core',
+    },
+    {
+        id: 'strumenti',
+        title: 'Strumenti Operativi',
+        description: 'Task, calendario, ticket supporto, chat, ricerca globale.',
+        icon: 'ri-tools-line',
+        gradient: 'linear-gradient(135deg, #F59E0B, #D97706)',
+        docsGuideKey: 'strumenti',
+    },
+    {
+        id: 'comunicazione',
+        title: 'Comunicazione',
+        description: 'Integrazioni GHL, respond.io, notifiche push, chatbot AI.',
+        icon: 'ri-message-3-line',
+        gradient: 'linear-gradient(135deg, #06B6D4, #0891B2)',
+        docsGuideKey: 'comunicazione',
+    },
+    {
+        id: 'guide-ruoli',
+        title: 'Guide Ruoli',
+        description: 'Guide operative per Coach, Nutrizionista, Psicologo, Health Manager.',
+        icon: 'ri-user-guide-line',
+        gradient: 'linear-gradient(135deg, #EC4899, #DB2777)',
+        docsGuideKey: 'guide-ruoli',
+    },
+    {
+        id: 'infrastruttura',
+        title: 'Infrastruttura',
+        description: 'CI/CD, GCP setup, migrazione, DuckDNS. Solo per admin.',
+        icon: 'ri-server-line',
+        gradient: 'linear-gradient(135deg, #EF4444, #DC2626)',
+        docsGuideKey: 'infrastruttura',
+        adminOnly: true,
+    },
+    {
+        id: 'sviluppo',
+        title: 'Sviluppo',
+        description: 'Refactor status, piani di sviluppo. Solo per admin.',
+        icon: 'ri-code-s-slash-line',
+        gradient: 'linear-gradient(135deg, #8B5CF6, #7C3AED)',
+        docsGuideKey: 'sviluppo',
+        adminOnly: true,
+    },
 ];
 
 const Support = () => {
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
+    const auth = useContext(AuthContext);
+    const currentUser = auth?.user || null;
+    const isAdminOrCco = currentUser?.is_admin || currentUser?.role === 'admin' || currentUser?.specialty === 'cco';
 
-    const filteredSections = SUPPORT_SECTIONS.filter(section =>
-        section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        section.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredSections = SUPPORT_SECTIONS.filter(section => {
+        // Filtra sezioni admin-only per utenti non-admin
+        if (section.adminOnly && !isAdminOrCco) {
+            return false;
+        }
+        // Filtra per ricerca
+        return section.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            section.description.toLowerCase().includes(searchQuery.toLowerCase());
+    });
 
     return (
         <div className="sup-page">
