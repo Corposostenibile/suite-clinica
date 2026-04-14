@@ -9,39 +9,28 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Converti tutti i code block "language-mermaid" in div.mermaid
-  document.querySelectorAll('code.language-mermaid').forEach(function(block) {
-    var pre = block.parentElement;
+  // Converti tutti i pre.mermaid in div.mermaid (mermaid richiede div, non pre)
+  document.querySelectorAll('pre.mermaid').forEach(function(pre) {
     var div = document.createElement('div');
     div.className = 'mermaid';
-    div.textContent = block.textContent;
-    div.setAttribute('data-processed', 'false');
+    div.textContent = pre.querySelector('code')?.textContent || pre.textContent;
     pre.replaceWith(div);
   });
 
   // Inizializza mermaid
-  var pending = document.querySelectorAll('.mermaid:not([data-processed="true"])');
-  if (pending.length > 0) {
-    if (typeof mermaid !== 'undefined') {
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'base',
-        themeVariables: {
-          primaryColor: '#d1fae5',
-          primaryTextColor: '#065f46',
-          primaryBorderColor: '#10b981',
-          lineColor: '#6b7280',
-        },
-        securityLevel: 'loose',
-      });
-      mermaid.run({
-        querySelector: '.mermaid',
-      }).then(function() {
-        pending.forEach(function(el) {
-          el.setAttribute('data-processed', 'true');
-        });
-      });
-    }
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#d1fae5',
+        primaryTextColor: '#065f46',
+        primaryBorderColor: '#10b981',
+        lineColor: '#6b7280',
+      },
+      securityLevel: 'loose',
+    });
+    mermaid.run({ querySelector: 'div.mermaid' });
   }
 });
 </script>

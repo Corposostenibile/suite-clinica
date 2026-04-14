@@ -26,7 +26,11 @@ markdown_extensions:
       toc_depth: 3
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences: {}
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 
 nav:
   - Getting Started:

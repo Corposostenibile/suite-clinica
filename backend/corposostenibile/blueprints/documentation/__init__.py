@@ -225,8 +225,13 @@ def _load_mkdocs_nav():
         return []
     
     with open(MKDOCS_YML, 'r', encoding='utf-8') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+        raw = f.read()
     
+    # Rimuovi tag !!python/name: che non sono supportati da yaml loader
+    import re
+    raw = re.sub(r'format: !!python/name:[^\n]+', 'format: null', raw)
+    
+    config = yaml.safe_load(raw)
     return config.get('nav', []) if config else []
 
 def _is_admin_only_section(section_key):
