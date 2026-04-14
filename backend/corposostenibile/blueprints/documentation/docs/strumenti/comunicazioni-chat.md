@@ -50,7 +50,7 @@ flowchart TD
     CommRoutes --> CommDB[(communications + reads)]
     Reader[Collaboratore] --> CommUI
     Reader --> MarkRead["/communications/:id/mark-read"]
-    Reader --> ChatPage[/chat placeholder]
+    Reader --> ChatPage["/chat placeholder"]
 ```
 
 ---
