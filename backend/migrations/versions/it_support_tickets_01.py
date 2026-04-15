@@ -14,6 +14,7 @@ Tabelle per il sistema di ticket IT con sync bidirezionale ClickUp.
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -86,6 +87,23 @@ def upgrade():
         )
     )
 
+    # Dichiaro i tipi ENUM come "esterni" (create_type=False): i tipi vengono
+    # creati al boot dell'app da register_enums(), quindi qui Alembic NON deve
+    # emettere CREATE TYPE. postgresql.ENUM rispetta create_type=False mentre
+    # sa.Enum no in tutte le versioni.
+    tipo_enum = postgresql.ENUM(
+        *_TIPO_VALUES, name="itsupporttickettipoenum", create_type=False
+    )
+    modulo_enum = postgresql.ENUM(
+        *_MODULO_VALUES, name="itsupportticketmoduloenum", create_type=False
+    )
+    criticita_enum = postgresql.ENUM(
+        *_CRITICITA_VALUES, name="itsupportticketcriticitaenum", create_type=False
+    )
+    status_enum = postgresql.ENUM(
+        *_STATUS_VALUES, name="itsupportticketstatusenum", create_type=False
+    )
+
     # ── it_support_tickets ───────────────────────────────────────────────
     op.create_table(
         "it_support_tickets",
@@ -94,21 +112,9 @@ def upgrade():
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("title", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
-        sa.Column(
-            "tipo",
-            sa.Enum(*_TIPO_VALUES, name="itsupporttickettipoenum", create_type=False),
-            nullable=False,
-        ),
-        sa.Column(
-            "modulo",
-            sa.Enum(*_MODULO_VALUES, name="itsupportticketmoduloenum", create_type=False),
-            nullable=False,
-        ),
-        sa.Column(
-            "criticita",
-            sa.Enum(*_CRITICITA_VALUES, name="itsupportticketcriticitaenum", create_type=False),
-            nullable=False,
-        ),
+        sa.Column("tipo", tipo_enum, nullable=False),
+        sa.Column("modulo", modulo_enum, nullable=False),
+        sa.Column("criticita", criticita_enum, nullable=False),
         sa.Column("cliente_coinvolto", sa.String(length=255), nullable=True),
         sa.Column("link_registrazione", sa.String(length=500), nullable=True),
         sa.Column("pagina_origine", sa.String(length=500), nullable=True),
@@ -118,7 +124,7 @@ def upgrade():
         sa.Column("user_agent_raw", sa.Text(), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(*_STATUS_VALUES, name="itsupportticketstatusenum", create_type=False),
+            status_enum,
             nullable=False,
             server_default=sa.text("'nuovo'::itsupportticketstatusenum"),
         ),
