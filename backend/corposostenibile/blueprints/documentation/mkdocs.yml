@@ -111,6 +111,7 @@ nav:
       - Overview: team/autenticazione.md
       - Team & Professionisti: team/team-professionisti.md
       - KPI & Performance: team/kpi-performance.md
+      - Assegnazioni Old Suite: team/assegnazioni-old-suite.md
     - Infrastruttura:
       - Overview: infrastruttura/ci_cd_analysis.md
       - GCP Setup: infrastruttura/gcp_infrastructure_setup_report.md

@@ -68,7 +68,21 @@ Percentuale capienza = (Carico ponderato / Capienza contrattuale) × 100
 | C | 1.0 | 1.0 |
 | Secondario | 0.5 | 0.5 |
 
-Per psicologia e Health Manager il carico è semplicemente il conteggio diretto dei pazienti (nessuna ponderazione).
+Per psicologia il carico è il conteggio diretto dei pazienti (nessuna ponderazione).
+
+### Capienza Health Manager
+
+Per gli Health Manager il conteggio è diretto (nessuna ponderazione), ma la tabella capienza espone due colonne aggiuntive che distinguono i clienti per fase:
+
+| Colonna | Significato | Fonte |
+|---------|-------------|-------|
+| `clienti_convertiti` | Clienti attivi (`stato_cliente = 'attivo'`) | `Cliente.health_manager_id` |
+| `lead_in_attesa` | Lead ricevuti dalla vecchia suite, non ancora convertiti a pazienti (`service_status = 'pending_assignment'`) | `Cliente.health_manager_id` + `service_status` |
+
+Il valore `clienti_assegnati` nella tabella capienza è la somma di entrambi: indica il carico totale (pazienti già attivi + lead in lavorazione).
+
+> [!NOTE]
+> Solo i clienti con `stato_cliente = 'attivo'` contano per `clienti_convertiti`. Clienti in pausa, stop o ghost non sono inclusi nel conteggio capienza HM.
 
 ### Trial User System
 
