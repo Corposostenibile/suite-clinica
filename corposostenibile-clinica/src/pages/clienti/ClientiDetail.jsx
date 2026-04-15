@@ -8017,7 +8017,6 @@ function ClientiDetail() {
                             <div className="spinner-border text-primary" role="status"></div>
                             <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento risposte...</p>
                           </div>
-                        {/* CASE: TypeForm Storico */}
                         ) : activeInizialiTab === 'typeform' ? (
                           <div>
                             {checkData.responses && checkData.responses.filter(r => r.source === 'typeform').length > 0 ? (
