@@ -1,0 +1,428 @@
+/* Ticket Detail — Suite Clinica Design System */
+
+/* Eredita le variabili da TicketsPage.css (caricate a livello root) */
+
+/* ── Back link ── */
+.itd-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--its-text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 0;
+    margin-bottom: 16px;
+    transition: color 0.2s ease;
+}
+
+.itd-back:hover {
+    color: var(--its-primary);
+}
+
+/* ── Header card ── */
+.itd-header-card {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+    animation: itsFadeIn 0.3s ease-out;
+}
+
+.itd-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.itd-header-title-block {
+    flex: 1;
+    min-width: 0;
+}
+
+.itd-number {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--its-text-light);
+    letter-spacing: 0.04em;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+}
+
+.itd-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--its-text-main);
+    margin: 0;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.itd-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* ── Section card ── */
+.itd-section {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+    animation: itsFadeIn 0.3s ease-out backwards;
+    animation-delay: 0.05s;
+}
+
+.itd-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+}
+
+.itd-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--its-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.itd-section-title i {
+    color: var(--its-primary);
+    font-size: 15px;
+}
+
+.itd-section-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--its-text-muted);
+    background: var(--its-border-light);
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+/* ── Description ── */
+.itd-description {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.65;
+    margin: 0;
+    color: var(--its-text-secondary);
+    word-break: break-word;
+}
+
+/* ── Registrazione link ── */
+.itd-link-external {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--its-primary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.itd-link-external:hover {
+    text-decoration: underline;
+}
+
+/* ── Attachments ── */
+.itd-attachments {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.itd-attachments a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--its-bg-subtle);
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    color: var(--its-text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.itd-attachments a:hover {
+    border-color: var(--its-primary-border);
+    background: var(--its-primary-light);
+    color: var(--its-primary);
+}
+
+.itd-attachments a i:first-child {
+    font-size: 18px;
+    color: var(--its-text-muted);
+    flex-shrink: 0;
+}
+
+.itd-attachments a:hover i:first-child {
+    color: var(--its-primary);
+}
+
+.itd-att-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.itd-att-size {
+    font-size: 12px;
+    color: var(--its-text-light);
+    flex-shrink: 0;
+}
+
+/* ── Comments thread ── */
+.itd-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 20px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.itd-thread::-webkit-scrollbar {
+    width: 6px;
+}
+
+.itd-thread::-webkit-scrollbar-thumb {
+    background: var(--its-border);
+    border-radius: 3px;
+}
+
+.itd-bubble {
+    display: flex;
+    gap: 10px;
+    max-width: 80%;
+    animation: itsFadeIn 0.2s ease-out;
+}
+
+.itd-bubble-mine {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.itd-bubble-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--its-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--its-text-muted);
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.itd-bubble-mine .itd-bubble-avatar {
+    background: var(--its-primary);
+    color: white;
+}
+
+.itd-bubble-team .itd-bubble-avatar {
+    background: #16a34a;
+    color: white;
+}
+
+.itd-bubble-body {
+    background: var(--its-bg-subtle);
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 10px 14px;
+    min-width: 140px;
+}
+
+.itd-bubble-mine .itd-bubble-body {
+    background: var(--its-primary-light);
+    border-color: var(--its-primary-border);
+}
+
+.itd-bubble-team .itd-bubble-body {
+    background: rgba(22, 163, 74, 0.07);
+    border-color: rgba(22, 163, 74, 0.25);
+    border-left: 3px solid #16a34a;
+}
+
+.itd-bubble-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+}
+
+.itd-bubble-author {
+    font-weight: 700;
+    color: var(--its-text-main);
+    font-size: 13px;
+}
+
+.itd-bubble-tag {
+    background: #16a34a;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.itd-bubble-time {
+    color: var(--its-text-light);
+    font-size: 11px;
+    margin-left: auto;
+}
+
+.itd-bubble-content {
+    margin: 0;
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--its-text-secondary);
+    word-break: break-word;
+}
+
+.itd-thread-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--its-text-light);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* ── Composer ── */
+.itd-composer {
+    margin-top: 16px;
+}
+
+.itd-composer textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--its-border);
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 80px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    color: var(--its-text-main);
+    background: white;
+}
+
+.itd-composer textarea:focus {
+    outline: none;
+    border-color: var(--its-primary);
+    box-shadow: 0 0 0 3px var(--its-primary-light);
+}
+
+.itd-composer textarea::placeholder {
+    color: var(--its-text-light);
+}
+
+.itd-composer-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.itd-composer-info {
+    font-size: 12px;
+    color: var(--its-text-light);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.itd-composer-info i {
+    font-size: 14px;
+}
+
+.itd-composer-right {
+    display: flex;
+    gap: 8px;
+}
+
+.itd-closed-banner {
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: var(--its-bg-subtle);
+    border: 1px dashed var(--its-border);
+    border-radius: 12px;
+    color: var(--its-text-muted);
+    font-size: 13px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.itd-closed-banner i {
+    font-size: 16px;
+    color: var(--its-primary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .itd-bubble {
+        max-width: 92%;
+    }
+
+    .itd-title {
+        font-size: 18px;
+    }
+
+    .itd-section {
+        padding: 16px 18px;
+    }
+
+    .itd-composer-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+
+    .itd-composer-right {
+        flex-direction: column;
+    }
+}

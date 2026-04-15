@@ -1,0 +1,576 @@
+/* OpenTicketModal — Suite Clinica Design System */
+/* Usa le variabili --its-* definite in TicketsPage.css */
+
+.otm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 2147483010;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: otmFadeIn 0.2s ease-out;
+}
+
+.otm-dialog {
+    background: white;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 720px;
+    max-height: 92vh;
+    overflow: hidden;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    animation: otmSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Header ── */
+.otm-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 22px 26px;
+    border-bottom: 1px solid var(--its-border);
+    gap: 16px;
+    background: linear-gradient(135deg, var(--its-primary-light), transparent);
+}
+
+.otm-header-content {
+    flex: 1;
+}
+
+.otm-header h4 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--its-text-main);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.otm-header h4 i {
+    color: var(--its-primary);
+    font-size: 22px;
+}
+
+.otm-header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--its-text-muted);
+}
+
+.otm-close {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--its-text-muted);
+    font-size: 18px;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.otm-close:hover {
+    border-color: var(--its-danger);
+    color: var(--its-danger);
+    background: var(--its-danger-light);
+}
+
+.otm-close:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Form ── */
+.otm-form {
+    flex: 1;
+    overflow-y: auto;
+    padding: 22px 26px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.otm-row {
+    display: grid;
+    gap: 12px;
+}
+
+.otm-row-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.otm-field-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--its-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
+.otm-field-label i {
+    font-size: 14px;
+    color: var(--its-text-muted);
+}
+
+.otm-field-required {
+    color: var(--its-danger);
+    margin-left: 2px;
+}
+
+.otm-field-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--its-text-light);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: auto;
+}
+
+.otm-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.otm-input,
+.otm-textarea,
+.otm-select {
+    font: inherit;
+    font-size: 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    color: var(--its-text-main);
+    background: white;
+    transition: all 0.2s ease;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.otm-input:focus,
+.otm-textarea:focus,
+.otm-select:focus {
+    outline: none;
+    border-color: var(--its-primary);
+    box-shadow: 0 0 0 3px var(--its-primary-light);
+}
+
+.otm-input::placeholder,
+.otm-textarea::placeholder {
+    color: var(--its-text-light);
+}
+
+.otm-textarea {
+    resize: vertical;
+    min-height: 140px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.otm-select {
+    cursor: pointer;
+    background: var(--its-border-light);
+}
+
+.otm-select:focus {
+    background: white;
+}
+
+.otm-hint {
+    color: var(--its-text-light);
+    font-size: 12px;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.otm-hint i {
+    font-size: 13px;
+}
+
+/* ── Autocomplete (paziente) ── */
+.otm-autocomplete {
+    position: relative;
+}
+
+.otm-autocomplete .otm-input {
+    padding-right: 40px;
+}
+
+.otm-autocomplete-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--its-text-light);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s ease;
+}
+
+.otm-autocomplete-clear:hover {
+    color: var(--its-danger);
+    background: var(--its-danger-light);
+}
+
+.otm-autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    list-style: none;
+    padding: 6px;
+    margin: 0;
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+    max-height: 260px;
+    overflow-y: auto;
+    animation: itsFadeIn 0.15s ease-out;
+}
+
+.otm-autocomplete-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.otm-autocomplete-list::-webkit-scrollbar-thumb {
+    background: var(--its-border);
+    border-radius: 3px;
+}
+
+.otm-autocomplete-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.otm-autocomplete-item:hover {
+    background: var(--its-primary-light);
+}
+
+.otm-autocomplete-item i {
+    color: var(--its-primary);
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.otm-autocomplete-item-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.otm-autocomplete-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--its-text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.otm-autocomplete-item-meta {
+    font-size: 11px;
+    color: var(--its-text-light);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.otm-autocomplete-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 12px;
+    color: var(--its-text-light);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* ── Dropzone ── */
+.otm-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    border: 2px dashed var(--its-border);
+    border-radius: 12px;
+    cursor: pointer;
+    color: var(--its-text-muted);
+    font-size: 13px;
+    background: var(--its-bg-subtle);
+    transition: all 0.2s ease;
+}
+
+.otm-dropzone:hover,
+.otm-dropzone.is-dragging {
+    border-color: var(--its-primary);
+    color: var(--its-primary);
+    background: var(--its-primary-light);
+}
+
+.otm-dropzone i {
+    font-size: 28px;
+    color: var(--its-text-light);
+}
+
+.otm-dropzone:hover i,
+.otm-dropzone.is-dragging i {
+    color: var(--its-primary);
+}
+
+.otm-dropzone-label {
+    font-weight: 500;
+}
+
+.otm-dropzone-hint {
+    font-size: 11px;
+    color: var(--its-text-light);
+}
+
+.otm-attachments {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.otm-attachments li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--its-bg-subtle);
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    font-size: 13px;
+    color: var(--its-text-secondary);
+}
+
+.otm-attachments li i {
+    color: var(--its-primary);
+    font-size: 16px;
+}
+
+.otm-att-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.otm-att-size {
+    font-size: 11px;
+    color: var(--its-text-light);
+}
+
+.otm-att-remove {
+    background: none;
+    border: none;
+    color: var(--its-text-light);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.15s ease;
+}
+
+.otm-att-remove:hover {
+    color: var(--its-danger);
+    background: var(--its-danger-light);
+}
+
+/* ── Error banner ── */
+.otm-error {
+    padding: 12px 14px;
+    background: var(--its-danger-light);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 10px;
+    color: #991b1b;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.otm-error i {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+/* ── Footer actions ── */
+.otm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 18px 0 22px;
+    margin-top: 8px;
+    border-top: 1px solid var(--its-border-light);
+    padding-top: 18px;
+}
+
+.otm-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.otm-btn-ghost {
+    background: white;
+    color: var(--its-text-secondary);
+    border: 1px solid var(--its-border);
+}
+
+.otm-btn-ghost:hover:not(:disabled) {
+    border-color: var(--its-text-muted);
+    background: var(--its-bg-subtle);
+}
+
+.otm-btn-primary {
+    background: var(--its-primary);
+    color: white;
+    box-shadow: 0 2px 8px rgba(37, 179, 106, 0.25);
+}
+
+.otm-btn-primary:hover:not(:disabled) {
+    background: #1f9a5b;
+    box-shadow: 0 4px 14px rgba(37, 179, 106, 0.35);
+    transform: translateY(-1px);
+}
+
+.otm-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .otm-row-3 {
+        grid-template-columns: 1fr;
+    }
+
+    .otm-header {
+        padding: 18px 20px;
+    }
+
+    .otm-form {
+        padding: 18px 20px 0;
+    }
+
+    .otm-actions {
+        flex-direction: column-reverse;
+    }
+
+    .otm-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@keyframes otmFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes otmSlideUp {
+    from { opacity: 0; transform: translateY(24px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Scope notice (campo di applicazione del ticketing) ─── */
+.otm-scope-notice {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: #FEF3C7;
+    border: 1px solid #FCD34D;
+    border-left: 4px solid #F59E0B;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 0 0 18px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #78350F;
+}
+
+.otm-scope-notice-icon {
+    font-size: 18px;
+    color: #F59E0B;
+    flex-shrink: 0;
+    margin-top: 1px;
+    line-height: 1;
+}
+
+.otm-scope-notice-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.otm-scope-notice-body strong {
+    color: #78350F;
+    display: inline;
+    font-weight: 600;
+}
+
+/* ─── Version tag (footer modal) ─── */
+.otm-version-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 4px 10px;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 999px;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 11px;
+    color: #6B7280;
+    width: fit-content;
+}
+
+.otm-version-tag i {
+    font-size: 13px;
+    color: #9CA3AF;
+}

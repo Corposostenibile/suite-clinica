@@ -296,6 +296,113 @@ class BaseConfig:
     RESPOND_IO_RATE_LIMIT_CONTACTS: int = int(os.getenv("RESPOND_IO_RATE_LIMIT_CONTACTS", "5"))
     RESPOND_IO_RATE_LIMIT_MESSAGES: int = int(os.getenv("RESPOND_IO_RATE_LIMIT_MESSAGES", "10"))
 
+    # ================================================================
+    # ClickUp Integration (IT Support Tickets - blueprint it_support)
+    # ================================================================
+    CLICKUP_INTEGRATION_ENABLED: bool = str(
+        os.getenv("CLICKUP_INTEGRATION_ENABLED", "0")
+    ).lower() in ("1", "true", "yes")
+
+    CLICKUP_API_TOKEN: str = os.getenv("CLICKUP_API_TOKEN", "")
+    CLICKUP_WEBHOOK_SECRET: str = os.getenv("CLICKUP_WEBHOOK_SECRET", "")
+
+    CLICKUP_WORKSPACE_ID: str = os.getenv("CLICKUP_WORKSPACE_ID", "")
+    CLICKUP_SPACE_ID: str = os.getenv("CLICKUP_SPACE_ID", "")
+    CLICKUP_LIST_ID: str = os.getenv("CLICKUP_LIST_ID", "")
+    CLICKUP_WEBHOOK_URL: str = os.getenv("CLICKUP_WEBHOOK_URL", "")
+
+    CLICKUP_REQUEST_TIMEOUT: int = int(os.getenv("CLICKUP_REQUEST_TIMEOUT", "15"))
+    CLICKUP_MAX_RETRIES: int = int(os.getenv("CLICKUP_MAX_RETRIES", "3"))
+
+    # Custom Field UUIDs
+    CLICKUP_FIELD_TIPO: str = os.getenv("CLICKUP_FIELD_TIPO", "")
+    CLICKUP_FIELD_MODULO: str = os.getenv("CLICKUP_FIELD_MODULO", "")
+    CLICKUP_FIELD_CRITICITA: str = os.getenv("CLICKUP_FIELD_CRITICITA", "")
+    CLICKUP_FIELD_TICKET_ID: str = os.getenv("CLICKUP_FIELD_TICKET_ID", "")
+    CLICKUP_FIELD_EMAIL_UTENTE: str = os.getenv("CLICKUP_FIELD_EMAIL_UTENTE", "")
+    CLICKUP_FIELD_NOME_UTENTE: str = os.getenv("CLICKUP_FIELD_NOME_UTENTE", "")
+    CLICKUP_FIELD_RUOLO: str = os.getenv("CLICKUP_FIELD_RUOLO", "")
+    CLICKUP_FIELD_SPECIALITA: str = os.getenv("CLICKUP_FIELD_SPECIALITA", "")
+    CLICKUP_FIELD_CLIENTE_COINVOLTO: str = os.getenv("CLICKUP_FIELD_CLIENTE_COINVOLTO", "")
+    CLICKUP_FIELD_BROWSER: str = os.getenv("CLICKUP_FIELD_BROWSER", "")
+    CLICKUP_FIELD_OS: str = os.getenv("CLICKUP_FIELD_OS", "")
+    CLICKUP_FIELD_VERSIONE_APP: str = os.getenv("CLICKUP_FIELD_VERSIONE_APP", "")
+    CLICKUP_FIELD_COMMIT_SHA: str = os.getenv("CLICKUP_FIELD_COMMIT_SHA", "")
+    CLICKUP_FIELD_LINK_REGISTRAZIONE: str = os.getenv("CLICKUP_FIELD_LINK_REGISTRAZIONE", "")
+    CLICKUP_FIELD_ALLEGATO: str = os.getenv("CLICKUP_FIELD_ALLEGATO", "")
+
+    # Dropdown option UUIDs (Tipo)
+    CLICKUP_OPT_TIPO_BUG: str = os.getenv("CLICKUP_OPT_TIPO_BUG", "")
+    CLICKUP_OPT_TIPO_DATO_ERRATO: str = os.getenv("CLICKUP_OPT_TIPO_DATO_ERRATO", "")
+    CLICKUP_OPT_TIPO_ACCESSO: str = os.getenv("CLICKUP_OPT_TIPO_ACCESSO", "")
+    CLICKUP_OPT_TIPO_LENTEZZA: str = os.getenv("CLICKUP_OPT_TIPO_LENTEZZA", "")
+
+    # Dropdown option UUIDs (Modulo)
+    CLICKUP_OPT_MODULO_ASSEGNAZIONI: str = os.getenv("CLICKUP_OPT_MODULO_ASSEGNAZIONI", "")
+    CLICKUP_OPT_MODULO_CALENDARIO: str = os.getenv("CLICKUP_OPT_MODULO_CALENDARIO", "")
+    CLICKUP_OPT_MODULO_CHECK: str = os.getenv("CLICKUP_OPT_MODULO_CHECK", "")
+    CLICKUP_OPT_MODULO_CLIENTI: str = os.getenv("CLICKUP_OPT_MODULO_CLIENTI", "")
+    CLICKUP_OPT_MODULO_DASHBOARD: str = os.getenv("CLICKUP_OPT_MODULO_DASHBOARD", "")
+    CLICKUP_OPT_MODULO_FORMAZIONE: str = os.getenv("CLICKUP_OPT_MODULO_FORMAZIONE", "")
+    CLICKUP_OPT_MODULO_GENERICO: str = os.getenv("CLICKUP_OPT_MODULO_GENERICO", "")
+    CLICKUP_OPT_MODULO_PROFILO: str = os.getenv("CLICKUP_OPT_MODULO_PROFILO", "")
+    CLICKUP_OPT_MODULO_QUALITY: str = os.getenv("CLICKUP_OPT_MODULO_QUALITY", "")
+    CLICKUP_OPT_MODULO_SUPPORTO: str = os.getenv("CLICKUP_OPT_MODULO_SUPPORTO", "")
+    CLICKUP_OPT_MODULO_TASK: str = os.getenv("CLICKUP_OPT_MODULO_TASK", "")
+    CLICKUP_OPT_MODULO_TEAM: str = os.getenv("CLICKUP_OPT_MODULO_TEAM", "")
+
+    # Dropdown option UUIDs (Criticità)
+    CLICKUP_OPT_CRITICITA_BLOCCANTE: str = os.getenv("CLICKUP_OPT_CRITICITA_BLOCCANTE", "")
+    CLICKUP_OPT_CRITICITA_NON_BLOCCANTE: str = os.getenv("CLICKUP_OPT_CRITICITA_NON_BLOCCANTE", "")
+
+    # Status IDs (Space-level)
+    CLICKUP_STATUS_NUOVO: str = os.getenv("CLICKUP_STATUS_NUOVO", "")
+    CLICKUP_STATUS_IN_TRIAGE: str = os.getenv("CLICKUP_STATUS_IN_TRIAGE", "")
+    CLICKUP_STATUS_IN_LAVORAZIONE: str = os.getenv("CLICKUP_STATUS_IN_LAVORAZIONE", "")
+    CLICKUP_STATUS_IN_ATTESA_UTENTE: str = os.getenv("CLICKUP_STATUS_IN_ATTESA_UTENTE", "")
+    CLICKUP_STATUS_DA_TESTARE: str = os.getenv("CLICKUP_STATUS_DA_TESTARE", "")
+    CLICKUP_STATUS_RISOLTO: str = os.getenv("CLICKUP_STATUS_RISOLTO", "")
+    CLICKUP_STATUS_NON_VALIDO: str = os.getenv("CLICKUP_STATUS_NON_VALIDO", "")
+
+    # ================================================================
+    # ClickUp Integration (GHL Support Tickets - blueprint ghl_support)
+    # ================================================================
+    # Space dedicato: "Go High Level - Ticket" (ID 90127111740).
+    # Usa lo stesso CLICKUP_API_TOKEN e CLICKUP_WORKSPACE_ID del IT Support.
+    # ================================================================
+    CLICKUP_GHL_INTEGRATION_ENABLED: bool = str(
+        os.getenv("CLICKUP_GHL_INTEGRATION_ENABLED", "0")
+    ).lower() in ("1", "true", "yes")
+
+    CLICKUP_GHL_SPACE_ID: str = os.getenv("CLICKUP_GHL_SPACE_ID", "")
+    CLICKUP_GHL_LIST_ID: str = os.getenv("CLICKUP_GHL_LIST_ID", "")
+    CLICKUP_GHL_WEBHOOK_URL: str = os.getenv("CLICKUP_GHL_WEBHOOK_URL", "")
+    CLICKUP_GHL_WEBHOOK_SECRET: str = os.getenv("CLICKUP_GHL_WEBHOOK_SECRET", "")
+
+    # Custom Field UUIDs (6 field, solo metadati)
+    CLICKUP_GHL_FIELD_TICKET_ID: str = os.getenv("CLICKUP_GHL_FIELD_TICKET_ID", "")
+    CLICKUP_GHL_FIELD_EMAIL_UTENTE: str = os.getenv("CLICKUP_GHL_FIELD_EMAIL_UTENTE", "")
+    CLICKUP_GHL_FIELD_NOME_UTENTE: str = os.getenv("CLICKUP_GHL_FIELD_NOME_UTENTE", "")
+    CLICKUP_GHL_FIELD_USER_ID_GHL: str = os.getenv("CLICKUP_GHL_FIELD_USER_ID_GHL", "")
+    CLICKUP_GHL_FIELD_BROWSER: str = os.getenv("CLICKUP_GHL_FIELD_BROWSER", "")
+    CLICKUP_GHL_FIELD_OS: str = os.getenv("CLICKUP_GHL_FIELD_OS", "")
+
+    # Status IDs (space-level)
+    CLICKUP_GHL_STATUS_NUOVO: str = os.getenv("CLICKUP_GHL_STATUS_NUOVO", "")
+    CLICKUP_GHL_STATUS_IN_ANALISI: str = os.getenv("CLICKUP_GHL_STATUS_IN_ANALISI", "")
+    CLICKUP_GHL_STATUS_IN_LAVORAZIONE: str = os.getenv("CLICKUP_GHL_STATUS_IN_LAVORAZIONE", "")
+    CLICKUP_GHL_STATUS_IN_ATTESA_HIGHLEVEL: str = os.getenv("CLICKUP_GHL_STATUS_IN_ATTESA_HIGHLEVEL", "")
+    CLICKUP_GHL_STATUS_IN_ATTESA_UTENTE: str = os.getenv("CLICKUP_GHL_STATUS_IN_ATTESA_UTENTE", "")
+    CLICKUP_GHL_STATUS_RISOLTO: str = os.getenv("CLICKUP_GHL_STATUS_RISOLTO", "")
+    CLICKUP_GHL_STATUS_NON_VALIDO: str = os.getenv("CLICKUP_GHL_STATUS_NON_VALIDO", "")
+
+    # ================================================================
+    # GHL Support SSO (Opzione A — Custom Menu Link)
+    # ================================================================
+    # Chiave HS256 per firmare i JWT di sessione GHL. Se non impostata usa
+    # SECRET_KEY come fallback.
+    GHL_SSO_SIGNING_KEY: str = os.getenv("GHL_SSO_SIGNING_KEY", "")
+
 # ---------------------------------------------------------------- Env-specifiche
 class DevelopmentConfig(BaseConfig):
     DEBUG: bool = True

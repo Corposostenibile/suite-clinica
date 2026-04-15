@@ -1,0 +1,625 @@
+/* Ticket Page — Suite Clinica Design System
+   Coerente con Task, Welcome, Support, Quality */
+
+:root {
+    --its-primary: #25B36A;
+    --its-primary-light: rgba(37, 179, 106, 0.08);
+    --its-primary-border: rgba(37, 179, 106, 0.2);
+    --its-text-main: #1e293b;
+    --its-text-secondary: #334155;
+    --its-text-muted: #64748b;
+    --its-text-light: #94a3b8;
+    --its-border: #e2e8f0;
+    --its-border-light: #f1f5f9;
+    --its-bg-subtle: #f8fafc;
+    --its-danger: #ef4444;
+    --its-danger-light: rgba(239, 68, 68, 0.08);
+    --its-warning: #f59e0b;
+    --its-warning-light: rgba(245, 158, 11, 0.08);
+    --its-info: #3b82f6;
+    --its-info-light: rgba(59, 130, 246, 0.08);
+}
+
+/* ── Page ── */
+.its-page {
+    animation: itsFadeIn 0.3s ease-out;
+}
+
+/* ── Header ── */
+.its-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.its-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.its-header-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.its-header h4 {
+    font-weight: 700;
+    color: var(--its-text-main);
+    margin-bottom: 4px;
+}
+
+.its-header p {
+    color: var(--its-text-muted);
+    margin-bottom: 0;
+    font-size: 14px;
+}
+
+.its-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.its-refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    color: var(--its-text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 18px;
+}
+
+.its-refresh-btn:hover {
+    border-color: var(--its-primary-border);
+    color: var(--its-primary);
+    background: var(--its-primary-light);
+}
+
+.its-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    background: var(--its-primary);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(37, 179, 106, 0.2);
+}
+
+.its-btn-primary:hover {
+    background: #1f9a5b;
+    box-shadow: 0 4px 14px rgba(37, 179, 106, 0.3);
+    transform: translateY(-1px);
+}
+
+.its-btn-primary i {
+    font-size: 18px;
+}
+
+.its-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: white;
+    color: var(--its-text-secondary);
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.its-btn-ghost:hover {
+    border-color: var(--its-primary-border);
+    color: var(--its-primary);
+    background: var(--its-primary-light);
+}
+
+/* ── Stats cards ── */
+.its-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.its-stat-card {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: itsFadeIn 0.3s ease-out backwards;
+}
+
+.its-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 14px 14px 0 0;
+    opacity: 0.85;
+    background: var(--stat-color, var(--its-primary));
+}
+
+.its-stat-card:hover {
+    border-color: var(--its-primary-border);
+    box-shadow: 0 8px 24px rgba(37, 179, 106, 0.1);
+    transform: translateY(-2px);
+}
+
+.its-stat-card.active {
+    border-color: var(--its-primary);
+    box-shadow: 0 4px 16px rgba(37, 179, 106, 0.15);
+}
+
+.its-stat-card.active::after {
+    content: '';
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 20px;
+    height: 3px;
+    background: var(--its-primary);
+    border-radius: 2px;
+}
+
+.its-stat-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.its-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--its-text-main);
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.its-stat-label {
+    font-size: 12px;
+    color: var(--its-text-muted);
+    font-weight: 500;
+}
+
+.its-stat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    background: var(--stat-icon-bg, var(--its-primary-light));
+    color: var(--stat-color, var(--its-primary));
+}
+
+/* ── Filter card ── */
+.its-filter-card {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.its-filter-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--its-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.its-filter-select {
+    background: var(--its-border-light);
+    border: 1px solid var(--its-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: var(--its-text-main);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 180px;
+}
+
+.its-filter-select:focus {
+    border-color: var(--its-primary);
+    box-shadow: 0 0 0 3px var(--its-primary-light);
+    outline: none;
+    background: white;
+}
+
+/* ── Ticket list ── */
+.its-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.its-list-item {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: itsFadeIn 0.3s ease-out backwards;
+}
+
+.its-list-item:hover {
+    border-color: var(--its-primary-border);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+
+.its-list-link {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    padding: 14px 18px;
+    align-items: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+.its-list-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    background: var(--its-bg-subtle);
+    color: var(--its-text-muted);
+    flex-shrink: 0;
+}
+
+.its-list-icon.tipo-bug {
+    background: var(--its-danger-light);
+    color: var(--its-danger);
+}
+
+.its-list-icon.tipo-dato_errato {
+    background: var(--its-warning-light);
+    color: var(--its-warning);
+}
+
+.its-list-icon.tipo-accesso {
+    background: rgba(234, 179, 8, 0.08);
+    color: #ca8a04;
+}
+
+.its-list-icon.tipo-lentezza {
+    background: rgba(139, 92, 246, 0.08);
+    color: #8b5cf6;
+}
+
+.its-list-main {
+    min-width: 0;
+}
+
+.its-list-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+
+.its-list-number {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--its-text-light);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+}
+
+.its-list-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    color: var(--its-text-main);
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.its-list-meta {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.its-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    background: var(--its-border-light);
+    color: var(--its-text-secondary);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.its-chip i {
+    font-size: 12px;
+}
+
+.its-chip.chip-danger {
+    background: var(--its-danger-light);
+    color: #b91c1c;
+}
+
+.its-chip.chip-muted {
+    background: var(--its-info-light);
+    color: #1d4ed8;
+}
+
+.its-list-date {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--its-text-light);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.its-list-date .its-date-relative {
+    font-weight: 500;
+    color: var(--its-text-muted);
+}
+
+/* ── Status badge ── */
+.its-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.its-status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.85;
+}
+
+.status-nuovo {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+}
+
+.status-in_triage {
+    background: rgba(147, 51, 234, 0.1);
+    color: #7e22ce;
+}
+
+.status-in_lavorazione {
+    background: rgba(249, 115, 22, 0.1);
+    color: #c2410c;
+}
+
+.status-in_attesa_utente {
+    background: rgba(234, 179, 8, 0.12);
+    color: #a16207;
+}
+
+.status-da_testare {
+    background: rgba(20, 184, 166, 0.1);
+    color: #0f766e;
+}
+
+.status-risolto {
+    background: rgba(37, 179, 106, 0.12);
+    color: #16803a;
+}
+
+.status-non_valido {
+    background: rgba(100, 116, 139, 0.12);
+    color: #475569;
+}
+
+/* ── States (empty / loading / error) ── */
+.its-state {
+    background: white;
+    border: 1px solid var(--its-border);
+    border-radius: 14px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--its-text-muted);
+    animation: itsFadeIn 0.3s ease-out;
+}
+
+.its-state-empty {
+    padding: 72px 24px;
+}
+
+.its-state-empty-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: var(--its-primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--its-primary);
+    font-size: 32px;
+}
+
+.its-state-empty h5 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--its-text-main);
+}
+
+.its-state-empty p {
+    margin: 0 0 20px;
+    color: var(--its-text-muted);
+    font-size: 14px;
+}
+
+.its-state-error {
+    background: var(--its-danger-light);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #991b1b;
+}
+
+.its-state-error button {
+    margin-top: 12px;
+}
+
+.its-state-loading {
+    padding: 48px 24px;
+    color: var(--its-text-muted);
+    font-size: 14px;
+}
+
+.its-state-loading i {
+    font-size: 24px;
+    color: var(--its-primary);
+    margin-bottom: 8px;
+    display: block;
+    animation: itsSpin 1s linear infinite;
+}
+
+/* ── Animations ── */
+@keyframes itsFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes itsSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.its-refresh-btn i.spin {
+    animation: itsSpin 1s linear infinite;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+    .its-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .its-header-actions {
+        justify-content: space-between;
+    }
+
+    .its-btn-primary {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .its-list-link {
+        grid-template-columns: auto 1fr;
+        grid-template-rows: auto auto;
+    }
+
+    .its-list-date {
+        grid-column: 2;
+        grid-row: 2;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        font-size: 11px;
+        margin-top: 4px;
+    }
+
+    .its-list-title {
+        -webkit-line-clamp: 3;
+    }
+
+    .its-stats-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ─── Scope notice (campo di applicazione del ticketing IT) ─── */
+.its-scope-notice {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: #FEF3C7;
+    border: 1px solid #FCD34D;
+    border-left: 4px solid #F59E0B;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin: 0 0 16px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #78350F;
+}
+
+.its-scope-notice i {
+    font-size: 18px;
+    color: #F59E0B;
+    flex-shrink: 0;
+    margin-top: 1px;
+    line-height: 1;
+}
+
+.its-scope-notice strong {
+    color: #78350F;
+    font-weight: 600;
+}

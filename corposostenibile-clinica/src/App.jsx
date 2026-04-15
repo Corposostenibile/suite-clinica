@@ -49,7 +49,10 @@ import { CheckAzienda, CheckDaLeggere } from './pages/check';
 import { Calendario } from './pages/calendario';
 
 // Support pages
-import { Support, SupportDetail } from './pages/support';
+import { Support, SupportDetail, TicketsPage, TicketDetail } from './pages/support';
+
+// GHL Embed pages (iframe GoHighLevel — no layout)
+import { GhlEmbedTicketsPage, GhlEmbedTicketDetail } from './pages/ghl-embed';
 
 // Search pages
 import GlobalSearchPage from './pages/GlobalSearchPage';
@@ -137,6 +140,10 @@ function App() {
 
           {/* Documentazione — layout standalone con auth */}
           <Route path="/documentazione" element={<Documentation />} />
+
+          {/* GHL Embed Routes (nessun layout, iframe GoHighLevel) */}
+          <Route path="/ghl-embed/tickets" element={<GhlEmbedTicketsPage />} />
+          <Route path="/ghl-embed/tickets/:id" element={<GhlEmbedTicketDetail />} />
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
@@ -246,6 +253,8 @@ function App() {
 
             {/* Support */}
             <Route path="/supporto" element={<Support />} />
+            <Route path="/supporto/ticket" element={<TicketsPage />} />
+            <Route path="/supporto/ticket/:id" element={<TicketDetail />} />
             <Route path="/supporto/:section" element={<SupportDetail />} />
 
             {/* Global Search */}

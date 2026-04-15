@@ -14,6 +14,7 @@ import {
   FaHeadset,
   FaLifeRing,
   FaRoute,
+  FaTicketAlt,
   FaTimes,
   FaVideo,
 } from 'react-icons/fa';
@@ -208,6 +209,11 @@ function SupportWidget({
   const handleGoToSupport = () => {
     setIsOpen(false);
     navigate('/supporto');
+  };
+
+  const handleOpenTickets = () => {
+    setIsOpen(false);
+    navigate('/supporto/ticket');
   };
 
   const resetLoomDecisionState = () => {
@@ -499,6 +505,15 @@ function SupportWidget({
           <div style={{ padding: '24px' }}>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <OpzioneAiuto
+                icon={<FaTicketAlt size={18} color="#DC2626" />}
+                iconBg="linear-gradient(135deg, #FEE2E2, #FECACA)"
+                titolo="Apri Ticket IT"
+                descrizione="Segnala un bug, un rallentamento o richiedi supporto tecnico"
+                onClick={handleOpenTickets}
+                accentColor={accentColor}
+              />
+
               <OpzioneAiuto
                 icon={<FaBook size={18} color="#6366F1" />}
                 iconBg="linear-gradient(135deg, #EEF2FF, #E0E7FF)"

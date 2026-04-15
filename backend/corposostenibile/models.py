@@ -14885,5 +14885,543 @@ class TeamTicketStatusChange(TimestampMixin, db.Model):
         }
 
 
+# ═══════════════════════════════════════════════════════════════════════════ #
+#                         IT SUPPORT TICKETS (ClickUp)                        #
+# ═══════════════════════════════════════════════════════════════════════════ #
+# Sistema ticket IT con sincronizzazione bidirezionale verso ClickUp.         #
+# - Utenti Suite: aprono ticket da pagina dedicata, vedono stato + commenti   #
+# - Team IT: gestisce tutto da ClickUp (triage, risoluzione, commenti)        #
+# - Sync: task creato async via Celery; status/commenti ricevuti via webhook  #
+# ═══════════════════════════════════════════════════════════════════════════ #
+
+
+class ITSupportTicketStatusEnum(str, Enum):
+    nuovo = "nuovo"
+    in_triage = "in_triage"
+    in_lavorazione = "in_lavorazione"
+    in_attesa_utente = "in_attesa_utente"
+    da_testare = "da_testare"
+    risolto = "risolto"
+    non_valido = "non_valido"
+
+
+class ITSupportTicketTipoEnum(str, Enum):
+    bug = "bug"
+    dato_errato = "dato_errato"
+    accesso = "accesso"
+    lentezza = "lentezza"
+
+
+class ITSupportTicketModuloEnum(str, Enum):
+    assegnazioni = "assegnazioni"
+    calendario = "calendario"
+    check = "check"
+    clienti = "clienti"
+    dashboard = "dashboard"
+    formazione = "formazione"
+    generico = "generico"
+    profilo = "profilo"
+    quality = "quality"
+    supporto = "supporto"
+    task = "task"
+    team = "team"
+
+
+class ITSupportTicketCriticitaEnum(str, Enum):
+    bloccante = "bloccante"
+    non_bloccante = "non_bloccante"
+
+
+for _e in (
+    ITSupportTicketStatusEnum,
+    ITSupportTicketTipoEnum,
+    ITSupportTicketModuloEnum,
+    ITSupportTicketCriticitaEnum,
+):
+    _pg_enum(_e)
+
+
+class ITSupportTicket(TimestampMixin, db.Model):
+    """
+    Ticket IT aperto da un utente della Suite. Viene replicato come Task su
+    ClickUp (workspace "Suite Clinica - Ticket"); stato e commenti sono
+    mantenuti sincronizzati in modo bidirezionale.
+    """
+    __tablename__ = "it_support_tickets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_number = db.Column(
+        db.String(20),
+        unique=True,
+        nullable=False,
+        index=True,
+        comment="Formato ITS-YYYYMMDD-XXXX",
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.id"),
+        nullable=False,
+        index=True,
+    )
+
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+
+    tipo = db.Column(_def(ITSupportTicketTipoEnum), nullable=False, index=True)
+    modulo = db.Column(_def(ITSupportTicketModuloEnum), nullable=False, index=True)
+    criticita = db.Column(_def(ITSupportTicketCriticitaEnum), nullable=False, index=True)
+
+    cliente_coinvolto = db.Column(db.String(255), nullable=True)
+    link_registrazione = db.Column(db.String(500), nullable=True)
+
+    # Contesto client-side auto-catturato
+    pagina_origine = db.Column(db.String(500), nullable=True)
+    browser = db.Column(db.String(120), nullable=True)
+    os = db.Column(db.String(120), nullable=True)
+    versione_app = db.Column(db.String(80), nullable=True, comment="SemVer (es. v2.0.0)")
+    commit_sha = db.Column(db.String(40), nullable=True, comment="Git commit short hash (es. ab12f1)")
+    user_agent_raw = db.Column(db.Text, nullable=True)
+
+    status = db.Column(
+        _def(ITSupportTicketStatusEnum),
+        nullable=False,
+        default=ITSupportTicketStatusEnum.nuovo,
+        index=True,
+    )
+
+    # Sync ClickUp
+    clickup_task_id = db.Column(
+        db.String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="ID task ClickUp (valorizzato dopo create asincrono)",
+    )
+    clickup_task_url = db.Column(db.String(500), nullable=True)
+    last_synced_at = db.Column(db.DateTime, nullable=True)
+    sync_error = db.Column(db.Text, nullable=True)
+    sync_attempts = db.Column(db.Integer, nullable=False, default=0)
+
+    closed_at = db.Column(db.DateTime, nullable=True)
+
+    user = relationship(
+        "User",
+        foreign_keys=[user_id],
+        backref=db.backref("it_support_tickets", lazy="dynamic"),
+    )
+    comments = relationship(
+        "ITSupportTicketComment",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="ITSupportTicketComment.created_at.asc()",
+    )
+    attachments = relationship(
+        "ITSupportTicketAttachment",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+    )
+
+    @staticmethod
+    def generate_ticket_number() -> str:
+        today = date.today().strftime("%Y%m%d")
+        prefix = f"ITS-{today}-"
+        last = (
+            ITSupportTicket.query
+            .filter(ITSupportTicket.ticket_number.like(f"{prefix}%"))
+            .order_by(ITSupportTicket.ticket_number.desc())
+            .first()
+        )
+        if last:
+            try:
+                seq = int(last.ticket_number.split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+        return f"{prefix}{seq:04d}"
+
+    def to_dict(self, include_comments: bool = False, include_attachments: bool = False) -> dict:
+        data = {
+            "id": self.id,
+            "ticket_number": self.ticket_number,
+            "user_id": self.user_id,
+            "user_name": self.user.full_name if self.user else None,
+            "user_email": self.user.email if self.user else None,
+            "user_avatar": self.user.avatar_path if self.user else None,
+            "title": self.title,
+            "description": self.description,
+            "tipo": self.tipo.value if self.tipo else None,
+            "modulo": self.modulo.value if self.modulo else None,
+            "criticita": self.criticita.value if self.criticita else None,
+            "status": self.status.value if self.status else None,
+            "cliente_coinvolto": self.cliente_coinvolto,
+            "link_registrazione": self.link_registrazione,
+            "pagina_origine": self.pagina_origine,
+            "browser": self.browser,
+            "os": self.os,
+            "versione_app": self.versione_app,
+            "clickup_task_id": self.clickup_task_id,
+            "clickup_task_url": self.clickup_task_url,
+            "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
+            "sync_error": self.sync_error,
+            "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "comments_count": len(self.comments) if self.comments else 0,
+            "attachments_count": len(self.attachments) if self.attachments else 0,
+        }
+        if include_comments:
+            data["comments"] = [c.to_dict() for c in self.comments]
+        if include_attachments:
+            data["attachments"] = [a.to_dict() for a in self.attachments]
+        return data
+
+    def __repr__(self) -> str:
+        return f"<ITSupportTicket {self.ticket_number} status={self.status}>"
+
+
+class ITSupportTicketComment(TimestampMixin, db.Model):
+    """
+    Commenti bidirezionali sul ticket.
+    - direction=from_suite: scritto in Suite → replicato su ClickUp
+    - direction=from_clickup: arrivato via webhook dal task ClickUp
+    """
+    __tablename__ = "it_support_ticket_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(
+        db.Integer,
+        db.ForeignKey("it_support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    author_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    author_name_external = db.Column(db.String(255), nullable=True)
+
+    content = db.Column(db.Text, nullable=False)
+
+    clickup_comment_id = db.Column(
+        db.String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="Chiave idempotenza per evitare loop webhook",
+    )
+    direction = db.Column(
+        db.String(20),
+        nullable=False,
+        default="from_suite",
+    )
+
+    ticket = relationship("ITSupportTicket", back_populates="comments")
+    author = relationship("User", foreign_keys=[author_user_id])
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "content": self.content,
+            "author_user_id": self.author_user_id,
+            "author_name": (
+                self.author.full_name if self.author
+                else self.author_name_external or "Team IT"
+            ),
+            "author_avatar": self.author.avatar_path if self.author else None,
+            "direction": self.direction,
+            "clickup_comment_id": self.clickup_comment_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class ITSupportTicketAttachment(TimestampMixin, db.Model):
+    """Allegati (screenshot, video, log) di un ticket IT."""
+    __tablename__ = "it_support_ticket_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(
+        db.Integer,
+        db.ForeignKey("it_support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.BigInteger, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    clickup_attachment_id = db.Column(db.String(100), nullable=True)
+    synced_to_clickup = db.Column(db.Boolean, nullable=False, default=False)
+
+    ticket = relationship("ITSupportTicket", back_populates="attachments")
+    uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "filename": self.filename,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "uploaded_by_id": self.uploaded_by_id,
+            "uploaded_by_name": self.uploaded_by.full_name if self.uploaded_by else None,
+            "download_url": f"/api/it-support/attachments/{self.id}/download",
+            "synced_to_clickup": self.synced_to_clickup,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════ #
+#                         GHL SUPPORT TICKETS (ClickUp)                       #
+# ═══════════════════════════════════════════════════════════════════════════ #
+# Ticket IT aperti dai sales/staff interno dall'interno di GoHighLevel via    #
+# Custom Menu Link (iframe embedded). Sync bidirezionale verso Space ClickUp  #
+# "Go High Level - Ticket" (ID 90127111740).                                  #
+#                                                                             #
+# L'utente è identificato tramite contesto passato da GHL in query string:    #
+# {{user.id}}, {{user.email}}, {{user.first_name}}, {{location.id}}, ecc.     #
+# NO FK a users.id → l'utente GHL non è un record della Suite.                #
+#                                                                             #
+# Form minimale: title + description + allegati. Niente tipo/modulo/criticità.#
+# Il team IT triage-a su ClickUp con tag + priority nativi.                   #
+# ═══════════════════════════════════════════════════════════════════════════ #
+
+
+class GHLSupportTicketStatusEnum(str, Enum):
+    nuovo = "nuovo"
+    in_analisi = "in_analisi"
+    in_lavorazione = "in_lavorazione"
+    in_attesa_highlevel = "in_attesa_highlevel"
+    in_attesa_utente = "in_attesa_utente"
+    risolto = "risolto"
+    non_valido = "non_valido"
+
+
+_pg_enum(GHLSupportTicketStatusEnum)
+
+
+class GHLSupportTicket(TimestampMixin, db.Model):
+    """
+    Ticket IT aperto da un utente GHL tramite pagina embedded Custom Menu Link.
+    Replicato come Task su ClickUp ("Go High Level - Ticket" space); stato e
+    commenti sincronizzati in modo bidirezionale.
+    """
+    __tablename__ = "ghl_support_tickets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_number = db.Column(
+        db.String(20),
+        unique=True,
+        nullable=False,
+        index=True,
+        comment="Formato GHL-YYYYMMDD-XXXX",
+    )
+
+    # Identità GHL (stringhe — utente esterno, no FK users)
+    ghl_user_id = db.Column(db.String(50), nullable=False, index=True)
+    ghl_user_email = db.Column(db.String(255), nullable=True)
+    ghl_user_name = db.Column(db.String(255), nullable=True)
+    ghl_user_role = db.Column(db.String(50), nullable=True)
+    ghl_location_id = db.Column(db.String(50), nullable=True, index=True)
+    ghl_location_name = db.Column(db.String(255), nullable=True)
+
+    title = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+
+    # Contesto tecnico auto-catturato (va nel blocco "Contesto tecnico" del task ClickUp)
+    pagina_origine = db.Column(db.String(500), nullable=True)
+    browser = db.Column(db.String(120), nullable=True)
+    os = db.Column(db.String(120), nullable=True)
+    user_agent_raw = db.Column(db.Text, nullable=True)
+
+    status = db.Column(
+        _def(GHLSupportTicketStatusEnum),
+        nullable=False,
+        default=GHLSupportTicketStatusEnum.nuovo,
+        index=True,
+    )
+
+    # Sync ClickUp
+    clickup_task_id = db.Column(
+        db.String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="ID task ClickUp (valorizzato dopo create asincrono)",
+    )
+    clickup_task_url = db.Column(db.String(500), nullable=True)
+    last_synced_at = db.Column(db.DateTime, nullable=True)
+    sync_error = db.Column(db.Text, nullable=True)
+    sync_attempts = db.Column(db.Integer, nullable=False, default=0)
+
+    closed_at = db.Column(db.DateTime, nullable=True)
+
+    comments = relationship(
+        "GHLSupportTicketComment",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+        order_by="GHLSupportTicketComment.created_at.asc()",
+    )
+    attachments = relationship(
+        "GHLSupportTicketAttachment",
+        back_populates="ticket",
+        cascade="all, delete-orphan",
+    )
+
+    @staticmethod
+    def generate_ticket_number() -> str:
+        today = date.today().strftime("%Y%m%d")
+        prefix = f"GHL-{today}-"
+        last = (
+            GHLSupportTicket.query
+            .filter(GHLSupportTicket.ticket_number.like(f"{prefix}%"))
+            .order_by(GHLSupportTicket.ticket_number.desc())
+            .first()
+        )
+        if last:
+            try:
+                seq = int(last.ticket_number.split("-")[-1]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+        return f"{prefix}{seq:04d}"
+
+    def to_dict(self, include_comments: bool = False, include_attachments: bool = False) -> dict:
+        data = {
+            "id": self.id,
+            "ticket_number": self.ticket_number,
+            "ghl_user_id": self.ghl_user_id,
+            "ghl_user_email": self.ghl_user_email,
+            "ghl_user_name": self.ghl_user_name,
+            "ghl_user_role": self.ghl_user_role,
+            "ghl_location_id": self.ghl_location_id,
+            "ghl_location_name": self.ghl_location_name,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status.value if self.status else None,
+            "pagina_origine": self.pagina_origine,
+            "browser": self.browser,
+            "os": self.os,
+            "clickup_task_id": self.clickup_task_id,
+            "clickup_task_url": self.clickup_task_url,
+            "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
+            "sync_error": self.sync_error,
+            "closed_at": self.closed_at.isoformat() if self.closed_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "comments_count": len(self.comments) if self.comments else 0,
+            "attachments_count": len(self.attachments) if self.attachments else 0,
+        }
+        if include_comments:
+            data["comments"] = [c.to_dict() for c in self.comments]
+        if include_attachments:
+            data["attachments"] = [a.to_dict() for a in self.attachments]
+        return data
+
+    def __repr__(self) -> str:
+        return f"<GHLSupportTicket {self.ticket_number} status={self.status}>"
+
+
+class GHLSupportTicketComment(TimestampMixin, db.Model):
+    """
+    Commenti bidirezionali.
+    - direction=from_ghl: scritto dall'utente GHL dalla pagina embed → replicato su ClickUp
+    - direction=from_clickup: arrivato via webhook dal task ClickUp (team IT)
+    """
+    __tablename__ = "ghl_support_ticket_comments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(
+        db.Integer,
+        db.ForeignKey("ghl_support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Autore GHL (stringhe — no FK)
+    author_ghl_user_id = db.Column(db.String(50), nullable=True)
+    author_ghl_user_name = db.Column(db.String(255), nullable=True)
+    # Autore ClickUp (team IT)
+    author_name_external = db.Column(db.String(255), nullable=True)
+
+    content = db.Column(db.Text, nullable=False)
+
+    clickup_comment_id = db.Column(
+        db.String(50),
+        nullable=True,
+        unique=True,
+        index=True,
+        comment="Chiave idempotenza per evitare loop webhook",
+    )
+    direction = db.Column(
+        db.String(20),
+        nullable=False,
+        default="from_ghl",
+    )
+
+    ticket = relationship("GHLSupportTicket", back_populates="comments")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "content": self.content,
+            "author_ghl_user_id": self.author_ghl_user_id,
+            "author_name": (
+                self.author_ghl_user_name
+                if self.direction == "from_ghl"
+                else (self.author_name_external or "Team IT")
+            ),
+            "direction": self.direction,
+            "clickup_comment_id": self.clickup_comment_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class GHLSupportTicketAttachment(TimestampMixin, db.Model):
+    """Allegati (screenshot, video) di un ticket GHL."""
+    __tablename__ = "ghl_support_ticket_attachments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(
+        db.Integer,
+        db.ForeignKey("ghl_support_tickets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.BigInteger, nullable=False)
+    mime_type = db.Column(db.String(100), nullable=True)
+
+    # Chi l'ha caricato (utente GHL, no FK)
+    uploaded_by_ghl_user_id = db.Column(db.String(50), nullable=True)
+    uploaded_by_ghl_user_name = db.Column(db.String(255), nullable=True)
+
+    clickup_attachment_id = db.Column(db.String(100), nullable=True)
+    synced_to_clickup = db.Column(db.Boolean, nullable=False, default=False)
+
+    ticket = relationship("GHLSupportTicket", back_populates="attachments")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "ticket_id": self.ticket_id,
+            "filename": self.filename,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "uploaded_by_ghl_user_name": self.uploaded_by_ghl_user_name,
+            "download_url": f"/api/ghl-support/attachments/{self.id}/download",
+            "synced_to_clickup": self.synced_to_clickup,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 configure_mappers()          # deve vedere anche Task
 ClienteVersion = version_class(Cliente)

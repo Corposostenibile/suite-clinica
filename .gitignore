@@ -81,3 +81,15 @@ AGENTS.md
 screenshots/
 # Codex agent workspace
 .agent/
+
+# Claude Code workspace
+.claude/
+
+# Local dev container setup (non condivisi col team)
+Dockerfile.dev
+docker-compose.dev.yml
+
+# Documentazione discorsiva di lavoro (non versionata)
+ticket.md
+ticket.txt
+ticket-ghl.txt
