@@ -1494,6 +1494,28 @@ def api_list() -> Any:
     
     params = parse_filter_args(request.args)
 
+    # Filtro per viste specialty (nutrizione/coach/psicologia):
+    # quando un professionista accede alla propria vista specialty, restringi la lista
+    # ai soli pazienti dove è effettivamente il professionista di quel ruolo (FK o M2M).
+    # Senza questo, il role filter generico includerebbe pazienti collegati via CallBonus
+    # o History per altri ruoli, mostrando pazienti "non suoi" nel contesto della specialty.
+    _view = request.args.get("view", "").lower()
+    _VIEW_SPECIALTY_FILTER = {
+        "nutrizione": "nutrizionista_id",
+        "coach": "coach_id",
+        "psicologia": "psicologa_id",
+    }
+    if (
+        _view in _VIEW_SPECIALTY_FILTER
+        and current_user.is_authenticated
+        and not current_user.is_trial
+        and getattr(current_user, "role", None) == UserRoleEnum.professionista
+    ):
+        _filter_field = _VIEW_SPECIALTY_FILTER[_view]
+        # Inietta solo se il filtro non è già stato impostato esplicitamente dal frontend
+        if getattr(params, _filter_field) is None:
+            params = replace(params, **{_filter_field: current_user.id})
+
     # Filtro per Influencer: vincola alle origini assegnate (M2M)
     if current_user.role == UserRoleEnum.influencer:
         origine_ids = [o.id for o in current_user.influencer_origins]

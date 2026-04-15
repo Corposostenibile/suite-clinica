@@ -712,49 +712,74 @@ def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     from sqlalchemy import text
     
     if p.nutrizionista_id is not None:
-        # Usa subquery per filtrare i clienti che hanno questo nutrizionista
-        subquery = text("""
+        # Filtra per nutrizionista: considera sia FK legacy che M2M (fonte autoritativa)
+        m2m_subq = text("""
             SELECT cn.cliente_id
             FROM cliente_nutrizionisti cn
             WHERE cn.user_id = :user_id
         """).bindparams(user_id=p.nutrizionista_id)
-        qry = qry.filter(Cliente.cliente_id.in_(subquery))
+        qry = qry.filter(
+            or_(
+                Cliente.nutrizionista_id == p.nutrizionista_id,
+                Cliente.cliente_id.in_(m2m_subq),
+            )
+        )
     elif p.nutrizionista_ids:
-        # Filtro per più nutrizionisti (team leader)
+        # Filtro per più nutrizionisti (team leader): considera sia FK che M2M
         placeholders = ','.join([str(int(uid)) for uid in p.nutrizionista_ids])
-        subquery = text(f"""
+        m2m_subq = text(f"""
             SELECT cn.cliente_id
             FROM cliente_nutrizionisti cn
             WHERE cn.user_id IN ({placeholders})
         """)
-        qry = qry.filter(Cliente.cliente_id.in_(subquery))
+        qry = qry.filter(
+            or_(
+                Cliente.nutrizionista_id.in_(p.nutrizionista_ids),
+                Cliente.cliente_id.in_(m2m_subq),
+            )
+        )
 
     if p.coach_id is not None:
-        # Usa subquery per filtrare i clienti che hanno questo coach
-        subquery = text("""
-            SELECT cc.cliente_id 
-            FROM cliente_coaches cc 
+        # Filtra per coach: considera sia FK legacy che M2M
+        m2m_subq = text("""
+            SELECT cc.cliente_id
+            FROM cliente_coaches cc
             WHERE cc.user_id = :user_id
         """).bindparams(user_id=p.coach_id)
-        qry = qry.filter(Cliente.cliente_id.in_(subquery))
-    
+        qry = qry.filter(
+            or_(
+                Cliente.coach_id == p.coach_id,
+                Cliente.cliente_id.in_(m2m_subq),
+            )
+        )
+
     if p.psicologa_id is not None:
-        # Usa subquery per filtrare i clienti che hanno questa psicologa
-        subquery = text("""
-            SELECT cp.cliente_id 
-            FROM cliente_psicologi cp 
+        # Filtra per psicologa: considera sia FK legacy che M2M
+        m2m_subq = text("""
+            SELECT cp.cliente_id
+            FROM cliente_psicologi cp
             WHERE cp.user_id = :user_id
         """).bindparams(user_id=p.psicologa_id)
-        qry = qry.filter(Cliente.cliente_id.in_(subquery))
-    
+        qry = qry.filter(
+            or_(
+                Cliente.psicologa_id == p.psicologa_id,
+                Cliente.cliente_id.in_(m2m_subq),
+            )
+        )
+
     if p.consulente_alimentare_id is not None:
-        # Usa subquery per filtrare i clienti che hanno questo consulente alimentare
-        subquery = text("""
+        # Filtra per consulente alimentare: considera sia FK legacy che M2M
+        m2m_subq = text("""
             SELECT cca.cliente_id
             FROM cliente_consulenti_alimentari cca
             WHERE cca.user_id = :user_id
         """).bindparams(user_id=p.consulente_alimentare_id)
-        qry = qry.filter(Cliente.cliente_id.in_(subquery))
+        qry = qry.filter(
+            or_(
+                Cliente.consulente_alimentare_id == p.consulente_alimentare_id,
+                Cliente.cliente_id.in_(m2m_subq),
+            )
+        )
 
     if p.health_manager_id is not None:
         # Filtro diretto su FK health_manager_id
