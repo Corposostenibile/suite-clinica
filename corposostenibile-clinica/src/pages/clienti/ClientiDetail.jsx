@@ -7896,7 +7896,7 @@ function ClientiDetail() {
                             <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
                             <span className="cd-empty-text" style={{ marginLeft: '8px' }}>Caricamento check...</span>
                           </div>
-                        ) : checkData.responses.filter(r => r.type === activePeriodiciTab).length === 0 ? (
+                        ) : checkData.responses.filter(r => r.type === activePeriodiciTab && r.source !== 'typeform').length === 0 ? (
                           <div className="cd-empty">
                             <i className="ri-inbox-line cd-empty-icon"></i>
                             <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
@@ -7914,7 +7914,7 @@ function ClientiDetail() {
                               </thead>
                               <tbody>
                                 {checkData.responses
-                                  .filter(r => r.type === activePeriodiciTab)
+                                  .filter(r => r.type === activePeriodiciTab && r.source !== 'typeform')
                                   .map((response) => (
                                   <tr key={`${response.source || response.type}-${response.id}`}>
                                     <td>
@@ -7995,6 +7995,7 @@ function ClientiDetail() {
                         { key: 'check_1', label: 'Nutrizione & Sport', icon: 'ri-heart-pulse-line' },
                         { key: 'check_2', label: 'Stile di Vita', icon: 'ri-user-heart-line' },
                         { key: 'check_3', label: 'Psicologico', icon: 'ri-mental-health-line' },
+                        { key: 'typeform', label: 'Storico TypeForm', icon: 'ri-survey-line' },
                       ].map(tab => (
                         <button
                           key={tab.key}
@@ -8015,6 +8016,98 @@ function ClientiDetail() {
                           <div className="cd-loading">
                             <div className="spinner-border text-primary" role="status"></div>
                             <p className="cd-loading-text" style={{ marginTop: '8px' }}>Caricamento risposte...</p>
+                          </div>
+                        {/* CASE: TypeForm Storico */}
+                        ) : activeInizialiTab === 'typeform' ? (
+                          <div>
+                            {checkData.responses && checkData.responses.filter(r => r.source === 'typeform').length > 0 ? (
+                              <div>
+                                <div style={{ marginBottom: '16px', padding: '12px 16px', background: '#f0f4ff', borderRadius: '10px', border: '1px solid #e0e7ff' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <i className="ri-survey-line" style={{ fontSize: '1.25rem', color: '#6366f1' }}></i>
+                                    <strong style={{ color: '#6366f1' }}>Questionari TypeForm importati</strong>
+                                  </div>
+                                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                                    Questi sono i questionari compilati dal cliente tramite Typeform prima della migrazione al nuovo sistema.
+                                  </p>
+                                </div>
+                                {checkData.responses.filter(r => r.source === 'typeform').map((tfResponse, idx) => (
+                                  <div key={tfResponse.id} className="cd-inner-card" style={{ marginBottom: '16px' }}>
+                                    <div className="cd-inner-card-header" style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                          <span className="cd-badge" style={{ background: '#f0f4ff', color: '#6366f1' }}>
+                                            <i className="ri-survey-line"></i> TypeForm
+                                          </span>
+                                          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                            {tfResponse.submit_date || 'Data non disponibile'}
+                                          </span>
+                                        </div>
+                                        {tfResponse.weight && (
+                                          <span style={{ fontSize: '0.875rem', color: '#475569' }}>
+                                            Peso: {tfResponse.weight} kg
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="cd-inner-card-body" style={{ padding: '16px' }}>
+                                      {tfResponse.responses_data && Object.keys(tfResponse.responses_data).length > 0 ? (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '8px' }}>
+                                          {Object.entries(tfResponse.responses_data).slice(0, 20).map(([key, value]) => {
+                                            const cleanLabel = key.replace(/^\*+/g, '').replace(/\*$/g, '').trim();
+                                            return (
+                                              <div key={key} style={{ padding: '10px 14px', background: '#f8fafc', borderRadius: '8px' }}>
+                                                <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 500, marginBottom: '4px' }}>
+                                                  {cleanLabel}
+                                                </div>
+                                                <div style={{ fontSize: '0.875rem', color: '#1e293b', wordBreak: 'break-word' }}>
+                                                  {value || '-'}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>
+                                          Dettagli non disponibili
+                                        </p>
+                                      )}
+                                      {tfResponse.photo_front || tfResponse.photo_side || tfResponse.photo_back ? (
+                                        <div style={{ marginTop: '16px' }}>
+                                          <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px', fontWeight: 500 }}>Foto</div>
+                                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                                            {tfResponse.photo_front && (
+                                              <div style={{ textAlign: 'center' }}>
+                                                <img src={tfResponse.photo_front} alt="Frontale" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }} onClick={() => setLightboxUrl(tfResponse.photo_front)} />
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Frontale</div>
+                                              </div>
+                                            )}
+                                            {tfResponse.photo_side && (
+                                              <div style={{ textAlign: 'center' }}>
+                                                <img src={tfResponse.photo_side} alt="Laterale" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }} onClick={() => setLightboxUrl(tfResponse.photo_side)} />
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Laterale</div>
+                                              </div>
+                                            )}
+                                            {tfResponse.photo_back && (
+                                              <div style={{ textAlign: 'center' }}>
+                                                <img src={tfResponse.photo_back} alt="Posteriore" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px', cursor: 'pointer' }} onClick={() => setLightboxUrl(tfResponse.photo_back)} />
+                                                <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>Posteriore</div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="cd-empty">
+                                <i className="ri-survey-line cd-empty-icon"></i>
+                                <h5>Nessun questionario TypeForm</h5>
+                                <p className="cd-empty-text">Non sono presenti questionari TypeForm importati per questo cliente.</p>
+                              </div>
+                            )}
                           </div>
                         ) : !initialChecksData || !initialChecksData[activeInizialiTab] ? (
                           <div className="cd-empty">
@@ -10404,7 +10497,9 @@ function ClientiDetail() {
               <div className="chk-modal-header-left">
                 <div className={`chk-modal-type-dot ${selectedCheckResponse.type || 'weekly'}`}></div>
                 <h5 className="chk-modal-title">
-                  {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check DCA' : 'Check Minori'}
+                  {selectedCheckResponse.source === 'typeform' ? 'Check TypeForm' : 
+                   selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : 
+                   selectedCheckResponse.type === 'dca' ? 'Check DCA' : 'Check Minori'}
                 </h5>
               </div>
               <button className="chk-modal-close" onClick={() => setShowCheckResponseModal(false)}>
@@ -10437,8 +10532,14 @@ function ClientiDetail() {
                       <div className="chk-modal-field">
                         <span className="chk-modal-label">Tipo</span>
                         <span className={`chk-modal-type-badge ${selectedCheckResponse.type || 'weekly'}`}>
-                          <i className={selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}></i>
-                          {selectedCheckResponse.type === 'weekly' ? 'Settimanale' : selectedCheckResponse.type === 'dca' ? 'DCA' : 'Minori'}
+                          <i className={
+                            selectedCheckResponse.source === 'typeform' ? 'ri-survey-line' :
+                            selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' :
+                            selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'
+                          }></i>
+                          {selectedCheckResponse.source === 'typeform' ? 'TypeForm' : 
+                           selectedCheckResponse.type === 'weekly' ? 'Settimanale' : 
+                           selectedCheckResponse.type === 'dca' ? 'DCA' : 'Minori'}
                         </span>
                       </div>
                     </div>
@@ -10467,6 +10568,25 @@ function ClientiDetail() {
                             <div className="chk-photo-empty" style={selectedCheckResponse[photo.key] ? { display: 'none' } : {}}><i className="ri-image-line"></i> Non caricata</div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TypeForm Raw Data - show answers from imported CSV */}
+                  {selectedCheckResponse.source === 'typeform' && selectedCheckResponse.responses_data && Object.keys(selectedCheckResponse.responses_data).length > 0 && (
+                    <div className="chk-modal-section">
+                      <span className="chk-modal-label"><i className="ri-survey-line"></i> Risposte Questionario</span>
+                      <div className="chk-responses-data-grid">
+                        {Object.entries(selectedCheckResponse.responses_data).map(([key, value]) => {
+                          // Clean up the key label (remove asterisks and trim)
+                          const cleanLabel = key.replace(/^\*+/g, '').replace(/\*$/g, '').trim();
+                          return (
+                            <div key={key} className="chk-response-data-item">
+                              <label>{cleanLabel}</label>
+                              <span>{value || '-'}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

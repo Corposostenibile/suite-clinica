@@ -2988,6 +2988,7 @@ def api_cliente_checks(cliente_id: int):
                 "photo_front": resp.photo_front or None,
                 "photo_side": resp.photo_side or None,
                 "photo_back": resp.photo_back or None,
+                "responses_data": resp.raw_response_data or {},
                 "is_read": True,
                 "read_at": None,
             })
