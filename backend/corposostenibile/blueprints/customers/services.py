@@ -943,9 +943,22 @@ def update_cliente(
         _track_patologie_psico_changes(cliente, data)
         _track_patologie_coach_changes(cliente, data)
 
-        # Evita race tra stato globale e stati servizi + scadenze ricalcolate
+        # Evita race tra stato globale e stati servizi + scadenze ricalcolate.
+        # Nota: consideriamo "cambio stato servizio" solo quando il valore cambia davvero,
+        # non solo perché la chiave è presente nel payload.
         _servizi_stato_keys = {"stato_nutrizione", "stato_coach", "stato_psicologia"}
-        _has_service_state_change = bool(_servizi_stato_keys & data.keys())
+
+        def _normalize_state_value(value):
+            if hasattr(value, "value"):
+                return value.value
+            return value
+
+        _service_state_keys_in_payload = _servizi_stato_keys & data.keys()
+        _has_service_state_change = any(
+            _normalize_state_value(data.get(service_key))
+            != _normalize_state_value(getattr(cliente, service_key, None))
+            for service_key in _service_state_keys_in_payload
+        )
         _scadenza_skip_if_stato_updated = {
             "data_scadenza_nutrizione": "stato_nutrizione",
             "data_scadenza_coach": "stato_coach",
@@ -1037,15 +1050,18 @@ def update_cliente(
                 if k not in changes:
                     changes[k] = v
 
-        # ⚡ LOGICA GHOST AUTOMATICA ⚡
-        # Se sono stati modificati stati servizi o professionisti, controlla se devo aggiornare stato_cliente
+        # ⚡ LOGICA STATO GLOBALE DERIVATA DA SERVIZI M2M ⚡
+        # Lo stato globale non deve mai contraddire gli stati servizio assegnati.
+        # Se cambia manualmente stato_cliente, ricalcoliamo comunque per riallineare.
         stati_servizi_modificati = any(k in changes for k in ['stato_nutrizione', 'stato_coach', 'stato_psicologia'])
         professionisti_modificati = any(k in changes for k in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli'])
+        stato_globale_modificato = 'stato_cliente' in changes
 
-        if stati_servizi_modificati or professionisti_modificati:
+        if stati_servizi_modificati or professionisti_modificati or stato_globale_modificato:
             # Flush per assicurarsi che le modifiche siano visibili
             db.session.flush()
-            # Controlla e aggiorna automaticamente stato_cliente (ghost/pausa)
+            # Controlla e aggiorna automaticamente stato_cliente (ghost/pausa),
+            # applicando le regole M2M anche dopo eventuali edit manuali.
             _check_and_update_global_ghost_status(cliente, updated_by_user)
             _check_and_update_global_pausa_status(cliente, updated_by_user)
 
