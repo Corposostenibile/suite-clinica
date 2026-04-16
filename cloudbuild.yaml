@@ -61,6 +61,55 @@ steps:
           sleep 10
         done
 
+  # 2a. Ghost Patients Fix Test: Verifica che i 3 pazienti problematici
+  #     (MICHELA VIGOLO 29415, GRETA BELLUCCI 29434, PATRIZIA LANZI 29414)
+  #     non siano più in stato ghost nonostante servizi attivi.
+  #     SE IL TEST FALLISCE → DEPLOY BLOCCATO (exit 1)
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - exec
+      - deployment/suite-clinica-backend
+      - -c
+      - backend
+      - --
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        echo "============================================================"
+        echo "STEP 2a: Ghost Patients Fix Test"
+        echo "============================================================"
+        echo "Verifica che i 3 pazienti problematici siano in stato coerente..."
+        echo ""
+        
+        if [ -f /app/scripts/production_tests/test_ghost_patients_fix.py ]; then
+          PYTHONPATH=/app python /app/scripts/production_tests/test_ghost_patients_fix.py
+          TEST_RC=$?
+          
+          if [ "$${TEST_RC}" -ne 0 ]; then
+            echo ""
+            echo "============================================================"
+            echo "FATAL: Ghost Patients Fix Test FALLITO!"
+            echo "       I pazienti MICHELA VIGOLO, GRETA BELLUCCI, PATRIZIA LANZI"
+            echo "       risultano ancora in stato ghost nonostante servizi attivi."
+            echo "       IL DEPLOY E' BLOCCATO."
+            echo "============================================================"
+            exit 1
+          fi
+          
+          echo ""
+          echo "============================================================"
+          echo "PASS: Ghost Patients Fix Test OK!"
+          echo "     Tutti i 3 pazienti sono in stato coerente."
+          echo "============================================================"
+        else
+          echo "[WARN] Script test_ghost_patients_fix.py non presente, skip test."
+          echo "       Questo è OK per branch senza il fix."
+        fi
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=europe-west8'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=suite-clinica-cluster-prod'
+
   # 3. Deploy Layer: Aggiorna GKE
   - name: 'gcr.io/cloud-builders/gke-deploy'
     args:
