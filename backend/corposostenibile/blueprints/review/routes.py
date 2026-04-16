@@ -74,11 +74,12 @@ def can_view_member_reviews(user, member):
         return True
 
     # Se è il capo del dipartimento del membro
-    if member.department and member.department.head_id == user.id:
+    member_dept = getattr(member, 'department', None)
+    if member_dept and member_dept.head_id == user.id:
         return True
 
     # Head CCO (dept 23) può vedere membri dei dipartimenti 2, 3, 4, 13
-    if member.department_id in [2, 3, 4, 13]:
+    if getattr(member, 'department_id', None) in [2, 3, 4, 13]:
         dept_cco = Department.query.filter_by(id=23).first()
         if dept_cco and dept_cco.head_id == user.id:
             return True
@@ -89,7 +90,7 @@ def can_view_member_reviews(user, member):
         return True
 
     # Fallback legacy (team_id diretto)
-    if member.department_id == 2 and getattr(member, 'team_id', None):
+    if getattr(member, 'department_id', None) == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
@@ -122,11 +123,12 @@ def can_write_review(user, member):
         return True
 
     # Se è il capo del dipartimento del membro
-    if member.department and member.department.head_id == user.id:
+    member_dept = getattr(member, 'department', None)
+    if member_dept and member_dept.head_id == user.id:
         return True
 
     # Head CCO (dept 23) può scrivere a membri dei dipartimenti 2, 3, 4, 13
-    if member.department_id in [2, 3, 4, 13]:
+    if getattr(member, 'department_id', None) in [2, 3, 4, 13]:
         dept_cco = Department.query.filter_by(id=23).first()
         if dept_cco and dept_cco.head_id == user.id:
             return True
@@ -137,7 +139,7 @@ def can_write_review(user, member):
         return True
 
     # Fallback legacy (team_id diretto)
-    if member.department_id == 2 and getattr(member, 'team_id', None):
+    if getattr(member, 'department_id', None) == 2 and getattr(member, 'team_id', None):
         team = Team.query.get(member.team_id)
         if team and team.head_id == user.id:
             return True
