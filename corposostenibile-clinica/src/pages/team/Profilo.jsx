@@ -292,16 +292,15 @@ function Profilo() {
     setTrainingsLoading(true); setTrainingsError('');
     try {
       const isOwn = currentUser?.id === user.id;
-      const canReadOther = Boolean(isCurrentUserAdmin || isCurrentUserCco);
-      let payload = null;
-      if (isOwn) { payload = await trainingService.getMyTrainings({ page: 1, per_page: 500 }); setTrainings(payload.trainings || []); }
-      else if (canReadOther) { payload = await trainingService.getAdminUserTrainings(user.id); setTrainings(payload.trainings || []); }
-      else { setTrainings([]); setTrainingsError('Non autorizzato a visualizzare la formazione di questo professionista'); }
+      const payload = isOwn
+        ? await trainingService.getMyTrainings({ page: 1, per_page: 500 })
+        : await trainingService.getAdminUserTrainings(user.id);
+      setTrainings(payload.trainings || []);
     } catch (err) {
       console.error('Errore caricamento formazione associata:', err);
-      setTrainings([]); setTrainingsError(err?.response?.data?.error || 'Errore nel caricamento della formazione');
+      setTrainings([]); setTrainingsError(err?.response?.data?.error || 'Non autorizzato a visualizzare la formazione di questo professionista');
     } finally { setTrainingsLoading(false); }
-  }, [user?.id, currentUser?.id, isCurrentUserAdmin, isCurrentUserCco]);
+  }, [user?.id, currentUser?.id]);
 
   const fetchTasks = useCallback(async () => {
     if (!user?.id) return;
