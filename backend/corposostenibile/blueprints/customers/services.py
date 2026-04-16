@@ -241,225 +241,143 @@ def create_cliente(data: Mapping[str, Any], created_by_user) -> Cliente:
     return cliente
 
 
-def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> bool:
-    """
-    Controlla se tutti i servizi assegnati (con almeno un professionista) sono in ghost.
-    Se sì, aggiorna automaticamente lo stato_cliente a 'ghost'.
+def _get_stato_value(stato) -> str | None:
+    """Helper per ottenere il valore dello stato sia che sia Enum o stringa."""
+    if stato is None:
+        return None
+    if hasattr(stato, 'value'):
+        return stato.value
+    return str(stato)
 
+
+def _has_professionista_assigned(cliente: Cliente, servizio: str) -> bool:
+    """Verifica se un servizio ha almeno un professionista assegnato."""
+    if servizio == 'nutrizione':
+        return (
+            (cliente.nutrizionisti_multipli and len(cliente.nutrizionisti_multipli) > 0)
+            or cliente.nutrizionista_id
+            or (getattr(cliente, "nutrizionista", None) and str(cliente.nutrizionista).strip())
+        )
+    elif servizio == 'coach':
+        return (
+            (cliente.coaches_multipli and len(cliente.coaches_multipli) > 0)
+            or cliente.coach_id
+            or (getattr(cliente, "coach", None) and str(cliente.coach).strip())
+        )
+    elif servizio == 'psicologia':
+        return (
+            (cliente.psicologi_multipli and len(cliente.psicologi_multipli) > 0)
+            or cliente.psicologa_id
+            or (getattr(cliente, "psicologa", None) and str(cliente.psicologa).strip())
+        )
+    return False
+
+
+def _get_servizi_assegnati(cliente: Cliente) -> list[dict]:
+    """Raccoglie tutti i servizi assegnati con il loro stato."""
+    servizi = []
+    
+    mapping = {
+        'nutrizione': ('stato_nutrizione', cliente.stato_nutrizione),
+        'coach': ('stato_coach', cliente.stato_coach),
+        'psicologia': ('stato_psicologia', cliente.stato_psicologia),
+    }
+    
+    for servizio, (campo, stato) in mapping.items():
+        if _has_professionista_assigned(cliente, servizio):
+            servizi.append({
+                'nome': servizio,
+                'campo': campo,
+                'stato': _get_stato_value(stato),
+            })
+    
+    return servizi
+
+
+def _update_stato_cliente_from_services(cliente: Cliente, updated_by_user) -> bool:
+    """
+    Aggiorna lo stato_cliente basandosi sugli stati dei servizi M2M.
+    
+    Logica semplificata:
+    - stato_cliente = ATTIVO se ALMENO UN servizio è ATTIVO
+    - stato_cliente = GHOST se TUTTI i servizi sono GHOST
+    - stato_cliente = PAUSA se TUTTI i servizi sono PAUSA
+    
+    Args:
+        cliente: Il cliente da aggiornare
+        updated_by_user: L'utente che ha fatto la modifica (per ActivityLog)
+        
     Returns:
-        bool: True se lo stato_cliente è stato aggiornato a ghost, False altrimenti
+        bool: True se lo stato_cliente è stato modificato, False altrimenti
     """
     from datetime import datetime
-
-    def _get_stato_value(stato) -> str | None:
-        """Helper per ottenere il valore dello stato sia che sia Enum o stringa."""
-        if stato is None:
-            return None
-        if hasattr(stato, 'value'):
-            return stato.value
-        return str(stato)
-
-    def _has_nutrizione(c):
-        return (
-            (c.nutrizionisti_multipli and len(c.nutrizionisti_multipli) > 0)
-            or c.nutrizionista_id
-            or (getattr(c, "nutrizionista", None) and str(c.nutrizionista).strip())
-        )
-
-    def _has_coach(c):
-        return (
-            (c.coaches_multipli and len(c.coaches_multipli) > 0)
-            or c.coach_id
-            or (getattr(c, "coach", None) and str(c.coach).strip())
-        )
-
-    def _has_psicologia(c):
-        return (
-            (c.psicologi_multipli and len(c.psicologi_multipli) > 0)
-            or c.psicologa_id
-            or (getattr(c, "psicologa", None) and str(c.psicologa).strip())
-        )
-
-    # Servizi da controllare (solo quelli con almeno un professionista assegnato)
-    servizi_assegnati = []
-
-    # Controlla nutrizione
-    if _has_nutrizione(cliente):
-        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
-        servizi_assegnati.append({
-            'nome': 'nutrizione',
-            'stato': _get_stato_value(cliente.stato_nutrizione),
-            'professionisti_count': count
-        })
-
-    # Controlla coaching
-    if _has_coach(cliente):
-        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
-        servizi_assegnati.append({
-            'nome': 'coaching',
-            'stato': _get_stato_value(cliente.stato_coach),
-            'professionisti_count': count
-        })
-
-    # Controlla psicologia
-    if _has_psicologia(cliente):
-        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
-        servizi_assegnati.append({
-            'nome': 'psicologia',
-            'stato': _get_stato_value(cliente.stato_psicologia),
-            'professionisti_count': count
-        })
-
-    # Se non ci sono servizi assegnati, non fare nulla
-    if not servizi_assegnati:
-        current_app.logger.info(
-            f"Cliente {cliente.cliente_id} - Nessun servizio assegnato, skip controllo ghost globale"
+    
+    servizi = _get_servizi_assegnati(cliente)
+    
+    if not servizi:
+        current_app.logger.debug(
+            f"Cliente {cliente.cliente_id} - Nessun servizio assegnato, skip aggiornamento stato globale"
         )
         return False
-
-    # Controlla se TUTTI i servizi assegnati sono in ghost
-    servizi_in_ghost = [s for s in servizi_assegnati if s['stato'] and s['stato'] == 'ghost']
-    tutti_ghost = len(servizi_in_ghost) == len(servizi_assegnati)
-
+    
+    stati = [s['stato'] for s in servizi]
+    stato_corrente = _get_stato_value(cliente.stato_cliente)
+    
     current_app.logger.info(
-        f"Cliente {cliente.cliente_id} - Servizi assegnati: {len(servizi_assegnati)}, "
-        f"In ghost: {len(servizi_in_ghost)}, Tutti ghost: {tutti_ghost}"
+        f"Cliente {cliente.cliente_id} - Servizi: {[s['nome'] for s in servizi]}, "
+        f"Stati: {stati}, Stato cliente attuale: {stato_corrente}"
     )
-
-    # Se tutti i servizi assegnati sono in ghost E lo stato cliente non è già ghost
-    stato_cliente_value = _get_stato_value(cliente.stato_cliente)
-    if tutti_ghost and stato_cliente_value != 'ghost':
+    
+    # Logica: priorità ATTIVO > GHOST > PAUSA
+    # 1. Se c'è almeno un servizio ATTIVO → stato_cliente = ATTIVO
+    if any(s == 'attivo' for s in stati):
+        nuovo_stato = 'attivo'
+    # 2. Altrimenti se tutti sono GHOST → stato_cliente = GHOST
+    elif all(s == 'ghost' for s in stati):
+        nuovo_stato = 'ghost'
+    # 3. Altrimenti se tutti sono PAUSA → stato_cliente = PAUSA
+    elif all(s == 'pausa' for s in stati):
+        nuovo_stato = 'pausa'
+    else:
+        # Caso misto (es. ghost + pausa, o nessun servizio con stato definito)
+        # Non cambiamo stato automaticamente
+        return False
+    
+    # Se il nuovo stato è diverso da quello attuale, aggiorna
+    if nuovo_stato != stato_corrente:
         old_stato = cliente.stato_cliente
-        cliente.stato_cliente = StatoClienteEnum.ghost
+        cliente.stato_cliente = StatoClienteEnum(nuovo_stato)
         cliente.stato_cliente_data = datetime.utcnow()
-
-        # Log automatico
+        
         db.session.add(
             ActivityLog(
                 cliente_id=cliente.cliente_id,
                 field='stato_cliente',
                 before=_get_stato_value(old_stato),
-                after='ghost',
+                after=nuovo_stato,
                 user_id=_user_id(updated_by_user),
             )
         )
-
+        
         current_app.logger.info(
-            f"Cliente {cliente.cliente_id} - Stato cliente aggiornato automaticamente a GHOST "
-            f"(tutti i servizi assegnati sono in ghost)"
+            f"Cliente {cliente.cliente_id} - Stato cliente aggiornato: "
+            f"{_get_stato_value(old_stato)} -> {nuovo_stato} "
+            f"(basato su stati servizi: {stati})"
         )
         return True
-
-    if stato_cliente_value == 'ghost' and any(
-        s['stato'] and s['stato'] != 'ghost' for s in servizi_assegnati
-    ):
-        cliente.stato_cliente = StatoClienteEnum.attivo
-        cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field='stato_cliente',
-                before='ghost',
-                after='attivo',
-                user_id=_user_id(updated_by_user),
-            )
-        )
-        return True
-
+    
     return False
+
+
+# Alias per retrocompatibilità con il resto del codice
+def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> bool:
+    """Deprecato: usa _update_stato_cliente_from_services"""
+    return _update_stato_cliente_from_services(cliente, updated_by_user)
 
 
 def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> bool:
-    """
-    Controlla se tutti i servizi assegnati sono in pausa.
-    Se sì, aggiorna automaticamente lo stato_cliente a 'pausa'.
-    """
-    from datetime import datetime
-
-    def _get_stato_value(stato) -> str | None:
-        if stato is None:
-            return None
-        if hasattr(stato, "value"):
-            return stato.value
-        return str(stato)
-
-    def _has_nutrizione(c):
-        return (
-            (c.nutrizionisti_multipli and len(c.nutrizionisti_multipli) > 0)
-            or c.nutrizionista_id
-            or (getattr(c, "nutrizionista", None) and str(c.nutrizionista).strip())
-        )
-
-    def _has_coach(c):
-        return (
-            (c.coaches_multipli and len(c.coaches_multipli) > 0)
-            or c.coach_id
-            or (getattr(c, "coach", None) and str(c.coach).strip())
-        )
-
-    def _has_psicologia(c):
-        return (
-            (c.psicologi_multipli and len(c.psicologi_multipli) > 0)
-            or c.psicologa_id
-            or (getattr(c, "psicologa", None) and str(c.psicologa).strip())
-        )
-
-    servizi_assegnati = []
-    if _has_nutrizione(cliente):
-        count = len(cliente.nutrizionisti_multipli) if cliente.nutrizionisti_multipli else 1
-        servizi_assegnati.append(
-            {"nome": "nutrizione", "stato": _get_stato_value(cliente.stato_nutrizione), "professionisti_count": count}
-        )
-    if _has_coach(cliente):
-        count = len(cliente.coaches_multipli) if cliente.coaches_multipli else 1
-        servizi_assegnati.append(
-            {"nome": "coaching", "stato": _get_stato_value(cliente.stato_coach), "professionisti_count": count}
-        )
-    if _has_psicologia(cliente):
-        count = len(cliente.psicologi_multipli) if cliente.psicologi_multipli else 1
-        servizi_assegnati.append(
-            {"nome": "psicologia", "stato": _get_stato_value(cliente.stato_psicologia), "professionisti_count": count}
-        )
-
-    if not servizi_assegnati:
-        return False
-
-    servizi_in_pausa = [s for s in servizi_assegnati if s["stato"] and s["stato"] == "pausa"]
-    tutti_pausa = len(servizi_in_pausa) == len(servizi_assegnati)
-    stato_cliente_value = _get_stato_value(cliente.stato_cliente)
-
-    if tutti_pausa and stato_cliente_value != "pausa":
-        old_stato = cliente.stato_cliente
-        cliente.stato_cliente = StatoClienteEnum.pausa
-        cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field="stato_cliente",
-                before=_get_stato_value(old_stato),
-                after="pausa",
-                user_id=_user_id(updated_by_user),
-            )
-        )
-        return True
-
-    if stato_cliente_value == "pausa" and any(
-        s["stato"] and s["stato"] != "pausa" for s in servizi_assegnati
-    ):
-        cliente.stato_cliente = StatoClienteEnum.attivo
-        cliente.stato_cliente_data = datetime.utcnow()
-        db.session.add(
-            ActivityLog(
-                cliente_id=cliente.cliente_id,
-                field="stato_cliente",
-                before="pausa",
-                after="attivo",
-                user_id=_user_id(updated_by_user),
-            )
-        )
-        return True
-
-    return False
+    """Deprecato: usa _update_stato_cliente_from_services"""
+    return _update_stato_cliente_from_services(cliente, updated_by_user)
 
 
 def _handle_call_to_status_trigger(
