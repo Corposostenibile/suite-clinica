@@ -1770,6 +1770,81 @@ def api_expiring() -> Any:
     })
 
 
+@api_bp.route("/expired", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_expired() -> Any:
+    """Clienti con data rinnovo già superata (data_rinnovo < oggi)."""
+    from datetime import date
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+    q = (request.args.get("q") or "").strip()
+    hm_filter = request.args.get("health_manager_id", type=int)
+    today = date.today()
+
+    query = _apply_hm_page_scope(
+        db.session.query(Cliente).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.data_rinnovo.isnot(None),
+            Cliente.data_rinnovo < today,
+        )
+    )
+
+    if hm_filter:
+        query = query.filter(Cliente.health_manager_id == hm_filter)
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(Cliente.data_rinnovo.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for c in pagination.items:
+        giorni = (c.data_rinnovo - today).days if c.data_rinnovo else None
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "data_rinnovo": c.data_rinnovo.isoformat() if c.data_rinnovo else None,
+            "giorni_rimanenti": giorni,
+            "programma_attuale": c.programma_attuale or None,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
+        },
+    })
+
+
 @api_bp.route("/unsatisfied", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
 def api_unsatisfied() -> Any:

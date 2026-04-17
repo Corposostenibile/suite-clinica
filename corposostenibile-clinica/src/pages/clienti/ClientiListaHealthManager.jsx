@@ -14,6 +14,7 @@ const ROLE_COLORS = {
 
 const MAIN_TABS = [
   { key: 'scadenze', label: 'In Scadenza', icon: 'ri-alarm-warning-line' },
+  { key: 'scaduti', label: 'Scaduti', icon: 'ri-error-warning-line' },
   { key: 'insoddisfatti', label: 'Insoddisfatti', icon: 'ri-emotion-unhappy-line' },
   { key: 'ghost', label: 'Ghost', icon: 'ri-ghost-line' },
   { key: 'pausa', label: 'In Pausa', icon: 'ri-pause-circle-line' },
@@ -59,6 +60,9 @@ function ClientiListaHealthManager() {
   const [expiryCounts, setExpiryCounts] = useState({ 30: 0, 60: 0, 90: 0 });
   const [expiryPagination, setExpiryPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [expiryLoading, setExpiryLoading] = useState(false);
+  const [expiredData, setExpiredData] = useState([]);
+  const [expiredPagination, setExpiredPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
+  const [expiredLoading, setExpiredLoading] = useState(false);
 
   // Insoddisfatti state
   const [satThreshold, setSatThreshold] = useState(8);
@@ -187,6 +191,27 @@ function ClientiListaHealthManager() {
     }
   }, [expiryDays, expiryPagination.page, expiryPagination.perPage, debouncedSearch, selectedHmId]);
 
+  // ── Fetch Scaduti ──
+  const fetchExpired = useCallback(async () => {
+    setExpiredLoading(true);
+    setError(null);
+    try {
+      const data = await clientiService.getClientiExpired({
+        page: expiredPagination.page,
+        per_page: expiredPagination.perPage,
+        q: debouncedSearch || undefined,
+        health_manager_id: selectedHmId || undefined,
+      });
+      setExpiredData(data.data || []);
+      setExpiredPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+    } catch (err) {
+      console.error('Error fetching expired:', err);
+      setError('Errore nel caricamento');
+    } finally {
+      setExpiredLoading(false);
+    }
+  }, [expiredPagination.page, expiredPagination.perPage, debouncedSearch, selectedHmId]);
+
   // ── Fetch Insoddisfatti ──
   const fetchUnsatisfied = useCallback(async () => {
     setSatLoading(true);
@@ -213,6 +238,10 @@ function ClientiListaHealthManager() {
   useEffect(() => {
     if (mainTab === 'scadenze') fetchExpiring();
   }, [mainTab, fetchExpiring]);
+
+  useEffect(() => {
+    if (mainTab === 'scaduti') fetchExpired();
+  }, [mainTab, fetchExpired]);
 
   useEffect(() => {
     if (mainTab === 'insoddisfatti') fetchUnsatisfied();
@@ -337,6 +366,7 @@ function ClientiListaHealthManager() {
     searchTimerRef.current = setTimeout(() => {
       setDebouncedSearch(value);
       setExpiryPagination(prev => ({ ...prev, page: 1 }));
+      setExpiredPagination(prev => ({ ...prev, page: 1 }));
       setSatPagination(prev => ({ ...prev, page: 1 }));
       setCoordPagination(prev => ({ ...prev, page: 1 }));
     }, 400);
@@ -443,10 +473,20 @@ function ClientiListaHealthManager() {
       ? coordLoading
       : mainTab === 'scadenze'
         ? expiryLoading
+        : mainTab === 'scaduti'
+          ? expiredLoading
         : mainTab === 'insoddisfatti'
           ? satLoading
           : statusLoading;
-  const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
+  const clienti = isReviewTab
+    ? []
+    : mainTab === 'scadenze'
+      ? expiryData
+      : mainTab === 'scaduti'
+        ? expiredData
+        : mainTab === 'insoddisfatti'
+          ? satData
+          : statusData;
 
   const visibleMainTabs = MAIN_TABS;
   const hmFilterOptions = isCoordinatriciTab && coordHealthManagers.length > 0 ? coordHealthManagers : healthManagers;
@@ -552,6 +592,7 @@ function ClientiListaHealthManager() {
               setStatusPagination(prev => ({ ...prev, page: 1 }));
               setReviewPagination(prev => ({ ...prev, page: 1 }));
               setCoordPagination(prev => ({ ...prev, page: 1 }));
+              setExpiredPagination(prev => ({ ...prev, page: 1 }));
             }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
@@ -672,6 +713,7 @@ function ClientiListaHealthManager() {
             onChange={(e) => {
               setSelectedHmId(e.target.value);
               setExpiryPagination(prev => ({ ...prev, page: 1 }));
+              setExpiredPagination(prev => ({ ...prev, page: 1 }));
               setSatPagination(prev => ({ ...prev, page: 1 }));
               setCoordPagination(prev => ({ ...prev, page: 1 }));
             }}
@@ -967,10 +1009,28 @@ function ClientiListaHealthManager() {
       ) : clienti.length === 0 ? (
         <div className="cl-empty-state">
           <div className="cl-empty-icon">
-            <i className={mainTab === 'scadenze' ? 'ri-calendar-check-line' : mainTab === 'insoddisfatti' ? 'ri-emotion-happy-line' : mainTab === 'ghost' ? 'ri-ghost-line' : 'ri-pause-circle-line'}></i>
+            <i className={
+              mainTab === 'scadenze'
+                ? 'ri-calendar-check-line'
+                : mainTab === 'scaduti'
+                  ? 'ri-error-warning-line'
+                  : mainTab === 'insoddisfatti'
+                    ? 'ri-emotion-happy-line'
+                    : mainTab === 'ghost'
+                      ? 'ri-ghost-line'
+                      : 'ri-pause-circle-line'
+            }></i>
           </div>
           <h5 className="cl-empty-title">
-            {mainTab === 'scadenze' ? 'Nessun cliente in scadenza' : mainTab === 'insoddisfatti' ? 'Nessun cliente insoddisfatto' : mainTab === 'ghost' ? 'Nessun cliente ghost' : 'Nessun cliente in pausa'}
+            {mainTab === 'scadenze'
+              ? 'Nessun cliente in scadenza'
+              : mainTab === 'scaduti'
+                ? 'Nessun cliente scaduto'
+                : mainTab === 'insoddisfatti'
+                  ? 'Nessun cliente insoddisfatto'
+                  : mainTab === 'ghost'
+                    ? 'Nessun cliente ghost'
+                    : 'Nessun cliente in pausa'}
           </h5>
           <p className="cl-empty-desc">
             {mainTab === 'scadenze'
@@ -979,6 +1039,8 @@ function ClientiListaHealthManager() {
                 : expiryDays === 60
                   ? 'Non ci sono clienti con rinnovo tra 30 e 60 giorni'
                   : 'Non ci sono clienti con rinnovo tra 60 e 90 giorni'
+              : mainTab === 'scaduti'
+                ? 'Non ci sono clienti con abbonamento già scaduto'
               : `Non ci sono clienti con media voti inferiore a ${satThreshold}`
             }
           </p>
@@ -992,7 +1054,7 @@ function ClientiListaHealthManager() {
                   <tr>
                     <th style={{ minWidth: '180px' }}>Cliente</th>
                     <th style={{ minWidth: '90px' }}>Stato</th>
-                    {mainTab === 'scadenze' ? (
+                    {mainTab === 'scadenze' || mainTab === 'scaduti' ? (
                       <>
                         <th style={{ minWidth: '110px' }}>Scadenza</th>
                         <th style={{ minWidth: '90px', textAlign: 'center' }}>Giorni</th>
@@ -1026,7 +1088,7 @@ function ClientiListaHealthManager() {
                         </Link>
                       </td>
                       <td>{renderStatoBadge(cliente.stato_cliente)}</td>
-                      {mainTab === 'scadenze' ? (
+                      {mainTab === 'scadenze' || mainTab === 'scaduti' ? (
                         <>
                           <td>
                             {cliente.data_rinnovo ? (
@@ -1146,6 +1208,8 @@ function ClientiListaHealthManager() {
 
           {mainTab === 'scadenze'
             ? renderPagination(expiryPagination, (p) => setExpiryPagination(prev => ({ ...prev, page: p })))
+            : mainTab === 'scaduti'
+              ? renderPagination(expiredPagination, (p) => setExpiredPagination(prev => ({ ...prev, page: p })))
             : mainTab === 'insoddisfatti'
               ? renderPagination(satPagination, (p) => setSatPagination(prev => ({ ...prev, page: p })))
               : renderPagination(statusPagination, (p) => setStatusPagination(prev => ({ ...prev, page: p })))

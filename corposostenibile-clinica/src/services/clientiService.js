@@ -417,6 +417,11 @@ const clientiService = {
     return response.data;
   },
 
+  async getClientiExpired(params = {}) {
+    const response = await api.get(`${API_BASE}/expired`, { params });
+    return response.data;
+  },
+
   async getClientiUnsatisfied(params = {}) {
     const response = await api.get(`${API_BASE}/unsatisfied`, { params });
     return response.data;
