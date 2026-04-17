@@ -87,7 +87,10 @@ export function canAccessTaskPage(user) {
 }
 
 export function canAccessTrainingPage(user) {
-  return !isHealthManagerScopeUser(user);
+  // Health Manager standard non accedono alla pagina Formazione standalone
+  // (vedono la formazione solo dal profilo del professionista)
+  // Ma gli Health Manager Team Leader SÌ (hanno teams_led e gestiscono formazione)
+  return !isHealthManagerUser(user);
 }
 
 export function canAccessSecondaryModules(user) {
