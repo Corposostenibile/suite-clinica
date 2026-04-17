@@ -823,6 +823,64 @@ def get_members():
     })
 
 
+@team_api_bp.route("/health-managers", methods=["GET"])
+@login_required
+def get_all_health_managers():
+    """
+    Lista di tutti gli HM attivi dell'azienda (+ TL di team HM),
+    ignorando lo scope-by-team dei team leader.
+
+    Pensato per popolare i filtri della pagina "Visuale Health Manager":
+    admin/CCO e TL HM devono poter filtrare per qualsiasi HM, non solo
+    i membri del proprio team.
+
+    ACL: admin, CCO, TL HM (qualunque TL che guidi un team di tipo
+    health_manager o abbia specialty/department coerenti).
+    """
+    if not (
+        _can_view_all_team_module_data(current_user)
+        or _is_health_manager_team_leader(current_user)
+    ):
+        return jsonify({'success': False, 'message': 'Accesso non autorizzato'}), HTTPStatus.FORBIDDEN
+
+    active_filter = request.args.get('active', '1').strip()
+
+    hm_team_leader_ids_sq = db.session.query(Team.head_id).filter(
+        Team.head_id.isnot(None),
+        Team.is_active == True,
+        Team.team_type == TeamTypeEnum.health_manager,
+    ).distinct().subquery()
+
+    query = User.query.filter(
+        User.role.isnot(None),
+        or_(
+            cast(User.role, String) == 'health_manager',
+            and_(
+                cast(User.role, String) == 'team_leader',
+                or_(
+                    cast(User.specialty, String) == 'health_manager',
+                    User.id.in_(select(hm_team_leader_ids_sq.c.head_id)),
+                ),
+            ),
+        ),
+    )
+
+    if active_filter == '1':
+        query = query.filter(User.is_active == True)
+    elif active_filter == '0':
+        query = query.filter(User.is_active == False)
+
+    query = query.order_by(User.first_name, User.last_name)
+
+    members = [_serialize_user(user, include_teams_led=False) for user in query.all()]
+
+    return jsonify({
+        'success': True,
+        'members': members,
+        'total': len(members),
+    })
+
+
 @team_api_bp.route("/members/<int:user_id>", methods=["GET"])
 @login_required
 def get_member(user_id):

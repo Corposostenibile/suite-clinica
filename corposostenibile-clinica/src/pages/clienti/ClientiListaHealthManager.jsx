@@ -151,11 +151,9 @@ function ClientiListaHealthManager() {
     if (!canFilterByHm) return;
     const fetchHms = async () => {
       try {
-        const data = await teamService.getTeamMembers({
-          per_page: 100,
-          active: '1',
-          role: 'health_manager',
-        });
+        // Usa l'endpoint "tutti gli HM" (bypass team-scope dei team leader):
+        // admin/CCO/TL HM devono poter filtrare per qualsiasi HM aziendale.
+        const data = await teamService.getAllHealthManagers({ active: '1' });
         setHealthManagers(data.members || []);
       } catch (err) {
         console.error('Error fetching HMs:', err);
@@ -223,7 +221,7 @@ function ClientiListaHealthManager() {
     setStatusLoading(true);
     setError(null);
     try {
-      const data = await clientiService.getClienti({
+      const data = await clientiService.getClientiHmByStatus({
         stato_cliente: mainTab, // 'ghost' or 'pausa'
         page: statusPagination.page,
         per_page: statusPagination.perPage,
@@ -449,7 +447,13 @@ function ClientiListaHealthManager() {
   const clienti = isReviewTab ? [] : mainTab === 'scadenze' ? expiryData : mainTab === 'insoddisfatti' ? satData : statusData;
 
   const visibleMainTabs = MAIN_TABS;
-  const hmFilterOptions = isCoordinatriciTab && coordHealthManagers.length > 0 ? coordHealthManagers : healthManagers;
+  // Dropdown HM: usa sempre la lista globale da /team/health-managers
+  // (admin/CCO/TL HM vedono TUTTI gli HM aziendali). `coordHealthManagers`
+  // della response di hm-coordinatrici-dashboard resta come fallback se
+  // la lista globale non fosse disponibile (utenti non autorizzati).
+  const hmFilterOptions = healthManagers.length > 0
+    ? healthManagers
+    : (isCoordinatriciTab ? coordHealthManagers : []);
 
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString('it-IT') : '\u2014');
 

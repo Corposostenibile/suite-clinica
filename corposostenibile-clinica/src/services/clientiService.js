@@ -422,6 +422,11 @@ const clientiService = {
     return response.data;
   },
 
+  async getClientiHmByStatus(params = {}) {
+    const response = await api.get(`${API_BASE}/hm-by-status`, { params });
+    return response.data;
+  },
+
   /**
    * Get KPI stats for specialty views
    * @param {string} specialty - 'nutrizione' | 'coach' | 'psicologia'

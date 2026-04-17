@@ -165,6 +165,19 @@ const teamService = {
   },
 
   /**
+   * Get ALL active Health Managers in the company (+ HM team leaders),
+   * ignoring the team-leader team scope.
+   *
+   * Used by the "Visuale Health Manager" page filters so that TL HM can
+   * select any HM, not only members of their own team.
+   * ACL (backend-enforced): admin, CCO, TL HM.
+   */
+  async getAllHealthManagers(params = {}) {
+    const response = await api.get('/team/health-managers', { params });
+    return response.data;
+  },
+
+  /**
    * Get single team member by ID
    */
   async getTeamMember(id) {

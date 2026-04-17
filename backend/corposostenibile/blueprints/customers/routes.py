@@ -1694,11 +1694,9 @@ def api_expiring() -> Any:
             Cliente.data_rinnovo >= range_start,
             Cliente.data_rinnovo <= limit_date,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
-        )
+        ),
+        hm_filter=hm_filter,
     )
-
-    if hm_filter:
-        query = query.filter(Cliente.health_manager_id == hm_filter)
 
     if q:
         query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
@@ -1749,7 +1747,8 @@ def api_expiring() -> Any:
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo >= today,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
-        )
+        ),
+        hm_filter=hm_filter,
     )
     count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
     count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
@@ -1857,11 +1856,9 @@ def api_unsatisfied() -> Any:
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
             subq.c.avg_rating < threshold,
             *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
-        )
+        ),
+        hm_filter=hm_filter,
     )
-
-    if hm_filter:
-        query = query.filter(Cliente.health_manager_id == hm_filter)
 
     if q:
         query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
@@ -1927,7 +1924,7 @@ def api_unsatisfied() -> Any:
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
     )
-    count_base = _apply_hm_page_scope(count_base)
+    count_base = _apply_hm_page_scope(count_base, hm_filter=hm_filter)
     count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
     count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
     count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
@@ -1943,6 +1940,83 @@ def api_unsatisfied() -> Any:
             "8": count_8,
             "7": count_7,
             "6": count_6,
+        },
+    })
+
+
+@api_bp.route("/hm-by-status", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def api_hm_by_status() -> Any:
+    """
+    Lista clienti per stato (ghost/pausa) dalla Visuale Health Manager.
+
+    Serve le tab ghost/pausa della pagina /clienti-health-manager usando
+    la stessa logica RBAC delle altre tab HM (_apply_hm_page_scope):
+    il TL HM puo' filtrare per qualsiasi HM tramite `health_manager_id`.
+    """
+    stato = (request.args.get("stato_cliente") or "").strip().lower()
+    if stato not in ("ghost", "pausa"):
+        return jsonify({"data": [], "pagination": {"page": 1, "pages": 0, "total": 0}})
+
+    page = max(request.args.get("page", 1, type=int), 1)
+    per_page = min(max(request.args.get("per_page", 25, type=int), 1), 100)
+    q = (request.args.get("q") or "").strip()
+    hm_filter = request.args.get("health_manager_id", type=int)
+
+    query = _apply_hm_page_scope(
+        db.session.query(Cliente).filter(
+            Cliente.show_in_clienti_lista.is_(True),
+            Cliente.stato_cliente == stato,
+        ),
+        hm_filter=hm_filter,
+    )
+
+    if q:
+        query = query.filter(Cliente.nome_cognome.ilike(f"%{q}%"))
+
+    query = query.order_by(Cliente.nome_cognome.asc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    data = []
+    for c in pagination.items:
+        data.append({
+            "cliente_id": c.cliente_id,
+            "nome_cognome": c.nome_cognome,
+            "stato_cliente": c.stato_cliente.value if hasattr(c.stato_cliente, "value") else c.stato_cliente,
+            "data_rinnovo": c.data_rinnovo.isoformat() if c.data_rinnovo else None,
+            "programma_attuale": c.programma_attuale or None,
+            "health_manager_user": {
+                "id": c.health_manager_user.id,
+                "full_name": c.health_manager_user.full_name,
+                "first_name": c.health_manager_user.first_name,
+                "last_name": c.health_manager_user.last_name,
+            } if c.health_manager_user else None,
+            "nutrizionista_user": {
+                "id": c.nutrizionista_user.id,
+                "full_name": c.nutrizionista_user.full_name,
+                "first_name": c.nutrizionista_user.first_name,
+                "last_name": c.nutrizionista_user.last_name,
+            } if c.nutrizionista_user else None,
+            "coach_user": {
+                "id": c.coach_user.id,
+                "full_name": c.coach_user.full_name,
+                "first_name": c.coach_user.first_name,
+                "last_name": c.coach_user.last_name,
+            } if c.coach_user else None,
+            "psicologa_user": {
+                "id": c.psicologa_user.id,
+                "full_name": c.psicologa_user.full_name,
+                "first_name": c.psicologa_user.first_name,
+                "last_name": c.psicologa_user.last_name,
+            } if c.psicologa_user else None,
+        })
+
+    return jsonify({
+        "data": data,
+        "pagination": {
+            "page": pagination.page,
+            "pages": pagination.pages,
+            "total": pagination.total,
         },
     })
 
@@ -2051,9 +2125,13 @@ def api_hm_coordinatrici_dashboard() -> Any:
         .filter(
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.health_manager_id.isnot(None),
-        )
+        ),
+        hm_filter=hm_filter,
     )
 
+    # `hm_options_rows` popola il dropdown HM lato risposta. NON passiamo
+    # hm_filter qui, altrimenti il dropdown si restringerebbe al solo HM
+    # appena selezionato dall'utente.
     hm_options_rows = (
         _apply_hm_page_scope(
             db.session.query(
@@ -2070,9 +2148,6 @@ def api_hm_coordinatrici_dashboard() -> Any:
         .order_by(func.lower(func.coalesce(hm_name_sql, "")).asc(), hm_name_sql.asc())
         .all()
     )
-
-    if hm_filter:
-        query = query.filter(Cliente.health_manager_id == hm_filter)
 
     if cliente_id_filter:
         query = query.filter(Cliente.cliente_id == cliente_id_filter)
@@ -7661,12 +7736,19 @@ def _normalize_specialty_group_for_rbac(user) -> str | None:
     return None
 
 
-def _apply_hm_page_scope(query):
+def _apply_hm_page_scope(query, hm_filter: int | None = None):
     """
     Filtro RBAC specifico per la pagina Health Manager:
     - Admin/CCO: vedono tutto (nessun filtro aggiuntivo)
-    - HM che guida un team: vedono i pazienti di tutti i membri del team
+    - HM che guida un team: vedono i pazienti di tutti i membri del team;
+      se `hm_filter` e' esplicito possono filtrare per QUALSIASI HM dell'azienda
+      (bypass del vincolo team - il filtro HM e' esplicitamente richiesto da UI).
     - Health Manager semplice: vedono solo i pazienti assegnati a loro
+      (hm_filter ignorato: non possono espandere il proprio scope).
+
+    NB: `hm_filter` e' il parametro `health_manager_id` della request. Se passato,
+    sostituisce sia il filtro admin/cco (che non ne avrebbe), sia il filtro team
+    del TL HM (che altrimenti taglierebbe fuori HM di altri team).
     """
     user_role = getattr(current_user, "role", None)
     role_value = user_role.value if hasattr(user_role, "value") else str(user_role or "")
@@ -7678,10 +7760,15 @@ def _apply_hm_page_scope(query):
         or specialty_value.strip().lower() == "cco"
     )
     if is_admin_or_cco:
+        if hm_filter:
+            return query.filter(Cliente.health_manager_id == hm_filter)
         return query
     # Chi guida un team HM (qualsiasi ruolo: team_leader O health_manager)
-    # vede i pazienti di TUTTI i membri del proprio team
+    # vede i pazienti di TUTTI i membri del proprio team; se ha scelto
+    # esplicitamente un HM dal filtro, puo' vedere anche HM di altri team.
     if _leads_hm_team(current_user):
+        if hm_filter:
+            return query.filter(Cliente.health_manager_id == hm_filter)
         team_member_ids = {current_user.id}
         for team in (getattr(current_user, "teams_led", []) or []):
             team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
@@ -7689,7 +7776,7 @@ def _apply_hm_page_scope(query):
                 for member in (getattr(team, "members", []) or []):
                     team_member_ids.add(member.id)
         return query.filter(Cliente.health_manager_id.in_(list(team_member_ids)))
-    # Health Manager semplice: solo i propri pazienti
+    # Health Manager semplice: solo i propri pazienti (hm_filter ignorato).
     if role_value == "health_manager":
         return query.filter(Cliente.health_manager_id == current_user.id)
     return query
@@ -8565,14 +8652,15 @@ def api_trustpilot_overview():
     hm_filter = request.args.get('health_manager_id', type=int)
     status_filter = request.args.get('status', '').strip()  # all, pending, reviewed, none
 
-    query = db.session.query(Cliente).filter(
-        Cliente.stato_cliente == StatoClienteEnum.attivo,
-        Cliente.show_in_clienti_lista == True,
+    query = _apply_hm_page_scope(
+        db.session.query(Cliente).filter(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.show_in_clienti_lista == True,
+        ),
+        hm_filter=hm_filter,
     )
     if search:
         query = query.filter(Cliente.nome_cognome.ilike(f'%{search}%'))
-    if hm_filter:
-        query = query.filter(Cliente.health_manager_id == hm_filter)
 
     query = query.order_by(Cliente.nome_cognome)
     total = query.count()
@@ -8627,12 +8715,13 @@ def api_trustpilot_overview():
         data.append(row)
 
     # Count stats
-    all_client_ids_q = db.session.query(Cliente.cliente_id).filter(
-        Cliente.stato_cliente == StatoClienteEnum.attivo,
-        Cliente.show_in_clienti_lista == True,
+    all_client_ids_q = _apply_hm_page_scope(
+        db.session.query(Cliente.cliente_id).filter(
+            Cliente.stato_cliente == StatoClienteEnum.attivo,
+            Cliente.show_in_clienti_lista == True,
+        ),
+        hm_filter=hm_filter,
     )
-    if hm_filter:
-        all_client_ids_q = all_client_ids_q.filter(Cliente.health_manager_id == hm_filter)
     all_ids = [r[0] for r in all_client_ids_q.all()]
 
     reviewed_ids = set()
