@@ -8,6 +8,7 @@ Task presenti
 -------------
 * **new_customer_notification**   – notifica Slack / e-mail alla creazione
 * **remind_expiring_contracts**   – promemoria contratti in scadenza
+* **send_email_async**            – invio email in background (evita blocco richiesta HTTP)
 """
 from __future__ import annotations
 
@@ -25,6 +26,48 @@ from corposostenibile.models import (
 )
 
 from .repository import customers_repo  # noqa: E402 – dopo SQLAlchemy
+
+# --------------------------------------------------------------------------- #
+#  TASK: Invio email asincrono (ghost / riattivazione / altro)               #
+# --------------------------------------------------------------------------- #
+
+
+@celery.task(
+    name="customers.tasks.send_email_async",
+    bind=False,
+    max_retries=3,
+    default_retry_delay=30,
+)
+def send_email_async(subject: str, body: str, recipient_email: str) -> None:
+    """
+    Invia una singola email in un worker Celery.
+
+    Utilizzato da ``notifications.py`` per non bloccare il thread HTTP durante
+    l'invio SMTP (che può richiedere 1-2 secondi per email).
+    """
+    with celery.app.app_context():
+        try:
+            from flask_mail import Message
+            from corposostenibile.extensions import mail
+
+            msg = Message(
+                subject=subject,
+                recipients=[recipient_email],
+                html=body,
+                sender=current_app.config.get(
+                    "MAIL_DEFAULT_SENDER", "noreply@corposostenibile.com"
+                ),
+            )
+            mail.send(msg)
+            current_app.logger.info(
+                "[send_email_async] Email inviata a %s – %s", recipient_email, subject
+            )
+        except Exception as exc:
+            current_app.logger.error(
+                "[send_email_async] Errore invio a %s: %s", recipient_email, exc
+            )
+            raise
+
 
 # --------------------------------------------------------------------------- #
 #  Helpers notifiche                                                          #
