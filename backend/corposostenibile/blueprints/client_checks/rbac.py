@@ -3,7 +3,7 @@ RBAC helpers for client_checks: filter data by role (admin / team_leader / profe
 Used by api_azienda_stats and api_admin_dashboard_stats.
 """
 from flask_login import current_user
-from sqlalchemy import or_
+from sqlalchemy import or_, and_
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -103,15 +103,32 @@ def get_accessible_clients_query():
         db.session.query(Cliente.cliente_id)
         .filter(
             or_(
+                # Direct assignments (this user is the primary assigned professional)
                 Cliente.nutrizionista_id == current_user.id,
                 Cliente.coach_id == current_user.id,
                 Cliente.psicologa_id == current_user.id,
                 Cliente.consulente_alimentare_id == current_user.id,
-                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                Cliente.coaches_multipli.any(User.id == current_user.id),
-                Cliente.psicologi_multipli.any(User.id == current_user.id),
-                Cliente.consulenti_multipli.any(User.id == current_user.id),
+                # Multi-assignments: only show if this user is the primary OR no primary is assigned
+                # For nutrizionisti_multipli: only if nutrizionista_id is NULL (no primary) or this user is primary
+                db.and_(
+                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                    db.or_(Cliente.nutrizionista_id.is_(None), Cliente.nutrizionista_id == current_user.id)
+                ).self_group(),
+                db.and_(
+                    Cliente.coaches_multipli.any(User.id == current_user.id),
+                    db.or_(Cliente.coach_id.is_(None), Cliente.coach_id == current_user.id)
+                ).self_group(),
+                db.and_(
+                    Cliente.psicologi_multipli.any(User.id == current_user.id),
+                    db.or_(Cliente.psicologa_id.is_(None), Cliente.psicologa_id == current_user.id)
+                ).self_group(),
+                db.and_(
+                    Cliente.consulenti_multipli.any(User.id == current_user.id),
+                    db.or_(Cliente.consulente_alimentare_id.is_(None), Cliente.consulente_alimentare_id == current_user.id)
+                ).self_group(),
+                # Call bonus
                 Cliente.cliente_id.in_(cb_client_ids),
+                # Active history
                 db.session.query(ClienteProfessionistaHistory.cliente_id)
                 .filter(
                     ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
