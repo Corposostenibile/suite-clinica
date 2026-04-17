@@ -97,45 +97,17 @@ def get_accessible_clients_query():
                 )
             )
         )
-    # Professionista: propri clienti + history attiva + clienti con call bonus attive assegnate
-    cb_client_ids = _call_bonus_client_ids_for_user(current_user.id)
+    # Professionista: solo i propri clienti come nutrizionista (primario o M2M)
+    # NON includiamo coach, consulente_alimentare, psicologo per la nutrizione
+    # L'utente vede solo i clienti dove è assegnato come nutrizionista
     return (
         db.session.query(Cliente.cliente_id)
         .filter(
             or_(
-                # Direct assignments (this user is the primary assigned professional)
+                # Direct: this user is the primary nutrizionista
                 Cliente.nutrizionista_id == current_user.id,
-                Cliente.coach_id == current_user.id,
-                Cliente.psicologa_id == current_user.id,
-                Cliente.consulente_alimentare_id == current_user.id,
-                # Multi-assignments: only show if this user is the primary OR no primary is assigned
-                # For nutrizionisti_multipli: only if nutrizionista_id is NULL (no primary) or this user is primary
-                db.and_(
-                    Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                    db.or_(Cliente.nutrizionista_id.is_(None), Cliente.nutrizionista_id == current_user.id)
-                ).self_group(),
-                db.and_(
-                    Cliente.coaches_multipli.any(User.id == current_user.id),
-                    db.or_(Cliente.coach_id.is_(None), Cliente.coach_id == current_user.id)
-                ).self_group(),
-                db.and_(
-                    Cliente.psicologi_multipli.any(User.id == current_user.id),
-                    db.or_(Cliente.psicologa_id.is_(None), Cliente.psicologa_id == current_user.id)
-                ).self_group(),
-                db.and_(
-                    Cliente.consulenti_multipli.any(User.id == current_user.id),
-                    db.or_(Cliente.consulente_alimentare_id.is_(None), Cliente.consulente_alimentare_id == current_user.id)
-                ).self_group(),
-                # Call bonus
-                Cliente.cliente_id.in_(cb_client_ids),
-                # Active history
-                db.session.query(ClienteProfessionistaHistory.cliente_id)
-                .filter(
-                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                    ClienteProfessionistaHistory.user_id == current_user.id,
-                    ClienteProfessionistaHistory.is_active == True,
-                )
-                .exists(),
+                # M2M: this user is in cliente_nutrizionisti (nutrizionista di riferimento)
+                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
             )
         )
     )

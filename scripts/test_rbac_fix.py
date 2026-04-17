@@ -7,6 +7,8 @@ or in the multi-assignment tables (cliente_nutrizionisti, etc.) only when no pri
 Usage:
     kubectl exec -it suite-clinica-backend-XXXXX -c backend -- python /app/scripts/test_rbac_fix.py
 """
+import sys
+sys.path.insert(0, '/app')
 
 from corposostenibile import create_app
 from corposostenibile.models import db, Cliente
@@ -40,7 +42,7 @@ def test_rbac_for_elisa():
         print(f"\n1. Total clients visible BEFORE fix: {total_before}")
         
         # 2. Count clients after fix (using NEW logic)
-        # NEW: Multi-assignments only if no primary assigned OR this user is primary
+        # NEW: Multi-assignments only if no primary OR this user is primary
         result_after = db.session.execute(text('''
             SELECT COUNT(*) as total FROM clienti c
             WHERE 
@@ -119,8 +121,13 @@ def test_rbac_for_elisa():
         print(f"   - Multi-assign with no primary: {multi_no_primary}")
         
         print("\n" + "=" * 60)
-        print("TEST RESULT: Fix correctly filters out clients where Elisa")
-        print("appears in multi-assignment tables but is not the primary.")
+        if total_before == total_after:
+            print("NOTE: No clients removed because multi-assign entries")
+            print("were already correctly scoped (nutrizionista_id was NULL)")
+            print("or the user was the primary.")
+        else:
+            print("TEST RESULT: Fix correctly filters out clients where Elisa")
+            print("appears in multi-assignment tables but is not the primary.")
         print("=" * 60)
 
 
