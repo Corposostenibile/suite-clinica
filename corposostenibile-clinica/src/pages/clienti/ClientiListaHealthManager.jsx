@@ -63,6 +63,7 @@ function ClientiListaHealthManager() {
   const [expiredData, setExpiredData] = useState([]);
   const [expiredPagination, setExpiredPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [expiredLoading, setExpiredLoading] = useState(false);
+  const [expiredCount, setExpiredCount] = useState(0);
 
   // Insoddisfatti state
   const [satThreshold, setSatThreshold] = useState(8);
@@ -203,7 +204,9 @@ function ClientiListaHealthManager() {
         health_manager_id: selectedHmId || undefined,
       });
       setExpiredData(data.data || []);
-      setExpiredPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+      const total = data.pagination?.total || 0;
+      setExpiredPagination(prev => ({ ...prev, total, totalPages: data.pagination?.pages || 0 }));
+      setExpiredCount(total);
     } catch (err) {
       console.error('Error fetching expired:', err);
       setError('Errore nel caricamento');
@@ -211,6 +214,20 @@ function ClientiListaHealthManager() {
       setExpiredLoading(false);
     }
   }, [expiredPagination.page, expiredPagination.perPage, debouncedSearch, selectedHmId]);
+
+  const fetchExpiredCount = useCallback(async () => {
+    try {
+      const data = await clientiService.getClientiExpired({
+        page: 1,
+        per_page: 1,
+        q: debouncedSearch || undefined,
+        health_manager_id: selectedHmId || undefined,
+      });
+      setExpiredCount(data.pagination?.total || 0);
+    } catch (err) {
+      console.error('Error fetching expired count:', err);
+    }
+  }, [debouncedSearch, selectedHmId]);
 
   // ── Fetch Insoddisfatti ──
   const fetchUnsatisfied = useCallback(async () => {
@@ -242,6 +259,10 @@ function ClientiListaHealthManager() {
   useEffect(() => {
     if (mainTab === 'scaduti') fetchExpired();
   }, [mainTab, fetchExpired]);
+
+  useEffect(() => {
+    fetchExpiredCount();
+  }, [fetchExpiredCount]);
 
   useEffect(() => {
     if (mainTab === 'insoddisfatti') fetchUnsatisfied();
@@ -606,6 +627,21 @@ function ClientiListaHealthManager() {
           >
             <i className={tab.icon} style={{ fontSize: '16px' }}></i>
             {tab.label}
+            {tab.key === 'scaduti' && (
+              <span
+                className="cl-badge"
+                style={{
+                  marginLeft: '4px',
+                  background: mainTab === tab.key ? '#dc2626' : '#fee2e2',
+                  color: mainTab === tab.key ? '#fff' : '#b91c1c',
+                  fontWeight: 700,
+                  minWidth: '22px',
+                  textAlign: 'center',
+                }}
+              >
+                {expiredCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
