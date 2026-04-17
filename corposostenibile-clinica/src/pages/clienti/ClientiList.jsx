@@ -331,8 +331,10 @@ function ClientiList() {
   const isHealthManager = user?.role === 'health_manager';
   const isTeamLeaderHm = Boolean(
     user?.role === 'team_leader' && (
+      user?.is_health_manager_team_leader ||
       String(user?.specialty || '').toLowerCase() === 'health_manager' ||
       String(user?.department?.name || '').toLowerCase().includes('health') ||
+      String(user?.department?.name || '').toLowerCase().includes('customer success') ||
       (Array.isArray(user?.teams_led) && user.teams_led.some((team) => {
         const tt = team?.team_type?.value || team?.team_type;
         return String(tt || '').toLowerCase() === 'health_manager';
