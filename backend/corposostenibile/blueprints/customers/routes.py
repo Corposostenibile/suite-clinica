@@ -1673,28 +1673,36 @@ def api_expiring() -> Any:
     """Clienti in scadenza filtrati per fascia temporale (30/60/90 giorni)."""
     from datetime import date, timedelta
 
-    days = request.args.get("days", 30, type=int)
-    if days not in (30, 60, 90):
-        days = 30
+    days = request.args.get("days", type=int)
+    apply_range_filter = days in (30, 60, 90)
 
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 25, type=int)
     q = (request.args.get("q") or "").strip()
 
     today = date.today()
-    limit_date = today + timedelta(days=days)
-    # Range: 30 = 0-30, 60 = 30-60, 90 = 60-90
-    range_start = today if days == 30 else today + timedelta(days=days - 30)
+    upper_bound = today + timedelta(days=90)
+    if apply_range_filter:
+        limit_date = today + timedelta(days=days)
+        # Range: 30 = 0-30, 60 = 30-60, 90 = 60-90
+        range_start = today if days == 30 else today + timedelta(days=days - 30)
     hm_filter = request.args.get("health_manager_id", type=int)
 
-    query = _apply_hm_page_scope(
-        db.session.query(Cliente).filter(
-            Cliente.show_in_clienti_lista.is_(True),
-            Cliente.data_rinnovo.isnot(None),
+    base_filters = [
+        Cliente.show_in_clienti_lista.is_(True),
+        Cliente.data_rinnovo.isnot(None),
+        Cliente.data_rinnovo >= today,
+        Cliente.data_rinnovo <= upper_bound,
+        Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+    ]
+    if apply_range_filter:
+        base_filters.extend([
             Cliente.data_rinnovo >= range_start,
             Cliente.data_rinnovo <= limit_date,
-            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
-        )
+        ])
+
+    query = _apply_hm_page_scope(
+        db.session.query(Cliente).filter(*base_filters)
     )
 
     if hm_filter:
@@ -1748,12 +1756,14 @@ def api_expiring() -> Any:
             Cliente.show_in_clienti_lista.is_(True),
             Cliente.data_rinnovo.isnot(None),
             Cliente.data_rinnovo >= today,
+            Cliente.data_rinnovo <= upper_bound,
             Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
         )
     )
     count_30 = count_base.filter(Cliente.data_rinnovo >= today, Cliente.data_rinnovo <= today + timedelta(days=30)).scalar() or 0
     count_60 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=30), Cliente.data_rinnovo <= today + timedelta(days=60)).scalar() or 0
     count_90 = count_base.filter(Cliente.data_rinnovo > today + timedelta(days=60), Cliente.data_rinnovo <= today + timedelta(days=90)).scalar() or 0
+    count_all = count_30 + count_60 + count_90
 
     return jsonify({
         "data": data,
@@ -1763,6 +1773,7 @@ def api_expiring() -> Any:
             "total": pagination.total,
         },
         "counts": {
+            "all": count_all,
             "30": count_30,
             "60": count_60,
             "90": count_90,
@@ -1851,9 +1862,8 @@ def api_unsatisfied() -> Any:
     """Clienti insoddisfatti in base alla media voti weekly check."""
     from sqlalchemy import func as sa_func
 
-    threshold = request.args.get("threshold", 8, type=int)
-    if threshold not in (6, 7, 8):
-        threshold = 8
+    threshold = request.args.get("threshold", type=int)
+    apply_threshold_filter = threshold in (6, 7, 8)
 
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 25, type=int)
@@ -1920,6 +1930,18 @@ def api_unsatisfied() -> Any:
     )
 
     # Query principale: clienti con media sotto la soglia
+    query_filters = [
+        Cliente.show_in_clienti_lista.is_(True),
+        Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
+    ]
+    if apply_threshold_filter:
+        query_filters.extend([
+            subq.c.avg_rating < threshold,
+            *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
+        ])
+    else:
+        query_filters.append(subq.c.avg_rating < 8)
+
     query = _apply_hm_page_scope(
         db.session.query(
             Cliente, subq.c.avg_rating,
@@ -1927,12 +1949,7 @@ def api_unsatisfied() -> Any:
             subq.c.last_check_date, subq.c.total_responses,
         )
         .join(subq, Cliente.cliente_id == subq.c.cliente_id)
-        .filter(
-            Cliente.show_in_clienti_lista.is_(True),
-            Cliente.stato_cliente.in_(["attivo", "ghost", "pausa"]),
-            subq.c.avg_rating < threshold,
-            *([subq.c.avg_rating >= threshold - 1] if threshold > 6 else []),
-        )
+        .filter(*query_filters)
     )
 
     if hm_filter:
@@ -2006,6 +2023,7 @@ def api_unsatisfied() -> Any:
     count_8 = count_base.filter(subq.c.avg_rating < 8, subq.c.avg_rating >= 7).scalar() or 0
     count_7 = count_base.filter(subq.c.avg_rating < 7, subq.c.avg_rating >= 6).scalar() or 0
     count_6 = count_base.filter(subq.c.avg_rating < 6).scalar() or 0
+    count_all = count_8 + count_7 + count_6
 
     return jsonify({
         "data": data,
@@ -2015,6 +2033,7 @@ def api_unsatisfied() -> Any:
             "total": pagination.total,
         },
         "counts": {
+            "all": count_all,
             "8": count_8,
             "7": count_7,
             "6": count_6,

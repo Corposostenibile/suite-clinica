@@ -29,12 +29,14 @@ const REVIEW_TABS = [
 ];
 
 const EXPIRY_TABS = [
+  { key: 'all', label: 'Tutti (0-90 giorni)', icon: 'ri-list-check', color: '#64748b' },
   { key: 30, label: 'Entro 30 giorni', icon: 'ri-alarm-warning-line', color: '#ef4444' },
   { key: 60, label: 'Da 30 a 60 giorni', icon: 'ri-timer-line', color: '#f59e0b' },
   { key: 90, label: 'Da 60 a 90 giorni', icon: 'ri-time-line', color: '#3b82f6' },
 ];
 
 const SATISFACTION_TABS = [
+  { key: 'all', label: 'Tutti (<8)', icon: 'ri-list-check', color: '#64748b' },
   { key: 8, label: 'Da 7 a 8', icon: 'ri-emotion-normal-line', color: '#f59e0b' },
   { key: 7, label: 'Da 6 a 7', icon: 'ri-emotion-unhappy-line', color: '#f97316' },
   { key: 6, label: 'Sotto il 6', icon: 'ri-emotion-sad-line', color: '#ef4444' },
@@ -55,22 +57,28 @@ function ClientiListaHealthManager() {
   const [mainTab, setMainTab] = useState('scadenze');
 
   // Scadenze state
-  const [expiryDays, setExpiryDays] = useState(30);
+  const [expiryDays, setExpiryDays] = useState('all');
   const [expiryData, setExpiryData] = useState([]);
-  const [expiryCounts, setExpiryCounts] = useState({ 30: 0, 60: 0, 90: 0 });
+  const [expiryCounts, setExpiryCounts] = useState({ all: 0, 30: 0, 60: 0, 90: 0 });
   const [expiryPagination, setExpiryPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [expiryLoading, setExpiryLoading] = useState(false);
   const [expiredData, setExpiredData] = useState([]);
   const [expiredPagination, setExpiredPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [expiredLoading, setExpiredLoading] = useState(false);
-  const [expiredCount, setExpiredCount] = useState(0);
 
   // Insoddisfatti state
-  const [satThreshold, setSatThreshold] = useState(8);
+  const [satThreshold, setSatThreshold] = useState('all');
   const [satData, setSatData] = useState([]);
-  const [satCounts, setSatCounts] = useState({ 8: 0, 7: 0, 6: 0 });
+  const [satCounts, setSatCounts] = useState({ all: 0, 8: 0, 7: 0, 6: 0 });
   const [satPagination, setSatPagination] = useState({ page: 1, perPage: 25, total: 0, totalPages: 0 });
   const [satLoading, setSatLoading] = useState(false);
+  const [mainTabCounts, setMainTabCounts] = useState({
+    scadenze: 0,
+    scaduti: 0,
+    insoddisfatti: 0,
+    ghost: 0,
+    pausa: 0,
+  });
 
   // Ghost/Pausa state
   const [statusData, setStatusData] = useState([]);
@@ -175,15 +183,18 @@ function ClientiListaHealthManager() {
     setError(null);
     try {
       const data = await clientiService.getClientiExpiring({
-        days: expiryDays,
+        days: expiryDays === 'all' ? undefined : expiryDays,
         page: expiryPagination.page,
         per_page: expiryPagination.perPage,
         q: debouncedSearch || undefined,
         health_manager_id: selectedHmId || undefined,
       });
       setExpiryData(data.data || []);
-      setExpiryCounts(data.counts || { 30: 0, 60: 0, 90: 0 });
-      setExpiryPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+      const counts = data.counts || { all: 0, 30: 0, 60: 0, 90: 0 };
+      setExpiryCounts(counts);
+      const total = data.pagination?.total || 0;
+      setExpiryPagination(prev => ({ ...prev, total, totalPages: data.pagination?.pages || 0 }));
+      setMainTabCounts((prev) => ({ ...prev, scadenze: counts.all || 0 }));
     } catch (err) {
       console.error('Error fetching expiring:', err);
       setError('Errore nel caricamento');
@@ -206,7 +217,7 @@ function ClientiListaHealthManager() {
       setExpiredData(data.data || []);
       const total = data.pagination?.total || 0;
       setExpiredPagination(prev => ({ ...prev, total, totalPages: data.pagination?.pages || 0 }));
-      setExpiredCount(total);
+      setMainTabCounts((prev) => ({ ...prev, scaduti: total }));
     } catch (err) {
       console.error('Error fetching expired:', err);
       setError('Errore nel caricamento');
@@ -215,35 +226,24 @@ function ClientiListaHealthManager() {
     }
   }, [expiredPagination.page, expiredPagination.perPage, debouncedSearch, selectedHmId]);
 
-  const fetchExpiredCount = useCallback(async () => {
-    try {
-      const data = await clientiService.getClientiExpired({
-        page: 1,
-        per_page: 1,
-        q: debouncedSearch || undefined,
-        health_manager_id: selectedHmId || undefined,
-      });
-      setExpiredCount(data.pagination?.total || 0);
-    } catch (err) {
-      console.error('Error fetching expired count:', err);
-    }
-  }, [debouncedSearch, selectedHmId]);
-
   // ── Fetch Insoddisfatti ──
   const fetchUnsatisfied = useCallback(async () => {
     setSatLoading(true);
     setError(null);
     try {
       const data = await clientiService.getClientiUnsatisfied({
-        threshold: satThreshold,
+        threshold: satThreshold === 'all' ? undefined : satThreshold,
         page: satPagination.page,
         per_page: satPagination.perPage,
         q: debouncedSearch || undefined,
         health_manager_id: selectedHmId || undefined,
       });
       setSatData(data.data || []);
-      setSatCounts(data.counts || { 8: 0, 7: 0, 6: 0 });
-      setSatPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+      const counts = data.counts || { all: 0, 8: 0, 7: 0, 6: 0 };
+      setSatCounts(counts);
+      const total = data.pagination?.total || 0;
+      setSatPagination(prev => ({ ...prev, total, totalPages: data.pagination?.pages || 0 }));
+      setMainTabCounts((prev) => ({ ...prev, insoddisfatti: counts.all || 0 }));
     } catch (err) {
       console.error('Error fetching unsatisfied:', err);
       setError('Errore nel caricamento');
@@ -259,10 +259,6 @@ function ClientiListaHealthManager() {
   useEffect(() => {
     if (mainTab === 'scaduti') fetchExpired();
   }, [mainTab, fetchExpired]);
-
-  useEffect(() => {
-    fetchExpiredCount();
-  }, [fetchExpiredCount]);
 
   useEffect(() => {
     if (mainTab === 'insoddisfatti') fetchUnsatisfied();
@@ -281,7 +277,11 @@ function ClientiListaHealthManager() {
         health_manager_id: selectedHmId || undefined,
       });
       setStatusData(data.data || []);
-      setStatusPagination(prev => ({ ...prev, total: data.pagination?.total || 0, totalPages: data.pagination?.pages || 0 }));
+      const total = data.pagination?.total || 0;
+      setStatusPagination(prev => ({ ...prev, total, totalPages: data.pagination?.pages || 0 }));
+      if (mainTab === 'ghost' || mainTab === 'pausa') {
+        setMainTabCounts((prev) => ({ ...prev, [mainTab]: total }));
+      }
     } catch (err) {
       console.error('Error fetching status clients:', err);
       setError('Errore nel caricamento');
@@ -293,6 +293,38 @@ function ClientiListaHealthManager() {
   useEffect(() => {
     if (mainTab === 'ghost' || mainTab === 'pausa') fetchByStatus();
   }, [mainTab, fetchByStatus]);
+
+  const fetchMainTabCounts = useCallback(async () => {
+    try {
+      const commonParams = {
+        page: 1,
+        per_page: 1,
+        q: debouncedSearch || undefined,
+        health_manager_id: selectedHmId || undefined,
+      };
+      const [expiringRes, expiredRes, unsatisfiedRes, ghostRes, pausaRes] = await Promise.all([
+        clientiService.getClientiExpiring(commonParams),
+        clientiService.getClientiExpired(commonParams),
+        clientiService.getClientiUnsatisfied(commonParams),
+        clientiService.getClienti({ ...commonParams, stato_cliente: 'ghost' }),
+        clientiService.getClienti({ ...commonParams, stato_cliente: 'pausa' }),
+      ]);
+
+      setMainTabCounts({
+        scadenze: expiringRes?.pagination?.total || 0,
+        scaduti: expiredRes?.pagination?.total || 0,
+        insoddisfatti: unsatisfiedRes?.pagination?.total || 0,
+        ghost: ghostRes?.pagination?.total || 0,
+        pausa: pausaRes?.pagination?.total || 0,
+      });
+    } catch (err) {
+      console.error('Error fetching main tab counts:', err);
+    }
+  }, [debouncedSearch, selectedHmId]);
+
+  useEffect(() => {
+    fetchMainTabCounts();
+  }, [fetchMainTabCounts]);
 
   // ── Fetch Recensioni ──
   const fetchReviews = useCallback(async () => {
@@ -627,19 +659,19 @@ function ClientiListaHealthManager() {
           >
             <i className={tab.icon} style={{ fontSize: '16px' }}></i>
             {tab.label}
-            {tab.key === 'scaduti' && (
+            {Object.prototype.hasOwnProperty.call(mainTabCounts, tab.key) && (
               <span
                 className="cl-badge"
                 style={{
                   marginLeft: '4px',
-                  background: mainTab === tab.key ? '#dc2626' : '#fee2e2',
-                  color: mainTab === tab.key ? '#fff' : '#b91c1c',
+                  background: mainTab === tab.key ? '#25B36A' : '#f1f5f9',
+                  color: mainTab === tab.key ? '#fff' : '#475569',
                   fontWeight: 700,
                   minWidth: '22px',
                   textAlign: 'center',
                 }}
               >
-                {expiredCount}
+                {mainTabCounts[tab.key]}
               </span>
             )}
           </button>
@@ -1077,7 +1109,9 @@ function ClientiListaHealthManager() {
                   : 'Non ci sono clienti con rinnovo tra 60 e 90 giorni'
               : mainTab === 'scaduti'
                 ? 'Non ci sono clienti con abbonamento già scaduto'
-              : `Non ci sono clienti con media voti inferiore a ${satThreshold}`
+              : satThreshold === 'all'
+                ? 'Non ci sono clienti insoddisfatti (media sotto 8)'
+                : `Non ci sono clienti con media voti inferiore a ${satThreshold}`
             }
           </p>
         </div>
