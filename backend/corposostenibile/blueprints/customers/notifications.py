@@ -1,14 +1,39 @@
 """
 Sistema di notifiche per cambi di stato clienti.
+
+Le funzioni pubbliche raccolgono i dati necessari in modo sincrono (mentre la
+sessione SQLAlchemy è ancora attiva), poi dispatchano il task Celery
+``send_email_async`` per l'invio SMTP fuori dal thread HTTP.
+Questo evita il blocco di 1-2 s per email che rallentava le chiamate inline.
 """
 from flask import current_app
-from flask_mail import Message
-from corposostenibile.extensions import mail
 from corposostenibile.models import Cliente, User, db
 from sqlalchemy import text
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _dispatch_email(subject: str, body: str, recipient_email: str) -> None:
+    """Invia una email in background via Celery (non bloccante)."""
+    try:
+        from .tasks import send_email_async
+        send_email_async.delay(subject, body, recipient_email)
+    except Exception as exc:
+        # Fallback sincrono se Celery non è disponibile (es. sviluppo locale)
+        logger.warning("[notifications] Celery non disponibile, invio sincrono: %s", exc)
+        try:
+            from flask_mail import Message
+            from corposostenibile.extensions import mail
+            msg = Message(
+                subject=subject,
+                recipients=[recipient_email],
+                html=body,
+                sender=current_app.config.get("MAIL_DEFAULT_SENDER", "noreply@corposostenibile.com"),
+            )
+            mail.send(msg)
+        except Exception as mail_exc:
+            logger.error("[notifications] Errore fallback sincrono a %s: %s", recipient_email, mail_exc)
 
 
 def notify_service_ghost(cliente: Cliente, servizio_ghost: str):
@@ -88,18 +113,18 @@ def notify_service_ghost(cliente: Cliente, servizio_ghost: str):
         logger.error(f"Errore nell'invio notifiche servizio ghost: {e}")
 
 
-def send_service_ghost_notification(recipient_email, recipient_name, recipient_role, 
+def send_service_ghost_notification(recipient_email, recipient_name, recipient_role,
                                    client_name, chi_ha_messo_ghost, servizio_ghost):
     """
-    Invia email quando un singolo servizio va in ghost.
+    Invia email (in background) quando un singolo servizio va in ghost.
     """
     try:
         subject = f"⚠️ {chi_ha_messo_ghost} ha messo in GHOST - {client_name}"
-        
+
         body = f"""
 Caro/a {recipient_name},
 
-Ti informiamo che <strong>{chi_ha_messo_ghost}</strong> ha messo il cliente 
+Ti informiamo che <strong>{chi_ha_messo_ghost}</strong> ha messo il cliente
 <strong>{client_name}</strong> in stato GHOST per il servizio <strong>{servizio_ghost}</strong>.
 
 <b>Cosa significa:</b>
@@ -115,25 +140,17 @@ Ti informiamo che <strong>{chi_ha_messo_ghost}</strong> ha messo il cliente
 
 <b>Il tuo ruolo:</b> {recipient_role}
 
-Se anche tu stai avendo difficoltà con questo cliente, considera di aggiornare 
+Se anche tu stai avendo difficoltà con questo cliente, considera di aggiornare
 il tuo stato di conseguenza nella piattaforma.
 
 Cordiali saluti,
 Il Team Corposostenibile
 """
-        
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            html=body,
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@corposostenibile.com')
-        )
-        
-        mail.send(msg)
-        logger.info(f"Email servizio ghost inviata a {recipient_email} - {chi_ha_messo_ghost} per cliente {client_name}")
-        
+        _dispatch_email(subject, body, recipient_email)
+        logger.info(f"Email servizio ghost accodata per {recipient_email} - {chi_ha_messo_ghost} per cliente {client_name}")
+
     except Exception as e:
-        logger.error(f"Errore invio email servizio ghost a {recipient_email}: {e}")
+        logger.error(f"Errore accodamento email servizio ghost a {recipient_email}: {e}")
 
 
 def notify_professionals_on_ghost(cliente: Cliente, servizio_ghost: str = None):
@@ -202,16 +219,16 @@ def notify_professionals_on_ghost(cliente: Cliente, servizio_ghost: str = None):
 
 def send_ghost_notification_email(recipient_email, recipient_name, recipient_role, client_name, servizio_ghost=None):
     """
-    Invia l'email di notifica ghost a un singolo professionista.
+    Invia (in background) l'email di notifica ghost globale a un singolo professionista.
     """
     try:
         subject = f"⚠️ Cliente in GHOST - {client_name}"
-        
+
         if servizio_ghost:
             body = f"""
 Caro/a {recipient_name},
 
-Ti informiamo che il cliente <strong>{client_name}</strong> è passato in stato GHOST 
+Ti informiamo che il cliente <strong>{client_name}</strong> è passato in stato GHOST
 per il servizio <strong>{servizio_ghost}</strong>.
 
 Questo significa che il cliente non sta più rispondendo o partecipando attivamente al programma.
@@ -235,7 +252,7 @@ Caro/a {recipient_name},
 
 Ti informiamo che il cliente <strong>{client_name}</strong> è passato in stato GHOST globale.
 
-Tutti i servizi attivi del cliente sono ora in stato ghost, indicando una perdita di contatto 
+Tutti i servizi attivi del cliente sono ora in stato ghost, indicando una perdita di contatto
 completa con il programma.
 
 <b>Azioni suggerite:</b>
@@ -251,19 +268,11 @@ Per maggiori dettagli, accedi alla piattaforma Corposostenibile.
 Cordiali saluti,
 Il Team Corposostenibile
 """
-        
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            html=body,
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@corposostenibile.com')
-        )
-        
-        mail.send(msg)
-        logger.info(f"Email ghost inviata a {recipient_email} per cliente {client_name}")
-        
+        _dispatch_email(subject, body, recipient_email)
+        logger.info(f"Email ghost accodata per {recipient_email} per cliente {client_name}")
+
     except Exception as e:
-        logger.error(f"Errore invio email a {recipient_email}: {e}")
+        logger.error(f"Errore accodamento email ghost a {recipient_email}: {e}")
 
 
 def notify_client_reactivation(cliente: Cliente):
@@ -309,15 +318,15 @@ def notify_client_reactivation(cliente: Cliente):
 
 def send_reactivation_email(recipient_email, recipient_name, client_name):
     """
-    Invia email di notifica quando un cliente esce dallo stato ghost.
+    Invia (in background) email di notifica quando un cliente esce dallo stato ghost.
     """
     try:
         subject = f"✅ Cliente Riattivato - {client_name}"
-        
+
         body = f"""
 Caro/a {recipient_name},
 
-Buone notizie! Il cliente <strong>{client_name}</strong> è uscito dallo stato GHOST 
+Buone notizie! Il cliente <strong>{client_name}</strong> è uscito dallo stato GHOST
 ed è nuovamente attivo nel programma.
 
 <b>Prossimi passi:</b>
@@ -331,19 +340,11 @@ Accedi alla piattaforma per vedere i dettagli aggiornati del cliente.
 Cordiali saluti,
 Il Team Corposostenibile
 """
-        
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            html=body,
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@corposostenibile.com')
-        )
-        
-        mail.send(msg)
-        logger.info(f"Email riattivazione inviata a {recipient_email} per cliente {client_name}")
+        _dispatch_email(subject, body, recipient_email)
+        logger.info(f"Email riattivazione accodata per {recipient_email} per cliente {client_name}")
 
     except Exception as e:
-        logger.error(f"Errore invio email riattivazione a {recipient_email}: {e}")
+        logger.error(f"Errore accodamento email riattivazione a {recipient_email}: {e}")
 
 
 def send_freeze_notification(cliente: Cliente, frozen_by: User, reason: str = None):
@@ -536,18 +537,11 @@ def _send_freeze_email(recipient_email: str, recipient_name: str, recipient_role
 </html>
 """
 
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            html=body,
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@corposostenibile.com')
-        )
-
-        mail.send(msg)
-        logger.info(f"Email freeze inviata a {recipient_email} per cliente {client_name}")
+        _dispatch_email(subject, body, recipient_email)
+        logger.info(f"Email freeze accodata per {recipient_email} per cliente {client_name}")
 
     except Exception as e:
-        logger.error(f"Errore invio email freeze a {recipient_email}: {e}")
+        logger.error(f"Errore accodamento email freeze a {recipient_email}: {e}")
 
 
 def _send_unfreeze_email(recipient_email: str, recipient_name: str, recipient_role: str,
@@ -605,15 +599,8 @@ def _send_unfreeze_email(recipient_email: str, recipient_name: str, recipient_ro
 </html>
 """
 
-        msg = Message(
-            subject=subject,
-            recipients=[recipient_email],
-            html=body,
-            sender=current_app.config.get('MAIL_DEFAULT_SENDER', 'noreply@corposostenibile.com')
-        )
-
-        mail.send(msg)
-        logger.info(f"Email unfreeze inviata a {recipient_email} per cliente {client_name}")
+        _dispatch_email(subject, body, recipient_email)
+        logger.info(f"Email unfreeze accodata per {recipient_email} per cliente {client_name}")
 
     except Exception as e:
-        logger.error(f"Errore invio email unfreeze a {recipient_email}: {e}")
+        logger.error(f"Errore accodamento email unfreeze a {recipient_email}: {e}")

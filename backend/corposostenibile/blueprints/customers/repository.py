@@ -50,6 +50,7 @@ _DEFAULT_EAGER_LOAD = (
     selectinload(Cliente.nutrizionisti_multipli),
     selectinload(Cliente.coaches_multipli),
     selectinload(Cliente.psicologi_multipli),
+    selectinload(Cliente.consulenti_multipli),
     selectinload(Cliente.health_manager_user),
     # Piani attivi per colonne "Piano Dieta" / "Piano Allenamento" nelle visuali
     selectinload(Cliente.meal_plans),

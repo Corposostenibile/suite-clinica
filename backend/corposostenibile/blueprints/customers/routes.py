@@ -1503,6 +1503,9 @@ csrf.exempt(api_bp)  # Exclude API blueprint from CSRF protection
 
 cliente_schema = ClienteSchema()
 clienti_schema = ClienteSchema(many=True)
+# Schema leggero per le API lista: esclude relazioni pesanti non usate nelle visuali
+# (subscriptions + cartelle = principali cause di N+1 lazy queries sulla lista)
+clienti_list_schema = ClienteSchema(many=True, exclude=("subscriptions", "cartelle", "personal_consultant"))
 
 # – JSON error handler ------------------------------------------------------ #
 @api_bp.errorhandler(BadRequest)
@@ -1607,7 +1610,7 @@ def api_list() -> Any:
         pagination.total = len(filtered_items)
     
     result = {
-        "data": clienti_schema.dump(pagination.items),
+        "data": clienti_list_schema.dump(pagination.items),
         "pagination": {
             "page": pagination.page,
             "pages": pagination.pages,

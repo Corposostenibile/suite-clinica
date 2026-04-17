@@ -287,8 +287,25 @@ function ClientiListaNutrizione() {
   const handleUpdateField = async (clienteId, field, value) => {
     setSaving(true);
     try {
-      await clientiService.updateField(clienteId, field, value || null);
-      fetchClienti();
+      const result = await clientiService.updateField(clienteId, field, value || null);
+
+      // Aggiorna immediatamente il cliente nel state locale (ottimistico)
+      // senza aspettare il refetch della lista intera.
+      const updatedCliente = result?.data;
+      if (updatedCliente) {
+        setClienti(prev =>
+          prev.map(c => (c.cliente_id === clienteId ? updatedCliente : c))
+        );
+        // Aggiorna i KPI contatori in base al campo cambiato
+        if (field === 'stato_nutrizione' || field === 'stato_cliente_chat_nutrizione') {
+          // Refetch in background solo per aggiornare i contatori KPI
+          fetchClienti();
+        }
+      } else {
+        // Fallback: refetch completo se il server non ha restituito il cliente aggiornato
+        fetchClienti();
+      }
+
       setShowStatoModal(false);
       setShowChatModal(false);
       setShowCheckDayModal(false);
