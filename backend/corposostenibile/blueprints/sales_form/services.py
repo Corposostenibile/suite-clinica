@@ -1478,6 +1478,14 @@ class ConversionService:
             )
             db.session.add(history_nutrizionista)
 
+            # Popola anche M2M per consistenza con il resto del sistema
+            nutri = db.session.get(User, lead.assigned_nutritionist_id)
+            if nutri and nutri not in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.append(nutri)
+            # Aggiorna anche FK legacy per backward compatibility
+            if not cliente.nutrizionista_id:
+                cliente.nutrizionista_id = lead.assigned_nutritionist_id
+
         # Crea storico per coach
         if lead.assigned_coach_id:
             history_coach = ClienteProfessionistaHistory(
@@ -1490,6 +1498,14 @@ class ConversionService:
                 is_active=True
             )
             db.session.add(history_coach)
+
+            # Popola anche M2M per consistenza con il resto del sistema
+            coach = db.session.get(User, lead.assigned_coach_id)
+            if coach and coach not in cliente.coaches_multipli:
+                cliente.coaches_multipli.append(coach)
+            # Aggiorna anche FK legacy per backward compatibility
+            if not cliente.coach_id:
+                cliente.coach_id = lead.assigned_coach_id
 
         # Crea storico per psicologa
         if lead.assigned_psychologist_id:
@@ -1504,6 +1520,14 @@ class ConversionService:
             )
             db.session.add(history_psicologa)
 
+            # Popola anche M2M per consistenza con il resto del sistema
+            psico = db.session.get(User, lead.assigned_psychologist_id)
+            if psico and psico not in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.append(psico)
+            # Aggiorna anche FK legacy per backward compatibility
+            if not cliente.psicologa_id:
+                cliente.psicologa_id = lead.assigned_psychologist_id
+
         # Crea storico per health manager se assegnato
         if lead.health_manager_id:
             history_health_manager = ClienteProfessionistaHistory(
@@ -1516,6 +1540,10 @@ class ConversionService:
                 is_active=True
             )
             db.session.add(history_health_manager)
+
+            # Popola anche M2M per consistenza con il resto del sistema
+            # Health manager non ha M2M, usa solo FK
+            cliente.health_manager_id = lead.health_manager_id
 
         # Crea subscription se c'è un pacchetto
         if lead.package:

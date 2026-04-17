@@ -869,6 +869,9 @@ def get_freeze_history(cliente_id: int):
 def assign_professionista(cliente_id: int):
     """
     Assegna un professionista al cliente e registra l'azione nello storico.
+
+    Se esiste già un professionista attivo dello stesso tipo, lo interrompe e lo sostituisce.
+    Sincronizza anche la FK legacy (nutrizionista_id, etc.) per backward compatibility.
     """
     from corposostenibile.models import ClienteProfessionistaHistory
     from datetime import datetime as dt
@@ -892,43 +895,96 @@ def assign_professionista(cliente_id: int):
     except (ValueError, TypeError):
         return jsonify({"error": "Formato data non valido. Usa YYYY-MM-DD"}), HTTPStatus.BAD_REQUEST
 
-    # Crea record storico
-    history = ClienteProfessionistaHistory(
-        cliente_id=cliente_id,
-        user_id=payload['user_id'],
-        tipo_professionista=payload['tipo_professionista'],
-        data_dal=data_dal,
-        motivazione_aggiunta=payload['motivazione_aggiunta'],
-        assegnato_da_id=current_user.id,
-        is_active=True
-    )
-
-    db.session.add(history)
-
-    # IMPORTANTE: Aggiungi il professionista alle relazioni del cliente
     user_id = payload['user_id']
     tipo = payload['tipo_professionista']
     professionista = db.session.query(User).get(user_id)
 
-    if professionista:
-        if tipo == 'nutrizionista' and professionista not in cliente.nutrizionisti_multipli:
-            cliente.nutrizionisti_multipli.append(professionista)
-        elif tipo == 'coach' and professionista not in cliente.coaches_multipli:
-            cliente.coaches_multipli.append(professionista)
-        elif tipo == 'psicologa' and professionista not in cliente.psicologi_multipli:
-            cliente.psicologi_multipli.append(professionista)
-        elif tipo == 'consulente' and professionista not in cliente.consulenti_multipli:
-            cliente.consulenti_multipli.append(professionista)
+    if not professionista:
+        return jsonify({"error": f"Professionista {user_id} non trovato"}), HTTPStatus.NOT_FOUND
+
+    try:
+        # ==========================================================================
+        # PASSO 1: Interrompi assegnazioni precedenti dello stesso tipo (se esistono)
+        # ==========================================================================
+        previous_assignments = ClienteProfessionistaHistory.query.filter_by(
+            cliente_id=cliente_id,
+            tipo_professionista=tipo,
+            is_active=True
+        ).all()
+
+        for prev_assignment in previous_assignments:
+            prev_assignment.is_active = False
+            prev_assignment.data_al = data_dal
+            prev_assignment.motivazione_interruzione = f"Sostituito con {professionista.full_name} ({payload.get('motivazione_aggiunta', 'N/A')})"
+            prev_assignment.interrotto_da_id = current_user.id
+
+        # ==========================================================================
+        # PASSO 2: Rimuovi professionisti precedenti dalla M2M
+        # ==========================================================================
+        m2m_field_map = {
+            "nutrizionista": 'nutrizionisti_multipli',
+            "coach": 'coaches_multipli',
+            "psicologa": 'psicologi_multipli',
+            "consulente": 'consulenti_multipli',
+        }
+
+        if tipo in m2m_field_map:
+            m2m_field = m2m_field_map[tipo]
+            m2m_relation = getattr(cliente, m2m_field)
+            previous_user_ids = [pa.user_id for pa in previous_assignments]
+            users_to_remove = [u for u in m2m_relation if u.id in previous_user_ids]
+            for prev_user in users_to_remove:
+                if prev_user in m2m_relation:
+                    m2m_relation.remove(prev_user)
+
+        # ==========================================================================
+        # PASSO 3: Crea nuovo record storico
+        # ==========================================================================
+        history = ClienteProfessionistaHistory(
+            cliente_id=cliente_id,
+            user_id=user_id,
+            tipo_professionista=tipo,
+            data_dal=data_dal,
+            motivazione_aggiunta=payload['motivazione_aggiunta'],
+            assegnato_da_id=current_user.id,
+            is_active=True
+        )
+        db.session.add(history)
+
+        # ==========================================================================
+        # PASSO 4: Aggiungi alla M2M e aggiorna FK
+        # ==========================================================================
+        if tipo == 'nutrizionista':
+            if professionista not in cliente.nutrizionisti_multipli:
+                cliente.nutrizionisti_multipli.append(professionista)
+            cliente.nutrizionista_id = user_id
+        elif tipo == 'coach':
+            if professionista not in cliente.coaches_multipli:
+                cliente.coaches_multipli.append(professionista)
+            cliente.coach_id = user_id
+        elif tipo == 'psicologa':
+            if professionista not in cliente.psicologi_multipli:
+                cliente.psicologi_multipli.append(professionista)
+            cliente.psicologa_id = user_id
+        elif tipo == 'consulente':
+            if professionista not in cliente.consulenti_multipli:
+                cliente.consulenti_multipli.append(professionista)
+            cliente.consulente_alimentare_id = user_id
         elif tipo == 'health_manager':
             cliente.health_manager_id = user_id
 
-    db.session.commit()
+        db.session.commit()
 
-    return jsonify({
-        "ok": True,
-        "message": "Professionista assegnato con successo",
-        "history_id": history.id
-    }), HTTPStatus.OK
+        return jsonify({
+            "ok": True,
+            "message": "Professionista assegnato con successo",
+            "history_id": history.id,
+            "previous_assignments_interrupted": len(previous_assignments)
+        }), HTTPStatus.OK
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), HTTPStatus.INTERNAL_SERVER_ERROR
 
 
 @customers_bp.route("/<int:cliente_id>/professionisti/<int:history_id>/interrupt", methods=["POST"])
@@ -986,31 +1042,56 @@ def interrupt_professionista(cliente_id: int, history_id: int):
     if tipo == 'nutrizionista':
         if professionista in cliente.nutrizionisti_multipli:
             cliente.nutrizionisti_multipli.remove(professionista)
-        if cliente.nutrizionista_id == professionista.id:
-            cliente.nutrizionista_id = None
     elif tipo == 'coach':
         if professionista in cliente.coaches_multipli:
             cliente.coaches_multipli.remove(professionista)
-        if cliente.coach_id == professionista.id:
-            cliente.coach_id = None
     elif tipo == 'psicologa':
         if professionista in cliente.psicologi_multipli:
             cliente.psicologi_multipli.remove(professionista)
-        if cliente.psicologa_id == professionista.id:
-            cliente.psicologa_id = None
     elif tipo == 'consulente':
         if professionista in cliente.consulenti_multipli:
             cliente.consulenti_multipli.remove(professionista)
-        if cliente.consulente_alimentare_id == professionista.id:
-            cliente.consulente_alimentare_id = None
     elif tipo == 'health_manager' and cliente.health_manager_id == professionista.id:
         cliente.health_manager_id = None
+
+    # ==========================================================================
+    # PASSO EXTRA: Trova e assegna FK al nuovo professionista attivo (se esiste)
+    # ==========================================================================
+    new_active_assignment = ClienteProfessionistaHistory.query.filter_by(
+        cliente_id=cliente_id,
+        tipo_professionista=tipo,
+        is_active=True
+    ).order_by(ClienteProfessionistaHistory.data_dal.desc()).first()
+
+    if new_active_assignment:
+        # C'è un altro professionista attivo - aggiorna FK
+        if tipo == 'nutrizionista':
+            cliente.nutrizionista_id = new_active_assignment.user_id
+        elif tipo == 'coach':
+            cliente.coach_id = new_active_assignment.user_id
+        elif tipo == 'psicologa':
+            cliente.psicologa_id = new_active_assignment.user_id
+        elif tipo == 'consulente':
+            cliente.consulente_alimentare_id = new_active_assignment.user_id
+        elif tipo == 'health_manager':
+            cliente.health_manager_id = new_active_assignment.user_id
+    else:
+        # Nessun professionista attivo - pulisci FK
+        if tipo == 'nutrizionista' and cliente.nutrizionista_id == professionista.id:
+            cliente.nutrizionista_id = None
+        elif tipo == 'coach' and cliente.coach_id == professionista.id:
+            cliente.coach_id = None
+        elif tipo == 'psicologa' and cliente.psicologa_id == professionista.id:
+            cliente.psicologa_id = None
+        elif tipo == 'consulente' and cliente.consulente_alimentare_id == professionista.id:
+            cliente.consulente_alimentare_id = None
 
     db.session.commit()
 
     return jsonify({
         "ok": True,
-        "message": "Assegnazione interrotta con successo"
+        "message": "Assegnazione interrotta con successo",
+        "new_active_professional_id": new_active_assignment.user_id if new_active_assignment else None
     }), HTTPStatus.OK
 
 
@@ -3477,8 +3558,12 @@ def assign_professionista(cliente_id: int):
     """
     Assegna un professionista a un cliente.
     Crea un record in ClienteProfessionistaHistory e aggiunge alla relazione many-to-many.
+
+    Se esiste già un professionista attivo dello stesso tipo, lo interrompe e lo sostituisce.
+    Sincronizza anche la FK legacy (nutrizionista_id, etc.) per backward compatibility.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
+    from datetime import date
     from flask_login import current_user
 
     _require_cliente_scope_or_403(cliente_id)
@@ -3520,7 +3605,46 @@ def assign_professionista(cliente_id: int):
         return jsonify({"ok": False, "error": "Formato data non valido (usa YYYY-MM-DD)"}), 400
 
     try:
-        # Crea record history
+        # ==========================================================================
+        # PASSO 1: Interrompi assegnazioni precedenti dello stesso tipo (se esistono)
+        # ==========================================================================
+        previous_assignments = ClienteProfessionistaHistory.query.filter_by(
+            cliente_id=cliente_id,
+            tipo_professionista=tipo_professionista,
+            is_active=True
+        ).all()
+
+        for prev_assignment in previous_assignments:
+            prev_assignment.is_active = False
+            prev_assignment.data_al = data_dal
+            prev_assignment.motivazione_interruzione = f"Sostituito con {user.full_name} ({motivazione})"
+            prev_assignment.interrotto_da_id = current_user.id if current_user.is_authenticated else None
+
+        # ==========================================================================
+        # PASSO 2: Rimuovi professionisti precedenti dalla M2M
+        # ==========================================================================
+        m2m_field_map = {
+            "nutrizionista": ('nutrizionisti_multipli', 'nutrizionista_id'),
+            "coach": ('coaches_multipli', 'coach_id'),
+            "psicologa": ('psicologi_multipli', 'psicologa_id'),
+            "consulente": ('consulenti_multipli', 'consulente_alimentare_id'),
+        }
+
+        if tipo_professionista in m2m_field_map:
+            m2m_field, fk_field = m2m_field_map[tipo_professionista]
+            m2m_relation = getattr(cliente, m2m_field)
+
+            # Rimuovi tutti i professionisti dello stesso tipo dalla M2M
+            # (verifichiamo che siano dello stesso tipo tramite history)
+            previous_user_ids = [pa.user_id for pa in previous_assignments]
+            users_to_remove = [u for u in m2m_relation if u.id in previous_user_ids]
+            for prev_user in users_to_remove:
+                if prev_user in m2m_relation:
+                    m2m_relation.remove(prev_user)
+
+        # ==========================================================================
+        # PASSO 3: Crea nuovo record history
+        # ==========================================================================
         history = ClienteProfessionistaHistory(
             cliente_id=cliente_id,
             user_id=user_id,
@@ -3532,19 +3656,25 @@ def assign_professionista(cliente_id: int):
         )
         db.session.add(history)
 
-        # Aggiungi alla relazione many-to-many appropriata
+        # ==========================================================================
+        # PASSO 4: Aggiungi alla M2M e aggiorna FK
+        # ==========================================================================
         if tipo_professionista == "nutrizionista":
             if user not in cliente.nutrizionisti_multipli:
                 cliente.nutrizionisti_multipli.append(user)
+            cliente.nutrizionista_id = user_id
         elif tipo_professionista == "coach":
             if user not in cliente.coaches_multipli:
                 cliente.coaches_multipli.append(user)
+            cliente.coach_id = user_id
         elif tipo_professionista == "psicologa":
             if user not in cliente.psicologi_multipli:
                 cliente.psicologi_multipli.append(user)
+            cliente.psicologa_id = user_id
         elif tipo_professionista == "consulente":
             if user not in cliente.consulenti_multipli:
                 cliente.consulenti_multipli.append(user)
+            cliente.consulente_alimentare_id = user_id
         elif tipo_professionista == "health_manager":
             cliente.health_manager_id = user_id
 
@@ -3553,7 +3683,8 @@ def assign_professionista(cliente_id: int):
         return jsonify({
             "ok": True,
             "message": "Professionista assegnato con successo",
-            "history_id": history.id
+            "history_id": history.id,
+            "previous_assignments_interrupted": len(previous_assignments)
         })
 
     except Exception as e:
@@ -3566,6 +3697,7 @@ def assign_professionista(cliente_id: int):
 def interrupt_professionista(cliente_id: int, history_id: int):
     """
     Interrompe un'assegnazione professionista tracciata.
+    Se esiste un altro professionista attivo dello stesso tipo, aggiorna la FK per puntare a quello.
     """
     from corposostenibile.models import ClienteProfessionistaHistory, User
     from flask_login import current_user
@@ -3594,6 +3726,9 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         if data_al_str:
             data_al = datetime.strptime(data_al_str, "%Y-%m-%d").date()
 
+        # Memorizza il tipo prima di modificare
+        tipo_professionista = history.tipo_professionista
+
         # Aggiorna record history
         history.is_active = False
         history.data_al = data_al
@@ -3603,19 +3738,58 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         # Rimuovi dalla relazione many-to-many
         user = db.session.query(User).filter_by(id=history.user_id).first()
         if user:
-            if history.tipo_professionista == "nutrizionista":
+            if tipo_professionista == "nutrizionista":
                 if user in cliente.nutrizionisti_multipli:
                     cliente.nutrizionisti_multipli.remove(user)
-            elif history.tipo_professionista == "coach":
+            elif tipo_professionista == "coach":
                 if user in cliente.coaches_multipli:
                     cliente.coaches_multipli.remove(user)
-            elif history.tipo_professionista == "psicologa":
+            elif tipo_professionista == "psicologa":
                 if user in cliente.psicologi_multipli:
                     cliente.psicologi_multipli.remove(user)
-            elif history.tipo_professionista == "consulente":
+            elif tipo_professionista == "consulente":
                 if user in cliente.consulenti_multipli:
                     cliente.consulenti_multipli.remove(user)
-            elif history.tipo_professionista == "health_manager":
+            elif tipo_professionista == "health_manager":
+                if cliente.health_manager_id == history.user_id:
+                    cliente.health_manager_id = None
+
+        # ==========================================================================
+        # PASSO EXTRA: Trova e assegna FK al nuovo professionista attivo (se esiste)
+        # ==========================================================================
+        new_active_assignment = ClienteProfessionistaHistory.query.filter_by(
+            cliente_id=cliente_id,
+            tipo_professionista=tipo_professionista,
+            is_active=True
+        ).order_by(ClienteProfessionistaHistory.data_dal.desc()).first()
+
+        if new_active_assignment:
+            # C'è un altro professionista attivo - aggiorna FK
+            if tipo_professionista == "nutrizionista":
+                cliente.nutrizionista_id = new_active_assignment.user_id
+            elif tipo_professionista == "coach":
+                cliente.coach_id = new_active_assignment.user_id
+            elif tipo_professionista == "psicologa":
+                cliente.psicologa_id = new_active_assignment.user_id
+            elif tipo_professionista == "consulente":
+                cliente.consulente_alimentare_id = new_active_assignment.user_id
+            elif tipo_professionista == "health_manager":
+                cliente.health_manager_id = new_active_assignment.user_id
+        else:
+            # Nessun professionista attivo - pulisci FK
+            if tipo_professionista == "nutrizionista":
+                if cliente.nutrizionista_id == history.user_id:
+                    cliente.nutrizionista_id = None
+            elif tipo_professionista == "coach":
+                if cliente.coach_id == history.user_id:
+                    cliente.coach_id = None
+            elif tipo_professionista == "psicologa":
+                if cliente.psicologa_id == history.user_id:
+                    cliente.psicologa_id = None
+            elif tipo_professionista == "consulente":
+                if cliente.consulente_alimentare_id == history.user_id:
+                    cliente.consulente_alimentare_id = None
+            elif tipo_professionista == "health_manager":
                 if cliente.health_manager_id == history.user_id:
                     cliente.health_manager_id = None
 
@@ -3623,7 +3797,8 @@ def interrupt_professionista(cliente_id: int, history_id: int):
 
         return jsonify({
             "ok": True,
-            "message": "Assegnazione interrotta con successo"
+            "message": "Assegnazione interrotta con successo",
+            "new_active_professional_id": new_active_assignment.user_id if new_active_assignment else None
         })
 
     except Exception as e:
@@ -7407,6 +7582,7 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 def _is_assigned_to_cliente(user, cliente) -> bool:
     """Verifica se l'utente è assegnato al paziente come professionista (o admin).
     Include anche professionisti con call bonus attive (status=accettata).
+    Include anche professionisti con ClienteProfessionistaHistory attiva.
     """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
@@ -7434,6 +7610,20 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
         or user in cliente.consulenti_multipli
     ):
         return True
+
+    # Verifica ClienteProfessionistaHistory per assegnazione attiva
+    try:
+        from corposostenibile.models import ClienteProfessionistaHistory
+        has_active_history = ClienteProfessionistaHistory.query.filter_by(
+            cliente_id=cliente.cliente_id,
+            user_id=user.id,
+            is_active=True
+        ).first()
+        if has_active_history:
+            return True
+    except Exception:
+        logger.exception("Errore verifica ClienteProfessionistaHistory per cliente %s", getattr(cliente, "cliente_id", None))
+
     # Professionista assegnato tramite call bonus attiva
     from corposostenibile.models import CallBonus
     has_active_cb = db.session.query(CallBonus.id).filter(
@@ -7568,7 +7758,14 @@ def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str,
 
 
 def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:
-    """Scope granulare per i professionisti sulle sezioni servizio-specifiche."""
+    """Scope granulare per i professionisti sulle sezioni servizio-specifiche.
+
+    Verifica se l'utente è assegnato al cliente per il servizio specificato.
+    Controlla:
+    1. FK diretta (nutrizionista_id, coach_id, etc.)
+    2. Relazioni M2M (nutrizionisti_multipli, coaches_multipli, etc.)
+    3. ClienteProfessionistaHistory (per assegnazioni tracciate)
+    """
     if getattr(user, "is_admin", False):
         return True
     role = getattr(user, "role", None)
@@ -7595,12 +7792,41 @@ def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> boo
     if role_value != "professionista":
         return False
 
-    if service_type == "nutrizione":
-        return getattr(cliente, "nutrizionista_id", None) == user.id or user in (cliente.nutrizionisti_multipli or [])
-    if service_type == "coaching":
-        return getattr(cliente, "coach_id", None) == user.id or user in (cliente.coaches_multipli or [])
-    if service_type == "psicologia":
-        return getattr(cliente, "psicologa_id", None) == user.id or user in (cliente.psicologi_multipli or [])
+    # Mappatura service_type -> (fk_field, m2m_field, tipo_professionista)
+    service_type_map = {
+        "nutrizione": ("nutrizionista_id", "nutrizionisti_multipli", "nutrizionista"),
+        "coaching": ("coach_id", "coaches_multipli", "coach"),
+        "psicologia": ("psicologa_id", "psicologi_multipli", "psicologa"),
+    }
+
+    if service_type not in service_type_map:
+        return False
+
+    fk_field, m2m_field, tipo_professionista = service_type_map[service_type]
+
+    # 1. Controlla FK diretta
+    if getattr(cliente, fk_field, None) == user.id:
+        return True
+
+    # 2. Controlla M2M
+    m2m_relation = getattr(cliente, m2m_field, None) or []
+    if user in m2m_relation:
+        return True
+
+    # 3. Controlla ClienteProfessionistaHistory per assegnazione attiva
+    try:
+        from corposostenibile.models import ClienteProfessionistaHistory
+        active_assignment = ClienteProfessionistaHistory.query.filter_by(
+            cliente_id=cliente.cliente_id,
+            user_id=user.id,
+            tipo_professionista=tipo_professionista,
+            is_active=True
+        ).first()
+        if active_assignment:
+            return True
+    except Exception:
+        logger.exception("Errore verifica ClienteProfessionistaHistory per cliente %s", getattr(cliente, "cliente_id", None))
+
     return False
 
 

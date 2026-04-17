@@ -656,6 +656,9 @@ def api_confirm_assignment():
             nutri = User.query.get(lead.assigned_nutritionist_id)
             if nutri and nutri not in cliente.nutrizionisti_multipli:
                 cliente.nutrizionisti_multipli.append(nutri)
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.nutrizionista_id:
+                cliente.nutrizionista_id = lead.assigned_nutritionist_id
 
         if lead.assigned_coach_id:
             assignment.coach_assigned_id = lead.assigned_coach_id
@@ -676,6 +679,9 @@ def api_confirm_assignment():
             coach = User.query.get(lead.assigned_coach_id)
             if coach and coach not in cliente.coaches_multipli:
                 cliente.coaches_multipli.append(coach)
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.coach_id:
+                cliente.coach_id = lead.assigned_coach_id
 
         if lead.assigned_psychologist_id:
             assignment.psicologa_assigned_id = lead.assigned_psychologist_id
@@ -696,6 +702,9 @@ def api_confirm_assignment():
             psico = User.query.get(lead.assigned_psychologist_id)
             if psico and psico not in cliente.psicologi_multipli:
                 cliente.psicologi_multipli.append(psico)
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.psicologa_id:
+                cliente.psicologa_id = lead.assigned_psychologist_id
 
         # Update status
         assignment.update_status()

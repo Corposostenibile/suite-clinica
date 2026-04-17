@@ -1205,7 +1205,20 @@ def bulk_create_or_update_clienti(records: Sequence[Mapping[str, Any]]) -> Tuple
     """
     Upsert di massa basato su *email* o *numero_tel*.
     Ritorna ``(created, updated)``; il commit è delegato al caller.
+
+    Nota: Quando vengono aggiornate le FK dei professionisti (nutrizionista_id, coach_id, etc.),
+    viene effettuata la sincronizzazione con le relazioni M2M per garantire consistenza.
     """
+    from corposostenibile.models import User
+
+    # Mappatura FK -> campo M2M e tipo professionista
+    FK_TO_M2M = {
+        'nutrizionista_id': ('nutrizionisti_multipli', 'nutrizionista'),
+        'coach_id': ('coaches_multipli', 'coach'),
+        'psicologa_id': ('psicologi_multipli', 'psicologa'),
+        'consulente_alimentare_id': ('consulenti_multipli', 'consulente'),
+    }
+
     created = updated = 0
     for data in records:
         email = (data.get("email") or "").lower()
@@ -1221,12 +1234,61 @@ def bulk_create_or_update_clienti(records: Sequence[Mapping[str, Any]]) -> Tuple
             cliente = Cliente(**{k: v for k, v in data.items() if hasattr(Cliente, k)})
             db.session.add(cliente)
             created += 1
+            # Per nuovi clienti creati, sincronizza subito M2M con FK
+            _sync_m2m_from_fk(cliente)
         else:
             for k, v in data.items():
                 if hasattr(cliente, k):
                     setattr(cliente, k, v)
             updated += 1
+            # Sincronizza M2M con FK dopo l'aggiornamento
+            _sync_m2m_from_fk(cliente)
     return created, updated
+
+
+def _sync_m2m_from_fk(cliente: Cliente) -> None:
+    """
+    Sincronizza le relazioni M2M con le FK del cliente.
+
+    Quando una FK (nutrizionista_id, etc.) è impostata, assicura che l'utente
+    corrispondente sia presente nella relazione M2M appropriata.
+    Quando una FK viene rimossa (None), rimuove l'utente dalla M2M.
+
+    Args:
+        cliente: Il cliente da sincronizzare
+    """
+    from corposostenibile.models import User
+
+    FK_TO_M2M = {
+        'nutrizionista_id': 'nutrizionisti_multipli',
+        'coach_id': 'coaches_multipli',
+        'psicologa_id': 'psicologi_multipli',
+        'consulente_alimentare_id': 'consulenti_multipli',
+    }
+
+    for fk_field, m2m_field in FK_TO_M2M.items():
+        fk_value = getattr(cliente, fk_field, None)
+        m2m_relation = getattr(cliente, m2m_field, None)
+
+        if m2m_relation is None:
+            continue
+
+        # Ottieni gli ID degli utenti attualmente nella M2M
+        current_m2m_ids = [u.id for u in m2m_relation]
+
+        if fk_value is not None:
+            # FK è impostata - assicura che l'utente sia nella M2M
+            if fk_value not in current_m2m_ids:
+                user = db.session.get(User, fk_value)
+                if user and user not in m2m_relation:
+                    m2m_relation.append(user)
+        else:
+            # FK è None - pulisci la M2M da utenti senza FK attiva
+            # Rimuovi dalla M2M gli utenti che non hanno più FK
+            users_to_remove = [u for u in m2m_relation if u.id not in current_m2m_ids or getattr(cliente, fk_field) is None]
+            for user in users_to_remove:
+                if user in m2m_relation:
+                    m2m_relation.remove(user)
 
 
 def calculate_ltv_for_clienti(ids: Sequence[int]) -> None:

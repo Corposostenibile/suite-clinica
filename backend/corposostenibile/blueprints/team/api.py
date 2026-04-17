@@ -1751,7 +1751,10 @@ def api_confirm_assignment():
             nutri = User.query.get(data.get('nutritionist_id'))
             if nutri and nutri not in cliente.nutrizionisti_multipli:
                 cliente.nutrizionisti_multipli.append(nutri)
-            
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.nutrizionista_id:
+                cliente.nutrizionista_id = data.get('nutritionist_id')
+
         if data.get('coach_id'):
             h_coach = ClienteProfessionistaHistory(
                 cliente_id=cliente.cliente_id,
@@ -1768,7 +1771,10 @@ def api_confirm_assignment():
             coach = User.query.get(data.get('coach_id'))
             if coach and coach not in cliente.coaches_multipli:
                 cliente.coaches_multipli.append(coach)
-            
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.coach_id:
+                cliente.coach_id = data.get('coach_id')
+
         if data.get('psychologist_id'):
             h_psico = ClienteProfessionistaHistory(
                 cliente_id=cliente.cliente_id,
@@ -1785,6 +1791,9 @@ def api_confirm_assignment():
             psico = User.query.get(data.get('psychologist_id'))
             if psico and psico not in cliente.psicologi_multipli:
                 cliente.psicologi_multipli.append(psico)
+            # Aggiorna FK legacy per backward compatibility
+            if not cliente.psicologa_id:
+                cliente.psicologa_id = data.get('psychologist_id')
 
         # Update Cliente status
         cliente.service_status = 'assigned'
