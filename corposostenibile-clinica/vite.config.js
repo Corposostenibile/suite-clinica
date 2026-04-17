@@ -83,6 +83,7 @@ export default defineConfig(({ mode }) => {
             /^\/loom(?:\/|$)/,
             /^\/ghl\/api(?:\/|$)/,
             /^\/quality\/api(?:\/|$)/,
+            /^\/old-suite(?:\/|$)/,
           ],
           importScripts: ['push-sw.js'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
@@ -170,6 +171,11 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
             },
             '/loom': {
+              target: backendUrl,
+              changeOrigin: true,
+            },
+            // Proxy Old Suite integration routes (TEMPORANEO)
+            '/old-suite': {
               target: backendUrl,
               changeOrigin: true,
             },
