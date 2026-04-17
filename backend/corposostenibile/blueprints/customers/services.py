@@ -64,6 +64,7 @@ from sqlalchemy import desc, func, or_, exists, select
 from .models.activity_log import ActivityLog                               # pragma: no cover
 # SIGNALS
 from .signals import emit_created, emit_deleted, emit_updated
+from .rbac_scope import professionista_visibility_clause
 
 __all__ = [
     # CRUD & API pubblica
@@ -1407,37 +1408,10 @@ def apply_role_filtering(query):
             )
         return query.filter(False)
     
-    # Professionista: vede solo i propri pazienti (FK singola + M2M + history assegnazioni Medico/altro)
+    # Professionista: per nutrizione / coach / psicologia usiamo la M2M della
+    # specialità; il medico resta legato allo storico attivo di tipo medico.
     elif user_role == UserRoleEnum.professionista:
-        user_id = current_user.id
-        return query.filter(
-            or_(
-                # Assegnazione tramite FK singola (nutrizionista_id, coach_id, psicologa_id)
-                Cliente.nutrizionista_id == user_id,
-                Cliente.coach_id == user_id,
-                Cliente.psicologa_id == user_id,
-                Cliente.consulente_alimentare_id == user_id,
-                # Assegnazione tramite M2M
-                exists(select(cliente_nutrizionisti.c.cliente_id).where(cliente_nutrizionisti.c.cliente_id == Cliente.cliente_id).where(cliente_nutrizionisti.c.user_id == user_id)),
-                exists(select(cliente_coaches.c.cliente_id).where(cliente_coaches.c.cliente_id == Cliente.cliente_id).where(cliente_coaches.c.user_id == user_id)),
-                exists(select(cliente_psicologi.c.cliente_id).where(cliente_psicologi.c.cliente_id == Cliente.cliente_id).where(cliente_psicologi.c.user_id == user_id)),
-                exists(select(cliente_consulenti.c.cliente_id).where(cliente_consulenti.c.cliente_id == Cliente.cliente_id).where(cliente_consulenti.c.user_id == user_id)),
-                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
-                exists(
-                    select(ClienteProfessionistaHistory.cliente_id).where(
-                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                        ClienteProfessionistaHistory.user_id == user_id,
-                        ClienteProfessionistaHistory.is_active == True,
-                    )
-                ),
-                # Pazienti con call bonus accettata assegnata a questo professionista
-                exists(select(CallBonus.cliente_id).where(
-                    CallBonus.cliente_id == Cliente.cliente_id,
-                    CallBonus.professionista_id == user_id,
-                    CallBonus.status == CallBonusStatusEnum.accettata,
-                )),
-            )
-        )
+        return query.filter(professionista_visibility_clause(current_user))
 
     # Influencer: vede solo i clienti con origine tra quelle assegnate (M2M)
     elif user_role == UserRoleEnum.influencer:

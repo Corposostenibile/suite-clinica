@@ -80,6 +80,10 @@ from .services import (
     calculate_dashboard_kpis,
     apply_role_filtering,
 )
+from .rbac_scope import (
+    is_professionista_assigned_to_cliente,
+    is_professionista_assigned_to_service,
+)
 from .trustpilot_service import (
     TrustpilotAPIError,
     TrustpilotConfigError,
@@ -7754,8 +7758,10 @@ def get_diary_entry_history(cliente_id: int, service_type: str, entry_id: int):
 
 def _is_assigned_to_cliente(user, cliente) -> bool:
     """Verifica se l'utente è assegnato al paziente come professionista (o admin).
-    Include anche professionisti con call bonus attive (status=accettata).
-    Include anche professionisti con ClienteProfessionistaHistory attiva.
+
+    La logica professionista è specialty-aware: per nutrizione / coach /
+    psicologia usa la M2M; per medico usa la history attiva di tipo medico.
+    Le call bonus restano ammesse come fallback solo per la vista dettaglio.
     """
     if user.is_admin or user.role == UserRoleEnum.admin:
         return True
@@ -7771,40 +7777,14 @@ def _is_assigned_to_cliente(user, cliente) -> bool:
     if role_value == "influencer":
         client_origin = getattr(cliente, "origine_id", None)
         return client_origin is not None and client_origin in [o.id for o in (user.influencer_origins or [])]
-    if (
-        getattr(cliente, "nutrizionista_id", None) == user.id
-        or getattr(cliente, "coach_id", None) == user.id
-        or getattr(cliente, "psicologa_id", None) == user.id
-        or getattr(cliente, "consulente_alimentare_id", None) == user.id
-        or getattr(cliente, "health_manager_id", None) == user.id
-        or user in cliente.nutrizionisti_multipli
-        or user in cliente.coaches_multipli
-        or user in cliente.psicologi_multipli
-        or user in cliente.consulenti_multipli
-    ):
-        return True
+    if role_value == "professionista":
+        return is_professionista_assigned_to_cliente(
+            user,
+            cliente,
+            include_call_bonus=True,
+        )
 
-    # Verifica ClienteProfessionistaHistory per assegnazione attiva
-    try:
-        from corposostenibile.models import ClienteProfessionistaHistory
-        has_active_history = ClienteProfessionistaHistory.query.filter_by(
-            cliente_id=cliente.cliente_id,
-            user_id=user.id,
-            is_active=True
-        ).first()
-        if has_active_history:
-            return True
-    except Exception:
-        logger.exception("Errore verifica ClienteProfessionistaHistory per cliente %s", getattr(cliente, "cliente_id", None))
-
-    # Professionista assegnato tramite call bonus attiva
-    from corposostenibile.models import CallBonus
-    has_active_cb = db.session.query(CallBonus.id).filter(
-        CallBonus.cliente_id == cliente.cliente_id,
-        CallBonus.professionista_id == user.id,
-        CallBonus.status == CallBonusStatusEnum.accettata,
-    ).first()
-    return has_active_cb is not None
+    return False
 
 
 def _is_professionista_standard(user) -> bool:
@@ -7945,11 +7925,9 @@ def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str,
 def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> bool:
     """Scope granulare per i professionisti sulle sezioni servizio-specifiche.
 
-    Verifica se l'utente è assegnato al cliente per il servizio specificato.
-    Controlla:
-    1. FK diretta (nutrizionista_id, coach_id, etc.)
-    2. Relazioni M2M (nutrizionisti_multipli, coaches_multipli, etc.)
-    3. ClienteProfessionistaHistory (per assegnazioni tracciate)
+    La verifica è specialty-aware: per nutrizione / coach / psicologia usa la
+    M2M corrispondente alla specialità; il medico resta agganciato alla history
+    attiva di tipo medico.
     """
     if getattr(user, "is_admin", False):
         return True
@@ -7977,42 +7955,7 @@ def _is_assigned_to_cliente_for_service(user, cliente, service_type: str) -> boo
     if role_value != "professionista":
         return False
 
-    # Mappatura service_type -> (fk_field, m2m_field, tipo_professionista)
-    service_type_map = {
-        "nutrizione": ("nutrizionista_id", "nutrizionisti_multipli", "nutrizionista"),
-        "coaching": ("coach_id", "coaches_multipli", "coach"),
-        "psicologia": ("psicologa_id", "psicologi_multipli", "psicologa"),
-    }
-
-    if service_type not in service_type_map:
-        return False
-
-    fk_field, m2m_field, tipo_professionista = service_type_map[service_type]
-
-    # 1. Controlla FK diretta
-    if getattr(cliente, fk_field, None) == user.id:
-        return True
-
-    # 2. Controlla M2M
-    m2m_relation = getattr(cliente, m2m_field, None) or []
-    if user in m2m_relation:
-        return True
-
-    # 3. Controlla ClienteProfessionistaHistory per assegnazione attiva
-    try:
-        from corposostenibile.models import ClienteProfessionistaHistory
-        active_assignment = ClienteProfessionistaHistory.query.filter_by(
-            cliente_id=cliente.cliente_id,
-            user_id=user.id,
-            tipo_professionista=tipo_professionista,
-            is_active=True
-        ).first()
-        if active_assignment:
-            return True
-    except Exception:
-        logger.exception("Errore verifica ClienteProfessionistaHistory per cliente %s", getattr(cliente, "cliente_id", None))
-
-    return False
+    return is_professionista_assigned_to_service(user, cliente, service_type)
 
 
 def _require_service_scope_or_403(cliente_id: int, service_type: str) -> "Cliente":
