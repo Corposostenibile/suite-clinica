@@ -8029,7 +8029,29 @@ function ClientiDetail() {
                           </div>
                         ) : (() => {
                           const checkData = initialChecksData[activeInizialiTab];
-                          const hasResponses = checkData.responses && Object.keys(checkData.responses).length > 0;
+                          const parseLegacyResponsesString = (raw) => {
+                            if (typeof raw !== 'string') return raw;
+                            const lines = raw.split(/\r?\n/);
+                            const parsed = {};
+                            let currentKey = null;
+
+                            for (const line of lines) {
+                              const keyMatch = line.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
+                              if (keyMatch) {
+                                currentKey = keyMatch[1];
+                                parsed[currentKey] = keyMatch[2] ?? '';
+                              } else if (currentKey) {
+                                // Continuation line for multiline answers.
+                                parsed[currentKey] = parsed[currentKey]
+                                  ? `${parsed[currentKey]}\n${line}`
+                                  : line;
+                              }
+                            }
+                            return parsed;
+                          };
+
+                          const normalizedResponses = parseLegacyResponsesString(checkData.responses);
+                          const hasResponses = normalizedResponses && typeof normalizedResponses === 'object' && Object.keys(normalizedResponses).length > 0;
                           const hasUrl = checkData.url;
 
                           // Filter out redundant fields (email, phone, name) and empty values
@@ -8046,7 +8068,7 @@ function ClientiDetail() {
                               .replace('[]', '');
                           };
                           const filteredResponses = hasResponses
-                            ? Object.entries(checkData.responses).filter(([k, v]) => {
+                            ? Object.entries(normalizedResponses).filter(([k, v]) => {
                                 const keyLower = k.toLowerCase().replace(/\s+/g, '_');
                                 if (SKIP_KEYS.has(keyLower)) return false;
                                 if (v === null || v === undefined || v === '') return false;
@@ -8056,9 +8078,40 @@ function ClientiDetail() {
 
                           // Check if this is a scale/frequency check (Check 3 style)
                           const SCALE_VALUES = new Set(['mai', 'raramente', 'a volte', 'spesso', 'sempre', 'il più delle volte', 'vero', 'falso']);
+                          const NUMERIC_FREQ_SCALE = new Map([
+                            ['1', 'Mai'],
+                            ['2', 'Raramente'],
+                            ['3', 'A volte'],
+                            ['4', 'Spesso'],
+                            ['5', 'Sempre'],
+                          ]);
+                          const isNumericFreqScale = (v) => {
+                            const s = String(v ?? '').trim();
+                            return NUMERIC_FREQ_SCALE.has(s);
+                          };
+                          const formatInitialAnswer = (answer) => {
+                            const toDisplay = (val) => {
+                              const s = String(val ?? '').trim();
+                              if (NUMERIC_FREQ_SCALE.has(s)) return NUMERIC_FREQ_SCALE.get(s);
+                              return s;
+                            };
+                            if (Array.isArray(answer)) return answer.map(toDisplay).join(', ');
+                            return toDisplay(answer);
+                          };
+
+                          const numericScaleRatio = filteredResponses.length
+                            ? filteredResponses.filter(([, v]) => {
+                                if (Array.isArray(v)) return v.length > 0 && v.every(isNumericFreqScale);
+                                return isNumericFreqScale(v);
+                              }).length / filteredResponses.length
+                            : 0;
+
                           const isScaleCheck = activeInizialiTab === 'check_3' || (
                             filteredResponses.length > 10 &&
-                            filteredResponses.filter(([, v]) => SCALE_VALUES.has(String(v).toLowerCase())).length > filteredResponses.length * 0.5
+                            (
+                              filteredResponses.filter(([, v]) => SCALE_VALUES.has(String(v).toLowerCase())).length > filteredResponses.length * 0.5 ||
+                              numericScaleRatio > 0.5
+                            )
                           );
 
                           if (!hasResponses && hasUrl) {
@@ -8204,7 +8257,7 @@ function ClientiDetail() {
                                     </thead>
                                     <tbody>
                                       {filteredResponses.map(([question, answer], idx) => {
-                                        const ansStr = Array.isArray(answer) ? answer.join(', ') : String(answer);
+                                        const ansStr = formatInitialAnswer(answer);
                                         const isNegative = ['spesso', 'sempre', 'il più delle volte', 'vero'].includes(ansStr.toLowerCase());
                                         const isPositive = ['mai', 'falso'].includes(ansStr.toLowerCase());
                                         return (
@@ -8233,7 +8286,7 @@ function ClientiDetail() {
                                 /* Standard check → card grid layout */
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
                                   {filteredResponses.map(([question, answer], idx) => {
-                                    const ansStr = Array.isArray(answer) ? answer.join(', ') : String(answer);
+                                    const ansStr = formatInitialAnswer(answer);
                                     const isLongAnswer = ansStr.length > 80;
                                     return (
                                       <div key={idx} className="cd-response-item" style={isLongAnswer ? { gridColumn: '1 / -1' } : {}}>

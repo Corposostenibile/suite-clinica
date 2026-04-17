@@ -71,6 +71,7 @@ from .filters import apply_customer_filters, parse_filter_args
 from .permissions import CustomerPerm, permission_required
 from .repository import customers_repo
 from .schemas import ClienteSchema
+from .initial_checks_utils import normalize_initial_check_responses
 from .services import (
     create_cliente,
     delete_cliente,
@@ -2779,6 +2780,7 @@ def api_initial_checks(cliente_id: int) -> Any:
         "url": None,
         "response_count": 0,
     }
+
     checks_payload = {
         "check_1": _empty_check(),
         "check_2": _empty_check(),
@@ -2795,7 +2797,7 @@ def api_initial_checks(cliente_id: int) -> Any:
         for idx in (1, 2, 3):
             key = f"check_{idx}"
             completed_at = getattr(lead, f"check{idx}_completed_at", None)
-            responses = getattr(lead, f"check{idx}_responses", None) or {}
+            responses = normalize_initial_check_responses(getattr(lead, f"check{idx}_responses", None))
             if completed_at or responses:
                 has_any_data = True
                 checks_payload[key]["completed_at"] = completed_at.isoformat() if completed_at else None
