@@ -3,7 +3,7 @@ RBAC helpers for client_checks: filter data by role (admin / team_leader / profe
 Used by api_azienda_stats and api_admin_dashboard_stats.
 """
 from flask_login import current_user
-from sqlalchemy import or_, and_
+from sqlalchemy import or_
 
 from corposostenibile.extensions import db
 from corposostenibile.models import (
@@ -97,17 +97,28 @@ def get_accessible_clients_query():
                 )
             )
         )
-    # Professionista: solo i propri clienti come nutrizionista (primario o M2M)
-    # NON includiamo coach, consulente_alimentare, psicologo per la nutrizione
-    # L'utente vede solo i clienti dove è assegnato come nutrizionista
+    # Professionista: propri clienti + history attiva + clienti con call bonus attive assegnate
+    cb_client_ids = _call_bonus_client_ids_for_user(current_user.id)
     return (
         db.session.query(Cliente.cliente_id)
         .filter(
             or_(
-                # Direct: this user is the primary nutrizionista
                 Cliente.nutrizionista_id == current_user.id,
-                # M2M: this user is in cliente_nutrizionisti (nutrizionista di riferimento)
+                Cliente.coach_id == current_user.id,
+                Cliente.psicologa_id == current_user.id,
+                Cliente.consulente_alimentare_id == current_user.id,
                 Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
+                Cliente.coaches_multipli.any(User.id == current_user.id),
+                Cliente.psicologi_multipli.any(User.id == current_user.id),
+                Cliente.consulenti_multipli.any(User.id == current_user.id),
+                Cliente.cliente_id.in_(cb_client_ids),
+                db.session.query(ClienteProfessionistaHistory.cliente_id)
+                .filter(
+                    ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
+                    ClienteProfessionistaHistory.user_id == current_user.id,
+                    ClienteProfessionistaHistory.is_active == True,
+                )
+                .exists(),
             )
         )
     )
