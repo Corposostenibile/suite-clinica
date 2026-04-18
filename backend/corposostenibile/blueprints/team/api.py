@@ -1314,7 +1314,14 @@ def api_get_professionals_criteria():
         User.is_active == True
     )
 
-    if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+    # HM team leaders oversee Health Managers but need full visibility on
+    # nutrizionisti/coach/psicologi (their HM team contains no such profs).
+    # Other (non-HM, non-admin) team leaders remain scoped to their team members.
+    if (
+        not _can_view_all_team_module_data(current_user)
+        and _get_user_role(current_user) == 'team_leader'
+        and not _is_health_manager_team_leader(current_user)
+    ):
         led_team_ids = [t.id for t in (current_user.teams_led or []) if getattr(t, 'is_active', True)]
         if not led_team_ids:
             return jsonify({'success': True, 'professionals': []})
@@ -1630,15 +1637,22 @@ def api_match_professionals():
     Input: { "criteria": ["TAG1", "TAG2"] }
     Output: { "success": true, "matches": { "nutrizione": [...], ... } }
     """
-    data = request.get_json()
-    criteria = data.get('criteria', [])
-    
+    data = request.get_json() or {}
+    criteria = data.get('criteria') or []
+
     from .ai_matching_service import AIMatchingService
     try:
         matches = AIMatchingService.match_professionals(criteria)
 
-        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+        # HM team leaders must see all professionals across specialties
+        # (their HM team doesn't contain nutrizionisti/coach/psicologi).
+        if (
+            not _can_view_all_team_module_data(current_user)
+            and _get_user_role(current_user) == 'team_leader'
+            and not _is_health_manager_team_leader(current_user)
+        ):
             allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            pre_counts = {k: len(v) for k, v in (matches or {}).items() if isinstance(v, list)}
             filtered_matches = {}
             for role_key, candidates in (matches or {}).items():
                 if isinstance(candidates, list):
@@ -1649,13 +1663,18 @@ def api_match_professionals():
                 else:
                     filtered_matches[role_key] = candidates
             matches = filtered_matches
+            post_counts = {k: len(v) for k, v in matches.items() if isinstance(v, list)}
+            current_app.logger.info(
+                f"api_match_professionals: team_leader RBAC applied for user {current_user.id}. "
+                f"Before filter: {pre_counts}, after filter: {post_counts}, allowed_ids count={len(allowed_ids)}"
+            )
 
         return jsonify({
             'success': True,
             'matches': matches
         })
     except Exception as e:
-        current_app.logger.error(f"Error matching professionals: {e}")
+        current_app.logger.exception(f"Error matching professionals for user {current_user.id}: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -1742,7 +1761,11 @@ def api_confirm_assignment():
         if not cliente:
             return jsonify({'success': False, 'message': 'Cliente non trovato'}), 404
             
-        if not _can_view_all_team_module_data(current_user) and _get_user_role(current_user) == 'team_leader':
+        if (
+            not _can_view_all_team_module_data(current_user)
+            and _get_user_role(current_user) == 'team_leader'
+            and not _is_health_manager_team_leader(current_user)
+        ):
             allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
             requested_prof_ids = {
                 pid for pid in [

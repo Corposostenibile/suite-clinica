@@ -170,6 +170,11 @@ class AIMatchingService:
             User.is_active == True
         ).all()
 
+        logger.info(
+            f"match_professionals: criteria={len(criteria_list)} tags, "
+            f"fetched {len(professionals)} active professionals across target specialties"
+        )
+
         # 1b. Fetch capacity data for all professionals
         prof_ids = [p.id for p in professionals]
         capacities = ProfessionistCapacity.query.filter(
@@ -202,6 +207,13 @@ class AIMatchingService:
         # 2. Score Matching (skip professionals marked as unavailable)
         for prof in professionals:
             ai_notes = prof.assignment_ai_notes or {}
+            if isinstance(ai_notes, str):
+                try:
+                    ai_notes = json.loads(ai_notes) or {}
+                except (json.JSONDecodeError, TypeError):
+                    ai_notes = {}
+            if not isinstance(ai_notes, dict):
+                ai_notes = {}
             if not ai_notes.get('disponibile_assegnazioni', True):
                 continue
             # Determine category
@@ -220,6 +232,13 @@ class AIMatchingService:
                 
             # Calculate Score
             prof_criteria = prof.assignment_criteria or {}
+            if isinstance(prof_criteria, str):
+                try:
+                    prof_criteria = json.loads(prof_criteria) or {}
+                except (json.JSONDecodeError, TypeError):
+                    prof_criteria = {}
+            if not isinstance(prof_criteria, dict):
+                prof_criteria = {}
             
             # Valid criteria for this prof's role
             role_valid_criteria = CriteriaService.get_criteria_for_role(spec_val)
@@ -275,5 +294,10 @@ class AIMatchingService:
         # 3. Sort by Score DESC
         for cat in results:
             results[cat].sort(key=lambda x: x['score'], reverse=True)
-            
+
+        logger.info(
+            f"match_professionals result: nutrizione={len(results['nutrizione'])}, "
+            f"coach={len(results['coach'])}, psicologia={len(results['psicologia'])}"
+        )
+
         return results

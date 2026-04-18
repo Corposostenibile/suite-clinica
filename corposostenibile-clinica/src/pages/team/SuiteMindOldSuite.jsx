@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Spinner, Button, Form } from 'react-bootstrap';
+import { Spinner, Button, Form, Alert } from 'react-bootstrap';
 import api from '../../services/api';
 import oldSuiteService from '../../services/oldSuiteService';
 import './SuiteMindAssignment.css';
@@ -40,6 +40,8 @@ function SuiteMindOldSuite() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [aiMatches, setAiMatches] = useState(null);
+  const [matchLoading, setMatchLoading] = useState(false);
+  const [matchError, setMatchError] = useState('');
   const [selectedMatches, setSelectedMatches] = useState({ nutrition: '', coach: '', psychology: '' });
   const [assignmentNotes, setAssignmentNotes] = useState('');
   const [onboardingNotes, setOnboardingNotes] = useState(location.state?.lead?.onboarding_notes || '');
@@ -109,6 +111,7 @@ function SuiteMindOldSuite() {
     setActiveRoleFlow(role);
     setAiAnalysis(null);
     setAiMatches(null);
+    setMatchError('');
     setHasNewInteraction(false);
 
     const existing = selectedLead?.ai_analysis;
@@ -154,19 +157,27 @@ function SuiteMindOldSuite() {
   };
 
   const handleRunMatching = async (criteria) => {
+    setMatchLoading(true);
+    setMatchError('');
     try {
-      const resMatch = await api.post('/team/assignments/match', { criteria });
+      const resMatch = await api.post('/team/assignments/match', { criteria: criteria || [] });
       if (resMatch.data.success) {
-        const matches = resMatch.data.matches;
+        const matches = resMatch.data.matches || {};
         setAiMatches(matches);
         setSelectedMatches({
           nutrition: matches.nutrizione?.[0]?.id || '',
           coach: matches.coach?.[0]?.id || '',
           psychology: matches.psicologia?.[0]?.id || ''
         });
+      } else {
+        setMatchError(resMatch.data.message || 'Matching non riuscito');
       }
     } catch (err) {
       console.error("Errore Matching:", err);
+      const serverMsg = err?.response?.data?.message;
+      setMatchError(serverMsg || err?.message || 'Errore durante il matching dei professionisti');
+    } finally {
+      setMatchLoading(false);
     }
   };
 
@@ -261,36 +272,57 @@ function SuiteMindOldSuite() {
     const selectedValue = selectedMatches[role];
     const selectedMatch = matchList.find(p => p.id == selectedValue);
     const deptKey = role === 'nutrition' ? 'nutrizione' : (role === 'psychology' ? 'psicologia' : 'coach');
+    const fallbackList = professionals.filter(
+      (p) => !matchList.find((m) => m.id === p.id) && DEPT_ROLE_MAP[p.department_id] === deptKey && p.is_available !== false
+    );
+    const isEmpty = !matchLoading && !matchError && matchList.length === 0 && fallbackList.length === 0;
 
     return (
       <div className={`sm-match-section sm-match-${colorVariant}`}>
         <div className="sm-match-header">
           <div className={`sm-match-icon sm-match-icon-${colorVariant}`}><i className={icon}></i></div>
           <h5 className="sm-match-title">Assegnazione {label}</h5>
-          {aiAnalysis && <span className="sm-ai-badge">AI MATCHED</span>}
+          {aiAnalysis && matchList.length > 0 && <span className="sm-ai-badge">AI MATCHED</span>}
         </div>
 
         <div className="sm-match-body">
           <label className="sm-select-label">Professionista Consigliato</label>
-          <Form.Select
-            size="lg"
-            value={selectedValue}
-            onChange={(e) => { setSelectedMatches({ ...selectedMatches, [role]: e.target.value }); setHasNewInteraction(true); }}
-            className={`sm-select sm-select-${colorVariant}`}
-          >
-            <option value="">{selectPlaceholder}</option>
-            {matchList.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name} (Match: {p.score}%) — Capienza: {p.capacity ? `${Math.round(p.capacity.percentage)}%` : '—'}
-              </option>
-            ))}
-            {matchList.length > 0 && <option disabled>──────────</option>}
-            {professionals.filter(p => !matchList.find(m => m.id === p.id) && (DEPT_ROLE_MAP[p.department_id] === deptKey) && p.is_available !== false).map(p => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.capacity ? ` — Capienza: ${Math.round(p.capacity.percentage)}%` : ''}
-              </option>
-            ))}
-          </Form.Select>
+          {matchLoading ? (
+            <div className="d-flex align-items-center gap-2 text-muted py-2">
+              <Spinner size="sm" animation="border" />
+              <span>Ricerca professionisti in corso...</span>
+            </div>
+          ) : matchError ? (
+            <Alert variant="danger" className="mb-0 py-2 px-3" style={{ fontSize: '13px' }}>
+              <i className="ri-error-warning-line me-2"></i>
+              Errore matching: {matchError}
+            </Alert>
+          ) : isEmpty ? (
+            <Alert variant="warning" className="mb-0 py-2 px-3" style={{ fontSize: '13px' }}>
+              <i className="ri-information-line me-2"></i>
+              Nessun professionista disponibile per questo ruolo. Verifica che i {label.toLowerCase()} siano attivi e impostati come "disponibili per assegnazioni".
+            </Alert>
+          ) : (
+            <Form.Select
+              size="lg"
+              value={selectedValue}
+              onChange={(e) => { setSelectedMatches({ ...selectedMatches, [role]: e.target.value }); setHasNewInteraction(true); }}
+              className={`sm-select sm-select-${colorVariant}`}
+            >
+              <option value="">{selectPlaceholder}</option>
+              {matchList.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (Match: {p.score}%) — Capienza: {p.capacity ? `${Math.round(p.capacity.percentage)}%` : '—'}
+                </option>
+              ))}
+              {matchList.length > 0 && fallbackList.length > 0 && <option disabled>──────────</option>}
+              {fallbackList.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.capacity ? ` — Capienza: ${Math.round(p.capacity.percentage)}%` : ''}
+                </option>
+              ))}
+            </Form.Select>
+          )}
         </div>
 
         {selectedMatch?.capacity && (
