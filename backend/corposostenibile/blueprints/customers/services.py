@@ -1364,14 +1364,25 @@ def apply_role_filtering(query):
         return query
         
     user_role = getattr(current_user, 'role', None)
-    
+
     specialty = getattr(current_user, 'specialty', None)
     if hasattr(specialty, 'value'):
         specialty = specialty.value
     is_cco = str(specialty).strip().lower() == 'cco' if specialty else False
 
-    # Admin/CCO/Health Manager: vede tutto e modifica tutto
-    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco or user_role == UserRoleEnum.health_manager:
+    # Un Team Leader che guida un team Health Manager deve vedere tutto:
+    # il suo team contiene solo HM, quindi il filtro per FK clinica non
+    # matcherebbe quasi nulla. Allineato al comportamento di HM regolare.
+    is_hm_tl = False
+    if user_role == UserRoleEnum.team_leader:
+        for team in (getattr(current_user, 'teams_led', []) or []):
+            team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+            if str(team_type or '').strip().lower() == 'health_manager':
+                is_hm_tl = True
+                break
+
+    # Admin/CCO/Health Manager/HM Team Leader: vede tutto e modifica tutto
+    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco or user_role == UserRoleEnum.health_manager or is_hm_tl:
         return query
     
     # Team Leader: vede i pazienti assegnati ai membri del suo team
