@@ -68,6 +68,14 @@ const oldSuiteService = {
   },
 
   /**
+   * Update client story manually on a lead
+   */
+  async updateStoria(leadId, clientStory) {
+    const response = await oldSuiteApi.patch(`/leads/${leadId}/story`, { client_story: clientStory });
+    return response.data;
+  },
+
+  /**
    * Confirm assignment for a lead (converts to Cliente)
    */
   async confirmAssignment(payload) {

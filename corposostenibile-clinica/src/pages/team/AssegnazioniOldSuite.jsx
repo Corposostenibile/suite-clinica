@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Spinner, Alert, Button, Modal, Form } from 'react-bootstrap';
 import oldSuiteService from '../../services/oldSuiteService';
+import teamService from '../../services/teamService';
 import './AssegnazioniOldSuite.css';
 
 /**
@@ -52,6 +53,15 @@ function AssegnazioniOldSuite() {
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkError, setCheckError] = useState('');
   const [checkResponse, setCheckResponse] = useState(null);
+
+  // Modal inserimento manuale storia + assegnazione professionisti
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualLead, setManualLead] = useState(null);
+  const [manualStory, setManualStory] = useState('');
+  const [manualProfs, setManualProfs] = useState({ nutritionist_id: '', coach_id: '', psychologist_id: '' });
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualError, setManualError] = useState('');
+  const [availableProfs, setAvailableProfs] = useState({ nutrizione: [], coach: [], psicologia: [] });
 
   // Toast
   const [toastState, setToastState] = useState({ show: false, message: '' });
@@ -204,6 +214,54 @@ function AssegnazioniOldSuite() {
     );
   };
 
+  // --- MANUAL STORY + ASSIGNMENT ---
+
+  const handleOpenManualModal = async (lead) => {
+    setManualLead(lead);
+    setManualStory(lead.client_story || '');
+    setManualProfs({ nutritionist_id: '', coach_id: '', psychologist_id: '' });
+    setManualError('');
+    setAvailableProfs({ nutrizione: [], coach: [], psicologia: [] });
+    setShowManualModal(true);
+    const roles = lead.package_roles || {};
+    const [n, c, p] = await Promise.all([
+      roles.nutrition ? teamService.getAvailableProfessionals('nutrizione') : Promise.resolve({ professionals: [] }),
+      roles.coach ? teamService.getAvailableProfessionals('coach') : Promise.resolve({ professionals: [] }),
+      roles.psychology ? teamService.getAvailableProfessionals('psicologia') : Promise.resolve({ professionals: [] }),
+    ]);
+    setAvailableProfs({
+      nutrizione: n.professionals || [],
+      coach: c.professionals || [],
+      psicologia: p.professionals || [],
+    });
+  };
+
+  const handleManualSave = async () => {
+    if (!manualStory.trim()) { setManualError('Inserisci la storia del cliente'); return; }
+    setManualLoading(true);
+    setManualError('');
+    try {
+      await oldSuiteService.updateStoria(manualLead.id, manualStory);
+      const hasProfs = manualProfs.nutritionist_id || manualProfs.coach_id || manualProfs.psychologist_id;
+      if (hasProfs) {
+        const payload = { lead_id: manualLead.id };
+        if (manualProfs.nutritionist_id) payload.nutritionist_id = Number(manualProfs.nutritionist_id);
+        if (manualProfs.coach_id) payload.coach_id = Number(manualProfs.coach_id);
+        if (manualProfs.psychologist_id) payload.psychologist_id = Number(manualProfs.psychologist_id);
+        await oldSuiteService.confirmAssignment(payload);
+      }
+      setShowManualModal(false);
+      fetchLeads();
+      const msg = hasProfs ? 'Storia salvata e professionisti assegnati!' : 'Storia del cliente salvata!';
+      setToastState({ show: true, message: msg });
+      setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2500);
+    } catch (err) {
+      setManualError(err?.response?.data?.message || 'Errore nel salvataggio');
+    } finally {
+      setManualLoading(false);
+    }
+  };
+
   // --- RENDER ---
 
   return (
@@ -300,11 +358,17 @@ function AssegnazioniOldSuite() {
                       <span className="pkg-badge">{lead.package_code || lead.package_name}</span>
                       {lead.duration_days > 0 && <span style={{ fontSize: '11px', color: '#94a3b8' }}>{lead.duration_days}gg</span>}
                     </div>
-                    {lead.client_story && (
-                      <button className="btn-storia" onClick={() => { setSelectedLead(lead); setShowStoriaModal(true); }}>
-                        <i className="ri-file-text-line"></i> Storia Cliente
+                    <div className="d-flex align-items-center gap-2 flex-wrap mt-1">
+                      {lead.client_story && (
+                        <button className="btn-storia" onClick={() => { setSelectedLead(lead); setShowStoriaModal(true); }}>
+                          <i className="ri-file-text-line"></i> Storia Cliente
+                        </button>
+                      )}
+                      <button className="btn-storia" style={lead.client_story ? { background: 'transparent', border: '1px dashed #94a3b8', color: '#64748b' } : {}} onClick={() => handleOpenManualModal(lead)}>
+                        <i className={lead.client_story ? 'ri-edit-line' : 'ri-add-line'}></i>
+                        {lead.client_story ? 'Modifica Storia' : 'Aggiungi Storia'}
                       </button>
-                    )}
+                    </div>
                     <div className="patient-meta">
                       {lead.email && <span><i className="ri-mail-line"></i><a href={`mailto:${lead.email}`}>{lead.email}</a></span>}
                       {lead.phone && <span><i className="ri-phone-line"></i><a href={`tel:${lead.phone}`}>{lead.phone}</a></span>}
@@ -405,6 +469,82 @@ function AssegnazioniOldSuite() {
           </div>
         </div>
       )}
+
+      {/* Modal inserimento manuale storia + assegnazione */}
+      <Modal show={showManualModal} onHide={() => !manualLoading && setShowManualModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {manualLead?.client_story ? 'Modifica Storia del Cliente' : 'Aggiungi Storia del Cliente'}
+            {manualLead && <small className="text-muted ms-2 fs-6">— {manualLead.full_name}</small>}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {manualError && <Alert variant="danger" className="mb-3">{manualError}</Alert>}
+          <Form.Group className="mb-4">
+            <Form.Label className="fw-semibold">Storia del Cliente</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={7}
+              placeholder="Inserisci la storia del cliente..."
+              value={manualStory}
+              onChange={(e) => setManualStory(e.target.value)}
+              disabled={manualLoading}
+            />
+          </Form.Group>
+
+          {manualLead && (
+            <>
+              <hr />
+              <div className="mb-2 fw-semibold text-muted" style={{ fontSize: '13px' }}>
+                Assegnazione professionisti (opzionale)
+              </div>
+              {manualLead.package_roles?.nutrition && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Nutrizionista</Form.Label>
+                  <Form.Select value={manualProfs.nutritionist_id} onChange={(e) => setManualProfs(p => ({ ...p, nutritionist_id: e.target.value }))} disabled={manualLoading}>
+                    <option value="">— Non assegnare ora —</option>
+                    {availableProfs.nutrizione.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || `${u.first_name} ${u.last_name}`}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              )}
+              {manualLead.package_roles?.coach && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Coach</Form.Label>
+                  <Form.Select value={manualProfs.coach_id} onChange={(e) => setManualProfs(p => ({ ...p, coach_id: e.target.value }))} disabled={manualLoading}>
+                    <option value="">— Non assegnare ora —</option>
+                    {availableProfs.coach.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || `${u.first_name} ${u.last_name}`}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              )}
+              {manualLead.package_roles?.psychology && (
+                <Form.Group className="mb-3">
+                  <Form.Label>Psicologa</Form.Label>
+                  <Form.Select value={manualProfs.psychologist_id} onChange={(e) => setManualProfs(p => ({ ...p, psychologist_id: e.target.value }))} disabled={manualLoading}>
+                    <option value="">— Non assegnare ora —</option>
+                    {availableProfs.psicologia.map(u => (
+                      <option key={u.id} value={u.id}>{u.full_name || `${u.first_name} ${u.last_name}`}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowManualModal(false)} disabled={manualLoading}>Annulla</Button>
+          <Button variant="primary" onClick={handleManualSave} disabled={manualLoading || !manualStory.trim()}>
+            {manualLoading ? <><Spinner size="sm" className="me-2" />Salvataggio...</> : (
+              (manualProfs.nutritionist_id || manualProfs.coach_id || manualProfs.psychologist_id)
+                ? 'Salva e Assegna'
+                : 'Salva Storia'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       {/* Check Response Modal */}
       <Modal show={showCheckModal} onHide={() => setShowCheckModal(false)} size="lg">

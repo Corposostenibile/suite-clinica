@@ -475,6 +475,22 @@ def api_get_check_detail(lead_id, check_number):
     return jsonify({'success': True, 'data': data})
 
 
+@bp.route("/api/leads/<int:lead_id>/story", methods=["PATCH"])
+@login_required
+def api_update_lead_story(lead_id):
+    """Aggiornamento manuale della storia del cliente su una lead."""
+    lead = SalesLead.query.filter_by(id=lead_id, source_system='old_suite').first()
+    if not lead:
+        return jsonify({'success': False, 'message': 'Lead non trovata'}), 404
+    data = request.get_json() or {}
+    story = data.get('client_story', '').strip()
+    if not story:
+        return jsonify({'success': False, 'message': 'Storia vuota'}), 400
+    lead.client_story = story
+    db.session.commit()
+    return jsonify({'success': True, 'client_story': lead.client_story})
+
+
 @bp.route("/api/confirm-assignment", methods=["POST"])
 @login_required
 def api_confirm_assignment():
