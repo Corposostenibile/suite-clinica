@@ -65,6 +65,16 @@ def _is_cco_user(user) -> bool:
         specialty = specialty.value
     return str(specialty).strip().lower() == "cco" if specialty else False
 
+
+def _leads_hm_team(user) -> bool:
+    """True se l'utente guida almeno un team di tipo health_manager."""
+    teams_led = getattr(user, "teams_led", []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, "team_type", None), "value", getattr(team, "team_type", None))
+        if str(team_type or "").strip().lower() == "health_manager":
+            return True
+    return False
+
 # --------------------------------------------------------------------------- #
 #  Repository                                                                 #
 # --------------------------------------------------------------------------- #
@@ -138,15 +148,26 @@ class CustomerRepository:
         # -------------------------------------------------------------------
         if current_user.is_authenticated and not current_user.is_trial:
             user_role = getattr(current_user, 'role', None)
-            
-            # Admin/CCO/Health Manager: vede tutto (nessun filtro)
-            if user_role == UserRoleEnum.admin or current_user.is_admin or _is_cco_user(current_user) or user_role == UserRoleEnum.health_manager:
+
+            # Admin/CCO/Health Manager: vede tutto (nessun filtro).
+            # Anche un Team Leader che guida un team Health Manager bypassa il
+            # filtro: il suo team contiene solo HM (mai nutrizionisti/coach/
+            # psicologi), quindi il filtro per FK clinica non matcha niente
+            # e taglia fuori la quasi totalita' dei clienti. Comportamento
+            # coerente con HM regolare sulla stessa lista.
+            if (
+                user_role == UserRoleEnum.admin
+                or current_user.is_admin
+                or _is_cco_user(current_user)
+                or user_role == UserRoleEnum.health_manager
+                or (user_role == UserRoleEnum.team_leader and _leads_hm_team(current_user))
+            ):
                 pass  # Nessun filtro aggiuntivo
-            
+
             # Influencer: già gestito in routes.py
             elif user_role == UserRoleEnum.influencer:
                 pass  # Già filtrato dalle routes
-            
+
             # Team Leader: vede i pazienti assegnati ai membri del suo team
             elif user_role == UserRoleEnum.team_leader:
                 # Raccoglie tutti i member_ids dei team guidati + il team leader stesso
