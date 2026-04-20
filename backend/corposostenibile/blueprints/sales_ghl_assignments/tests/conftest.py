@@ -15,6 +15,7 @@ def app():
 
     app = create_app("development")
     app.config["WTF_CSRF_ENABLED"] = False
+    app.config["GHL_WEBHOOK_SECRET"] = "test-ghl-webhook-secret"
     app.config["MAIL_SUPPRESS_SEND"] = True
     with app.app_context():
         _db.create_all()

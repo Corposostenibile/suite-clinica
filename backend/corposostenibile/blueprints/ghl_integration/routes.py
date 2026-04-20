@@ -1942,7 +1942,6 @@ def api_webhook_urls():
         'base_url': base,
         'opportunity_data_url': f'{base}/ghl/webhook/opportunity-data',
         'acconto_open_url': f'{base}/ghl/webhook/acconto-open',
-        'ghl_leads_new_url': f'{base}/webhooks/ghl-leads/new',
     })
 
 

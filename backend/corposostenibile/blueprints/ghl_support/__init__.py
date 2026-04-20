@@ -13,7 +13,7 @@ location.id, …) e validato tramite JWT HS256 di sessione (vedi `embed.py`).
 
 Blueprint:
 - ``ghl_support_bp``        → ``/api/ghl-support``   (REST API, JWT richiesta)
-- ``ghl_support_hooks_bp``  → ``/webhooks/clickup-ghl`` e ``/webhooks/ghl-leads/new`` (HMAC)
+- ``ghl_support_hooks_bp``  → ``/webhooks/clickup-ghl`` (HMAC)
 
 Il frontend React serve la pagina iframe (route ``/ghl-embed/tickets``), legge
 i placeholder GHL dal query string, chiama ``POST /api/ghl-support/sso/exchange``
@@ -49,7 +49,7 @@ def init_app(app):
 
     app.logger.info(
         "[ghl_support] Blueprint registered "
-        "(prefix /api/ghl-support, /webhooks/clickup-ghl, /webhooks/ghl-leads/new)"
+        "(prefix /api/ghl-support, /webhooks/clickup-ghl)"
     )
 
 

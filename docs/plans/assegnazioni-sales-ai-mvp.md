@@ -5,104 +5,131 @@ Branch: `feature/assegnazioni-sales-ai-mvp`
 ## Obiettivo
 Portare in produzione un MVP del pannello **`/assegnazioni-ai`** per gestire le assegnazioni dei **Sales** a partire dai dati GHL.
 
-Il flusso tecnico di riferimento resta quello già usato nelle altre integrazioni GHL:
-**webhook → normalizzazione → salvataggio locale → API lista/dettaglio → azioni sul record**.
+Il flusso tecnico continua a distinguere due sorgenti:
 
-## Checklist
-### Stato già presente
-- [x] webhook GHL per `opportunity-data`
-- [x] entità locale `GHLOpportunityData`
-- [x] endpoint `GET /ghl/api/opportunity-data`
-- [x] endpoint `GET /ghl/api/opportunity-data/<id>`
-- [x] backend AI assignment già esistente in `team/api.py` con supporto a `opportunity_data_id`
-- [x] pagina `/assegnazioni-ai` con queue GHL reale
-- [x] dettaglio `/suitemind/:opportunityId` supporta refresh e deep-link
-- [x] `GHLOpportunityData` esteso con `sales_consultant`
-- [x] `GHLOpportunityData` esteso con `sales_person_id`
-- [x] `GHLOpportunityData` esteso con relazione `sales_person`
-- [x] webhook `opportunity-data` aggiornato per leggere i campi Sales dal payload GHL
-- [x] serializer aggiornato per esporre i campi Sales
-- [x] bridge `opportunity_bridge.py` mantiene i check iniziali e valorizza `health_manager_id`
-- [x] migration aggiunta per i campi Sales su `ghl_opportunity_data`
+- **legacy / AI assignments** → `GHLOpportunityData`
+- **nuovo lead intake GHL** → `SalesLead` con `source_system='ghl'`
 
-### Da completare per l’MVP
-- [x] ingestione GHL corretta
-- [x] salvataggio Sales owner
-- [x] lista/dettaglio affidabili
-- [x] confirm assignment funzionante da `opportunity_data_id`
-- [x] filtri utili sulla queue
-- [x] miglioramento permessi
-- [x] rifinitura payload del serializer
-- [x] UI completa del pannello
-- [x] ottimizzazioni UI/UX
-- [x] hardening aggiuntivo del webhook
-- [x] endpoint inbound dedicato per nuovi lead GHL con HMAC
+In pratica:
 
-### Task C.6
-- [x] migration `ai_analysis_snapshot` JSONB su `service_cliente_assignments`
-- [x] migration `ai_analysis_snapshot` JSONB su `sales_leads` e `sales_leads_version`
-- [x] snapshot popolato in confirm-assignment old_suite
-- [x] snapshot popolato in confirm-assignment GHL
-- [x] snapshot esposto nella lista assegnazioni GHL
+- `GHLOpportunityData` resta la source per il flusso storico `opportunity-data` e per gli endpoint AI già esistenti.
+- `SalesLead` è diventato il contenitore canonico del nuovo intake GHL sales.
 
-## Fonte dati MVP
-La fonte dati unica per l’MVP è **`GHLOpportunityData`**.
+---
 
-Campi rilevanti:
-- `nome`
+## Stato task: tabella completa
+
+| Task | Stato | Cosa è stato fatto davvero | Note |
+|---|---|---|---|
+| **A.1 — Backend: blueprint sales_ghl_assignments (`/api/ghl-assignments`)** | **done** | Creato `backend/corposostenibile/blueprints/sales_ghl_assignments/` con endpoint `GET /api/ghl-assignments` | La lista ora è basata su `SalesLead` GHL, non su `ServiceClienteAssignment` |
+| **A.2 — Backend: SSO JWT adapter sales (scope=sales, email to sales_user_id)** | **to do** | Non ancora implementato | Rimane il pezzo di autenticazione sales dedicata |
+| **B.1 — Backend: endpoint `/webhooks/ghl-leads/new` con HMAC SHA-256** | **done** | Creato webhook inbound firmato HMAC e spostato nel blueprint sales dedicato | Salva il lead come `SalesLead` |
+| **B.2 — Backend: schema mapping payload GHL verso SalesLead** | **done** | Normalizzazione payload GHL → campi `SalesLead` | Supporta JSON, form-data e wrapper JSON |
+| **B.3 — Backend: matcher sales_user da email GHL (exact match)** | **done** | Matching esatto su `User.email` per `sales_user_id` | Niente fallback fuzzy sul nome per l’assegnazione |
+| **B.4 — Backend: integra schema payload GHL fornito da Matteo a Emanuele** | **done / adapter flessibile** | Il parser accetta alias multipli e mappe tolleranti | Se arriva uno schema rigidamente ufficiale, si può restringere il mapping |
+| **B.5 — Migration: source_system=ghl + index su sales_leads** | **done** | Il modello/migration esistente supporta `source_system` e l’indice; il nuovo flusso scrive `source_system='ghl'` | Nessun ulteriore cambio DB necessario per il nuovo intake |
+| **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
+
+---
+
+## Fonte dati MVP aggiornata
+
+Per il **nuovo intake GHL sales**, la fonte dati è **`SalesLead`**.
+
+Campi rilevanti per il nuovo flusso:
+
+- `first_name`
+- `last_name`
 - `email`
-- `lead_phone`
-- `health_manager_email`
-- `sales_consultant`
-- `sales_person_id`
-- `sales_person`
-- `storia`
-- `pacchetto`
-- `durata`
+- `phone`
+- `sales_user_id`
+- `health_manager_id`
+- `origin`
+- `client_story`
+- `custom_package_name`
+- `source_system`
+- `source_campaign`
+- `source_medium`
+- `source_url`
+- `referrer_url`
+- `landing_page`
+- `utm_source`
+- `utm_medium`
+- `utm_campaign`
+- `utm_term`
+- `utm_content`
+- `form_responses`
 - `ai_analysis`
-- `assignments`
-- `processed`
+- `ai_analysis_snapshot`
+- `status`
+- `archived_at`
+
+La source legacy resta `GHLOpportunityData` per il flusso storico `opportunity-data`.
+
+---
 
 ## Endpoint GHL
+
+### Legacy / AI flow
+
 `POST /ghl/webhook/opportunity-data`
 
-## Endpoint inbound nuovo per GHL lead intake
+### Nuovo lead intake sales
+
 `POST /webhooks/ghl-leads/new`
 
-### URL completo da configurare in GHL
-Il webhook GHL dovrà puntare all’URL pubblico del backend con questo path:
+URL completo da configurare in GHL:
+
 - `https://<BASE_URL_PUBBLICO>/webhooks/ghl-leads/new`
 
 ### Sicurezza
+
 - firma HMAC SHA-256 sul body
 - secret condiviso: `GHL_WEBHOOK_SECRET`
-- header firma: quello supportato dal backend (es. `X-GHL-Signature`)
+- header firma supportati: `X-GHL-Signature`, `X-Webhook-Signature`, `X-Hub-Signature-256`, `X-Signature`
 
-### Nota operativa
-Questo endpoint non sostituisce `POST /ghl/webhook/opportunity-data`: lo affianca come ingresso dedicato per il nuovo flusso lead → salvataggio → assegnazioni.
+---
 
-### Formati accettati
-Il backend accetta JSON e form-data. I dati possono arrivare in:
-- `opportunity.custom_fields`
-- `opportunity.customData`
-- `custom_fields`
-- `customData`
-- campi top-level
-- `contact`
+## Mapping payload GHL → SalesLead
 
 ### Campi minimi richiesti
-- `name` / `nome` → nome cliente
-- `email` → email cliente
-- `phone` / `telefono` → telefono cliente
-- `sales_consultant` → nome sales di riferimento
 
-### Campi utili opzionali
+- `first_name` / `nome`
+- `last_name` / `cognome`
+- `email`
+- `phone` / `telefono`
+- `sales_user_email` consigliato per il matching esatto del sales user
+
+### Campi opzionali supportati
+
 - `health_manager_email`
 - `storia`
 - `pacchetto`
-- `durata`
+- `origin`
+- `source_campaign`
+- `source_medium`
+- `source_url`
+- `referrer_url`
+- `landing_page`
+- `utm_source`
+- `utm_medium`
+- `utm_campaign`
+- `utm_term`
+- `utm_content`
 
-### Alias supportati per il sales owner
+### Alias per sales_user_email
+
+- `sales_user_email`
+- `sales_owner_email`
+- `sales_person_email`
+- `sales_consultant_email`
+- `owner_email`
+- `consultant_email`
+- `sales_user.email`
+
+### Alias testuali per debug / audit
+
+- `sales_consultant`
 - `sales_person`
 - `sales_user`
 - `sales_owner`
@@ -111,54 +138,32 @@ Il backend accetta JSON e form-data. I dati possono arrivare in:
 - `owner`
 - `consulente`
 
-### Regola operativa
-Il record non deve dipendere da un formato rigido: basta mantenere uno degli alias supportati e il backend continuerà a normalizzare i dati.
+### Regole operative
 
-### Responsabilità lato GHL
-- configurare il webhook verso `POST /ghl/webhook/opportunity-data`
-- compilare i campi custom con gli alias supportati
-- garantire almeno `nome`, `email`, `telefono`, `sales_consultant`
-- mantenere stabile il mapping dei campi quando possibile
+- il record **non dipende** da un formato rigido
+- il matching del sales user è **exact match** su email normalizzata
+- il matching dell’HM è anch’esso per email normalizzata
+- il lead viene salvato con `source_system='ghl'`
+- se possibile vengono generati i 3 link check
 
-### Esempio payload JSON
-```json
-{
-  "event_type": "opportunity.data_ready",
-  "timestamp": "2026-04-20T10:30:00Z",
-  "opportunity": {
-    "id": "opp_123456",
-    "status": "new",
-    "pipeline_name": "Sales Pipeline",
-    "custom_fields": {
-      "nome": "Mario Rossi",
-      "email": "mario.rossi@example.com",
-      "telefono": "+39 333 1234567",
-      "sales_consultant": "Luca Bianchi",
-      "health_manager_email": "hm@example.com",
-      "pacchetto": "Premium 90 giorni",
-      "durata": "90",
-      "storia": "Lead generato da campagne Ads"
-    }
-  },
-  "contact": {
-    "id": "contact_987654",
-    "name": "Mario Rossi",
-    "email": "mario.rossi@example.com",
-    "phone": "+39 333 1234567"
-  }
-}
-```
+---
 
 ## Controllo finale
+
 - [x] build frontend OK
 - [x] test backend GHL OK
 - [x] queue e deep-link verificati
 - [x] ACL e filtri verificati
 - [x] webhook di prova eseguiti con successo
 - [x] flow AI end-to-end verificato con script dedicato
+- [x] nuovo intake GHL sales salvato come `SalesLead`
+- [x] endpoint `/api/ghl-assignments` allineato al nuovo modello Sales
 
-## Webhook di prova
-Script dedicato per testare il webhook GHL sales AI:
+---
+
+## Webhook di prova legacy
+
+Script dedicato per testare il webhook GHL sales AI legacy:
 - `backend/test_ghl_opportunity_data_webhooks.py`
 
 Casi coperti:
@@ -167,14 +172,23 @@ Casi coperti:
 - form-data con `customData` serializzato in JSON
 
 Esecuzione:
+
 ```bash
 cd backend && python test_ghl_opportunity_data_webhooks.py
 ```
 
-## Task A.1 effettivamente implementato
-- [x] blueprint alias `sales_ghl_assignments`
-- [x] endpoint `GET /api/ghl-assignments`
-- [x] risposta allineata a `GET /ghl/api/assignments`
-- [x] permessi ACL riutilizzati (`ghl:view_assignments`)
-- [x] test runtime di equivalenza tra alias e endpoint legacy
+---
 
+## Test del nuovo intake SalesLead
+
+```bash
+cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignments/tests/test_sales_ghl_assignments.py -q
+```
+
+---
+
+## Prossimi passi
+
+1. Implementare **A.2**: SSO JWT sales con scope dedicato e mapping email → `sales_user_id`
+2. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales
+3. Se arriva lo schema finale ufficiale da Matteo/Emanuele, rifinire il mapping del payload
