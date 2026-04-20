@@ -6,6 +6,7 @@ Webhook receiver + API endpoints per il frontend Assegnazioni Old Suite.
 
 import logging
 from datetime import datetime
+from copy import deepcopy
 
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
@@ -536,17 +537,22 @@ def api_confirm_assignment():
             lead.loom_link = data['loom_link']
 
         # Salva AI analysis
-        if data.get('ai_analysis'):
+        ai_analysis_payload = data.get('ai_analysis') if 'ai_analysis' in data else None
+        if ai_analysis_payload is not None:
             if not lead.ai_analysis:
                 lead.ai_analysis = {}
             # Merge: non sovrascrivere analisi di altri ruoli
-            if isinstance(data['ai_analysis'], dict):
+            if isinstance(ai_analysis_payload, dict):
                 current_ai = dict(lead.ai_analysis) if lead.ai_analysis else {}
-                current_ai.update(data['ai_analysis'])
+                current_ai.update(ai_analysis_payload)
                 lead.ai_analysis = current_ai
             else:
-                lead.ai_analysis = data['ai_analysis']
+                lead.ai_analysis = ai_analysis_payload
             lead.ai_analyzed_at = datetime.utcnow()
+
+        ai_analysis_snapshot = ai_analysis_payload if ai_analysis_payload is not None else lead.ai_analysis
+        if ai_analysis_snapshot is not None:
+            lead.ai_analysis_snapshot = deepcopy(ai_analysis_snapshot)
 
         # 2. Verifica se TUTTI i ruoli richiesti dal pacchetto sono assegnati
         parsed_pkg = parse_package_name(lead.custom_package_name)

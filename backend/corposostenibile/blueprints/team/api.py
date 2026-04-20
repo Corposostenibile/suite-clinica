@@ -7,6 +7,7 @@ All endpoints are prefixed with /api/team.
 
 import os
 import uuid
+from copy import deepcopy
 from datetime import datetime
 from http import HTTPStatus
 from flask import Blueprint, jsonify, request, current_app
@@ -1740,6 +1741,7 @@ def api_confirm_assignment():
         
     try:
         assignment = None
+        opp_data = None
         
         # Se abbiamo assignment_id, usiamolo direttamente
         if assignment_id:
@@ -1810,9 +1812,18 @@ def api_confirm_assignment():
                 return jsonify({'success': False, 'message': 'Puoi assegnare solo professionisti dei tuoi team'}), 403
 
         # Update assignment
-        if data.get('ai_analysis'):
-            assignment.ai_analysis = data.get('ai_analysis')
+        ai_analysis_payload = data.get('ai_analysis') if 'ai_analysis' in data else None
+        if ai_analysis_payload is not None:
+            assignment.ai_analysis = ai_analysis_payload
             assignment.ai_suggested_at = datetime.utcnow()
+
+        ai_analysis_snapshot = ai_analysis_payload
+        if ai_analysis_snapshot is None:
+            ai_analysis_snapshot = getattr(assignment, 'ai_analysis', None)
+        if ai_analysis_snapshot is None and opp_data is not None:
+            ai_analysis_snapshot = getattr(opp_data, 'ai_analysis', None)
+        if ai_analysis_snapshot is not None:
+            assignment.ai_analysis_snapshot = deepcopy(ai_analysis_snapshot)
             
         if data.get('nutritionist_id'):
             assignment.nutrizionista_assigned_id = data.get('nutritionist_id')

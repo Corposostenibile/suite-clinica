@@ -971,6 +971,7 @@ def api_assignments():
         'coach_assigned': ass.coach_assigned_id is not None,
         'psicologa_assigned': ass.psicologa_assigned_id is not None,
         'ai_analysis': ass.ai_analysis,
+        'ai_analysis_snapshot': ass.ai_analysis_snapshot,
         'created_at': ass.created_at.isoformat() if ass.created_at else None
     } for ass in assignments]
 

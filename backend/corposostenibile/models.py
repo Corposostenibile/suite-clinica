@@ -10588,6 +10588,7 @@ class ServiceClienteAssignment(TimestampMixin, db.Model):
 
     # AI Assignment metadata
     ai_analysis = db.Column(JSONB)
+    ai_analysis_snapshot = db.Column(JSONB)
     ai_suggestions = db.Column(JSONB)
     ai_suggested_at = db.Column(db.DateTime)
     ai_model_version = db.Column(db.String(50))

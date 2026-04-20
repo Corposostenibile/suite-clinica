@@ -270,6 +270,7 @@ function AssegnazioniAI() {
                     <Row className="g-2">
                       <Col md={6}><strong>Email:</strong> {item.email || 'N/D'}</Col>
                       <Col md={6}><strong>Telefono:</strong> {item.lead_phone || 'N/D'}</Col>
+                      <Col md={6}><strong>Sales:</strong> {item.sales_person?.full_name || item.sales_consultant || 'N/D'}</Col>
                       <Col md={6}><strong>Pacchetto:</strong> {item.pacchetto || 'N/D'}</Col>
                       <Col md={6}><strong>Durata:</strong> {item.durata || 'N/D'}</Col>
                       <Col md={6}><strong>HM:</strong> {item.health_manager_email || 'N/D'}</Col>

@@ -37,6 +37,12 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 - [x] ottimizzazioni UI/UX
 - [x] hardening aggiuntivo del webhook
 
+### Task C.6
+- [x] migration `ai_analysis_snapshot` JSONB su `service_cliente_assignments`
+- [x] snapshot popolato in confirm-assignment old_suite
+- [x] snapshot popolato in confirm-assignment GHL
+- [x] snapshot esposto nella lista assegnazioni GHL
+
 ## Fonte dati MVP
 La fonte dati unica per l’MVP è **`GHLOpportunityData`**.
 
