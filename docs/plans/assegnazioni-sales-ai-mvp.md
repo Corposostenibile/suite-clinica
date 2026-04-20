@@ -36,6 +36,7 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 - [x] UI completa del pannello
 - [x] ottimizzazioni UI/UX
 - [x] hardening aggiuntivo del webhook
+- [x] endpoint inbound dedicato per nuovi lead GHL con HMAC
 
 ### Task C.6
 - [x] migration `ai_analysis_snapshot` JSONB su `service_cliente_assignments`
@@ -64,6 +65,21 @@ Campi rilevanti:
 
 ## Endpoint GHL
 `POST /ghl/webhook/opportunity-data`
+
+## Endpoint inbound nuovo per GHL lead intake
+`POST /webhooks/ghl-leads/new`
+
+### URL completo da configurare in GHL
+Il webhook GHL dovrà puntare all’URL pubblico del backend con questo path:
+- `https://<BASE_URL_PUBBLICO>/webhooks/ghl-leads/new`
+
+### Sicurezza
+- firma HMAC SHA-256 sul body
+- secret condiviso: `GHL_WEBHOOK_SECRET`
+- header firma: quello supportato dal backend (es. `X-GHL-Signature`)
+
+### Nota operativa
+Questo endpoint non sostituisce `POST /ghl/webhook/opportunity-data`: lo affianca come ingresso dedicato per il nuovo flusso lead → salvataggio → assegnazioni.
 
 ### Formati accettati
 Il backend accetta JSON e form-data. I dati possono arrivare in:
