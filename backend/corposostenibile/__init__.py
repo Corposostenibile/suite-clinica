@@ -386,6 +386,7 @@ def create_app(config_name: str | None = None) -> Flask:
         push_notifications,  # AGGIUNTO: Import del blueprint Push Notifications
         it_support,  # AGGIUNTO: Import del blueprint IT Support (ClickUp bridge)
         ghl_support,  # AGGIUNTO: Import del blueprint GHL Support (ClickUp bridge via Custom Menu Link)
+        sales_ghl_assignments,  # AGGIUNTO: Alias blueprint per /api/ghl-assignments
     )
 
 
@@ -427,6 +428,7 @@ def create_app(config_name: str | None = None) -> Flask:
     push_notifications.init_app(app)  # AGGIUNTO: Inizializzazione push notifications
     it_support.init_app(app)  # AGGIUNTO: Inizializzazione IT Support (ClickUp bridge)
     ghl_support.init_app(app)  # AGGIUNTO: Inizializzazione GHL Support (ClickUp bridge GHL embed)
+    sales_ghl_assignments.init_app(app)  # AGGIUNTO: Alias /api/ghl-assignments
 
 
     # Sales Form Blueprint

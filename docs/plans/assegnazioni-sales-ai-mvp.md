@@ -171,3 +171,10 @@ Esecuzione:
 cd backend && python test_ghl_opportunity_data_webhooks.py
 ```
 
+## Task A.1 effettivamente implementato
+- [x] blueprint alias `sales_ghl_assignments`
+- [x] endpoint `GET /api/ghl-assignments`
+- [x] risposta allineata a `GET /ghl/api/assignments`
+- [x] permessi ACL riutilizzati (`ghl:view_assignments`)
+- [x] test runtime di equivalenza tra alias e endpoint legacy
+
