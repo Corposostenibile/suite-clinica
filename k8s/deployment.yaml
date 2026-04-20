@@ -112,7 +112,7 @@ spec:
         - name: UPLOAD_FOLDER
           value: "/var/corposostenibile/uploads"
         - name: MAX_UPLOAD_SIZE
-          value: "20971520"
+          value: "104857600"
         volumeMounts:
         - name: uploads-storage
           mountPath: /var/corposostenibile/uploads
