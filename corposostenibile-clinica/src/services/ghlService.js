@@ -222,8 +222,8 @@ const ghlService = {
   /**
    * Get all opportunity data received from webhooks
    */
-  async getOpportunityData() {
-    const response = await ghlApi.get('/opportunity-data');
+  async getOpportunityData(params = {}) {
+    const response = await ghlApi.get('/opportunity-data', { params });
     return response.data;
   },
 

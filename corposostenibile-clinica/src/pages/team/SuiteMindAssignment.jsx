@@ -320,6 +320,8 @@ function SuiteMindAssignment() {
   if (!selectedOpportunity) return null;
 
   const requirement = getLeadRequirements(selectedOpportunity);
+  const selectedSalesDisplay = selectedOpportunity.sales_person?.full_name || selectedOpportunity.sales_consultant || 'N/D';
+  const selectedStatus = selectedOpportunity.processed ? 'Processato' : 'Da lavorare';
 
   // --- Role selection card renderer ---
   const renderRoleCard = (role, icon, iconClass, label, description, colorVariant) => {
@@ -416,6 +418,35 @@ function SuiteMindAssignment() {
 
   return (
     <div className="sm-page">
+      {!assignmentSuccess && (
+        <div className="mb-4 p-4 bg-white border rounded-4 shadow-sm">
+          <div className="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+              <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
+                <Badge bg={selectedOpportunity.processed ? 'success' : 'warning'} className="rounded-pill">
+                  {selectedStatus}
+                </Badge>
+                {selectedOpportunity.sales_person?.full_name || selectedOpportunity.sales_consultant ? (
+                  <Badge bg="light" text="dark" className="rounded-pill border">
+                    <i className="ri-user-star-line me-1"></i>
+                    Sales: {selectedSalesDisplay}
+                  </Badge>
+                ) : null}
+              </div>
+              <h4 className="mb-1">{selectedOpportunity.nome || 'Lead senza nome'}</h4>
+              <div className="text-muted small">
+                ID {selectedOpportunity.id} · {selectedOpportunity.email || 'N/D'} · {selectedOpportunity.lead_phone || 'N/D'}
+              </div>
+            </div>
+            <div className="text-lg-end text-muted small">
+              <div><strong>Pacchetto:</strong> {selectedOpportunity.pacchetto || 'N/D'}</div>
+              <div><strong>Durata:</strong> {selectedOpportunity.durata || 'N/D'}</div>
+              <div><strong>Ricevuto:</strong> {formatDate(selectedOpportunity.received_at)}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* SCREEN: Role Selection */}
       {!activeRoleFlow && (
         <div className="sm-role-selection">

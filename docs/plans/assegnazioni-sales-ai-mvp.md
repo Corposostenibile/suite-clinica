@@ -33,8 +33,8 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 - [x] filtri utili sulla queue
 - [x] miglioramento permessi
 - [x] rifinitura payload del serializer
-- [ ] UI completa del pannello
-- [ ] ottimizzazioni UI/UX
+- [x] UI completa del pannello
+- [x] ottimizzazioni UI/UX
 - [x] hardening aggiuntivo del webhook
 
 ## Fonte dati MVP
