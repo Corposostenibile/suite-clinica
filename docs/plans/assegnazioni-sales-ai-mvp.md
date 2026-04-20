@@ -39,6 +39,7 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 
 ### Task C.6
 - [x] migration `ai_analysis_snapshot` JSONB su `service_cliente_assignments`
+- [x] migration `ai_analysis_snapshot` JSONB su `sales_leads` e `sales_leads_version`
 - [x] snapshot popolato in confirm-assignment old_suite
 - [x] snapshot popolato in confirm-assignment GHL
 - [x] snapshot esposto nella lista assegnazioni GHL

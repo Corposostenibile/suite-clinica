@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 ROUTES_FILE = Path(__file__).resolve().parents[1] / "routes.py"
+MODELS_FILE = Path(__file__).resolve().parents[3] / "models.py"
 
 
 def _load_tree() -> ast.AST:
@@ -24,3 +25,8 @@ def test_old_suite_confirm_assignment_populates_ai_analysis_snapshot() -> None:
     source = ast.get_source_segment(ROUTES_FILE.read_text(encoding="utf-8"), fn) or ""
     assert "ai_analysis_snapshot" in source
     assert "deepcopy" in source
+
+
+def test_sales_lead_model_has_ai_analysis_snapshot_column() -> None:
+    source = MODELS_FILE.read_text(encoding="utf-8")
+    assert "ai_analysis_snapshot = db.Column(JSONB)" in source

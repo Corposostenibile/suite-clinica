@@ -12549,6 +12549,7 @@ class SalesLead(TimestampMixin, db.Model):
     source_system = db.Column(db.String(50), nullable=True, index=True)  # 'old_suite' o null
     old_suite_id = db.Column(db.Integer, nullable=True, index=True)  # ID lead dalla vecchia suite
     ai_analysis = db.Column(JSONB, nullable=True)  # Cache analisi AI (stesso pattern di GHLOpportunityData)
+    ai_analysis_snapshot = db.Column(JSONB, nullable=True)
     ai_analyzed_at = db.Column(db.DateTime, nullable=True)
 
     # Archiviazione (FLAG per pulizia dashboard Sales, NON uno stato)
