@@ -8,25 +8,33 @@ Portare in produzione un MVP del pannello **`/assegnazioni-ai`** per gestire le 
 Il flusso tecnico di riferimento resta quello già usato nelle altre integrazioni GHL:
 **webhook → normalizzazione → salvataggio locale → API lista/dettaglio → azioni sul record**.
 
-## Stato attuale
-### Già presente nel progetto
-- webhook GHL per `opportunity-data`
-- entità locale `GHLOpportunityData`
-- endpoint:
-  - `GET /ghl/api/opportunity-data`
-  - `GET /ghl/api/opportunity-data/<id>`
-- backend AI assignment già esistente in `team/api.py` con supporto a `opportunity_data_id`
-- placeholder frontend su `/assegnazioni-ai`
+## Checklist
+### Stato già presente
+- [x] webhook GHL per `opportunity-data`
+- [x] entità locale `GHLOpportunityData`
+- [x] endpoint `GET /ghl/api/opportunity-data`
+- [x] endpoint `GET /ghl/api/opportunity-data/<id>`
+- [x] backend AI assignment già esistente in `team/api.py` con supporto a `opportunity_data_id`
+- [x] placeholder frontend su `/assegnazioni-ai`
+- [x] `GHLOpportunityData` esteso con `sales_consultant`
+- [x] `GHLOpportunityData` esteso con `sales_person_id`
+- [x] `GHLOpportunityData` esteso con relazione `sales_person`
+- [x] webhook `opportunity-data` aggiornato per leggere i campi Sales dal payload GHL
+- [x] serializer aggiornato per esporre i campi Sales
+- [x] bridge `opportunity_bridge.py` mantiene i check iniziali e valorizza `health_manager_id`
+- [x] migration aggiunta per i campi Sales su `ghl_opportunity_data`
 
-### Già fatto nel branch
-- `GHLOpportunityData` esteso con:
-  - `sales_consultant`
-  - `sales_person_id`
-  - relazione `sales_person`
-- webhook `opportunity-data` aggiornato per leggere i campi Sales dal payload GHL
-- serializer aggiornato per esporre i campi Sales
-- bridge `opportunity_bridge.py` mantiene i check iniziali e valorizza `health_manager_id`
-- migration aggiunta per i campi Sales su `ghl_opportunity_data`
+### Da completare per l’MVP
+- [ ] ingestione GHL corretta
+- [ ] salvataggio Sales owner
+- [ ] lista/dettaglio affidabili
+- [ ] confirm assignment funzionante da `opportunity_data_id`
+- [ ] filtri utili sulla queue
+- [ ] miglioramento permessi
+- [ ] rifinitura payload del serializer
+- [ ] UI completa del pannello
+- [ ] ottimizzazioni UI/UX
+- [ ] hardening aggiuntivo del webhook
 
 ## Fonte dati MVP
 La fonte dati unica per l’MVP è **`GHLOpportunityData`**.
@@ -176,18 +184,6 @@ Il record non deve dipendere da un formato rigido: basta mantenere uno degli ali
 - rendere `SuiteMindAssignment.jsx` robusto su refresh/deep-link
 - consumare la queue da `ghlService.getOpportunityData()`
 - verificare i permessi in `rbacScope.js` e `App.jsx`
-
-## Checklist
-- [ ] ingestione GHL corretta
-- [ ] salvataggio Sales owner
-- [ ] lista/dettaglio affidabili
-- [ ] confirm assignment funzionante da `opportunity_data_id`
-- [ ] filtri utili sulla queue
-- [ ] miglioramento permessi
-- [ ] rifinitura payload del serializer
-- [ ] UI completa del pannello
-- [ ] ottimizzazioni UI/UX
-- [ ] hardening aggiuntivo del webhook
 
 ## Fuori scope
 - ClickUp per le assegnazioni
