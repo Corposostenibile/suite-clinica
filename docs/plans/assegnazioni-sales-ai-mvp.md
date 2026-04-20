@@ -132,6 +132,7 @@ Il record non deve dipendere da un formato rigido: basta mantenere uno degli ali
 - [x] queue e deep-link verificati
 - [x] ACL e filtri verificati
 - [x] webhook di prova eseguiti con successo
+- [x] flow AI end-to-end verificato con script dedicato
 
 ## Webhook di prova
 Script dedicato per testare il webhook GHL sales AI:
