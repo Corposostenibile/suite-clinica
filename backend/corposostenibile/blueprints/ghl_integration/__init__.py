@@ -32,6 +32,7 @@ def init_app(app):
         acl.allow('admin', 'ghl:manage')
         acl.allow('admin', 'ghl:view_logs')
         acl.allow('admin', 'ghl:test_webhooks')
+        acl.allow('admin', 'ghl:view_assignments')
 
         # Finance can view webhook logs
         acl.allow('finance', 'ghl:view_logs')

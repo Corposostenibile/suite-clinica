@@ -87,7 +87,16 @@ def require_permission(permission):
 
             # Check if user has permission
             if hasattr(current_app, 'acl'):
-                if not current_app.acl.check(current_user.role, permission):
+                role = getattr(current_user.role, 'value', current_user.role)
+                acl = current_app.acl
+                has_perm = False
+                if hasattr(acl, 'permitted'):
+                    has_perm = acl.permitted(role, permission)
+                elif hasattr(acl, 'check'):
+                    has_perm = acl.check(role, permission)
+                elif hasattr(acl, 'allow'):
+                    has_perm = permission in getattr(acl, 'rules', {}).get(role, set())
+                if not has_perm:
                     abort(403, description=f"Permission denied: {permission}")
 
             return f(*args, **kwargs)
