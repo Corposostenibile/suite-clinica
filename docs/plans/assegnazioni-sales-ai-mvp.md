@@ -54,8 +54,7 @@ Campi rilevanti:
 - `assignments`
 - `processed`
 
-## Contratto GHL
-### Endpoint
+## Endpoint GHL
 `POST /ghl/webhook/opportunity-data`
 
 ### Formati accettati
