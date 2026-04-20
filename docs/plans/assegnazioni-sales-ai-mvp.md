@@ -126,3 +126,24 @@ Il record non deve dipendere da un formato rigido: basta mantenere uno degli ali
 }
 ```
 
+## Controllo finale
+- [x] build frontend OK
+- [x] test backend GHL OK
+- [x] queue e deep-link verificati
+- [x] ACL e filtri verificati
+- [x] webhook di prova eseguiti con successo
+
+## Webhook di prova
+Script dedicato per testare il webhook GHL sales AI:
+- `backend/test_ghl_opportunity_data_webhooks.py`
+
+Casi coperti:
+- JSON completo con `opportunity.custom_fields`
+- wrapper `payload` come stringa JSON
+- form-data con `customData` serializzato in JSON
+
+Esecuzione:
+```bash
+cd backend && python test_ghl_opportunity_data_webhooks.py
+```
+
