@@ -227,6 +227,12 @@ class TipologiaClienteEnum(str, Enum):
     pausa_gt_30 = "pausa_gt_30"
 
 
+class TipologiaCheckEnum(str, Enum):
+    regolare = "regolare"
+    minori = "minori"
+    dca = "dca"
+
+
 class CapacityWeightAreaEnum(str, Enum):
     nutrizione = "nutrizione"
     coach = "coach"
@@ -1943,6 +1949,7 @@ class Cliente(TimestampMixin, db.Model):
     modalita_pagamento      = db.Column(_def(PagamentoEnum))
     note_rinnovo            = db.Column(db.Text)
     tipologia_cliente       = db.Column(_def(TipologiaClienteEnum))
+    tipologia_check_assegnato = db.Column(_def(TipologiaCheckEnum), nullable=True)
     tipologia_supporto_nutrizione = db.Column(
         db.String(20),
         comment="Tipologia supporto nutrizione: a, b, c, secondario",

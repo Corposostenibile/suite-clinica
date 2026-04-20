@@ -41,6 +41,7 @@ from corposostenibile.models import (  # pylint: disable=too-many-imports
     PagamentoEnum,
     StatoClienteEnum,
     TeamEnum,
+    TipologiaCheckEnum,
     TipologiaClienteEnum,
     TransactionTypeEnum,
     TrasformazioneEnum,
@@ -328,6 +329,7 @@ class ClienteSchema(SQLAlchemyAutoSchema):
     stato_coach_data           = fields.DateTime(dump_only=True)
 
     tipologia_cliente     = EnumField(TipologiaClienteEnum)
+    tipologia_check_assegnato = EnumField(TipologiaCheckEnum, allow_none=True)
     categoria             = EnumField(CatEnum)
     genere                = EnumField(GenereEnum)
     di_team               = EnumField(TeamEnum)

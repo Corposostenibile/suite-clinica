@@ -49,7 +49,11 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     StatoClienteEnum,
     TransactionTypeEnum,
     TipoProfessionistaEnum,
+    TipologiaCheckEnum,
     UserRoleEnum,
+    WeeklyCheck,
+    DCACheck,
+    MinorCheck,
     cliente_nutrizionisti,
     cliente_coaches,
     cliente_psicologi,
@@ -844,6 +848,59 @@ def _track_patologie_coach_changes(cliente: Cliente, data: Mapping[str, Any]) ->
             db.session.add(nuovo_log)
 
 
+def _sync_tipologia_check_assignments(cliente: Cliente, selected_tipologia: TipologiaCheckEnum | None, actor_id: int | None) -> None:
+    """
+    Mantiene un solo assignment check periodico attivo per il cliente.
+
+    - disattiva eventuali assignment attivi di tipologia diversa
+    - riusa il token esistente per la tipologia selezionata
+    - crea un nuovo assignment attivo se non presente
+    """
+    if selected_tipologia is None:
+        return
+
+    import secrets
+
+    now = datetime.utcnow()
+    model_by_tipologia = {
+        TipologiaCheckEnum.regolare: WeeklyCheck,
+        TipologiaCheckEnum.dca: DCACheck,
+        TipologiaCheckEnum.minori: MinorCheck,
+    }
+    selected_model = model_by_tipologia[selected_tipologia]
+
+    for tipologia, model in model_by_tipologia.items():
+        active_assignment = (
+            db.session.query(model)
+            .filter_by(cliente_id=cliente.cliente_id, is_active=True)
+            .first()
+        )
+        if not active_assignment:
+            continue
+        if tipologia != selected_tipologia:
+            active_assignment.is_active = False
+            active_assignment.deactivated_at = now
+            active_assignment.deactivated_by_id = actor_id
+
+    selected_active = (
+        db.session.query(selected_model)
+        .filter_by(cliente_id=cliente.cliente_id, is_active=True)
+        .first()
+    )
+    if selected_active:
+        return
+
+    db.session.add(
+        selected_model(
+            cliente_id=cliente.cliente_id,
+            token=secrets.token_urlsafe(32),
+            is_active=True,
+            assigned_by_id=actor_id,
+            assigned_at=now,
+        )
+    )
+
+
 def update_cliente(
     cliente: Cliente,
     data: Mapping[str, Any],
@@ -983,6 +1040,13 @@ def update_cliente(
             # applicando le regole M2M anche dopo eventuali edit manuali.
             _check_and_update_global_ghost_status(cliente, updated_by_user)
             _check_and_update_global_pausa_status(cliente, updated_by_user)
+
+        if "tipologia_check_assegnato" in changes:
+            _sync_tipologia_check_assignments(
+                cliente=cliente,
+                selected_tipologia=cliente.tipologia_check_assegnato,
+                actor_id=_user_id(updated_by_user),
+            )
 
         # changelog
         for field, (before, after) in changes.items():

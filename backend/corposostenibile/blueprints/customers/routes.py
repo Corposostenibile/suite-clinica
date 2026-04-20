@@ -42,6 +42,7 @@ from corposostenibile.models import (
     StatoClienteEnum,
     LuogoAllenEnum,
     TipoProfessionistaEnum,
+    TipologiaCheckEnum,
     UserRoleEnum,
     User,
     Origine,
@@ -698,7 +699,7 @@ def update_multiple_fields(cliente_id: int):
     from corposostenibile.models import (
         TeamEnum, PagamentoEnum, GiornoEnum, StatoClienteEnum,
         CheckSaltatiEnum, LuogoAllenEnum, FiguraRifEnum,
-        TrasformazioneEnum, TipologiaClienteEnum
+        TrasformazioneEnum, TipologiaClienteEnum, TipologiaCheckEnum
     )
     
     # Mapping dei campi agli enum
@@ -720,6 +721,7 @@ def update_multiple_fields(cliente_id: int):
         'figura_di_riferimento': FiguraRifEnum,
         'trasformazione': TrasformazioneEnum,
         'tipologia_cliente': TipologiaClienteEnum,
+        'tipologia_check_assegnato': TipologiaCheckEnum,
     }
     
     # Mappatura per vecchi valori stato_cliente
@@ -1521,6 +1523,7 @@ def _json_error(err):  # type: ignore[override]
         getattr(err, "code", HTTPStatus.BAD_REQUEST),
     )
 
+
 # – ORIGINS API ------------------------------------------------------------- #
 @api_bp.route("/origins", methods=["GET"])
 @permission_required(CustomerPerm.VIEW)
@@ -1565,6 +1568,7 @@ def api_origins_delete(origin_id):
     db.session.delete(origin)
     db.session.commit()
     return jsonify({"success": True})
+
 
 # – CRUD -------------------------------------------------------------------- #
 @api_bp.route("/", methods=["GET"])
