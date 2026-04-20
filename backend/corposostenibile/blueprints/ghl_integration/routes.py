@@ -1944,9 +1944,43 @@ def api_webhook_urls():
     })
 
 
+def _get_user_role(user) -> str:
+    role = getattr(user, 'role', None)
+    if hasattr(role, 'value'):
+        return str(role.value)
+    return str(role or '').strip().lower()
+
+
+def _is_cco_user(user) -> bool:
+    specialty = getattr(user, 'specialty', None)
+    specialty_val = specialty.value if hasattr(specialty, 'value') else str(specialty or '')
+    if specialty_val.strip().lower() == 'cco':
+        return True
+    department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
+    return department_name == 'cco'
+
+
+def _can_view_all_team_module_data(user) -> bool:
+    return bool(getattr(user, 'is_authenticated', False) and (getattr(user, 'is_admin', False) or _is_cco_user(user)))
+
+
+def _is_health_manager_team_leader(user) -> bool:
+    if _get_user_role(user) != 'team_leader':
+        return False
+    teams_led = getattr(user, 'teams_led', []) or []
+    for team in teams_led:
+        team_type = getattr(getattr(team, 'team_type', None), 'value', getattr(team, 'team_type', None))
+        if str(team_type or '').strip().lower() == 'health_manager':
+            return True
+    specialty = str(getattr(user, 'specialty', '') or '').strip().lower()
+    if specialty == 'health_manager':
+        return True
+    department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
+    return 'health' in department_name or 'customer success' in department_name
+
+
 def _is_professionista_standard_user(user) -> bool:
-    role = _get_user_role(user)
-    return role == 'professionista' and not _can_view_all_team_module_data(user) and not _is_cco_user(user)
+    return _get_user_role(user) == 'professionista' and not _can_view_all_team_module_data(user)
 
 
 def _can_access_ai_assignments(user) -> bool:
@@ -1954,7 +1988,7 @@ def _can_access_ai_assignments(user) -> bool:
         return False
     if _is_professionista_standard_user(user):
         return False
-    if _is_team_leader_user(user) and not _is_health_manager_team_leader(user):
+    if _get_user_role(user) == 'team_leader' and not _is_health_manager_team_leader(user):
         return False
     return True
 
