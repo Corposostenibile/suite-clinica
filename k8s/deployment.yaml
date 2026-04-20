@@ -53,6 +53,9 @@ spec:
           limits:
             cpu: "2"
             memory: "4Gi"
+        envFrom:
+        - secretRef:
+            name: mail-credentials
         env:
         - name: FLASK_APP
           value: "corposostenibile"

@@ -59,38 +59,54 @@ def send_onboarding_task_email(task_id: int, assignee_id: int, client_id: int | 
                 else None
             )
 
-        if not assignee or not assignee.email:
-            current_app.logger.warning(
-                "[tasks.email] Assegnatario %s senza email, skip onboarding task=%s",
-                assignee_id,
-                task_id,
+            if not assignee or not assignee.email:
+                current_app.logger.warning(
+                    "[tasks.email] Assegnatario %s senza email, skip onboarding task=%s",
+                    assignee_id,
+                    task_id,
+                )
+                return False
+
+            if not cliente:
+                current_app.logger.warning(
+                    "[tasks.email] Cliente %s non trovato, skip onboarding task=%s",
+                    client_id,
+                    task_id,
+                )
+                return False
+
+            # Leggo i campi dentro la session per evitare DetachedInstanceError
+            cliente_name = cliente.nome_cognome
+            cliente_id_val = cliente.cliente_id
+            storia_cliente = cliente.storia_cliente
+            assignee_email = assignee.email
+            assignee_first = (getattr(assignee, "first_name", None) or "").strip()
+
+        first_name = assignee_first or assignee_email
+        cliente_display = cliente_name or f"Cliente #{cliente_id_val}"
+        subject = f"Nuovo cliente assegnato: {cliente_display}"
+        detail_url = _client_detail_url(cliente_id_val)
+
+        storia_section = ""
+        if storia_cliente and storia_cliente.strip():
+            storia_section = (
+                f"\nSTORIA CLIENTE\n"
+                f"--------------\n"
+                f"{storia_cliente.strip()}\n"
             )
-            return False
 
-        if not cliente:
-            current_app.logger.warning(
-                "[tasks.email] Cliente %s non trovato, skip onboarding task=%s",
-                client_id,
-                task_id,
-            )
-            return False
-
-        first_name = (getattr(assignee, "first_name", None) or "").strip() or assignee.email
-        cliente_name = getattr(cliente, "nome_cognome", None) or f"Cliente #{cliente.cliente_id}"
-        subject = f"Nuovo cliente assegnato: {cliente_name}"
-
-        detail_url = _client_detail_url(cliente.cliente_id)
         url_block = f"\nAccedi al dettaglio del cliente qui:\n{detail_url}\n" if detail_url else ""
 
         body = (
             f"Ciao {first_name},\n\n"
-            f"ti è stato assegnato un nuovo cliente: {cliente_name}.\n\n"
-            f"AZIONE RICHIESTA\n"
+            f"ti e' stato assegnato un nuovo cliente: {cliente_display}.\n"
+            f"{storia_section}"
+            f"\nAZIONE RICHIESTA\n"
             f"----------------\n"
             f"- Invia il messaggio di benvenuto al cliente\n"
             f"- Leggi i suoi check\n"
             f"{url_block}\n"
-            f"Questo messaggio è stato inviato automaticamente dal sistema Corposostenibile Suite.\n"
+            f"Questo messaggio e' stato inviato automaticamente dal sistema Corposostenibile Suite.\n"
             f"Non rispondere a questa email.\n\n"
             f"Cordiali saluti,\n"
             f"Il Team Corposostenibile\n"
@@ -98,7 +114,7 @@ def send_onboarding_task_email(task_id: int, assignee_id: int, client_id: int | 
 
         msg = Message(
             subject=subject,
-            recipients=[assignee.email],
+            recipients=[assignee_email],
             body=body,
             sender=current_app.config.get(
                 "MAIL_DEFAULT_SENDER", "noreply@corposostenibile.com"
@@ -107,9 +123,9 @@ def send_onboarding_task_email(task_id: int, assignee_id: int, client_id: int | 
         mail.send(msg)
         current_app.logger.info(
             "[tasks.email] Email onboarding inviata a %s (task_id=%s, cliente_id=%s)",
-            assignee.email,
+            assignee_email,
             task_id,
-            cliente.cliente_id,
+            cliente_id_val,
         )
         return True
     except Exception:
