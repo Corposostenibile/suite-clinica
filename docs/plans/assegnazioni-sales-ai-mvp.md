@@ -26,16 +26,16 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 - [x] migration aggiunta per i campi Sales su `ghl_opportunity_data`
 
 ### Da completare per l’MVP
-- [ ] ingestione GHL corretta
-- [ ] salvataggio Sales owner
+- [x] ingestione GHL corretta
+- [x] salvataggio Sales owner
 - [x] lista/dettaglio affidabili
-- [ ] confirm assignment funzionante da `opportunity_data_id`
-- [ ] filtri utili sulla queue
-- [ ] miglioramento permessi
-- [ ] rifinitura payload del serializer
+- [x] confirm assignment funzionante da `opportunity_data_id`
+- [x] filtri utili sulla queue
+- [x] miglioramento permessi
+- [x] rifinitura payload del serializer
 - [ ] UI completa del pannello
 - [ ] ottimizzazioni UI/UX
-- [ ] hardening aggiuntivo del webhook
+- [x] hardening aggiuntivo del webhook
 
 ## Fonte dati MVP
 La fonte dati unica per l’MVP è **`GHLOpportunityData`**.

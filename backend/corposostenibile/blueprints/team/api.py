@@ -190,6 +190,28 @@ def _is_cco_user(user) -> bool:
     return str(department_name).strip().lower() == 'cco' if department_name else False
 
 
+def _is_health_manager_user(user) -> bool:
+    """True se utente Health Manager (via role o specialty)."""
+    role = _get_user_role(user)
+    specialty = _get_user_specialty(user)
+    department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
+    return role == 'health_manager' or specialty == 'health_manager' or 'health' in department_name or 'customer success' in department_name
+
+
+def _is_professionista_standard(user) -> bool:
+    return _get_user_role(user) == 'professionista' and not _is_cco_user(user)
+
+
+def _can_access_ai_assignments(user) -> bool:
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if _is_professionista_standard(user):
+        return False
+    if _get_user_role(user) == 'team_leader' and not _is_health_manager_team_leader(user):
+        return False
+    return True
+
+
 def _can_view_professional_capacity(user) -> bool:
     """ACL visualizzazione capienza: admin/CCO tutto, team leader solo membri."""
     if not user.is_authenticated:
@@ -1522,6 +1544,14 @@ def api_get_criteria_schema():
 # AI Assignment Endpoints
 # =============================================================================
 
+def _get_opportunity_data_email(opp_data) -> str:
+    payload = opp_data.raw_payload or {}
+    email = getattr(opp_data, 'email', None) or payload.get('email') or payload.get('contact', {}).get('email')
+    if isinstance(email, str):
+        email = email.strip()
+    return email or f"lead-{opp_data.id}@ghl-lead.com"
+
+
 @team_api_bp.route("/assignments/analyze-lead", methods=["POST"])
 @login_required
 def api_analyze_lead_story():
@@ -1532,6 +1562,8 @@ def api_analyze_lead_story():
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
         
     story = data.get('story')
     opportunity_id = data.get('opportunity_id')
@@ -1638,6 +1670,8 @@ def api_match_professionals():
     Output: { "success": true, "matches": { "nutrizione": [...], ... } }
     """
     data = request.get_json() or {}
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     criteria = data.get('criteria') or []
 
     from .ai_matching_service import AIMatchingService
@@ -1695,6 +1729,8 @@ def api_confirm_assignment():
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'message': 'Dati mancanti'}), 400
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
         
     assignment_id = data.get('assignment_id')
     opportunity_data_id = data.get('opportunity_data_id')
@@ -1716,15 +1752,10 @@ def api_confirm_assignment():
                 return jsonify({'success': False, 'message': 'Lead non trovato'}), 404
             
             # Estrai email dal payload se possibile
-            payload = opp_data.raw_payload or {}
-            email = payload.get('email') or payload.get('contact', {}).get('email')
-            
-            if not email:
-                # Fallback email se non trovata nel payload
-                email = f"lead-{opp_data.id}@ghl-lead.com"
-                
+            email = _get_opportunity_data_email(opp_data)
+
             # Verifica se esiste già un cliente con questa email
-            cliente = Cliente.query.filter_by(mail=email).first()
+            cliente = Cliente.query.filter(Cliente.mail.ilike(email)).first()
             if not cliente:
                 cliente = Cliente(
                     nome_cognome=opp_data.nome,

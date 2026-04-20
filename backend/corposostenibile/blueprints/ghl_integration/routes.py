@@ -7,6 +7,7 @@ from flask_login import login_required, current_user
 from datetime import datetime, timedelta
 from typing import Any, Dict
 import json
+from sqlalchemy import or_
 
 from . import bp
 from .security import require_webhook_signature, require_permission, rate_limiter
@@ -34,6 +35,12 @@ from corposostenibile.models import (
 
 def _normalize_custom_data(raw_custom_data: Any) -> Dict[str, Any]:
     """Normalizza customData GHL in un dizionario key->value."""
+    if isinstance(raw_custom_data, str):
+        try:
+            raw_custom_data = json.loads(raw_custom_data)
+        except (ValueError, TypeError):
+            return {}
+
     if isinstance(raw_custom_data, dict):
         return raw_custom_data
 
@@ -88,6 +95,30 @@ def _extract_text_value(value: Any) -> Any:
             value.get("email"),
         )
     return value
+
+
+def _coerce_incoming_payload() -> Dict[str, Any]:
+    """Legge payload webhook JSON/form-data e prova a deserializzare wrapper JSON string."""
+    payload = request.get_json(silent=True) or {}
+    if not payload:
+        payload = request.form.to_dict() or request.values.to_dict() or {}
+
+    if not isinstance(payload, dict):
+        return {}
+
+    payload = dict(payload)
+    for wrapper_key in ("payload", "data", "body", "raw_payload"):
+        wrapper_value = payload.get(wrapper_key)
+        if not isinstance(wrapper_value, str):
+            continue
+        try:
+            decoded = json.loads(wrapper_value)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(decoded, dict):
+            payload.update(decoded)
+
+    return payload
 
 
 def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -1790,10 +1821,7 @@ def webhook_opportunity_data():
             return jsonify({'error': 'Rate limit exceeded'}), 429
 
         # Ottieni il payload (supporta sia JSON che form data)
-        if request.is_json:
-            payload = request.get_json()
-        else:
-            payload = request.form.to_dict()
+        payload = _coerce_incoming_payload()
 
         if not payload:
             return jsonify({'error': 'No payload provided'}), 400
@@ -1833,23 +1861,55 @@ def webhook_opportunity_data():
 @login_required
 def api_get_opportunity_data():
     """Recupera tutti i dati opportunity dal database."""
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
     try:
-        data = GHLOpportunityData.query.order_by(GHLOpportunityData.received_at.desc()).limit(200).all()
+        processed_filter = request.args.get('processed', 'all').strip().lower()
+        search = (request.args.get('q') or request.args.get('search') or '').strip()
+        limit_raw = request.args.get('limit', 200)
+        try:
+            limit = max(1, min(int(limit_raw), 500))
+        except (TypeError, ValueError):
+            limit = 200
+
+        query = GHLOpportunityData.query
+        if processed_filter in {'true', '1', 'yes', 'processed'}:
+            query = query.filter(GHLOpportunityData.processed.is_(True))
+        elif processed_filter in {'false', '0', 'no', 'pending', 'unprocessed'}:
+            query = query.filter(GHLOpportunityData.processed.is_(False))
+        elif processed_filter not in {'all', ''}:
+            return jsonify({'success': False, 'message': 'Filtro processed non valido'}), 400
+
+        if search:
+            like = f"%{search}%"
+            query = query.filter(
+                or_(
+                    GHLOpportunityData.nome.ilike(like),
+                    GHLOpportunityData.email.ilike(like),
+                    GHLOpportunityData.lead_phone.ilike(like),
+                    GHLOpportunityData.sales_consultant.ilike(like),
+                    GHLOpportunityData.pacchetto.ilike(like),
+                )
+            )
+
+        data = query.order_by(GHLOpportunityData.received_at.desc()).limit(limit).all()
         if _is_team_leader_user(current_user) and not current_user.is_admin:
             allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
             scoped_rows = []
             for d in data:
                 assignments = _get_current_assignments_for_opp(d)
                 assigned_ids = {
+                    d.health_manager_id,
                     assignments.get('nutritionist_id'),
                     assignments.get('coach_id'),
                     assignments.get('psychologist_id'),
                 }
                 if any(pid in allowed_ids for pid in assigned_ids if pid is not None):
                     scoped_rows.append((d, assignments))
-            data_with_assignments = scoped_rows[:100]
+            data_with_assignments = scoped_rows
         else:
-            data_with_assignments = [(d, _get_current_assignments_for_opp(d)) for d in data[:100]]
+            data_with_assignments = [(d, _get_current_assignments_for_opp(d)) for d in data]
 
         return jsonify({
             'success': True,
@@ -1861,7 +1921,7 @@ def api_get_opportunity_data():
                 }
                 for d, assignments in data_with_assignments
             ],
-            'total': len(data_with_assignments)
+            'total': len(data_with_assignments),
         })
     except Exception as e:
         current_app.logger.error(f"[GHL API] Error fetching opportunity data: {e}")
@@ -1884,30 +1944,47 @@ def api_webhook_urls():
     })
 
 
-# DEBUG ENDPOINT - Pubblico per test (rimuovere in produzione)
+def _is_professionista_standard_user(user) -> bool:
+    role = _get_user_role(user)
+    return role == 'professionista' and not _can_view_all_team_module_data(user) and not _is_cco_user(user)
+
+
+def _can_access_ai_assignments(user) -> bool:
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    if _is_professionista_standard_user(user):
+        return False
+    if _is_team_leader_user(user) and not _is_health_manager_team_leader(user):
+        return False
+    return True
+
+
 def _get_current_assignments_for_opp(opp_data):
     """Recupera le assegnazioni correnti per un'opportunità GHL."""
     from corposostenibile.models import Cliente, ServiceClienteAssignment
-    
-    # Trova email nel payload
+
     payload = opp_data.raw_payload or {}
-    email = payload.get('email') or payload.get('contact', {}).get('email')
-    
+    email = _first_non_empty(
+        getattr(opp_data, 'email', None),
+        payload.get('email'),
+        payload.get('contact', {}).get('email'),
+    )
+
     if not email:
         return {}
-        
-    cliente = Cliente.query.filter_by(mail=email).first()
+
+    cliente = Cliente.query.filter(Cliente.mail.ilike(str(email))).first()
     if not cliente:
         return {}
-        
+
     assignment = ServiceClienteAssignment.query.filter_by(cliente_id=cliente.cliente_id).first()
     if not assignment:
         return {}
-        
+
     return {
         'nutritionist_id': assignment.nutrizionista_assigned_id,
         'coach_id': assignment.coach_assigned_id,
-        'psychologist_id': assignment.psicologa_assigned_id
+        'psychologist_id': assignment.psicologa_assigned_id,
     }
 
 
@@ -1936,10 +2013,20 @@ def api_get_opportunity_data_debug():
 @login_required
 def api_get_opportunity_data_single(item_id):
     """Recupera un singolo record opportunity."""
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     try:
         d = GHLOpportunityData.query.get(item_id)
         if not d:
             return jsonify({'success': False, 'message': 'Non trovato'}), 404
+        if _is_team_leader_user(current_user) and not current_user.is_admin:
+            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
+            visible_ids = {
+                d.health_manager_id,
+                *_get_current_assignments_for_opp(d).values(),
+            }
+            if not any(pid in allowed_ids for pid in visible_ids if pid is not None):
+                return jsonify({'success': False, 'message': 'Non hai i permessi per vedere questo record'}), 403
         return jsonify({
             'success': True,
             'data': {
@@ -1957,7 +2044,7 @@ def api_get_opportunity_data_single(item_id):
 @login_required
 def api_clear_opportunity_data():
     """Pulisce tutti i dati (solo admin)."""
-    if not current_user.is_admin:
+    if not _can_access_ai_assignments(current_user) or not current_user.is_admin:
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     try:
         GHLOpportunityData.query.delete()
