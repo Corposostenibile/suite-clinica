@@ -15,7 +15,8 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 - [x] endpoint `GET /ghl/api/opportunity-data`
 - [x] endpoint `GET /ghl/api/opportunity-data/<id>`
 - [x] backend AI assignment già esistente in `team/api.py` con supporto a `opportunity_data_id`
-- [x] placeholder frontend su `/assegnazioni-ai`
+- [x] pagina `/assegnazioni-ai` con queue GHL reale
+- [x] dettaglio `/suitemind/:opportunityId` supporta refresh e deep-link
 - [x] `GHLOpportunityData` esteso con `sales_consultant`
 - [x] `GHLOpportunityData` esteso con `sales_person_id`
 - [x] `GHLOpportunityData` esteso con relazione `sales_person`
@@ -27,7 +28,7 @@ Il flusso tecnico di riferimento resta quello già usato nelle altre integrazion
 ### Da completare per l’MVP
 - [ ] ingestione GHL corretta
 - [ ] salvataggio Sales owner
-- [ ] lista/dettaglio affidabili
+- [x] lista/dettaglio affidabili
 - [ ] confirm assignment funzionante da `opportunity_data_id`
 - [ ] filtri utili sulla queue
 - [ ] miglioramento permessi

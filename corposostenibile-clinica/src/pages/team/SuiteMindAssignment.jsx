@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Badge, Spinner, Alert, Button, Form, Row, Col, Card } from 'react-bootstrap';
 import api from '../../services/api';
+import ghlService from '../../services/ghlService';
 import './SuiteMindAssignment.css';
 
 const DEPT_ROLE_MAP = {
@@ -60,6 +61,8 @@ function SuiteMindAssignment() {
   const { opportunityId } = useParams();
 
   const [selectedOpportunity, setSelectedOpportunity] = useState(location.state?.opportunity || null);
+  const [loadingOpportunity, setLoadingOpportunity] = useState(!location.state?.opportunity && !!opportunityId);
+  const [opportunityError, setOpportunityError] = useState('');
   const [professionals, setProfessionals] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -74,12 +77,52 @@ function SuiteMindAssignment() {
   const [lastAssignedProf, setLastAssignedProf] = useState(null);
   const [hasNewInteraction, setHasNewInteraction] = useState(false);
 
-  // Redirect if no opportunity data
+  // Load opportunity data from route state or API (supports deep-link / refresh)
   useEffect(() => {
-    if (!selectedOpportunity) {
-      navigate('/assegnazioni-ai', { replace: true });
-    }
-  }, [selectedOpportunity, navigate]);
+    let cancelled = false;
+
+    const loadOpportunity = async () => {
+      if (location.state?.opportunity) {
+        setSelectedOpportunity(location.state.opportunity);
+        setLoadingOpportunity(false);
+        setOpportunityError('');
+        return;
+      }
+
+      if (!opportunityId) {
+        navigate('/assegnazioni-ai', { replace: true });
+        return;
+      }
+
+      setLoadingOpportunity(true);
+      setOpportunityError('');
+
+      try {
+        const response = await ghlService.getOpportunityDataById(opportunityId);
+        if (cancelled) return;
+
+        if (response?.success && response?.data) {
+          setSelectedOpportunity(response.data);
+        } else {
+          setOpportunityError(response?.message || 'Lead non trovato.');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Errore caricamento opportunity:', err);
+        setOpportunityError(err?.response?.data?.message || 'Errore durante il caricamento del lead.');
+      } finally {
+        if (!cancelled) {
+          setLoadingOpportunity(false);
+        }
+      }
+    };
+
+    loadOpportunity();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.state, navigate, opportunityId]);
 
   // Fetch professionals
   useEffect(() => {
@@ -243,6 +286,36 @@ function SuiteMindAssignment() {
       setLoading(false);
     }
   };
+
+  if (loadingOpportunity) {
+    return (
+      <div className="sm-page d-flex align-items-center justify-content-center min-vh-100">
+        <div className="text-center">
+          <Spinner animation="border" role="status" className="mb-3" />
+          <div>Caricamento opportunità...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (opportunityError) {
+    return (
+      <div className="sm-page p-4">
+        <Alert variant="danger">
+          <Alert.Heading>Impossibile aprire il lead</Alert.Heading>
+          <p className="mb-3">{opportunityError}</p>
+          <div className="d-flex gap-2 flex-wrap">
+            <Button variant="primary" onClick={() => navigate('/assegnazioni-ai')}>
+              Torna alla queue
+            </Button>
+            <Button variant="outline-danger" onClick={() => window.location.reload()}>
+              Riprova
+            </Button>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
 
   if (!selectedOpportunity) return null;
 
