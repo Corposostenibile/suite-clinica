@@ -22,6 +22,7 @@ from corposostenibile.models import (
     Team,
     User,
     UserRoleEnum,
+    SalesPerson,
     team_members,
 )
 
@@ -76,21 +77,45 @@ def _first_non_empty(*values: Any) -> Any:
     return None
 
 
+def _extract_text_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _first_non_empty(
+            value.get("name"),
+            value.get("full_name"),
+            value.get("fullName"),
+            value.get("label"),
+            value.get("value"),
+            value.get("email"),
+        )
+    return value
+
+
 def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         return {
             "email": "",
             "lead_phone": None,
             "health_manager_email": None,
+            "sales_consultant": None,
             "custom_data": {},
         }
 
-    custom_data = _normalize_custom_data(payload.get("customData", {}))
+    opportunity = payload.get("opportunity", {}) if isinstance(payload.get("opportunity"), dict) else {}
     contact = payload.get("contact", {}) if isinstance(payload.get("contact"), dict) else {}
+
+    custom_data: Dict[str, Any] = {}
+    for raw_custom_data in (
+        opportunity.get("custom_fields", {}),
+        opportunity.get("customData", {}),
+        payload.get("custom_fields", {}),
+        payload.get("customData", {}),
+    ):
+        custom_data.update(_normalize_custom_data(raw_custom_data))
 
     email = _first_non_empty(
         custom_data.get("email"),
         payload.get("email"),
+        opportunity.get("email"),
         contact.get("email"),
     )
 
@@ -109,6 +134,8 @@ def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, An
         payload.get("phone_number"),
         payload.get("numero_telefono"),
         payload.get("mobile"),
+        opportunity.get("phone"),
+        opportunity.get("mobile"),
         contact.get("phone"),
         contact.get("mobile"),
     )
@@ -126,17 +153,68 @@ def _extract_opportunity_contact_fields(payload: Dict[str, Any]) -> Dict[str, An
         payload.get("hm_email"),
         payload.get("health_manager_mail"),
         payload.get("mail_health_manager"),
+        opportunity.get("health_manager_email"),
+    )
+
+    sales_consultant = _first_non_empty(
+        _extract_text_value(custom_data.get("sales_consultant")),
+        _extract_text_value(custom_data.get("sales_person")),
+        _extract_text_value(custom_data.get("sales_user")),
+        _extract_text_value(custom_data.get("sales_owner")),
+        _extract_text_value(custom_data.get("sales_rep")),
+        _extract_text_value(custom_data.get("consultant")),
+        _extract_text_value(custom_data.get("owner")),
+        _extract_text_value(custom_data.get("consulente")),
+        _extract_text_value(payload.get("sales_consultant")),
+        _extract_text_value(payload.get("sales_person")),
+        _extract_text_value(payload.get("sales_user")),
+        _extract_text_value(payload.get("sales_owner")),
+        _extract_text_value(payload.get("sales_rep")),
+        _extract_text_value(payload.get("consultant")),
+        _extract_text_value(payload.get("owner")),
+        _extract_text_value(payload.get("consulente")),
+        _extract_text_value(opportunity.get("sales_consultant")),
+        _extract_text_value(opportunity.get("sales_person")),
+        _extract_text_value(opportunity.get("sales_user")),
+        _extract_text_value(opportunity.get("sales_owner")),
     )
 
     if isinstance(health_manager_email, str):
         health_manager_email = health_manager_email.strip().lower() or None
+    if isinstance(sales_consultant, str):
+        sales_consultant = sales_consultant.strip() or None
 
     return {
         "email": email or "",
         "lead_phone": lead_phone,
         "health_manager_email": health_manager_email,
+        "sales_consultant": sales_consultant,
         "custom_data": custom_data,
     }
+
+
+def _resolve_sales_person_by_name(full_name: str):
+    if not full_name:
+        return None
+
+    name = full_name.strip()
+    normalized = name.lower()
+
+    sales_person = SalesPerson.query.filter(
+        db.func.lower(SalesPerson.full_name) == normalized,
+        SalesPerson.active == True,
+    ).first()
+    if sales_person:
+        return sales_person
+
+    sales_person = SalesPerson.query.filter(
+        SalesPerson.full_name.ilike(f"%{name}%"),
+        SalesPerson.active == True,
+    ).first()
+    if sales_person:
+        return sales_person
+
+    return None
 
 
 def _is_team_leader_user(user) -> bool:
@@ -242,6 +320,7 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
         cliente = Cliente.query.filter(Cliente.mail.ilike(resolved_email)).first()
         if cliente:
             cliente_id = cliente.cliente_id
+
     # Resolve health manager
     hm = d.health_manager
     health_manager = None
@@ -252,6 +331,25 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
             "avatar_url": hm.avatar_url,
         }
 
+    # Resolve sales consultant
+    sales_person = d.sales_person
+    sales_consultant = d.sales_consultant or extracted.get("sales_consultant")
+    sales_person_data = None
+    if sales_person:
+        sales_person_data = {
+            "id": sales_person.sales_person_id,
+            "full_name": sales_person.full_name,
+            "role": sales_person.role.value if hasattr(sales_person.role, "value") else str(sales_person.role or ""),
+            "active": sales_person.active,
+        }
+    elif sales_consultant:
+        sales_person_data = {
+            "id": d.sales_person_id,
+            "full_name": sales_consultant,
+            "role": None,
+            "active": None,
+        }
+
     return {
         "id": d.id,
         "cliente_id": cliente_id,
@@ -260,6 +358,9 @@ def _serialize_opportunity_data_row(d: GHLOpportunityData) -> Dict[str, Any]:
         "lead_phone": d.lead_phone or extracted["lead_phone"],
         "health_manager_email": d.health_manager_email or extracted["health_manager_email"],
         "health_manager": health_manager,
+        "sales_consultant": sales_consultant,
+        "sales_person_id": d.sales_person_id,
+        "sales_person": sales_person_data,
         "storia": d.storia,
         "pacchetto": d.pacchetto,
         "durata": d.durata,
@@ -318,12 +419,29 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
                 "[GHL Webhook] HM email %s not found in database", hm_email,
             )
 
+    sales_consultant = extracted["sales_consultant"]
+    sales_person_id = None
+    if sales_consultant:
+        sales_person = _resolve_sales_person_by_name(sales_consultant)
+        if sales_person:
+            sales_person_id = sales_person.sales_person_id
+            current_app.logger.info(
+                "[GHL Webhook] Resolved sales consultant %s -> SalesPerson #%s (%s)",
+                sales_consultant, sales_person.sales_person_id, sales_person.full_name,
+            )
+        else:
+            current_app.logger.warning(
+                "[GHL Webhook] Sales consultant %s not found in database", sales_consultant,
+            )
+
     opp_data = GHLOpportunityData(
         nome=nome,
         email=extracted["email"] or None,
         lead_phone=extracted["lead_phone"] or None,
         health_manager_email=hm_email or None,
         health_manager_id=hm_id,
+        sales_consultant=sales_consultant,
+        sales_person_id=sales_person_id,
         storia=storia,
         pacchetto=pacchetto,
         durata=durata,
@@ -334,12 +452,13 @@ def _save_opportunity_data_payload(payload: Dict[str, Any], client_ip: str) -> G
     db.session.commit()
 
     current_app.logger.info(
-        "[GHL Webhook] Saved opportunity data: %s - %s (ID: %s, phone=%s, hm_id=%s)",
+        "[GHL Webhook] Saved opportunity data: %s - %s (ID: %s, phone=%s, hm_id=%s, sales_person_id=%s)",
         opp_data.nome,
         opp_data.pacchetto,
         opp_data.id,
         opp_data.lead_phone,
         opp_data.health_manager_id,
+        opp_data.sales_person_id,
     )
 
     return opp_data
@@ -700,6 +819,7 @@ def send_test_webhook():
                 'email': test_email,
                 'telefono': test_phone,
                 'health_manager_email': test_hm_email,
+                'sales_consultant': request.form.get('consultant', 'Test Sales'),
                 'pacchetto': request.form.get('pacchetto', 'NCP'),
                 'storia': request.form.get('note', 'Lead di test inviato dalla pagina GHL interna'),
             },

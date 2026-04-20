@@ -36,6 +36,17 @@ INITIAL_CHECKS = [
 ]
 
 
+def _resolve_health_manager_id_by_email(email: Optional[str]) -> Optional[int]:
+    if not email:
+        return None
+
+    hm_user = User.query.filter(
+        User.email.ilike(email.strip()),
+        User.is_active == True,
+    ).first()
+    return hm_user.id if hm_user else None
+
+
 def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, Any]:
     """
     Dopo il salvataggio di GHLOpportunityData, se email è presente:
@@ -61,6 +72,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
 
     nome = (opp_data.nome or "N/D").strip()
     lead_phone = (opp_data.lead_phone or "").strip()
+    hm_id = opp_data.health_manager_id or _resolve_health_manager_id_by_email(opp_data.health_manager_email)
     if nome == "N/D" and opp_data.raw_payload:
         payload = opp_data.raw_payload or {}
         custom = payload.get("customData", {})
@@ -90,6 +102,7 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
             cliente = Cliente(
                 nome_cognome=nome,
                 mail=email,
+                health_manager_id=hm_id,
                 service_status='pending_assignment',
                 show_in_clienti_lista=False,
             )
@@ -102,10 +115,14 @@ def process_opportunity_data_bridge(opp_data: GHLOpportunityData) -> Dict[str, A
                 cliente.nome_cognome = nome
             if lead_phone:
                 cliente.cellulare = lead_phone
+            if hm_id and not getattr(cliente, "health_manager_id", None):
+                cliente.health_manager_id = hm_id
             current_app.logger.info(f"[opportunity_bridge] Riutilizzato Cliente {cliente.cliente_id}")
 
         if lead_phone and not getattr(cliente, "cellulare", None):
             cliente.cellulare = lead_phone
+        if hm_id and not getattr(cliente, "health_manager_id", None):
+            cliente.health_manager_id = hm_id
 
         # 2. Ottieni admin per assigned_by_id
         admin_user = User.query.filter_by(is_admin=True).first() or User.query.first()

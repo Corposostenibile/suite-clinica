@@ -10433,6 +10433,8 @@ class GHLOpportunityData(TimestampMixin, db.Model):
     lead_phone = db.Column(db.String(64))
     health_manager_email = db.Column(db.String(255))
     health_manager_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    sales_consultant = db.Column(db.String(255))
+    sales_person_id = db.Column(db.Integer, db.ForeignKey("sales_person.sales_person_id"), index=True)
     storia = db.Column(db.Text)
     pacchetto = db.Column(db.String(255))
     durata = db.Column(db.String(50))
@@ -10447,6 +10449,7 @@ class GHLOpportunityData(TimestampMixin, db.Model):
 
     # Relationships
     health_manager = db.relationship('User', foreign_keys=[health_manager_id])
+    sales_person = db.relationship('SalesPerson', foreign_keys=[sales_person_id])
 
     def __repr__(self):
         return f'<GHLOpportunityData {self.id} - {self.nome}>'
