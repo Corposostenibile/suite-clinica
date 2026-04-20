@@ -1,15 +1,21 @@
 """
-Webhook ClickUp → Suite (GHL Support).
+Webhook ClickUp → Suite e GHL lead intake.
 
-Endpoint: POST /webhooks/clickup-ghl
+Endpoint:
+- POST /webhooks/clickup-ghl
+- POST /webhooks/ghl-leads/new
 
 Gestisce:
 - taskStatusUpdated  → aggiorna status locale del ticket
 - taskCommentPosted  → salva commento in DB (se non già inviato da noi)
 - taskUpdated        → log debug
 - taskDeleted        → logga e marca sync_error
+- ghl-leads/new      → salva un nuovo lead GHL nel flusso assegnazioni
 
-Sicurezza: HMAC-SHA256 del body con CLICKUP_GHL_WEBHOOK_SECRET.
+Sicurezza:
+- ClickUp: HMAC-SHA256 del body con CLICKUP_GHL_WEBHOOK_SECRET
+- GHL lead intake: HMAC-SHA256 del body con GHL_WEBHOOK_SECRET
+
 Idempotenza: i commenti usano clickup_comment_id UNIQUE, eventi duplicati
 sono assorbiti silenziosamente.
 """
@@ -25,6 +31,11 @@ from typing import Any, Dict, Optional
 from flask import abort, current_app, jsonify, request
 
 from corposostenibile.models import GHLSupportTicket
+
+from corposostenibile.blueprints.ghl_integration.security import (
+    rate_limiter,
+    require_webhook_signature,
+)
 
 from . import ghl_support_hooks_bp
 from .services import GHLSupportTicketService
@@ -262,3 +273,65 @@ def clickup_webhook():
 @ghl_support_hooks_bp.route("/clickup-ghl/health", methods=["GET"])
 def clickup_webhook_health():
     return jsonify({"ok": True, "service": "ghl_support.clickup_webhook"})
+
+
+@ghl_support_hooks_bp.route("/ghl-leads/new", methods=["POST"])
+@require_webhook_signature
+def ghl_leads_new_webhook():
+    """Riceve nuovi lead GHL firmati e li salva nel flusso assegnazioni."""
+    raw_body = request.get_data() or b""
+    raw_preview = (request.get_data(as_text=True) or "")[:300]
+    logger.info(
+        "[ghl_support/webhook] received POST /webhooks/ghl-leads/new (len=%d) body[:300]=%s",
+        len(raw_body),
+        raw_preview,
+    )
+
+    client_ip = request.remote_addr or "unknown"
+    if not rate_limiter.is_allowed(f"ghl_leads_webhook_{client_ip}"):
+        logger.warning("[ghl_support/webhook] rate limit exceeded IP=%s", client_ip)
+        return jsonify({"ok": False, "error": "rate_limited"}), 429
+
+    try:
+        from corposostenibile.blueprints.ghl_integration.opportunity_bridge import (
+            process_opportunity_data_bridge,
+        )
+        from corposostenibile.blueprints.ghl_integration.routes import (
+            _coerce_incoming_payload,
+            _save_opportunity_data_payload,
+        )
+
+        payload = _coerce_incoming_payload()
+        if not payload:
+            return jsonify({"ok": False, "error": "No payload provided"}), 400
+
+        opp_data = _save_opportunity_data_payload(payload, client_ip)
+
+        if opp_data.email and str(opp_data.email).strip():
+            try:
+                bridge_result = process_opportunity_data_bridge(opp_data)
+                logger.info(
+                    "[ghl_support/webhook] Bridge ghl-leads/new: %s",
+                    bridge_result,
+                )
+            except Exception as bridge_err:  # noqa: BLE001
+                logger.exception(
+                    "[ghl_support/webhook] bridge fallito per lead %s: %s",
+                    opp_data.id,
+                    bridge_err,
+                )
+
+        return jsonify(
+            {
+                "ok": True,
+                "success": True,
+                "message": "Lead ricevuto e salvato",
+                "id": opp_data.id,
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "[ghl_support/webhook] errore processando ghl-leads/new: %s",
+            exc,
+        )
+        return jsonify({"ok": False, "error": "internal"}), 500

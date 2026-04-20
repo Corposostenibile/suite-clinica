@@ -2,19 +2,21 @@
 Security module for GHL webhook verification
 """
 
-import hmac
-import hashlib
 from functools import wraps
-from flask import request, abort, current_app
+import base64
+import hashlib
+import hmac
 import json
 
+from flask import request, abort, current_app
 
-def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
+
+def verify_webhook_signature(payload: bytes | str, signature: str, secret: str) -> bool:
     """
     Verifica la firma HMAC del webhook per garantire che provenga da GHL
 
     Args:
-        payload: Il body del webhook come stringa
+        payload: Il body del webhook come bytes o stringa
         signature: La firma fornita nell'header del webhook
         secret: Il secret condiviso con GHL
 
@@ -24,15 +26,28 @@ def verify_webhook_signature(payload: str, signature: str, secret: str) -> bool:
     if not signature or not secret:
         return False
 
-    # Calcola la firma attesa
-    expected_signature = hmac.new(
-        secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+    if isinstance(payload, str):
+        payload_bytes = payload.encode("utf-8")
+    else:
+        payload_bytes = payload
+
+    normalized_signature = signature.strip()
+    if normalized_signature.startswith("sha256="):
+        normalized_signature = normalized_signature.split("=", 1)[1].strip()
+
+    digest = hmac.new(
+        secret.encode("utf-8"),
+        payload_bytes,
+        hashlib.sha256,
+    ).digest()
+    expected_hex = digest.hex()
+    expected_b64 = base64.b64encode(digest).decode("ascii")
 
     # Confronto sicuro contro timing attacks
-    return hmac.compare_digest(expected_signature, signature)
+    return (
+        hmac.compare_digest(expected_hex, normalized_signature)
+        or hmac.compare_digest(expected_b64, normalized_signature)
+    )
 
 
 def require_webhook_signature(f):
@@ -56,10 +71,15 @@ def require_webhook_signature(f):
                 abort(500, description="Webhook secret not configured")
 
         # Ottieni la firma dall'header
-        signature = request.headers.get('X-GHL-Signature') or request.headers.get('X-Webhook-Signature')
+        signature = (
+            request.headers.get('X-GHL-Signature')
+            or request.headers.get('X-Webhook-Signature')
+            or request.headers.get('X-Hub-Signature-256')
+            or request.headers.get('X-Signature')
+        )
 
         # Ottieni il payload raw
-        payload = request.get_data(as_text=True)
+        payload = request.get_data()
 
         # Verifica la firma
         if not verify_webhook_signature(payload, signature, secret):
