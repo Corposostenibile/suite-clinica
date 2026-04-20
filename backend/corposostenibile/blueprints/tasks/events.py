@@ -22,72 +22,64 @@ from corposostenibile.models import (
     TaskStatusEnum,
     TaskPriorityEnum,
     User,
+    UserSpecialtyEnum,
 )
 from corposostenibile.blueprints.push_notifications.service import send_task_assigned_push
+from corposostenibile.blueprints.tasks.email_service import send_onboarding_task_email
 
 # --------------------------------------------------------------------------- #
-#  1. ONBOARDING (Assegnazione Cliente)
+#  Whitelist destinatari task
 # --------------------------------------------------------------------------- #
-@event.listens_for(Cliente, 'after_update')
-def trigger_onboarding_task(mapper, connection, target):
+# Solo nutrizionisti, coach e psicologi possono ricevere task.
+# Esclusi: health manager, consulenti alimentari, medici, admin/CCO e
+# qualsiasi utente senza specialty assegnata.
+_ELIGIBLE_TASK_SPECIALTIES = frozenset({
+    UserSpecialtyEnum.nutrizione,
+    UserSpecialtyEnum.nutrizionista,
+    UserSpecialtyEnum.coach,
+    UserSpecialtyEnum.psicologia,
+    UserSpecialtyEnum.psicologo,
+})
+
+
+def _is_eligible_task_recipient(user) -> bool:
+    """True se l'utente ha una specialty ammessa a ricevere task."""
+    if user is None:
+        return False
+    return getattr(user, "specialty", None) in _ELIGIBLE_TASK_SPECIALTIES
+
+
+@event.listens_for(Session, "before_flush")
+def drop_tasks_for_ineligible_assignees(session, flush_context, instances):
+    """Safety net: scarta i Task diretti a utenti non ammessi.
+
+    Rimuove dalla session i Task pending con assignee_id appartenente a un
+    utente che non e' nutrizionista, coach o psicologa. Copre anche i path
+    di creazione task che non filtrano esplicitamente (check legacy,
+    formazione, creazione manuale via API, future estensioni).
     """
-    Genera un task di onboarding quando viene assegnato un professionista.
-    """
-    # logger.info(f"EVENT: trigger_onboarding_task for client {target.cliente_id} - {target.nome_cognome}")
-    # Verifica cambiamenti nei campi professionista
-    # create_task_session = db.session.object_session(target) # after_update keeps session?
-    # Usiamo Connection per insert diretti o Session? 
-    # after_update passa connection. Se vogliamo usare ORM, meglio Session.
-    # Ma attenzione a creare oggetti durante il flush (potrebbe dare warning).
-    # listeners.py usava before_flush per questo motivo.
-    # Proviamo con Session.
-    
-    session = db.session
-    if not session:
-        logger.warning("EVENT: trigger_onboarding_task - NO SESSION FOUND")
+    pending_tasks = [obj for obj in session.new if isinstance(obj, Task)]
+    if not pending_tasks:
         return
-    # logger.info("EVENT: trigger_onboarding_task - Session OK")
-
-    # Helper per creare task
-    def create_onboard_task(assignee_id, role_name):
-        if not assignee_id:
-            return
-            
-        task = Task(
-            title=f"Nuovo Cliente: {target.nome_cognome}",
-            description=f"Ti è stato assegnato il cliente {target.nome_cognome} come {role_name}. Mandagli il messaggio di benvenuto e leggi i suoi check!",
-            category=TaskCategoryEnum.onboarding,
-            status=TaskStatusEnum.todo,
-            priority=TaskPriorityEnum.high,
-            client_id=target.cliente_id,
-            assignee_id=assignee_id,
-            created_at=datetime.utcnow()
-        )
-        session.add(task)
-        logger.info(f"TASK CREATED: Onboarding task for assignee {assignee_id} (role: {role_name})")
-
-    # Campi da monitorare (SOLO CAMPI SINGOLI/SCALAR)
-    # health_manager_id è ancora un campo singolo
-    prof_fields = {
-        'health_manager_id': 'Health Manager'
-    }
-
-    state = inspect(target)
-    # logger.info(f"INSPECTING STATE for {target} (Scalar Fields)")
-    
-    for field, role in prof_fields.items():
-        hist = state.attrs.get(field).history
-        # logger.info(f"CHECK SCALAR FIELD {field}: has_changes={hist.has_changes()}")
-        
-        if hist.has_changes():
-            # Nuovo valore assegnato (added[0])
-            if hist.added and hist.added[0]:
-                logger.info(f"MATCH SCALAR! Creating task for {role} (id: {hist.added[0]})")
-                create_onboard_task(hist.added[0], role)
+    with session.no_autoflush:
+        for task in pending_tasks:
+            if not task.assignee_id:
+                continue
+            assignee = session.get(User, task.assignee_id)
+            if _is_eligible_task_recipient(assignee):
+                continue
+            specialty = getattr(assignee, "specialty", None) if assignee else None
+            logger.info(
+                "TASK SKIPPED: assignee_id=%s specialty=%s not eligible (title=%r)",
+                task.assignee_id,
+                specialty,
+                task.title,
+            )
+            session.expunge(task)
 
 
 # --------------------------------------------------------------------------- #
-#  1b. ONBOARDING (Assegnazione Cliente - M2M Lists)
+#  1. ONBOARDING (Assegnazione Cliente - M2M Lists)
 # --------------------------------------------------------------------------- #
 def trigger_professional_assignment(target, value, initiator):
     """
@@ -108,7 +100,6 @@ def trigger_professional_assignment(target, value, initiator):
         'nutrizionisti_multipli': 'Nutrizionista',
         'coaches_multipli': 'Coach',
         'psicologi_multipli': 'Psicologo/a',
-        'consulenti_multipli': 'Consulente Alimentare'
     }
     
     attr_name = initiator.key
@@ -134,8 +125,8 @@ def trigger_professional_assignment(target, value, initiator):
     except Exception as e:
         logger.error(f"ERROR creating task in M2M listener: {e}")
 
-# Registra i listener per le collezioni M2M
-for attr in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli']:
+# Registra i listener per le collezioni M2M (solo specialty ammesse a ricevere task)
+for attr in ['nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli']:
     event.listen(getattr(Cliente, attr), 'append', trigger_professional_assignment)
 
 
@@ -184,32 +175,30 @@ def trigger_check_task(mapper, connection, target):
 
 
 def _get_cliente_professional_ids(cliente) -> set[int]:
-    """Restituisce tutti gli ID dei professionisti assegnati al cliente.
+    """Restituisce gli ID dei professionisti del cliente ammessi ai task.
 
-    Priorità M2M: le relazioni many-to-many sono la fonte autoritativa.
-    I campi singoli (nutrizionista_id, ecc.) vengono usati solo come
-    fallback per clienti legacy che non hanno ancora dati M2M.
+    Include solo nutrizionisti, coach e psicologi (sia M2M sia single-FK legacy).
+    Esclude health manager e consulenti alimentari: questi non devono ricevere task.
+
+    Priorita' M2M: le relazioni many-to-many sono la fonte autoritativa;
+    i campi singoli vengono usati come fallback solo se nessuna M2M e' popolata.
     """
     prof_ids = set()
 
-    # Fonte autoritativa: relazioni M2M
+    # Fonte autoritativa: relazioni M2M (senza consulenti_multipli)
     m2m_found = False
-    for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli', 'consulenti_multipli'):
+    for rel in ('nutrizionisti_multipli', 'coaches_multipli', 'psicologi_multipli'):
         for u in (getattr(cliente, rel, None) or []):
             prof_ids.add(u.id)
             m2m_found = True
 
-    # Fallback legacy: campi singoli FK solo se nessuna M2M è impostata
+    # Fallback legacy: campi singoli solo se nessuna M2M e' impostata
+    # (senza consulente_alimentare_id, senza health_manager_id)
     if not m2m_found:
-        for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id', 'consulente_alimentare_id'):
+        for attr in ('nutrizionista_id', 'coach_id', 'psicologa_id'):
             uid = getattr(cliente, attr, None)
             if uid:
                 prof_ids.add(uid)
-
-    # health_manager_id è ancora un campo singolo (non ha M2M)
-    hm_id = getattr(cliente, 'health_manager_id', None)
-    if hm_id:
-        prof_ids.add(hm_id)
 
     return prof_ids
 
@@ -369,11 +358,16 @@ def collect_new_tasks_for_push(session, flush_context):
     pending = session.info.setdefault("pending_task_push", [])
     for obj in session.new:
         if isinstance(obj, Task) and obj.assignee_id:
+            category_value = (
+                obj.category.value if hasattr(obj.category, "value") else obj.category
+            )
             pending.append(
                 {
                     "task_id": obj.id,
                     "assignee_id": obj.assignee_id,
                     "title": obj.title,
+                    "category": category_value,
+                    "client_id": obj.client_id,
                 }
             )
 
@@ -395,6 +389,22 @@ def dispatch_task_push_after_commit(session):
                 item.get("assignee_id"),
                 exc,
             )
+
+        # Email addizionale solo per task di onboarding (assegnazione professionista a cliente)
+        if item.get("category") == "onboarding":
+            try:
+                send_onboarding_task_email(
+                    task_id=item["task_id"],
+                    assignee_id=item["assignee_id"],
+                    client_id=item.get("client_id"),
+                )
+            except Exception as exc:  # pragma: no cover
+                logger.warning(
+                    "EMAIL ONBOARDING FAILED task_id=%s assignee=%s err=%s",
+                    item.get("task_id"),
+                    item.get("assignee_id"),
+                    exc,
+                )
 
 
 @event.listens_for(Session, "after_rollback")

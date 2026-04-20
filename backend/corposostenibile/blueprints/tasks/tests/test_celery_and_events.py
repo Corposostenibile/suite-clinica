@@ -190,7 +190,9 @@ def test_db_events_create_onboarding_training_and_check_tasks(app, cleanup_test_
     marker, created = cleanup_test_data
 
     with app.app_context():
-        hm = _mk_user(marker, created, "hm", specialty=UserSpecialtyEnum.coach)
+        onboard_prof = _mk_user(
+            marker, created, "onboard-prof", specialty=UserSpecialtyEnum.nutrizione
+        )
         reviewer = _mk_user(
             marker,
             created,
@@ -203,15 +205,17 @@ def test_db_events_create_onboarding_training_and_check_tasks(app, cleanup_test_
         form_owner = _mk_user(marker, created, "form-owner", specialty=UserSpecialtyEnum.nutrizione)
         db.session.commit()
 
-        # onboarding event (after_update on health_manager_id)
-        onboard_client = _mk_client(marker, created, "onboard-scalar")
+        # onboarding event (M2M append on nutrizionisti_multipli).
+        # Nota: l'assegnazione via health_manager_id non genera piu' task (solo
+        # nutrizionisti/coach/psicologi ricevono task).
+        onboard_client = _mk_client(marker, created, "onboard-m2m")
         db.session.commit()
-        onboard_client.health_manager_id = hm.id
+        onboard_client.nutrizionisti_multipli.append(onboard_prof)
         db.session.commit()
 
         onboarding_task = Task.query.filter_by(
             client_id=onboard_client.cliente_id,
-            assignee_id=hm.id,
+            assignee_id=onboard_prof.id,
             category=TaskCategoryEnum.onboarding,
         ).order_by(Task.id.desc()).first()
         assert onboarding_task is not None
