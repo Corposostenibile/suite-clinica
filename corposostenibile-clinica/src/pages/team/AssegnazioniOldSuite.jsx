@@ -223,17 +223,22 @@ function AssegnazioniOldSuite() {
     setManualError('');
     setAvailableProfs({ nutrizione: [], coach: [], psicologia: [] });
     setShowManualModal(true);
-    const roles = lead.package_roles || {};
-    const [n, c, p] = await Promise.all([
-      roles.nutrition ? teamService.getAvailableProfessionals('nutrizione') : Promise.resolve({ professionals: [] }),
-      roles.coach ? teamService.getAvailableProfessionals('coach') : Promise.resolve({ professionals: [] }),
-      roles.psychology ? teamService.getAvailableProfessionals('psicologia') : Promise.resolve({ professionals: [] }),
-    ]);
-    setAvailableProfs({
-      nutrizione: n.professionals || [],
-      coach: c.professionals || [],
-      psicologia: p.professionals || [],
-    });
+    try {
+      const roles = lead.package_roles || {};
+      const [n, c, p] = await Promise.all([
+        roles.nutrition ? teamService.getAvailableProfessionals('nutrizione') : Promise.resolve({ professionals: [] }),
+        roles.coach ? teamService.getAvailableProfessionals('coach') : Promise.resolve({ professionals: [] }),
+        roles.psychology ? teamService.getAvailableProfessionals('psicologia') : Promise.resolve({ professionals: [] }),
+      ]);
+      setAvailableProfs({
+        nutrizione: n.professionals || [],
+        coach: c.professionals || [],
+        psicologia: p.professionals || [],
+      });
+    } catch (err) {
+      console.error('Errore caricamento professionisti:', err);
+      setManualError('Impossibile caricare la lista professionisti. Riprova.');
+    }
   };
 
   const handleManualSave = async () => {
