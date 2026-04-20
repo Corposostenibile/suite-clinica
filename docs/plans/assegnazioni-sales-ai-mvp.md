@@ -177,22 +177,17 @@ Il record non deve dipendere da un formato rigido: basta mantenere uno degli ali
 - consumare la queue da `ghlService.getOpportunityData()`
 - verificare i permessi in `rbacScope.js` e `App.jsx`
 
-## Priorità
-### P0
-- ingestione GHL corretta
-- salvataggio Sales owner
-- lista/dettaglio affidabili
-- confirm assignment funzionante da `opportunity_data_id`
-
-### P1
-- filtri utili sulla queue
-- miglioramento permessi
-- rifinitura payload del serializer
-
-### P2
-- UI completa del pannello
-- ottimizzazioni UI/UX
-- hardening aggiuntivo del webhook
+## Checklist
+- [ ] ingestione GHL corretta
+- [ ] salvataggio Sales owner
+- [ ] lista/dettaglio affidabili
+- [ ] confirm assignment funzionante da `opportunity_data_id`
+- [ ] filtri utili sulla queue
+- [ ] miglioramento permessi
+- [ ] rifinitura payload del serializer
+- [ ] UI completa del pannello
+- [ ] ottimizzazioni UI/UX
+- [ ] hardening aggiuntivo del webhook
 
 ## Fuori scope
 - ClickUp per le assegnazioni
