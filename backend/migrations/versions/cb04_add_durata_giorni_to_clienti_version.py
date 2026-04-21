@@ -1,7 +1,7 @@
 """add_durata_giorni_to_clienti_version
 
 Revision ID: cb04_add_durata_clienti_ver
-Revises: cb03_hm_team_type
+Revises: cb03_hm_team_type, hm_team_second_leader_01
 Create Date: 2026-02-27
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy import inspect
 
 
 revision = "cb04_add_durata_clienti_ver"
-down_revision = "cb03_hm_team_type"
+down_revision = ("cb03_hm_team_type", "hm_team_second_leader_01")
 branch_labels = None
 depends_on = None
 

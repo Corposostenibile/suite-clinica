@@ -199,18 +199,29 @@ const checkService = {
    */
   async copyLinkToClipboard(url) {
     try {
-      await navigator.clipboard.writeText(url);
-      return true;
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        return true;
+      }
+      throw new Error('Clipboard API non disponibile');
     } catch (err) {
-      console.error('Failed to copy link:', err);
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = url;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      return true;
+      // Fallback per contesti non sicuri/non supportati (es. alcune istanze HTTP)
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        return true;
+      } catch (fallbackErr) {
+        console.error('Failed to copy link:', fallbackErr);
+        return false;
+      }
     }
   },
 

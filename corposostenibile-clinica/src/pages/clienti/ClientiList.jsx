@@ -9,7 +9,7 @@ import SupportWidget from '../../components/SupportWidget';
 import ClientiFilters from './ClientiFilters';
 import { FaUserFriends, FaChartBar, FaFilter, FaTable, FaEye, FaArrowRight } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
-import { isProfessionistaStandard } from '../../utils/rbacScope';
+import { isHealthManagerTeamLeader, isProfessionistaStandard } from '../../utils/rbacScope';
 import './ClientiList.css';
 
 // Colori ruoli per avatar
@@ -46,6 +46,7 @@ function ClientiList() {
     if (s === 'psicologia' || s === 'psicologo') return 'psicologia';
     return null;
   })();
+  const canAccessTipologiaCheckBulk = Boolean(isAdminOrCco || isHealthManagerTeamLeader(user));
 
   // Determine specialty view for professionals and team leaders
   const professionistaView = (() => {
@@ -464,7 +465,14 @@ function ClientiList() {
           <h4>Gestione Pazienti</h4>
           <p className="cl-header-sub">{pagination.total} pazienti totali</p>
         </div>
-        <div className="cl-view-pills">
+        <div className="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+          {canAccessTipologiaCheckBulk && (
+            <Link to="/clienti-tipologia-check-bulk" className="btn btn-outline-primary btn-sm">
+              <i className="ri-stack-line me-1"></i>
+              Bulk Tipologia Check
+            </Link>
+          )}
+          <div className="cl-view-pills">
           {visualButtons.map((btn) => (
             <Link
               key={btn.key}
@@ -474,6 +482,7 @@ function ClientiList() {
               <i className={btn.icon}></i> {btn.label}
             </Link>
           ))}
+          </div>
         </div>
       </div>
 

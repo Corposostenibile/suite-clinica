@@ -131,6 +131,58 @@ const ALL_SECTIONS = [
   },
 ];
 
+const RadioSelector = ({ options, value, onChange, color }) => (
+  <div className="check-radio-grid">
+    {options.map(opt => (
+      <button
+        key={opt.value}
+        type="button"
+        className={`check-radio-btn${value === opt.value ? ' selected' : ''}`}
+        onClick={() => onChange(opt.value)}
+        style={value === opt.value ? { background: color, borderColor: color } : {}}
+      >
+        {opt.label}
+      </button>
+    ))}
+  </div>
+);
+
+const CheckboxGroup = ({ options, value, onChange }) => {
+  const current = value || [];
+  return (
+    <div className="check-checkbox-grid">
+      {options.map(opt => (
+        <button
+          key={opt.value}
+          type="button"
+          className={`check-checkbox-btn${current.includes(opt.value) ? ' selected' : ''}`}
+          onClick={() => onChange(opt.value)}
+        >
+          {current.includes(opt.value) && <i className="ri-check-line"></i>}
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+const TextareaField = ({ value, onChange, placeholder }) => (
+  <textarea
+    className="check-textarea"
+    value={value || ''}
+    onChange={(e) => onChange(e.target.value)}
+    placeholder={placeholder}
+    rows={3}
+  />
+);
+
+const formatDateInput = (rawValue) => {
+  const digits = rawValue.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+};
+
 function MinorCheckForm() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -218,52 +270,6 @@ function MinorCheckForm() {
     return val != null && val !== '';
   }).length;
   const overallProgress = totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0;
-
-  // Subcomponents
-  const RadioSelector = ({ options, value, onChange, color }) => (
-    <div className="check-radio-grid">
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          type="button"
-          className={`check-radio-btn${value === opt.value ? ' selected' : ''}`}
-          onClick={() => onChange(opt.value)}
-          style={value === opt.value ? { background: color, borderColor: color } : {}}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-
-  const CheckboxGroup = ({ options, value, onChange }) => {
-    const current = value || [];
-    return (
-      <div className="check-checkbox-grid">
-        {options.map(opt => (
-          <button
-            key={opt.value}
-            type="button"
-            className={`check-checkbox-btn${current.includes(opt.value) ? ' selected' : ''}`}
-            onClick={() => onChange(opt.value)}
-          >
-            {current.includes(opt.value) && <i className="ri-check-line"></i>}
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    );
-  };
-
-  const TextareaField = ({ value, onChange, placeholder }) => (
-    <textarea
-      className="check-textarea"
-      value={value || ''}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={3}
-    />
-  );
 
   if (loading) {
     return (
@@ -625,11 +631,16 @@ function MinorCheckForm() {
                 </div>
                 <div style={{ maxWidth: 200 }}>
                   <input
-                    type="date"
+                    type="text"
                     className="check-input"
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="\d{2}-\d{2}-\d{4}"
+                    placeholder="GG-MM-AAAA"
                     value={f.data_misurazione || ''}
-                    onChange={(e) => handleChange('data_misurazione', e.target.value)}
+                    onChange={(e) => handleChange('data_misurazione', formatDateInput(e.target.value))}
                   />
+                  <div className="check-input-hint">Formato: GG-MM-AAAA</div>
                 </div>
               </div>
               {/* Q18 */}

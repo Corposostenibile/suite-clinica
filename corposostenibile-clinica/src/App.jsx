@@ -28,6 +28,7 @@ import {
   ClientiListaCoach,
   ClientiListaPsicologia,
   ClientiListaHealthManager,
+  TipologiaCheckBulkAssign,
 } from './pages/clienti';
 
 // Chat pages
@@ -84,6 +85,7 @@ import {
   canAccessTrainingPage,
   canAccessTrialPages,
   canViewOtherProfessionalProfile,
+  isHealthManagerTeamLeader,
   isAdminOrCco,
 } from './utils/rbacScope';
 
@@ -120,6 +122,8 @@ function TeamDetailRouteGuard({ children }) {
 }
 
 function App() {
+  const canAccessTipologiaCheckBulk = (user) => isAdminOrCco(user) || isHealthManagerTeamLeader(user);
+
   return (
     <ThemeContextProvider>
       <Router basename={import.meta.env.BASE_URL}>
@@ -216,6 +220,7 @@ function App() {
             <Route path="/clienti-nuovo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
             <Route path="/clienti-dettaglio/:id" element={<ClientiDetail />} />
             <Route path="/clienti-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
+            <Route path="/clienti-tipologia-check-bulk" element={<RoleProtectedRoute allowIf={canAccessTipologiaCheckBulk}><TipologiaCheckBulkAssign /></RoleProtectedRoute>} />
             <Route path="/clienti-nutrizione" element={<ClientiListaNutrizione />} />
             <Route path="/clienti-coach" element={<ClientiListaCoach />} />
             <Route path="/clienti-psicologia" element={<ClientiListaPsicologia />} />

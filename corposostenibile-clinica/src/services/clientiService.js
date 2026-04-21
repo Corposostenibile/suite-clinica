@@ -55,6 +55,18 @@ export const TIPOLOGIA_COLORS = {
   pausa_gt_30: 'dark',
 };
 
+export const TIPOLOGIA_CHECK = {
+  REGOLARE: 'regolare',
+  MINORI: 'minori',
+  DCA: 'dca',
+};
+
+export const TIPOLOGIA_CHECK_LABELS = {
+  regolare: 'Regolare',
+  minori: 'Minori',
+  dca: 'DCA',
+};
+
 // Genere
 export const GENERE = {
   UOMO: 'uomo',
@@ -362,6 +374,19 @@ const clientiService = {
    */
   async getAdminDashboardStats() {
     const response = await api.get(`${API_BASE}/admin-dashboard-stats`);
+    return response.data;
+  },
+
+  async getTipologiaCheckCandidates(params = {}) {
+    const response = await api.get(`${API_BASE}/bulk-tipologia-check/candidates`, { params });
+    return response.data;
+  },
+
+  async assignTipologiaCheckBulk(clienteIds, tipologiaCheckAssegnato) {
+    const response = await api.post(`${API_BASE}/bulk-tipologia-check/assign`, {
+      cliente_ids: clienteIds,
+      tipologia_check_assegnato: tipologiaCheckAssegnato,
+    });
     return response.data;
   },
 

@@ -4,6 +4,8 @@ import clientiService, {
   STATO_LABELS,
   STATO_CLIENTE,
   TIPOLOGIA_LABELS,
+  TIPOLOGIA_CHECK,
+  TIPOLOGIA_CHECK_LABELS,
   TIPOLOGIA_CLIENTE,
   GENERE_LABELS,
   PAGAMENTO_LABELS,
@@ -98,6 +100,11 @@ const getLoomEmbedUrl = (loomLink) => {
 };
 
 const SUPPORT_TIPOLOGIA_OPTIONS = ['a', 'b', 'c', 'secondario'];
+const TIPOLOGIA_CHECK_TO_TAB = {
+  [TIPOLOGIA_CHECK.REGOLARE]: 'weekly',
+  [TIPOLOGIA_CHECK.DCA]: 'dca',
+  [TIPOLOGIA_CHECK.MINORI]: 'minor',
+};
 
 // Figura di riferimento labels
 const FIGURA_RIF_LABELS = {
@@ -852,6 +859,7 @@ function ClientiDetail() {
 
   // Check Sub-tabs states
   const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
+  const lastActiveTabRef = useRef(activeTab);
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
   const [initialChecksData, setInitialChecksData] = useState(null);
   const [loadingInitialChecks, setLoadingInitialChecks] = useState(false);
@@ -918,6 +926,7 @@ function ClientiDetail() {
     stato_cliente_data: '',
     programma_attuale: '',
     tipologia_cliente: '',
+    tipologia_check_assegnato: '',
     tipologia_supporto_nutrizione: '',
     tipologia_supporto_coach: '',
     data_inizio_abbonamento: '',
@@ -1157,6 +1166,17 @@ function ClientiDetail() {
       }
     }
   }, [activeTab, id]);
+
+  useEffect(() => {
+    const previousTab = lastActiveTabRef.current;
+    if (activeTab === 'check_periodici' && previousTab !== 'check_periodici') {
+      const mappedTab = TIPOLOGIA_CHECK_TO_TAB[formData.tipologia_check_assegnato];
+      if (mappedTab && activePeriodiciTab === 'setup') {
+        setActivePeriodiciTab(mappedTab);
+      }
+    }
+    lastActiveTabRef.current = activeTab;
+  }, [activeTab, formData.tipologia_check_assegnato, activePeriodiciTab]);
 
   // ==================== CHECK FUNCTIONS ====================
   const fetchCheckData = async () => {
@@ -2863,6 +2883,7 @@ function ClientiDetail() {
       stato_cliente_data: c.stato_cliente_data || c.statoClienteData || '',
       programma_attuale: c.programma_attuale || c.programmaAttuale || '',
       tipologia_cliente: c.tipologia_cliente || c.tipologiaCliente || '',
+      tipologia_check_assegnato: c.tipologia_check_assegnato || c.tipologiaCheckAssegnato || '',
       tipologia_supporto_nutrizione: c.tipologia_supporto_nutrizione || c.tipologiaSupportoNutrizione || '',
       tipologia_supporto_coach: c.tipologia_supporto_coach || c.tipologiaSupportoCoach || '',
       data_inizio_abbonamento: c.data_inizio_abbonamento || c.dataInizioAbbonamento || '',
@@ -3071,7 +3092,12 @@ function ClientiDetail() {
       await clientiService.updateCliente(id, dataToSend);
       setSaveSuccess(true);
       const refreshed = await clientiService.getCliente(id);
-      setCliente(refreshed.data || refreshed);
+      const refreshedCliente = refreshed.data || refreshed;
+      setCliente(refreshedCliente);
+      populateForm(refreshedCliente);
+      if (activeTab === 'check_periodici' || 'tipologia_check_assegnato' in dataToSend) {
+        await fetchCheckData();
+      }
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving:', err);
@@ -7808,6 +7834,57 @@ function ClientiDetail() {
                                 <option value="sab">Sabato</option>
                                 <option value="dom">Domenica</option>
                               </select>
+                              <div className="cd-inner-card-header-left" style={{ margin: '18px 0 12px' }}>
+                                <div className="cd-icon-circle purple">
+                                  <i className="ri-focus-3-line"></i>
+                                </div>
+                                <span className="cd-inner-card-title">Tipologia Check Assegnato</span>
+                              </div>
+                              <div style={{ display: 'grid', gap: '10px' }}>
+                                {[
+                                  {
+                                    key: TIPOLOGIA_CHECK.REGOLARE,
+                                    description: 'Check settimanale completo con feedback professionisti e monitoraggio generale.',
+                                  },
+                                  {
+                                    key: TIPOLOGIA_CHECK.MINORI,
+                                    description: 'Questionario dedicato al percorso adolescenti con scale e indicatori specifici.',
+                                  },
+                                  {
+                                    key: TIPOLOGIA_CHECK.DCA,
+                                    description: 'Check psicologico per monitorare il rapporto con cibo, emozioni e aderenza.',
+                                  },
+                                ].map((option) => (
+                                  <label
+                                    key={option.key}
+                                    style={{
+                                      border: formData.tipologia_check_assegnato === option.key ? '1px solid #6366f1' : '1px solid #e2e8f0',
+                                      borderRadius: '10px',
+                                      padding: '10px 12px',
+                                      display: 'flex',
+                                      alignItems: 'flex-start',
+                                      gap: '10px',
+                                      cursor: 'pointer',
+                                      background: formData.tipologia_check_assegnato === option.key ? '#f5f3ff' : '#fff',
+                                    }}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="tipologia_check_assegnato"
+                                      value={option.key}
+                                      checked={formData.tipologia_check_assegnato === option.key}
+                                      onChange={(e) => handleInputChange('tipologia_check_assegnato', e.target.value)}
+                                      style={{ marginTop: '2px' }}
+                                    />
+                                    <span>
+                                      <strong>{TIPOLOGIA_CHECK_LABELS[option.key]}</strong>
+                                      <span className="cd-empty-text" style={{ display: 'block', marginTop: '3px' }}>
+                                        {option.description}
+                                      </span>
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
