@@ -306,6 +306,12 @@ def da_leggere():
     """
     Pagina per professionisti: mostra tutti i check WeeklyCheck e DCACheck
     dei loro clienti che devono ancora leggere (da oggi in poi).
+    
+    NOTA: Dal 2026 la relazione paziente->professionista usa SOLO le tabelle M2M
+    (cliente_nutrizionisti, cliente_coaches, cliente_psicologi, cliente_consulenti)
+    come source of truth. Le foreign keys in clienti (nutrizionista_id, etc.)
+    e la history (ClienteProfessionistaHistory) NON vengono usate per
+    determinare l'assegnazione in questa view.
     """
     from datetime import date
     from corposostenibile.models import (
@@ -316,77 +322,54 @@ def da_leggere():
         DCACheckResponse
     )
 
+    def _build_m2m_filter(q, user_ids_list):
+        """
+        Costruisce un filtro che usa SOLO le relazioni M2M.
+        Le foreign keys (nutrizionista_id, etc.) e la history sono escluse.
+        """
+        if len(user_ids_list) == 1:
+            uid = user_ids_list[0]
+            return q.filter(
+                db.or_(
+                    Cliente.nutrizionisti_multipli.any(User.id == uid),
+                    Cliente.coaches_multipli.any(User.id == uid),
+                    Cliente.psicologi_multipli.any(User.id == uid),
+                    Cliente.consulenti_multipli.any(User.id == uid),
+                )
+            )
+        else:
+            return q.filter(
+                db.or_(
+                    Cliente.nutrizionisti_multipli.any(User.id.in_(user_ids_list)),
+                    Cliente.coaches_multipli.any(User.id.in_(user_ids_list)),
+                    Cliente.psicologi_multipli.any(User.id.in_(user_ids_list)),
+                    Cliente.consulenti_multipli.any(User.id.in_(user_ids_list)),
+                )
+            )
+
     # Ottieni i clienti visibili in base al ruolo
     query = db.session.query(Cliente)
     
-    # 1. Admin: vede tutto (ma qui filtriamo solo chi ha check non letti dopo)
+    # 1. Admin: vede tutti i clienti (ma filtriamo solo chi ha check non letti)
     if current_user.role == UserRoleEnum.admin:
-        # Recupera TUTTI i clienti che hanno check
-        # In questo contesto "da_leggere" per admin potrebbe mostrare tutto, 
-        # ma per coerenza con la logica "Inbox" manteniamo il focus.
-        # Tuttavia, se l'admin vuole vedere tutto, non applichiamo filtri qui
-        # e lasciamo che la join successiva trovi i check non letti.
+        # Admin vede TUTTO - nessun filtro specifico
+        # I check vengono poi filtrati nella query WeeklyCheck/DCACheck
         pass
 
     # 2. Team Leader: vede i clienti assegnati ai membri del proprio team
     elif current_user.role == UserRoleEnum.team_leader:
         team_member_ids = set()
-        # Includi se stesso
         team_member_ids.add(current_user.id)
-        # Includi membri dei team guidati
         for team in (current_user.teams_led or []):
             for member in (team.members or []):
                 team_member_ids.add(member.id)
         
-        member_ids_list = list(team_member_ids)
-        
-        query = query.filter(
-            db.or_(
-                # Relazioni singole (foreign keys) - controlla se assegnato a QUALSIASI membro del team
-                Cliente.nutrizionista_id.in_(member_ids_list),
-                Cliente.coach_id.in_(member_ids_list),
-                Cliente.psicologa_id.in_(member_ids_list),
-                Cliente.consulente_alimentare_id.in_(member_ids_list),
-                # Relazioni multiple - controlla se QUALSIASI membro del team è nelle liste
-                Cliente.nutrizionisti_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.coaches_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.psicologi_multipli.any(User.id.in_(member_ids_list)),
-                Cliente.consulenti_multipli.any(User.id.in_(member_ids_list)),
-                # Assegnazione tramite history (es. Medico nel team)
-                exists(
-                    select(ClienteProfessionistaHistory.cliente_id).where(
-                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                        ClienteProfessionistaHistory.user_id.in_(member_ids_list),
-                        ClienteProfessionistaHistory.is_active == True,
-                    )
-                ),
-            )
-        )
+        query = _build_m2m_filter(query, list(team_member_ids))
 
-    # 3. Professionista: vede solo i propri clienti (inclusi assegnazioni da history, es. Medico)
+
+    # 3. Professionista: vede solo i propri clienti (via M2M)
     else:
-        query = query.filter(
-            db.or_(
-                # Relazioni singole (foreign keys)
-                Cliente.nutrizionista_id == current_user.id,
-                Cliente.coach_id == current_user.id,
-                Cliente.psicologa_id == current_user.id,
-                Cliente.consulente_alimentare_id == current_user.id,
-                # Relazioni multiple (many-to-many)
-                Cliente.nutrizionisti_multipli.any(User.id == current_user.id),
-                Cliente.coaches_multipli.any(User.id == current_user.id),
-                Cliente.psicologi_multipli.any(User.id == current_user.id),
-                Cliente.consulenti_multipli.any(User.id == current_user.id),
-                # Assegnazione tramite ClienteProfessionistaHistory (es. Medico)
-                exists(
-                    select(ClienteProfessionistaHistory.cliente_id).where(
-                        ClienteProfessionistaHistory.cliente_id == Cliente.cliente_id,
-                        ClienteProfessionistaHistory.user_id == current_user.id,
-                        ClienteProfessionistaHistory.is_active == True,
-                    )
-                ),
-            )
-        )
+        query = _build_m2m_filter(query, [current_user.id])
 
     my_clienti = query.all()
     my_clienti_ids = [c.cliente_id for c in my_clienti]
@@ -498,12 +481,9 @@ def conferma_lettura(response_type, response_id):
             flash("Cliente non trovato per questo check", "error")
             return redirect(url_for("client_checks.da_leggere"))
 
-        # Verify professional is assigned
+        # Verify professional is assigned via M2M only (source of truth)
+        # Note: FK fields (nutrizionista_id, etc.) and history are not checked
         is_assigned = (
-            cliente.nutrizionista_id == current_user.id or
-            cliente.coach_id == current_user.id or
-            cliente.psicologa_id == current_user.id or
-            cliente.consulente_alimentare_id == current_user.id or
             current_user in cliente.nutrizionisti_multipli or
             current_user in cliente.coaches_multipli or
             current_user in cliente.psicologi_multipli or
