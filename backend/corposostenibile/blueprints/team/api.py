@@ -2707,11 +2707,27 @@ def get_available_professionals(team_type):
     if requesting_role == "team_leader" and not _can_view_all_team_module_data(current_user):
         tl_visible_member_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
 
-    # Health Manager: return users with role health_manager
+    # Health Manager: include both HM users and HM team leaders
+    # (es. Daniela Mastropasqua: role=team_leader, team_type=health_manager)
     if team_type == "health_manager":
+        hm_team_head_ids_sq = db.session.query(Team.head_id).filter(
+            Team.head_id.isnot(None),
+            Team.is_active == True,
+            Team.team_type == TeamTypeEnum.health_manager,
+        ).distinct().subquery()
+
         query = User.query.filter(
             User.is_active == True,
-            cast(User.role, String) == "health_manager",
+            or_(
+                cast(User.role, String) == "health_manager",
+                and_(
+                    cast(User.role, String) == "team_leader",
+                    or_(
+                        cast(User.specialty, String) == "health_manager",
+                        User.id.in_(select(hm_team_head_ids_sq.c.head_id)),
+                    ),
+                ),
+            ),
         )
         if tl_visible_member_ids is not None:
             query = query.filter(User.id.in_(tl_visible_member_ids))
