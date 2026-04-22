@@ -190,6 +190,51 @@ const checkService = {
 
 
 
+  // ==================== WEEKLY LIGHT CHECK ====================
+
+  /**
+   * Get weekly light check link for a client (read-only, auto-generated)
+   * @param {number} clienteId
+   * @returns {Promise} - { success, check: { id, token, url, is_active, response_count } }
+   */
+  async getWeeklyLightCheck(clienteId) {
+    const response = await api.get(`${API_BASE}/weekly-light/${clienteId}`);
+    return response.data;
+  },
+
+  // ==================== MONTHLY CHECK ====================
+
+  /**
+   * Generate or retrieve monthly check link for a client
+   * @param {number} clienteId
+   * @param {string} tipologia - 'regolare', 'dca', or 'minori'
+   * @returns {Promise} - { success, check: { id, token, tipologia, url } }
+   */
+  async generateMonthlyCheckLink(clienteId, tipologia) {
+    const response = await api.post(`${API_BASE}/generate-monthly/${clienteId}`, { tipologia });
+    return response.data;
+  },
+
+  /**
+   * Get active monthly checks for a client
+   * @param {number} clienteId
+   * @returns {Promise} - { success, checks: [...] }
+   */
+  async getMonthlyChecks(clienteId) {
+    const response = await api.get(`${API_BASE}/monthly/${clienteId}`);
+    return response.data;
+  },
+
+  /**
+   * Deactivate a monthly check
+   * @param {number} checkId
+   * @returns {Promise} - { success }
+   */
+  async deactivateMonthlyCheck(checkId) {
+    const response = await api.post(`${API_BASE}/monthly/${checkId}/deactivate`);
+    return response.data;
+  },
+
   // ==================== UTILITIES ====================
 
   /**

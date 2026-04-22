@@ -14,6 +14,9 @@ Struttura di ogni domanda:
   options  - per type="select"
 """
 
+WEEKLY_LIGHT_DEFINITION_VERSION = 1
+MONTHLY_DEFINITION_VERSION = 1
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CHECK SETTIMANALE LIGHT
 # 5 aree tematiche, tutte scala 1-10. Uguale per tutti i pazienti.

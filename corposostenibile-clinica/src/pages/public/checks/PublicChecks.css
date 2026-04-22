@@ -1414,3 +1414,223 @@
     grid-template-columns: repeat(7, 1fr);
   }
 }
+
+/* --- Shared layout for newer public forms (weekly-light/monthly) --- */
+.check-page {
+  width: 100%;
+}
+
+.check-container {
+  background: var(--check-card-bg);
+  border-radius: var(--check-radius-xl);
+  box-shadow: var(--check-shadow-md);
+  overflow: hidden;
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.check-title {
+  font-size: 2.2rem;
+  line-height: 1.15;
+  font-weight: 700;
+  margin: 8px 0 12px;
+  position: relative;
+  z-index: 1;
+  color: #334155;
+}
+
+.check-subtitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+.check-intro {
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 620px;
+  position: relative;
+  z-index: 1;
+  color: #ffffff;
+}
+
+.check-header .check-title {
+  color: #ffffff;
+}
+
+.check-form {
+  padding: 20px 20px 24px;
+}
+
+.check-progress-bar-sticky {
+  position: sticky;
+  top: 56px;
+  z-index: 45;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: var(--check-radius-md);
+  border: 1px solid var(--check-border-light);
+  margin-bottom: 14px;
+}
+
+.check-progress-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.check-progress-label,
+.check-progress-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--check-text-secondary);
+  white-space: nowrap;
+}
+
+.check-progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--check-border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.check-question-block {
+  background: var(--check-card-bg);
+  border-radius: var(--check-radius-md);
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--check-border-light);
+}
+
+.check-question-sublabel {
+  margin: -4px 0 12px;
+  color: var(--check-text-secondary);
+  font-size: 0.82rem;
+}
+
+.check-submit-area {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.check-submit-hint {
+  font-size: 0.85rem;
+  color: var(--check-text-muted);
+  margin-top: 8px;
+}
+
+.check-error-banner {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #c2410c;
+  border-radius: var(--check-radius-md);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.check-error-page {
+  background: var(--check-card-bg);
+  border-radius: var(--check-radius-xl);
+  box-shadow: var(--check-shadow-md);
+  padding: 36px 22px;
+  text-align: center;
+}
+
+.check-error-page i {
+  font-size: 2rem;
+  color: var(--check-danger);
+}
+
+/* Weekly Light specific */
+.wcl-page {
+  --check-primary: #6366f1;
+  --check-primary-dark: #4f46e5;
+  --check-primary-light: #e0e7ff;
+  --check-gradient: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.wcl-badge {
+  display: inline-block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.wcl-section {
+  background: var(--check-section-bg);
+  border-radius: var(--check-radius-lg);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.wcl-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  border-left: 4px solid var(--check-primary);
+  padding-left: 10px;
+}
+
+.wcl-section-title {
+  margin: 0;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  color: #334155;
+}
+
+.wcl-scale-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.wcl-scale-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: var(--check-radius-md);
+  border: 2px solid var(--check-border);
+  background: #fff;
+  color: #334155;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.wcl-scale-btn.selected {
+  border-color: transparent;
+  background: #6366f1;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+}
+
+.wcl-scale-selected-label {
+  margin-top: 8px;
+  font-size: 0.84rem;
+  color: var(--check-text-secondary);
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .check-title {
+    font-size: 1.8rem;
+  }
+
+  .wcl-section-title {
+    font-size: 1.5rem;
+  }
+}

@@ -96,6 +96,8 @@ import {
   DCACheckForm,
   MinorCheckForm,
   CheckSuccess,
+  WeeklyCheckLightForm,
+  MonthlyCheckForm,
 } from './pages/public';
 
 function PublicClientCheckRedirect() {
@@ -138,6 +140,8 @@ function App() {
             <Route path="/check/weekly/:token" element={<WeeklyCheckForm />} />
             <Route path="/check/dca/:token" element={<DCACheckForm />} />
             <Route path="/check/minor/:token" element={<MinorCheckForm />} />
+            <Route path="/check/weekly-light/:token" element={<WeeklyCheckLightForm />} />
+            <Route path="/check/monthly/:token" element={<MonthlyCheckForm />} />
             <Route path="/check/:checkType/:token/success" element={<CheckSuccess />} />
           </Route>
           <Route path="/client-checks/public/:token" element={<PublicClientCheckRedirect />} />

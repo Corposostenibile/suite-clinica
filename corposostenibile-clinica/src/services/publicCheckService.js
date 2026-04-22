@@ -92,6 +92,30 @@ const publicCheckService = {
     const response = await api.post(`/public/minor/${token}`, data);
     return response.data;
   },
+
+  async getWeeklyLightInfo(token) {
+    const response = await api.get(`/public/weekly-light/${token}`, {
+      params: { _ts: Date.now() },
+    });
+    return response.data;
+  },
+
+  async submitWeeklyLightCheck(token, data) {
+    const response = await api.post(`/public/weekly-light/${token}`, data);
+    return response.data;
+  },
+
+  async getMonthlyCheckInfo(token) {
+    const response = await api.get(`/public/monthly/${token}`, {
+      params: { _ts: Date.now() },
+    });
+    return response.data;
+  },
+
+  async submitMonthlyCheck(token, data) {
+    const response = await api.post(`/public/monthly/${token}`, data);
+    return response.data;
+  },
 };
 
 export default publicCheckService;

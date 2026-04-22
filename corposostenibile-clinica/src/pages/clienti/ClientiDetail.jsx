@@ -851,6 +851,9 @@ function ClientiDetail() {
   const [checkData, setCheckData] = useState({ checks: { weekly: null, dca: null, minor: null }, responses: [] });
   const [loadingChecks, setLoadingChecks] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(null); // 'weekly' | 'dca' | 'minor' | null
+  const [weeklyLightCheck, setWeeklyLightCheck] = useState(null);
+  const [monthlyChecks, setMonthlyChecks] = useState([]);
+  const [generatingMonthly, setGeneratingMonthly] = useState(false);
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
 
@@ -858,7 +861,8 @@ function ClientiDetail() {
   const [lightboxUrl, setLightboxUrl] = useState(null);
 
   // Check Sub-tabs states
-  const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly');
+  const [activePeriodiciTab, setActivePeriodiciTab] = useState('weekly-light');
+  const [activeStoricoSubTab, setActiveStoricoSubTab] = useState('weekly');
   const lastActiveTabRef = useRef(activeTab);
   const [activeInizialiTab, setActiveInizialiTab] = useState('check_1');
   const [initialChecksData, setInitialChecksData] = useState(null);
@@ -1171,8 +1175,8 @@ function ClientiDetail() {
     const previousTab = lastActiveTabRef.current;
     if (activeTab === 'check_periodici' && previousTab !== 'check_periodici') {
       const mappedTab = TIPOLOGIA_CHECK_TO_TAB[formData.tipologia_check_assegnato];
-      if (mappedTab && activePeriodiciTab === 'setup') {
-        setActivePeriodiciTab(mappedTab);
+      if (mappedTab && activePeriodiciTab === 'configurazione') {
+        setActiveStoricoSubTab(mappedTab);
       }
     }
     lastActiveTabRef.current = activeTab;
@@ -1182,9 +1186,20 @@ function ClientiDetail() {
   const fetchCheckData = async () => {
     setLoadingChecks(true);
     try {
-      const data = await checkService.getClienteChecks(id);
-      if (data.success) {
-        setCheckData({ checks: data.checks, responses: data.responses });
+      const [data, lightData, monthlyData] = await Promise.allSettled([
+        checkService.getClienteChecks(id),
+        checkService.getWeeklyLightCheck(id),
+        checkService.getMonthlyChecks(id),
+      ]);
+
+      if (data.status === 'fulfilled' && data.value.success) {
+        setCheckData({ checks: data.value.checks, responses: data.value.responses });
+      }
+      if (lightData.status === 'fulfilled' && lightData.value.success) {
+        setWeeklyLightCheck(lightData.value.check);
+      }
+      if (monthlyData.status === 'fulfilled' && monthlyData.value.success) {
+        setMonthlyChecks(monthlyData.value.checks || []);
       }
     } catch (err) {
       console.error('Error fetching check data:', err);
@@ -1213,6 +1228,31 @@ function ClientiDetail() {
       alert('Errore nella generazione del link');
     } finally {
       setGeneratingLink(null);
+    }
+  };
+
+  const handleCopyWeeklyLightLink = async () => {
+    if (!weeklyLightCheck?.url) return;
+    await checkService.copyLinkToClipboard(weeklyLightCheck.url);
+    alert('Link settimanale light copiato!');
+  };
+
+  const handleGenerateMonthlyLink = async (tipologia) => {
+    if (!canGenerateCheckLinks) return;
+    setGeneratingMonthly(true);
+    try {
+      const result = await checkService.generateMonthlyCheckLink(id, tipologia);
+      if (result.success) {
+        await checkService.copyLinkToClipboard(result.check.url);
+        alert('Link mensile generato e copiato!');
+        const monthlyData = await checkService.getMonthlyChecks(id);
+        if (monthlyData.success) setMonthlyChecks(monthlyData.checks || []);
+      }
+    } catch (err) {
+      console.error('Error generating monthly check:', err);
+      alert('Errore nella generazione del link mensile');
+    } finally {
+      setGeneratingMonthly(false);
     }
   };
 
@@ -7774,35 +7814,180 @@ function ClientiDetail() {
                   <div data-tour="check-periodici-tabs">
                     <ScrollableSubtabs style={{ marginBottom: '20px' }}>
                       <button
-                        className={`cd-subtab${activePeriodiciTab === 'setup' ? ' active blue' : ''}`}
-                        onClick={() => setActivePeriodiciTab('setup')}
+                        className={`cd-subtab${activePeriodiciTab === 'weekly-light' ? ' active green' : ''}`}
+                        onClick={() => setActivePeriodiciTab('weekly-light')}
                       >
-                        Setup
-                      </button>
-                      <button
-                        className={`cd-subtab${activePeriodiciTab === 'weekly' ? ' active green' : ''}`}
-                        onClick={() => setActivePeriodiciTab('weekly')}
-                      >
+                        <i className="ri-flashlight-line" style={{ marginRight: '4px' }}></i>
                         Settimanale
                       </button>
                       <button
-                        className={`cd-subtab${activePeriodiciTab === 'dca' ? ' active purple' : ''}`}
-                        onClick={() => setActivePeriodiciTab('dca')}
+                        className={`cd-subtab${activePeriodiciTab === 'monthly' ? ' active blue' : ''}`}
+                        onClick={() => setActivePeriodiciTab('monthly')}
                       >
-                        DCA
+                        <i className="ri-calendar-2-line" style={{ marginRight: '4px' }}></i>
+                        Mensile
                       </button>
                       <button
-                        className={`cd-subtab${activePeriodiciTab === 'minor' ? ' active orange' : ''}`}
-                        onClick={() => setActivePeriodiciTab('minor')}
+                        className={`cd-subtab${activePeriodiciTab === 'configurazione' ? ' active' : ''}`}
+                        onClick={() => setActivePeriodiciTab('configurazione')}
                       >
-                        Minori
+                        <i className="ri-settings-3-line" style={{ marginRight: '4px' }}></i>
+                        Configurazione
                       </button>
                     </ScrollableSubtabs>
                   </div>
 
-                  {/* Setup Sub-tab */}
-                  {activePeriodiciTab === 'setup' && (
+                  {/* ── Weekly Light Sub-tab ── */}
+                  {activePeriodiciTab === 'weekly-light' && (
                     <div>
+                      <div className="cd-section-title">
+                        <i className="ri-flashlight-line"></i>
+                        Check Settimanale
+                      </div>
+                      <div className="cd-inner-card" style={{ marginBottom: '20px' }}>
+                        <div className="cd-inner-card-body">
+                          <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '12px' }}>
+                            Questo link viene generato automaticamente e rimane sempre lo stesso.
+                            Il paziente lo usa ogni settimana per compilare 5 domande rapide.
+                          </p>
+                          {loadingChecks ? (
+                            <div className="cd-loading">
+                              <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            </div>
+                          ) : weeklyLightCheck ? (
+                            <div className="cd-check-actions">
+                              <input
+                                type="text"
+                                className="cd-input"
+                                readOnly
+                                value={weeklyLightCheck.url || ''}
+                                style={{ flex: 1, fontSize: '0.78rem', background: '#f8fafc' }}
+                              />
+                              <button
+                                className="cd-btn-save"
+                                style={{ background: '#6366f1', whiteSpace: 'nowrap' }}
+                                onClick={handleCopyWeeklyLightLink}
+                              >
+                                <i className="ri-file-copy-line"></i>
+                                Copia link
+                              </button>
+                              <button
+                                className="cd-btn-back"
+                                onClick={() => handleOpenCheckForm(weeklyLightCheck.url)}
+                                title="Apri form"
+                              >
+                                <i className="ri-external-link-line"></i>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="cd-alert cd-alert-warning">
+                              <i className="ri-error-warning-line"></i>
+                              <span>Link non disponibile. Il cliente potrebbe essere stato creato prima dell&apos;attivazione del nuovo sistema.</span>
+                            </div>
+                          )}
+                          {weeklyLightCheck && (
+                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>
+                              {weeklyLightCheck.response_count ?? 0} compilazioni ricevute
+                              {weeklyLightCheck.last_response_date && ` · ultima: ${weeklyLightCheck.last_response_date}`}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Monthly Sub-tab ── */}
+                  {activePeriodiciTab === 'monthly' && (
+                    <div>
+                      <div className="cd-section-title">
+                        <i className="ri-calendar-2-line"></i>
+                        Check Mensile
+                      </div>
+                      {canGenerateCheckLinks && (
+                        <div className="cd-inner-card" style={{ marginBottom: '16px' }}>
+                          <div className="cd-inner-card-body">
+                            <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '12px' }}>
+                              Genera il link del check mensile in base alla tipologia del paziente.
+                              Se esiste già un link attivo, verrà restituito quello esistente.
+                            </p>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              {[
+                                { key: 'regolare', label: 'Regolare', color: '#22c55e', icon: 'ri-user-line' },
+                                { key: 'dca', label: 'DCA', color: '#ec4899', icon: 'ri-heart-line' },
+                                { key: 'minori', label: 'Minori', color: '#6366f1', icon: 'ri-user-heart-line' },
+                              ].map((t) => (
+                                <button
+                                  key={t.key}
+                                  className="cd-btn-save"
+                                  style={{ background: t.color, fontSize: '0.78rem' }}
+                                  disabled={generatingMonthly}
+                                  onClick={() => handleGenerateMonthlyLink(t.key)}
+                                >
+                                  {generatingMonthly ? (
+                                    <span className="spinner-border spinner-border-sm"></span>
+                                  ) : (
+                                    <i className={t.icon}></i>
+                                  )}
+                                  Genera — {t.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {loadingChecks ? (
+                        <div className="cd-loading">
+                          <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        </div>
+                      ) : monthlyChecks.length === 0 ? (
+                        <div className="cd-empty">
+                          <i className="ri-inbox-line cd-empty-icon"></i>
+                          <p className="cd-empty-text">Nessun check mensile generato</p>
+                        </div>
+                      ) : (
+                        monthlyChecks.map((mc) => (
+                          <div key={mc.id} className="cd-inner-card" style={{ marginBottom: '10px' }}>
+                            <div className="cd-inner-card-body">
+                              <div className="cd-check-actions" style={{ alignItems: 'center' }}>
+                                <div style={{ flex: 1 }}>
+                                  <span style={{ fontWeight: 600, fontSize: '0.82rem', textTransform: 'capitalize' }}>
+                                    {mc.tipologia}
+                                  </span>
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '8px' }}>
+                                    {mc.response_count ?? 0} compilazioni
+                                    {mc.last_response_date && ` · ultima: ${mc.last_response_date}`}
+                                  </span>
+                                </div>
+                                <button
+                                  className="cd-btn-save"
+                                  style={{ background: '#3b82f6', fontSize: '0.75rem' }}
+                                  onClick={async () => {
+                                    await checkService.copyLinkToClipboard(mc.url);
+                                    alert('Link copiato!');
+                                  }}
+                                >
+                                  <i className="ri-file-copy-line"></i>
+                                  Copia
+                                </button>
+                                <button
+                                  className="cd-btn-back"
+                                  onClick={() => handleOpenCheckForm(mc.url)}
+                                  title="Apri form"
+                                >
+                                  <i className="ri-external-link-line"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Configurazione & Storico Sub-tab */}
+                  {activePeriodiciTab === 'configurazione' && (
+                    <div>
+                      {/* Setup card */}
                       <div className="cd-sections">
                         <div>
                           <div className="cd-section-title">
@@ -7820,7 +8005,6 @@ function ClientiDetail() {
                               <select
                                 className="cd-select"
                                 value={
-                                  // Normalizza formato lungo → corto per match
                                   { lunedi: 'lun', martedi: 'mar', mercoledi: 'mer', giovedi: 'gio', venerdi: 'ven', sabato: 'sab', domenica: 'dom' }[formData.check_day] || formData.check_day || ''
                                 }
                                 onChange={(e) => handleInputChange('check_day', e.target.value)}
@@ -7889,180 +8073,186 @@ function ClientiDetail() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Link Generation Section (Filtered) */}
-                  {activePeriodiciTab !== 'setup' && (
-                  <div data-tour="check-periodici-link" style={{ marginBottom: '24px' }}>
-                    {canGenerateCheckLinks ? (
-                      <>
-                        <div className="cd-section-title">
-                          <i className="ri-link"></i>
-                          Genera Link Check
+                      {/* Storico check precedenti */}
+                      <div style={{ marginTop: '24px' }}>
+                        <div className="cd-section-title" style={{ opacity: 0.65 }}>
+                          <i className="ri-history-line"></i>
+                          Storico check precedenti
                         </div>
-                        <div className="cd-form-grid cols-3">
-                      {Object.values(CHECK_TYPES)
-                        .filter(t => t.key === activePeriodiciTab)
-                        .map((checkType) => {
-                        const existingCheck = checkData.checks[checkType.key];
-                        return (
-                          <div key={checkType.key}>
-                            <div className="cd-inner-card">
-                              <div className="cd-inner-card-body">
-                                <div className="cd-check-type-header">
-                                  <div className="cd-icon-circle lg" style={{ background: checkType.bgColor }}>
-                                    <i className={checkType.icon} style={{ color: checkType.color, fontSize: '14px' }}></i>
-                                  </div>
-                                  <div>
-                                    <span className="cd-inner-card-title">{checkType.label}</span>
-                                    {existingCheck && (
-                                      <span className="cd-empty-text" style={{ display: 'block', fontSize: '0.7rem' }}>
-                                        {existingCheck.response_count} compilazioni
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="cd-check-actions">
-                                  <button
-                                    className="cd-btn-save"
-                                    style={{ background: checkType.color, flex: 1, fontSize: '0.75rem' }}
-                                    onClick={() => handleGenerateCheckLink(checkType.key)}
-                                    disabled={generatingLink === checkType.key}
-                                  >
-                                    {generatingLink === checkType.key ? (
-                                      <span className="spinner-border spinner-border-sm"></span>
-                                    ) : (
-                                      <i className={existingCheck ? 'ri-file-copy-line' : 'ri-add-line'}></i>
-                                    )}
-                                    {existingCheck ? 'Copia Link' : 'Genera Link'}
-                                  </button>
-                                  {existingCheck && (
-                                    <button
-                                      className="cd-btn-back"
-                                      onClick={() => handleOpenCheckForm(existingCheck.url)}
-                                      title="Apri form"
-                                    >
-                                      <i className="ri-external-link-line"></i>
-                                    </button>
-                                  )}
-                                </div>
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+                          {[
+                            { key: 'weekly', label: 'Settimanale' },
+                            { key: 'dca', label: 'DCA' },
+                            { key: 'minor', label: 'Minori' },
+                          ].map((t) => (
+                            <button
+                              key={t.key}
+                              className={`cd-subtab${activeStoricoSubTab === t.key ? ' active' : ''}`}
+                              style={{ fontSize: '0.78rem', opacity: 0.8 }}
+                              onClick={() => setActiveStoricoSubTab(t.key)}
+                            >
+                              {t.label}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Link Generation (old check types) */}
+                        <div data-tour="check-periodici-link" style={{ marginBottom: '24px' }}>
+                          {canGenerateCheckLinks ? (
+                            <>
+                              <div className="cd-form-grid cols-3">
+                                {Object.values(CHECK_TYPES)
+                                  .filter(t => t.key === activeStoricoSubTab)
+                                  .map((checkType) => {
+                                    const existingCheck = checkData.checks[checkType.key];
+                                    return (
+                                      <div key={checkType.key}>
+                                        <div className="cd-inner-card">
+                                          <div className="cd-inner-card-body">
+                                            <div className="cd-check-type-header">
+                                              <div className="cd-icon-circle lg" style={{ background: checkType.bgColor }}>
+                                                <i className={checkType.icon} style={{ color: checkType.color, fontSize: '14px' }}></i>
+                                              </div>
+                                              <div>
+                                                <span className="cd-inner-card-title">{checkType.label}</span>
+                                                {existingCheck && (
+                                                  <span className="cd-empty-text" style={{ display: 'block', fontSize: '0.7rem' }}>
+                                                    {existingCheck.response_count} compilazioni
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="cd-check-actions">
+                                              <button
+                                                className="cd-btn-save"
+                                                style={{ background: checkType.color, flex: 1, fontSize: '0.75rem' }}
+                                                onClick={() => handleGenerateCheckLink(checkType.key)}
+                                                disabled={generatingLink === checkType.key}
+                                              >
+                                                {generatingLink === checkType.key ? (
+                                                  <span className="spinner-border spinner-border-sm"></span>
+                                                ) : (
+                                                  <i className={existingCheck ? 'ri-file-copy-line' : 'ri-add-line'}></i>
+                                                )}
+                                                {existingCheck ? 'Copia Link' : 'Genera Link'}
+                                              </button>
+                                              {existingCheck && (
+                                                <button
+                                                  className="cd-btn-back"
+                                                  onClick={() => handleOpenCheckForm(existingCheck.url)}
+                                                  title="Apri form"
+                                                >
+                                                  <i className="ri-external-link-line"></i>
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                               </div>
+                            </>
+                          ) : null}
+                        </div>
+
+                        {/* Responses History (old check types) */}
+                        <div data-tour="check-periodici-risposte">
+                          <div className="cd-inner-card">
+                            <div className="cd-inner-card-body">
+                              {loadingChecks ? (
+                                <div className="cd-loading">
+                                  <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                                  <span className="cd-empty-text" style={{ marginLeft: '8px' }}>Caricamento check...</span>
+                                </div>
+                              ) : checkData.responses.filter(r => r.type === activeStoricoSubTab).length === 0 ? (
+                                <div className="cd-empty">
+                                  <i className="ri-inbox-line cd-empty-icon"></i>
+                                  <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
+                                </div>
+                              ) : (
+                                <div className="cd-table-wrap">
+                                  <table className="cd-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Data</th>
+                                        <th>Tipo</th>
+                                        <th style={{ textAlign: 'center' }}>Valutazioni</th>
+                                        <th style={{ textAlign: 'center' }}>Azioni</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {checkData.responses
+                                        .filter(r => r.type === activeStoricoSubTab)
+                                        .map((response) => (
+                                        <tr key={`${response.source || response.type}-${response.id}`}>
+                                          <td>
+                                            <span style={{ fontWeight: 500 }}>{response.submit_date}</span>
+                                          </td>
+                                          <td>
+                                            <span className="cd-badge" style={{
+                                              background: response.source === 'typeform' ? '#f0f4ff' : (CHECK_TYPES[response.type]?.bgColor || '#f1f5f9'),
+                                              color: response.source === 'typeform' ? '#6366f1' : (CHECK_TYPES[response.type]?.color || '#64748b'),
+                                            }}>
+                                              <i className={response.source === 'typeform' ? 'ri-survey-line' : CHECK_TYPES[response.type]?.icon}></i>
+                                              {response.source === 'typeform' ? 'TypeForm' : (CHECK_TYPES[response.type]?.label || response.type)}
+                                            </span>
+                                          </td>
+                                          <td style={{ textAlign: 'center' }}>
+                                            {response.type === 'weekly' && (
+                                              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                                                {response.nutritionist_rating && (
+                                                  <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
+                                                    🥗 {response.nutritionist_rating}
+                                                  </span>
+                                                )}
+                                                {response.psychologist_rating && (
+                                                  <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
+                                                    🧠 {response.psychologist_rating}
+                                                  </span>
+                                                )}
+                                                {response.coach_rating && (
+                                                  <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
+                                                    🏋️ {response.coach_rating}
+                                                  </span>
+                                                )}
+                                                {response.progress_rating && (
+                                                  <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
+                                                    📈 {response.progress_rating}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            )}
+                                            {response.type === 'minor' && response.score_global && (
+                                              <span className="cd-badge" style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
+                                                EDE-Q6: {response.score_global.toFixed(1)}
+                                              </span>
+                                            )}
+                                            {response.type === 'dca' && (
+                                              <span className="cd-empty-text">-</span>
+                                            )}
+                                          </td>
+                                          <td style={{ textAlign: 'center' }}>
+                                            <button
+                                              className="cd-btn-back"
+                                              onClick={() => handleViewCheckResponse(response)}
+                                              title="Visualizza dettagli"
+                                            >
+                                              <i className="ri-eye-line"></i>
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
                         </div>
-                      </>
-                    ) : (
-                      <div className="cd-alert cd-alert-info">
-                        <span className="cd-empty-text">
-                          La generazione dei link check non è disponibile per questo utente.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  )}
-
-                  {/* Responses History Section (Filtered) */}
-                  {activePeriodiciTab !== 'setup' && (
-                  <div data-tour="check-periodici-risposte">
-                    <div className="cd-section-title">
-                      <i className="ri-history-line"></i>
-                      Storico Compilazioni
-                    </div>
-                    <div className="cd-inner-card">
-                      <div className="cd-inner-card-body">
-                        {loadingChecks ? (
-                          <div className="cd-loading">
-                            <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                            <span className="cd-empty-text" style={{ marginLeft: '8px' }}>Caricamento check...</span>
-                          </div>
-                        ) : checkData.responses.filter(r => r.type === activePeriodiciTab).length === 0 ? (
-                          <div className="cd-empty">
-                            <i className="ri-inbox-line cd-empty-icon"></i>
-                            <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
-                          </div>
-                        ) : (
-                          <div className="cd-table-wrap">
-                            <table className="cd-table">
-                              <thead>
-                                <tr>
-                                  <th>Data</th>
-                                  <th>Tipo</th>
-                                  <th style={{ textAlign: 'center' }}>Valutazioni</th>
-                                  <th style={{ textAlign: 'center' }}>Azioni</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {checkData.responses
-                                  .filter(r => r.type === activePeriodiciTab)
-                                  .map((response) => (
-                                  <tr key={`${response.source || response.type}-${response.id}`}>
-                                    <td>
-                                      <span style={{ fontWeight: 500 }}>{response.submit_date}</span>
-                                    </td>
-                                    <td>
-                                      <span className="cd-badge" style={{
-                                        background: response.source === 'typeform' ? '#f0f4ff' : (CHECK_TYPES[response.type]?.bgColor || '#f1f5f9'),
-                                        color: response.source === 'typeform' ? '#6366f1' : (CHECK_TYPES[response.type]?.color || '#64748b'),
-                                      }}>
-                                        <i className={response.source === 'typeform' ? 'ri-survey-line' : CHECK_TYPES[response.type]?.icon}></i>
-                                        {response.source === 'typeform' ? 'TypeForm' : (CHECK_TYPES[response.type]?.label || response.type)}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      {response.type === 'weekly' && (
-                                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                                          {response.nutritionist_rating && (
-                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.nutritionist_rating)} title="Nutrizionista">
-                                              🥗 {response.nutritionist_rating}
-                                            </span>
-                                          )}
-                                          {response.psychologist_rating && (
-                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.psychologist_rating)} title="Psicologo">
-                                              🧠 {response.psychologist_rating}
-                                            </span>
-                                          )}
-                                          {response.coach_rating && (
-                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.coach_rating)} title="Coach">
-                                              🏋️ {response.coach_rating}
-                                            </span>
-                                          )}
-                                          {response.progress_rating && (
-                                            <span className="cd-badge" style={checkService.getRatingBadgeStyle(response.progress_rating)} title="Progresso">
-                                              📈 {response.progress_rating}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-                                      {response.type === 'minor' && response.score_global && (
-                                        <span className="cd-badge" style={checkService.getRatingBadgeStyle(10 - response.score_global)}>
-                                          EDE-Q6: {response.score_global.toFixed(1)}
-                                        </span>
-                                      )}
-                                      {response.type === 'dca' && (
-                                        <span className="cd-empty-text">-</span>
-                                      )}
-                                    </td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <button
-                                        className="cd-btn-back"
-                                        onClick={() => handleViewCheckResponse(response)}
-                                        title="Visualizza dettagli"
-                                      >
-                                        <i className="ri-eye-line"></i>
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
                       </div>
                     </div>
-                  </div>
                   )}
                 </div>
               )}

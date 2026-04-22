@@ -88,6 +88,7 @@ from .helpers import (
     get_client_ip,
     get_user_agent,
 )
+from .json_checks import validate_json_check_payload
 from .rbac import get_accessible_clients_query
 
 
@@ -5250,7 +5251,7 @@ def weekly_light_get_link(cliente_id: int):
 @csrf.exempt
 def weekly_light_public_info(token: str):
     """Info pubblica del check light (dati cliente + domande)."""
-    from .check_definitions import WEEKLY_LIGHT_QUESTIONS
+    from .check_definitions import WEEKLY_LIGHT_DEFINITION_VERSION, WEEKLY_LIGHT_QUESTIONS
 
     light = WeeklyCheckLight.query.filter_by(token=token).first_or_404()
     if not light.is_active:
@@ -5267,6 +5268,7 @@ def weekly_light_public_info(token: str):
             "nome_cognome": cliente.nome_cognome,
         },
         "questions": WEEKLY_LIGHT_QUESTIONS,
+        "definition_version": WEEKLY_LIGHT_DEFINITION_VERSION,
     })
 
 
@@ -5275,35 +5277,28 @@ def weekly_light_public_info(token: str):
 @csrf.exempt
 def weekly_light_public_submit(token: str):
     """Riceve la compilazione del check settimanale light."""
-    from .check_definitions import WEEKLY_LIGHT_QUESTIONS, WEEKLY_LIGHT_REQUIRED_KEYS
+    from .check_definitions import WEEKLY_LIGHT_DEFINITION_VERSION, WEEKLY_LIGHT_QUESTIONS
 
     light = WeeklyCheckLight.query.filter_by(token=token).first_or_404()
     if not light.is_active:
         return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
 
     data = request.get_json(silent=True) or {}
+    normalized_data, error = validate_json_check_payload(
+        payload=data,
+        questions=WEEKLY_LIGHT_QUESTIONS,
+        required_types=("scale",),
+    )
+    if error:
+        return jsonify({"success": False, "error": error}), 400
 
-    # Valida che tutte le chiavi obbligatorie siano presenti e nei range
-    missing = WEEKLY_LIGHT_REQUIRED_KEYS - set(data.keys())
-    if missing:
-        return jsonify({"success": False, "error": f"Campi mancanti: {', '.join(sorted(missing))}"}), 400
-
-    for q in WEEKLY_LIGHT_QUESTIONS:
-        val = data.get(q["key"])
-        if val is not None and q["type"] == "scale":
-            try:
-                val_int = int(val)
-            except (TypeError, ValueError):
-                return jsonify({"success": False, "error": f"Valore non valido per {q['key']}"}), 400
-            if not (q["min"] <= val_int <= q["max"]):
-                return jsonify({"success": False, "error": f"Valore fuori range per {q['key']}"}), 400
-            data[q["key"]] = val_int
+    normalized_data["__definition_version"] = WEEKLY_LIGHT_DEFINITION_VERSION
 
     response = WeeklyCheckLightResponse(
         weekly_check_light_id=light.id,
-        responses_data=data,
-        ip_address=get_client_ip(request),
-        user_agent=get_user_agent(request),
+        responses_data=normalized_data,
+        ip_address=get_client_ip(),
+        user_agent=get_user_agent(),
     )
     db.session.add(response)
     db.session.commit()
@@ -5410,7 +5405,7 @@ def deactivate_monthly_check(check_id: int):
 @csrf.exempt
 def monthly_check_public_info(token: str):
     """Info pubblica del check mensile (dati cliente + domande tipologia-specifiche)."""
-    from .check_definitions import MONTHLY_QUESTIONS
+    from .check_definitions import MONTHLY_DEFINITION_VERSION, MONTHLY_QUESTIONS
 
     monthly = MonthlyCheck.query.filter_by(token=token).first_or_404()
     if not monthly.is_active:
@@ -5428,6 +5423,7 @@ def monthly_check_public_info(token: str):
             "nome_cognome": cliente.nome_cognome,
         },
         "questions": MONTHLY_QUESTIONS.get(monthly.tipologia, []),
+        "definition_version": MONTHLY_DEFINITION_VERSION,
     })
 
 
@@ -5436,35 +5432,25 @@ def monthly_check_public_info(token: str):
 @csrf.exempt
 def monthly_check_public_submit(token: str):
     """Riceve la compilazione del check mensile."""
-    from .check_definitions import MONTHLY_QUESTIONS
+    from .check_definitions import MONTHLY_DEFINITION_VERSION, MONTHLY_QUESTIONS
 
     monthly = MonthlyCheck.query.filter_by(token=token).first_or_404()
     if not monthly.is_active:
         return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
 
     data = request.get_json(silent=True) or {}
-
     questions = MONTHLY_QUESTIONS.get(monthly.tipologia, [])
-    required_keys = {q["key"] for q in questions if q.get("required", True) and q["type"] != "text"}
+    normalized_data, error = validate_json_check_payload(payload=data, questions=questions)
+    if error:
+        return jsonify({"success": False, "error": error}), 400
 
-    missing = required_keys - set(data.keys())
-    if missing:
-        return jsonify({"success": False, "error": f"Campi mancanti: {', '.join(sorted(missing))}"}), 400
-
-    # Normalizza valori scala
-    for q in questions:
-        val = data.get(q["key"])
-        if val is not None and q["type"] == "scale":
-            try:
-                data[q["key"]] = int(val)
-            except (TypeError, ValueError):
-                return jsonify({"success": False, "error": f"Valore non valido per {q['key']}"}), 400
+    normalized_data["__definition_version"] = MONTHLY_DEFINITION_VERSION
 
     response = MonthlyCheckResponse(
         monthly_check_id=monthly.id,
-        responses_data=data,
-        ip_address=get_client_ip(request),
-        user_agent=get_user_agent(request),
+        responses_data=normalized_data,
+        ip_address=get_client_ip(),
+        user_agent=get_user_agent(),
     )
     db.session.add(response)
     db.session.commit()
