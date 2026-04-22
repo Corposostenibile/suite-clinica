@@ -63,7 +63,7 @@ export function canAccessTrialPages(user) {
 
 export function canAccessAssignmentsDashboard(user) {
   if (!user) return false;
-  // Dashboard madre /assegnazioni-ai:
+  // Dashboard madre /admin/assegnazioni-dashboard:
   // consentita solo ad admin/CCO e perimetro Health Manager (user + TL HM)
   return Boolean(isAdminOrCco(user) || isHealthManagerScopeUser(user));
 }

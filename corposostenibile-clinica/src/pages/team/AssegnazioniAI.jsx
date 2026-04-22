@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Col, Form, InputGroup, Row, Spinner } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Form, InputGroup, Spinner, Table } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import ghlService from '../../services/ghlService';
 import '../ghl-embed/GhlEmbedAssegnazioni.css';
@@ -37,9 +37,10 @@ function AssegnazioniAI() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [salesStatusFilter, setSalesStatusFilter] = useState('pending');
-  const [hmStatusFilter, setHmStatusFilter] = useState('all');
   const [showSalesOnly, setShowSalesOnly] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
 
   const loadDashboard = async (override = {}) => {
     setLoading(true);
@@ -47,7 +48,6 @@ function AssegnazioniAI() {
 
     const nextSection = override.activeSection ?? activeSection;
     const nextSalesStatus = override.salesStatusFilter ?? salesStatusFilter;
-    const nextHmStatus = override.hmStatusFilter ?? hmStatusFilter;
     const nextSearch = (override.search ?? search).trim();
     const effectiveSearch = nextSection === 'hm_legacy' ? '' : nextSearch;
 
@@ -85,7 +85,7 @@ function AssegnazioniAI() {
     }, 250);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, salesStatusFilter, hmStatusFilter]);
+  }, [activeSection, salesStatusFilter]);
 
   useEffect(() => {
     if (activeSection === 'hm_legacy') return undefined;
@@ -132,6 +132,23 @@ function AssegnazioniAI() {
     return typeof currentSection.total_available === 'number' ? currentSection.total_available : (currentSection.rows || []).length;
   }, [currentSection]);
 
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(visibleRows.length / pageSize)), [visibleRows.length, pageSize]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visibleRows.slice(start, start + pageSize);
+  }, [currentPage, pageSize, visibleRows]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeSection, search, salesStatusFilter, showSalesOnly]);
+
   const openOpportunity = (item) => {
     if (activeSection === 'hm_legacy') {
       const legacyLeadId = item.sales_lead_id || null;
@@ -151,8 +168,8 @@ function AssegnazioniAI() {
   const clearFilters = () => {
     setSearch('');
     setSalesStatusFilter('pending');
-    setHmStatusFilter('all');
     setShowSalesOnly(false);
+    setCurrentPage(1);
   };
 
   const emptyCopy = useMemo(() => {
@@ -323,76 +340,95 @@ function AssegnazioniAI() {
             </Card.Body>
           </Card>
         ) : (
-          <Row className="g-3">
-            {visibleRows.map((item) => (
-              <Col key={item.id} xs={12} xl={6}>
-                <Card className="ghle-old-card shadow-sm border-0 rounded-4 overflow-hidden h-100">
-                  <Card.Body className="p-4 d-flex flex-column gap-3">
-                    <div className="d-flex justify-content-between align-items-start gap-3">
-                      <div className="flex-grow-1">
-                        <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
-                          <h5 className="mb-0 fw-bold">{getLeadName(item)}</h5>
-                          {renderStatusBadge(item)}
-                          {item.sales_person?.full_name || item.sales_consultant ? (
-                            <Badge bg="light" text="dark" className="rounded-pill border">
-                              <i className="ri-user-star-line me-1"></i>
-                              {item.sales_person?.full_name || item.sales_consultant}
-                            </Badge>
-                          ) : null}
+          <Card className="shadow-sm border-0 rounded-4 overflow-hidden">
+            <Card.Body className="p-0">
+              <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom bg-light-subtle">
+                <div className="small text-muted">
+                  Mostrando <strong>{(currentPage - 1) * pageSize + 1}</strong>-
+                  <strong>{Math.min(currentPage * pageSize, visibleRows.length)}</strong> di <strong>{visibleRows.length}</strong> record
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <Button variant="outline-secondary" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+                    Precedente
+                  </Button>
+                  <span className="small text-muted">Pagina {currentPage} / {totalPages}</span>
+                  <Button variant="outline-secondary" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+                    Successiva
+                  </Button>
+                </div>
+              </div>
+
+              <Table responsive hover className="mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Lead</th>
+                    <th>Contatti</th>
+                    <th>Stato</th>
+                    <th>{activeSection === 'sales_ghl' ? 'Sales' : 'HM'}</th>
+                    <th>Pacchetto / Storia</th>
+                    <th>Date</th>
+                    <th className="text-end">Azioni</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRows.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div className="fw-semibold">{getLeadName(item)}</div>
+                        <div className="small text-muted">ID {item.id}</div>
+                      </td>
+                      <td>
+                        <div>{item.email || 'N/D'}</div>
+                        <div className="small text-muted">{item.lead_phone || item.phone || 'N/D'}</div>
+                      </td>
+                      <td>{renderStatusBadge(item)}</td>
+                      <td>
+                        {activeSection === 'sales_ghl'
+                          ? (item.sales_person?.full_name || item.sales_consultant || 'N/D')
+                          : (item.health_manager_email || item.health_manager?.full_name || 'N/D')}
+                      </td>
+                      <td>
+                        <div>{item.pacchetto || item.custom_package_name || 'N/D'}</div>
+                        <div className="small text-muted">{truncate(item.storia || item.client_story, 90)}</div>
+                      </td>
+                      <td>
+                        <div className="small">Creato: {formatDate(item.received_at || item.created_at || item.data_dal)}</div>
+                        <div className="small text-muted">Upd: {formatDate(item.updated_at || item.data_al)}</div>
+                      </td>
+                      <td>
+                        <div className="d-flex justify-content-end gap-2 flex-wrap">
+                          <Button variant="success" size="sm" onClick={() => openOpportunity(item)}>
+                            Apri
+                          </Button>
+                          {activeSection === 'sales_ghl' ? (
+                            <Button variant="outline-secondary" size="sm" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
+                              Dettaglio
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline-secondary"
+                              size="sm"
+                              onClick={() => {
+                                if (item.sales_lead_id) {
+                                  navigate(`/suitemind-old/${item.sales_lead_id}`, { state: { lead: item } });
+                                  return;
+                                }
+                                if (item.cliente_id) {
+                                  navigate(`/clienti-dettaglio/${item.cliente_id}?tab=health_manager`);
+                                }
+                              }}
+                            >
+                              Dettaglio
+                            </Button>
+                          )}
                         </div>
-                        <div className="text-muted small">ID record: {item.id}</div>
-                      </div>
-                      <Button variant="outline-primary" size="sm" onClick={() => openOpportunity(item)}>
-                        Apri
-                      </Button>
-                    </div>
-
-                    <div className="ghle-old-meta-grid">
-                      <div><strong>Email:</strong> {item.email || 'N/D'}</div>
-                      <div><strong>Telefono:</strong> {item.lead_phone || item.phone || 'N/D'}</div>
-                      <div><strong>Sales:</strong> {item.sales_person?.full_name || item.sales_consultant || 'N/D'}</div>
-                      <div><strong>Pacchetto:</strong> {item.pacchetto || item.custom_package_name || 'N/D'}</div>
-                      <div><strong>Durata:</strong> {item.durata || 'N/D'}</div>
-                      <div><strong>HM:</strong> {item.health_manager_email || item.health_manager?.full_name || 'N/D'}</div>
-                      <div><strong>Ricevuto:</strong> {formatDate(item.received_at || item.created_at)}</div>
-                      <div><strong>Aggiornato:</strong> {formatDate(item.updated_at)}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-muted small mb-1">Storia</div>
-                      <div className="small ghle-old-story">{truncate(item.storia || item.client_story, 160)}</div>
-                    </div>
-
-                    <div className="d-flex gap-2 flex-wrap mt-auto">
-                      <Button variant="success" onClick={() => openOpportunity(item)}>
-                        Apri assegnazione
-                      </Button>
-                      {activeSection === 'sales_ghl' ? (
-                        <Button variant="outline-secondary" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
-                          Dettaglio
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline-secondary"
-                          onClick={() => {
-                            if (item.sales_lead_id) {
-                              navigate(`/suitemind-old/${item.sales_lead_id}`, { state: { lead: item } });
-                              return;
-                            }
-                            if (item.cliente_id) {
-                              navigate(`/clienti-dettaglio/${item.cliente_id}?tab=health_manager`);
-                            }
-                          }}
-                        >
-                          Dettaglio
-                        </Button>
-                      )}
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Col>
-            ))}
-          </Row>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card.Body>
+          </Card>
         )}
       </div>
     </div>

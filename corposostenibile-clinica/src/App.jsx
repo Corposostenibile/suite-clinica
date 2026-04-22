@@ -178,7 +178,7 @@ function App() {
             <Route path="/teams-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessTeamLists}><TeamsAdd /></RoleProtectedRoute>} />
 
             {/* AI Assignments */}
-            <Route path="/assegnazioni-ai" element={
+            <Route path="/admin/assegnazioni-dashboard" element={
               <RoleProtectedRoute allowIf={canAccessAssignmentsDashboard}>
                 <AssegnazioniAI />
               </RoleProtectedRoute>

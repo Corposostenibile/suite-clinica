@@ -103,7 +103,7 @@ function SuiteMindAssignment() {
       }
 
       if (!opportunityId) {
-        navigate('/assegnazioni-ai', { replace: true });
+        navigate('/admin/assegnazioni-dashboard', { replace: true });
         return;
       }
 
@@ -318,7 +318,7 @@ function SuiteMindAssignment() {
           <Alert.Heading>Impossibile aprire il lead</Alert.Heading>
           <p className="mb-3">{opportunityError}</p>
           <div className="d-flex gap-2 flex-wrap">
-            <Button variant="primary" onClick={() => navigate('/assegnazioni-ai')}>
+            <Button variant="primary" onClick={() => navigate('/admin/assegnazioni-dashboard')}>
               Torna alla queue
             </Button>
             <Button variant="outline-danger" onClick={() => window.location.reload()}>
@@ -463,7 +463,7 @@ function SuiteMindAssignment() {
       {/* SCREEN: Role Selection */}
       {!activeRoleFlow && (
         <div className="sm-role-selection">
-          <button className="sm-back-btn" onClick={() => navigate('/assegnazioni-ai')}>
+          <button className="sm-back-btn" onClick={() => navigate('/admin/assegnazioni-dashboard')}>
             <i className="ri-arrow-left-line"></i>
             <span>Torna Indietro</span>
           </button>
@@ -511,9 +511,9 @@ function SuiteMindAssignment() {
             </button>
             <button
               className="sm-btn-primary"
-              onClick={() => navigate('/assegnazioni-ai')}
+              onClick={() => navigate('/admin/assegnazioni-dashboard')}
             >
-              Torna alle Assegnazioni
+              Torna alla Dashboard Assegnazioni
             </button>
           </div>
         </div>

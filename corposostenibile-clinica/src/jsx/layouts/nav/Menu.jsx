@@ -58,7 +58,7 @@ export const MenuList = [
     {
         title: 'Assegnazioni',
         iconStyle: SVGICON.PeopleArrow,
-        to: 'assegnazioni-ai',
+        to: 'admin/assegnazioni-dashboard',
     },
     // Assegnazioni v1 (Old Suite - TEMPORANEO)
     {

@@ -3,7 +3,7 @@
 /**
  * E2E smoke script for Task C.5
  * - verifies RBAC helper canAccessAssignmentsDashboard
- * - verifies sidebar entry for /assegnazioni-ai exists (label "Assegnazioni")
+ * - verifies sidebar entry for /admin/assegnazioni-dashboard exists (label "Assegnazioni")
  *
  * Run from repository root:
  *   node scripts/test_assignments_dashboard_rbac_e2e.mjs
@@ -34,8 +34,8 @@ function checkSidebarEntry() {
   const sidebarSource = fs.readFileSync(sidebarPath, 'utf8');
 
   assert(
-    menuSource.includes("title: 'Assegnazioni'") && menuSource.includes("to: 'assegnazioni-ai'"),
-    'Sidebar menu entry Assegnazioni -> /assegnazioni-ai not found in Menu.jsx'
+    menuSource.includes("title: 'Assegnazioni'") && menuSource.includes("to: 'admin/assegnazioni-dashboard'"),
+    'Sidebar menu entry Assegnazioni -> /admin/assegnazioni-dashboard not found in Menu.jsx'
   );
 
   assert(

@@ -3,12 +3,12 @@
 Branch: `feature/assegnazioni-sales-ai-mvp`
 
 ## Obiettivo
-Portare in produzione un MVP del pannello **`/assegnazioni-ai`** (suite interna) e del pannello **`/ghl-embed/assegnazioni`** (sales pubblico) usando come fonte canonica **`SalesLead`**.
+Portare in produzione un MVP del pannello **`/admin/assegnazioni-dashboard`** (suite interna) e del pannello **`/ghl-embed/assegnazioni`** (sales pubblico) usando come fonte canonica **`SalesLead`**.
 
 Stato attuale / direzione confermata:
 
 - `/ghl-embed/assegnazioni` (pubblico sales) legge da `SalesLead` (`source_system='ghl'`) tramite `/api/ghl-assignments` con SSO JWT sales.
-- `/assegnazioni-ai` (suite interna) è la pagina madre con due sezioni:
+- `/admin/assegnazioni-dashboard` (suite interna) è la pagina madre con due sezioni:
   - **Sales GHL**: dati da `SalesLead` (`source_system='ghl'`)
   - **Storico HM (old-suite)**: da migrare su `ClienteProfessionistaHistory` (alimentata via script C.2 prendendo lo storico da `SalesLead` old-suite / Assegnazioni v1).
 
@@ -30,7 +30,8 @@ Stato attuale / direzione confermata:
 | **B.5 — Migration: source_system=ghl + index su sales_leads** | **done** | Il modello/migration esistente supporta `source_system` e l’indice; il nuovo flusso scrive `source_system='ghl'` | Nessun ulteriore cambio DB necessario per il nuovo intake |
 | **C.1 — Backend: `/ghl/api/admin/assignments-dashboard` con filtri + aggregation** | **done (v2)** | Endpoint aggregato nella blueprint `ghl_integration`; `sales_ghl` su `SalesLead` (`source_system='ghl'`) e `hm_legacy` su `ClienteProfessionistaHistory` (`tipo_professionista='health_manager'`) | Per Storico HM la vista operativa è senza filtri (storico puro) |
 | **C.2 — Backend: seed script storico HM completo (`ClienteProfessionistaHistory`)** | **done (apply eseguito in locale)** | Implementato `backend/scripts/seed_hm_history_from_saleslead.py` con soli flag `--dry-run` / `--apply`; crea solo HM history e supporta fallback produzione | Applicato in locale: importati 3 record matchabili (molti clienti prod non presenti in locale) |
-| **C.5 — Frontend: RBAC `canAccessAssignmentsDashboard` + sidebar entry + E2E smoke** | **done** | Introdotto helper RBAC dedicato per `/assegnazioni-ai`; route protetta con helper nuovo; sidebar aggiornata con voce `Assegnazioni`; quick link Welcome reso coerente | Script E2E smoke: `node scripts/test_assignments_dashboard_rbac_e2e.mjs` |
+| **C.3 — Frontend: pagina `/admin/assegnazioni-dashboard` (DataTable + filtri + metric card)** | **done** | Evoluta `AssegnazioniAI` con vista tabellare (DataTable-style), paginazione client-side, filtri (search + stato + toggle sales) e metric card collegate a `stats`; route canonica protetta `/admin/assegnazioni-dashboard` | Alias legacy rimosso |
+| **C.5 — Frontend: RBAC `canAccessAssignmentsDashboard` + sidebar entry + E2E smoke** | **done** | Introdotto helper RBAC dedicato alla dashboard assegnazioni (route canonica `/admin/assegnazioni-dashboard`); sidebar aggiornata con voce `Assegnazioni`; quick link Welcome reso coerente | Script E2E smoke: `node scripts/test_assignments_dashboard_rbac_e2e.mjs` |
 | **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
 
 ---
@@ -164,7 +165,7 @@ URL completo da configurare in GHL:
 - [x] flow AI end-to-end verificato con script dedicato
 - [x] nuovo intake GHL sales salvato come `SalesLead`
 - [x] endpoint `/api/ghl-assignments` allineato al nuovo modello Sales
-- [x] RBAC `/assegnazioni-ai` allineato (`canAccessAssignmentsDashboard`) + voce sidebar + E2E smoke
+- [x] RBAC dashboard assegnazioni allineato (`canAccessAssignmentsDashboard`) + voce sidebar + E2E smoke
 
 ---
 
@@ -251,7 +252,7 @@ Poi aprire (iframe GHL / embed):
 
 - Interessa **solo la suite interna admin** (non il pannello pubblico sales).
 - Riguarda lo storico assegnazioni HM del vecchio flusso **Assegnazioni v1** (`/assegnazioni-old-suite`) oggi salvato in `SalesLead`.
-- Obiettivo: avere nel DB storico amministrativo “chi ha assegnato chi” usando `ClienteProfessionistaHistory`, così da mostrare la sezione storico HM in `/assegnazioni-ai`.
+- Obiettivo: avere nel DB storico amministrativo “chi ha assegnato chi” usando `ClienteProfessionistaHistory`, così da mostrare la sezione storico HM in `/admin/assegnazioni-dashboard`.
 
 ### Flusso dati richiesto
 
@@ -299,6 +300,6 @@ Regole implementate:
 ## Prossimi passi
 
 1. Eseguire C.2 in ambiente target (prod/staging) con URL produzione configurato, poi `--apply`
-2. Verificare UX `/assegnazioni-ai` in tab HM (storico senza filtri) e tab Sales (filtri attivi)
+2. Verificare UX `/admin/assegnazioni-dashboard` in tab HM (storico senza filtri) e tab Sales (filtri attivi)
 3. Verificare in staging il flusso pubblico `/ghl-embed/assegnazioni` con link GHL e query `user_email`
 4. Eliminare i link residui verso gli URL obsoleti delle assegnazioni sales

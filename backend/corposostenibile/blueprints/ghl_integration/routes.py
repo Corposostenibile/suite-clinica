@@ -2009,7 +2009,7 @@ def _hm_assignment_state_for_lead(lead: SalesLead) -> dict:
 @bp.route('/api/admin/assignments-dashboard', methods=['GET'])
 @login_required
 def api_admin_assignments_dashboard():
-    """Dashboard aggregata per /assegnazioni-ai (C.1).
+    """Dashboard aggregata per /admin/assegnazioni-dashboard (C.1).
 
     Restituisce lo storico HM (`hm_legacy`) da ClienteProfessionistaHistory.
     Nota: per evitare timeout, quando `include_hm=1` la sezione AI viene forzata OFF.
@@ -2074,7 +2074,7 @@ def api_admin_assignments_dashboard():
     }
 
     if include_ai:
-        # Nuovo flusso: la queue /assegnazioni-ai deve leggere SOLO SalesLead GHL.
+        # Nuovo flusso: la queue /admin/assegnazioni-dashboard deve leggere SOLO SalesLead GHL.
         ghl_query = SalesLead.query.filter(
             SalesLead.source_system == 'ghl',
             SalesLead.archived_at.is_(None),

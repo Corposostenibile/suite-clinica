@@ -236,7 +236,7 @@ const ghlService = {
   },
 
   /**
-   * Dashboard aggregata assegnazioni (/assegnazioni-ai mother page)
+   * Dashboard aggregata assegnazioni (/admin/assegnazioni-dashboard)
    * Sezioni:
    * - sales_ghl (SalesLead source_system='ghl')
    * - hm_legacy (ClienteProfessionistaHistory tipo_professionista='health_manager')

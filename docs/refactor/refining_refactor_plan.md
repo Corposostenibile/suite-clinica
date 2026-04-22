@@ -182,7 +182,7 @@ Implementazione per pagina (decisioni precise):
 - Lasciare Profilo, Task, Formazione, Clienti
 - App.jsx
 - Aggiungere RoleProtectedRoute su pagine globali fuori scope professionista:
-- /assegnazioni-ai già ok
+- /admin/assegnazioni-dashboard già ok
 - /quality già ok
 - aggiungere guard per /team-lista, /team-capienza, /teams*, /in-prova*, /check-azienda
 - Per /team-dettaglio/:id: consentire solo admin/cco/TL; professionista solo se :id === currentUser.id
@@ -275,7 +275,7 @@ Decisione esplicita da implementare:
 
 - Accede a /welcome e vede solo dashboard personale (nessun KPI globale/cross-team).
 - Sidebar non mostra Quality, Assegnazioni, Capienze, Team list, In Prova.
-- Accesso diretto URL a /quality, /assegnazioni-ai, /team-lista, /check-azienda, /teams → redirect o blocco coerente.
+- Accesso diretto URL a /quality, /admin/assegnazioni-dashboard, /team-lista, /check-azienda, /teams → redirect o blocco coerente.
 - mostra info base + solo sezione del proprio ruolo
 - non mostra azioni assegnazione/interruzione professionisti
 - ClientiDetail di cliente non assegnato → 403/redirect.
