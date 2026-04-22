@@ -4,11 +4,17 @@ Blueprint dedicato al flusso Sales GHL basato sul modello canonico **`SalesLead`
 
 Questo package copre:
 
-1. **Lista SalesLead GHL**
+1. **SSO Sales JWT**
+   - endpoint `POST /api/ghl-assignments/sso/exchange`
+   - mapping email → `sales_user_id`
+   - JWT HS256 con `scope=sales`
+
+2. **Lista SalesLead GHL**
    - endpoint `GET /api/ghl-assignments`
    - query e filtri per la queue sales
+   - accesso via Bearer JWT sales oppure sessione legacy
 
-2. **Webhook inbound GHL**
+3. **Webhook inbound GHL**
    - endpoint `POST /webhooks/ghl-leads/new`
    - firma HMAC SHA-256
    - mapping payload → `SalesLead`
@@ -25,6 +31,7 @@ Il package viene registrato così:
 
 Endpoint reali esposti dal package:
 
+- `POST /api/ghl-assignments/sso/exchange`
 - `GET /api/ghl-assignments`
 - `POST /webhooks/ghl-leads/new`
 
@@ -39,10 +46,22 @@ Mostrare le lead provenienti da GHL in una queue dedicata ai sales.
 
 - `GET /api/ghl-assignments`
 
+### SSO Sales JWT
+
+L'endpoint `POST /api/ghl-assignments/sso/exchange` riceve l'email del sales e restituisce un JWT HS256 con:
+
+- `scope = sales`
+- `sales_user_id`
+- `email`
+- `iss = suite-clinica-sales-ghl`
+
+Il token è valido per 8 ore e viene firmato con `GHL_SSO_SIGNING_KEY` (fallback su `SECRET_KEY`).
+
 ### Sicurezza
 
 - autenticazione richiesta
-- permesso ACL `ghl:view_assignments`
+- accesso via Bearer JWT sales oppure sessione legacy
+- permesso ACL `ghl:view_assignments` per il path sessione
 
 ### Query param supportati
 
@@ -220,11 +239,17 @@ Vedi anche:
 
 ## Setup operativo
 
-1. Configura il webhook GHL verso:
+1. Configura il link/launcher GHL per chiamare:
+   - `POST /api/ghl-assignments/sso/exchange`
+2. Usa l'email del sales come input minimo:
+   - `user_email`
+3. Salva il JWT restituito e usalo come header:
+   - `Authorization: Bearer <token>`
+4. Configura il webhook GHL verso:
    - `https://<BASE_URL_PUBBLICO>/webhooks/ghl-leads/new`
-2. Imposta la firma HMAC con il secret condiviso:
+5. Imposta la firma HMAC con il secret condiviso:
    - `GHL_WEBHOOK_SECRET`
-3. Invia almeno questi campi:
+6. Invia almeno questi campi:
    - `first_name` / `nome`
    - `last_name` / `cognome`
    - `email`

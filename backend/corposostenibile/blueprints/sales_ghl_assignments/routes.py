@@ -6,23 +6,61 @@ Espone la vista lista delle SalesLead provenienti da GHL sotto
 
 from __future__ import annotations
 
-from typing import Any, Dict
-
-from flask import jsonify, request
-from flask_login import current_user, login_required
+from flask import abort, g, jsonify, request
 from sqlalchemy import or_
 
-from corposostenibile.blueprints.ghl_integration.security import require_permission
 from corposostenibile.models import SalesLead
 
 from . import bp
 from .services import serialize_sales_lead
+from .sso import (
+    build_sales_session_user,
+    create_sales_jwt,
+    get_active_sales_user,
+    resolve_sales_user_by_email,
+    sales_assignments_auth_required,
+)
+
+
+@bp.route("/sso/exchange", methods=["POST"])
+def sso_exchange():
+    """Scambia l'email del sales con un JWT firmato dal backend.
+
+    Payload atteso:
+    - user_email / email
+    - user_name / name (opzionale)
+    """
+    payload = request.get_json(silent=True) or {}
+    email = (
+        payload.get("user_email")
+        or payload.get("email")
+        or payload.get("sales_user_email")
+        or ""
+    ).strip()
+
+    if not email:
+        abort(422, description="user_email richiesto")
+
+    sales_user = resolve_sales_user_by_email(email)
+    if not sales_user:
+        abort(401, description="Utente sales non trovato")
+
+    token = create_sales_jwt(sales_user)
+    session_user = build_sales_session_user(sales_user)
+
+    return jsonify(
+        {
+            "success": True,
+            "scope": "sales",
+            "token": token,
+            "sales_user": session_user.to_dict(),
+        }
+    )
 
 
 @bp.route("", methods=["GET"], strict_slashes=False)
 @bp.route("/", methods=["GET"], strict_slashes=False)
-@login_required
-@require_permission("ghl:view_assignments")
+@sales_assignments_auth_required()
 def api_assignments():
     """Lista le SalesLead GHL.
 
@@ -57,12 +95,16 @@ def api_assignments():
         )
 
     leads = query.order_by(SalesLead.created_at.desc()).limit(limit).all()
+    active_user = get_active_sales_user()
 
-    return jsonify({
-        "assignments": [serialize_sales_lead(lead) for lead in leads],
-        "total": len(leads),
-        "status": status,
-        "search": search,
-        "limit": limit,
-        "current_user_id": current_user.id if getattr(current_user, "is_authenticated", False) else None,
-    })
+    return jsonify(
+        {
+            "assignments": [serialize_sales_lead(lead) for lead in leads],
+            "total": len(leads),
+            "status": status,
+            "search": search,
+            "limit": limit,
+            "current_user_id": active_user.id if active_user else None,
+            "auth_mode": getattr(g, "sales_auth_mode", None),
+        }
+    )

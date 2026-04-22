@@ -22,7 +22,7 @@ In pratica:
 | Task | Stato | Cosa è stato fatto davvero | Note |
 |---|---|---|---|
 | **A.1 — Backend: blueprint sales_ghl_assignments (`/api/ghl-assignments`)** | **done** | Creato `backend/corposostenibile/blueprints/sales_ghl_assignments/` con endpoint `GET /api/ghl-assignments` | La lista ora è basata su `SalesLead` GHL, non su `ServiceClienteAssignment` |
-| **A.2 — Backend: SSO JWT adapter sales (scope=sales, email to sales_user_id)** | **to do** | Non ancora implementato | Rimane il pezzo di autenticazione sales dedicata |
+| **A.2 — Backend: SSO JWT adapter sales (scope=sales, email to sales_user_id)** | **done** | Creato `/api/ghl-assignments/sso/exchange` + JWT HS256 con `scope=sales` e `sales_user_id` | La queue Sales accetta Bearer JWT sales oltre alla sessione legacy |
 | **B.1 — Backend: endpoint `/webhooks/ghl-leads/new` con HMAC SHA-256** | **done** | Creato webhook inbound firmato HMAC e spostato nel blueprint sales dedicato | Salva il lead come `SalesLead` |
 | **B.2 — Backend: schema mapping payload GHL verso SalesLead** | **done** | Normalizzazione payload GHL → campi `SalesLead` | Supporta JSON, form-data e wrapper JSON |
 | **B.3 — Backend: matcher sales_user da email GHL (exact match)** | **done** | Matching esatto su `User.email` per `sales_user_id` | Niente fallback fuzzy sul nome per l’assegnazione |
@@ -189,6 +189,6 @@ cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignment
 
 ## Prossimi passi
 
-1. Implementare **A.2**: SSO JWT sales con scope dedicato e mapping email → `sales_user_id`
-2. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales
-3. Se arriva lo schema finale ufficiale da Matteo/Emanuele, rifinire il mapping del payload
+1. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales
+2. Se arriva lo schema finale ufficiale da Matteo/Emanuele, rifinire il mapping del payload
+3. Integrare il frontend/launcher GHL che chiama `/api/ghl-assignments/sso/exchange` e salva il JWT sales

@@ -26,7 +26,7 @@ sales_ghl_hooks_bp = Blueprint(
 
 
 # Import routes/hooks after blueprint creation to avoid circular imports
-from . import routes, hooks  # noqa: E402,F401
+from . import routes, hooks, sso  # noqa: E402,F401
 
 
 def init_app(app):
