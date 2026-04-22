@@ -3,17 +3,16 @@
 Branch: `feature/assegnazioni-sales-ai-mvp`
 
 ## Obiettivo
-Portare in produzione un MVP del pannello **`/assegnazioni-ai`** per gestire le assegnazioni dei **Sales** a partire dai dati GHL.
+Portare in produzione un MVP del pannello **`/assegnazioni-ai`** (suite interna) e del pannello **`/ghl-embed/assegnazioni`** (sales pubblico) usando come fonte canonica **`SalesLead`**.
 
-Il flusso tecnico continua a distinguere due sorgenti:
+Stato attuale / direzione confermata:
 
-- **legacy / AI assignments** → `GHLOpportunityData`
-- **nuovo lead intake GHL** → `SalesLead` con `source_system='ghl'`
+- `/ghl-embed/assegnazioni` (pubblico sales) legge da `SalesLead` (`source_system='ghl'`) tramite `/api/ghl-assignments` con SSO JWT sales.
+- `/assegnazioni-ai` (suite interna) è la pagina madre con due sezioni:
+  - **Sales GHL**: dati da `SalesLead` (`source_system='ghl'`)
+  - **Storico HM (old-suite)**: da migrare su `ClienteProfessionistaHistory` (alimentata via script C.2 prendendo lo storico da `SalesLead` old-suite / Assegnazioni v1).
 
-In pratica:
-
-- `GHLOpportunityData` resta la source per il flusso storico `opportunity-data` e per gli endpoint AI già esistenti.
-- `SalesLead` è diventato il contenitore canonico del nuovo intake GHL sales.
+`GHLOpportunityData` resta solo come tracciato legacy webhook, non più source operativa per la queue assegnazioni AI corrente.
 
 ---
 
@@ -29,13 +28,18 @@ In pratica:
 | **B.3 — Backend: matcher sales_user da email GHL (exact match)** | **done** | Matching esatto su `User.email` per `sales_user_id` | Niente fallback fuzzy sul nome per l’assegnazione |
 | **B.4 — Backend: integra schema payload GHL fornito da Matteo a Emanuele** | **done / adapter flessibile** | Il parser accetta alias multipli e mappe tolleranti | Se arriva uno schema rigidamente ufficiale, si può restringere il mapping |
 | **B.5 — Migration: source_system=ghl + index su sales_leads** | **done** | Il modello/migration esistente supporta `source_system` e l’indice; il nuovo flusso scrive `source_system='ghl'` | Nessun ulteriore cambio DB necessario per il nuovo intake |
+| **C.1 — Backend: `/ghl/api/admin/assignments-dashboard` con filtri + aggregation** | **done (v2)** | Endpoint aggregato nella blueprint `ghl_integration`; `sales_ghl` su `SalesLead` (`source_system='ghl'`) e `hm_legacy` su `ClienteProfessionistaHistory` (`tipo_professionista='health_manager'`) | Per Storico HM la vista operativa è senza filtri (storico puro) |
+| **C.2 — Backend: seed script storico HM completo (`ClienteProfessionistaHistory`)** | **done (apply eseguito in locale)** | Implementato `backend/scripts/seed_hm_history_from_saleslead.py` con soli flag `--dry-run` / `--apply`; crea solo HM history e supporta fallback produzione | Applicato in locale: importati 3 record matchabili (molti clienti prod non presenti in locale) |
 | **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
 
 ---
 
 ## Fonte dati MVP aggiornata
 
-Per il **nuovo intake GHL sales**, la fonte dati è **`SalesLead`**.
+Per il flusso assegnazioni corrente:
+
+- pubblico sales: fonte dati canonica **`SalesLead`**
+- suite interna: `SalesLead` per queue Sales GHL + `ClienteProfessionistaHistory` per storico HM (dopo C.2)
 
 Campi rilevanti per il nuovo flusso:
 
@@ -65,7 +69,7 @@ Campi rilevanti per il nuovo flusso:
 - `status`
 - `archived_at`
 
-La source legacy resta `GHLOpportunityData` per il flusso storico `opportunity-data`.
+`GHLOpportunityData` è considerata sorgente legacy di tracciamento webhook, non più fonte primaria della queue assegnazioni AI.
 
 ---
 
@@ -225,9 +229,60 @@ Poi aprire (iframe GHL / embed):
 
 ---
 
+## C.2 — Scope confermato (allineamento chat con Matteo)
+
+### Cosa significa “storico HM completo”
+
+- Interessa **solo la suite interna admin** (non il pannello pubblico sales).
+- Riguarda lo storico assegnazioni HM del vecchio flusso **Assegnazioni v1** (`/assegnazioni-old-suite`) oggi salvato in `SalesLead`.
+- Obiettivo: avere nel DB storico amministrativo “chi ha assegnato chi” usando `ClienteProfessionistaHistory`, così da mostrare la sezione storico HM in `/assegnazioni-ai`.
+
+### Flusso dati richiesto
+
+1. endpoint usato dalla pagina madre interna:  
+   `/ghl/api/admin/assignments-dashboard?...`
+2. parte `sales_ghl` continua su `SalesLead` (`source_system='ghl'`)
+3. parte `hm_legacy` legge da `ClienteProfessionistaHistory` (`tipo_professionista='health_manager'`)
+4. `ClienteProfessionistaHistory` viene popolata da script C.2 prendendo i dati da `SalesLead` old-suite (fallback produzione opzionale)
+
+### Parametri operativi frontend (allineati)
+
+- Tab **Sales GHL**: chiamata con `include_ai=1`, `include_hm=0`
+- Tab **Storico HM**: chiamata con `include_ai=0`, `include_hm=1`
+- Storico HM: senza filtri UI (no search/no status chips), solo storico HM
+
+### Vincolo importante (non toccare il resto)
+
+- Tutte le nuove assegnazioni continuano ad essere scritte in `SalesLead`.
+- Il pannello pubblico sales (`/ghl-embed/assegnazioni`) **non cambia**.
+- C.2 è un allineamento storico admin-side, non una modifica del flusso operativo sales.
+
+### Script C.2 implementato
+
+Path:
+- `backend/scripts/seed_hm_history_from_saleslead.py`
+
+Comandi:
+
+```bash
+cd backend
+poetry run python scripts/seed_hm_history_from_saleslead.py --dry-run      # simulazione
+poetry run python scripts/seed_hm_history_from_saleslead.py --apply        # applica
+```
+
+Regole implementate:
+- considera `SalesLead` con `source_system='old_suite'`, `converted_to_client_id` valorizzato e `health_manager_id` presente
+- crea **solo** record HM in `ClienteProfessionistaHistory`:
+  - `health_manager_id` -> `tipo_professionista='health_manager'`
+- crea record history **solo se manca una riga attiva coerente**
+- se nel DB locale non ci sono `SalesLead` utili con HM, tenta fallback import da produzione (`PRODUCTION_DATABASE_URL` / `PROD_DATABASE_URL`)
+- non tocca M2M né flusso sales pubblico
+
+---
+
 ## Prossimi passi
 
-1. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales
-2. Se arriva lo schema finale ufficiale da Matteo/Emanuele, rifinire il mapping del payload
+1. Eseguire C.2 in ambiente target (prod/staging) con URL produzione configurato, poi `--apply`
+2. Verificare UX `/assegnazioni-ai` in tab HM (storico senza filtri) e tab Sales (filtri attivi)
 3. Verificare in staging il flusso pubblico `/ghl-embed/assegnazioni` con link GHL e query `user_email`
 4. Eliminare i link residui verso gli URL obsoleti delle assegnazioni sales

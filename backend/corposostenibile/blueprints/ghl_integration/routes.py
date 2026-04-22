@@ -19,6 +19,7 @@ from corposostenibile.models import (
     GHLOpportunityData,
     ServiceClienteAssignment,
     Cliente,
+    ClienteProfessionistaHistory,
     Meeting,
     Team,
     User,
@@ -2010,9 +2011,8 @@ def _hm_assignment_state_for_lead(lead: SalesLead) -> dict:
 def api_admin_assignments_dashboard():
     """Dashboard aggregata per /assegnazioni-ai (C.1).
 
-    Restituisce due sezioni separate entrambe basate su SalesLead:
-    - sales_ghl (alias ai_legacy): queue SalesLead source_system='ghl'
-    - hm_legacy: queue SalesLead source_system='old_suite' (ex /assegnazioni-old-suite)
+    Restituisce lo storico HM (`hm_legacy`) da ClienteProfessionistaHistory.
+    Nota: per evitare timeout, quando `include_hm=1` la sezione AI viene forzata OFF.
 
     Filtri principali:
     - q / search
@@ -2166,95 +2166,115 @@ def api_admin_assignments_dashboard():
         payload['ai_legacy'] = payload['sales_ghl']
 
     if include_hm:
-        hm_query = (
-            SalesLead.query.filter(
-                SalesLead.source_system == 'old_suite',
-                SalesLead.converted_to_client_id.is_(None),
-                SalesLead.archived_at.is_(None),
+        # Storico HM senza filtri (richiesta esplicita): ignoriamo q/hm_state/hm_id.
+        hm_rows = (
+            ClienteProfessionistaHistory.query.filter(
+                ClienteProfessionistaHistory.tipo_professionista == 'health_manager'
             )
-            .order_by(SalesLead.created_at.desc())
+            .order_by(
+                ClienteProfessionistaHistory.data_dal.desc(),
+                ClienteProfessionistaHistory.id.desc(),
+            )
+            .limit(limit_hm)
+            .all()
         )
 
-        if hm_id:
-            hm_query = hm_query.filter(SalesLead.health_manager_id == hm_id)
+        cliente_ids = [int(row.cliente_id) for row in hm_rows if row.cliente_id is not None]
+        hm_user_ids = [int(row.user_id) for row in hm_rows if row.user_id is not None]
 
-        if q:
-            like = f"%{q}%"
-            hm_query = hm_query.filter(
-                or_(
-                    SalesLead.first_name.ilike(like),
-                    SalesLead.last_name.ilike(like),
-                    SalesLead.email.ilike(like),
-                    SalesLead.phone.ilike(like),
-                    SalesLead.unique_code.ilike(like),
-                    SalesLead.custom_package_name.ilike(like),
-                    SalesLead.client_story.ilike(like),
+        clienti_map = {}
+        if cliente_ids:
+            clienti = Cliente.query.filter(Cliente.cliente_id.in_(cliente_ids)).all()
+            clienti_map = {int(c.cliente_id): c for c in clienti}
+
+        users_map = {}
+        if hm_user_ids:
+            users = User.query.filter(User.id.in_(hm_user_ids)).all()
+            users_map = {int(u.id): u for u in users}
+
+        latest_old_suite_by_cliente = {}
+        if cliente_ids:
+            old_suite_leads = (
+                SalesLead.query.filter(
+                    SalesLead.source_system == 'old_suite',
+                    SalesLead.converted_to_client_id.in_(cliente_ids),
                 )
+                .order_by(SalesLead.converted_to_client_id.asc(), SalesLead.created_at.desc())
+                .all()
             )
+            for lead in old_suite_leads:
+                cid = int(lead.converted_to_client_id) if lead.converted_to_client_id is not None else None
+                if cid is None or cid in latest_old_suite_by_cliente:
+                    continue
+                latest_old_suite_by_cliente[cid] = lead
 
-        # Filtriamo stato HM in Python (richiede parsing pacchetto)
-        hm_rows_raw = hm_query.limit(2000).all()
+        def _serialize_hm(history_row: ClienteProfessionistaHistory) -> dict:
+            cliente = clienti_map.get(int(history_row.cliente_id))
+            hm_user = users_map.get(int(history_row.user_id))
+            linked_lead = latest_old_suite_by_cliente.get(int(history_row.cliente_id))
+            assignment_state = 'complete' if history_row.is_active else 'partial'
 
-        def _match_state(lead: SalesLead) -> bool:
-            if hm_state in {'all', ''}:
-                return True
-            return _hm_assignment_state_for_lead(lead)['state'] == hm_state
+            full_name = (cliente.nome_cognome if cliente else None) or 'N/D'
+            first_name = None
+            last_name = None
+            if full_name and full_name != 'N/D':
+                parts = full_name.split()
+                first_name = parts[0] if parts else None
+                last_name = ' '.join(parts[1:]) if len(parts) > 1 else None
 
-        hm_rows_filtered = [lead for lead in hm_rows_raw if _match_state(lead)]
-        hm_rows = hm_rows_filtered[:limit_hm]
-
-        def _serialize_hm(lead: SalesLead) -> dict:
-            st = _hm_assignment_state_for_lead(lead)
-            hm = lead.health_manager
             return {
-                'source': 'hm_legacy',
-                'id': lead.id,
-                'unique_code': lead.unique_code,
-                'full_name': lead.full_name,
-                'first_name': lead.first_name,
-                'last_name': lead.last_name,
-                'email': lead.email,
-                'phone': lead.phone,
-                'client_story': lead.client_story,
-                'custom_package_name': lead.custom_package_name,
-                'onboarding_date': lead.onboarding_date.isoformat() if lead.onboarding_date else None,
-                'onboarding_time': lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else None,
-                'health_manager_id': lead.health_manager_id,
+                'source': 'hm_legacy_history',
+                'id': int(history_row.id),
+                'history_id': int(history_row.id),
+                'sales_lead_id': int(linked_lead.id) if linked_lead else None,
+                'cliente_id': int(history_row.cliente_id),
+                'full_name': full_name,
+                'first_name': first_name,
+                'last_name': last_name,
+                'email': (cliente.mail if cliente else None) or (linked_lead.email if linked_lead else None),
+                'phone': (cliente.numero_telefono if cliente else None) or (linked_lead.phone if linked_lead else None),
+                'client_story': linked_lead.client_story if linked_lead else None,
+                'custom_package_name': linked_lead.custom_package_name if linked_lead else None,
+                'health_manager_id': int(history_row.user_id),
                 'health_manager': {
-                    'id': hm.id,
-                    'full_name': hm.full_name,
-                    'email': hm.email,
-                } if hm else None,
+                    'id': hm_user.id,
+                    'full_name': hm_user.full_name,
+                    'email': hm_user.email,
+                } if hm_user else None,
                 'assignments': {
-                    'nutritionist_id': lead.assigned_nutritionist_id,
-                    'coach_id': lead.assigned_coach_id,
-                    'psychologist_id': lead.assigned_psychologist_id,
+                    'nutritionist_id': None,
+                    'coach_id': None,
+                    'psychologist_id': None,
                 },
-                'assignment_state': st['state'],
-                'assignment_required': st['required'],
-                'assignment_assigned': st['assigned'],
-                'package_roles': st['package_roles'],
-                'created_at': lead.created_at.isoformat() if lead.created_at else None,
-                'updated_at': lead.updated_at.isoformat() if lead.updated_at else None,
+                'assignment_state': assignment_state,
+                'assignment_required': 1,
+                'assignment_assigned': 1,
+                'package_roles': {
+                    'nutrition': False,
+                    'coach': False,
+                    'psychology': False,
+                },
+                'data_dal': history_row.data_dal.isoformat() if history_row.data_dal else None,
+                'data_al': history_row.data_al.isoformat() if history_row.data_al else None,
+                'is_active': bool(history_row.is_active),
+                'created_at': history_row.created_at.isoformat() if history_row.created_at else None,
+                'updated_at': history_row.updated_at.isoformat() if history_row.updated_at else None,
             }
 
-        hm_global = SalesLead.query.filter(
-            SalesLead.source_system == 'old_suite',
-            SalesLead.converted_to_client_id.is_(None),
-            SalesLead.archived_at.is_(None),
-        ).all()
-        hm_stats = {'total': len(hm_global), 'unassigned': 0, 'partial': 0, 'complete': 0, 'without_hm': 0}
-        for lead in hm_global:
-            st = _hm_assignment_state_for_lead(lead)['state']
-            hm_stats[st] = hm_stats.get(st, 0) + 1
-            if not lead.health_manager_id:
-                hm_stats['without_hm'] += 1
+        hm_complete = sum(1 for row in hm_rows if row.is_active)
+        hm_partial = len(hm_rows) - hm_complete
 
         payload['hm_legacy'] = {
-            'rows': [_serialize_hm(lead) for lead in hm_rows],
+            'rows': [_serialize_hm(row) for row in hm_rows],
             'returned': len(hm_rows),
-            'total_available': len(hm_rows_filtered),
-            'stats': hm_stats,
+            'total_available': len(hm_rows),
+            'stats': {
+                'total': len(hm_rows),
+                'unassigned': 0,
+                'partial': hm_partial,
+                'complete': hm_complete,
+                'without_hm': 0,
+            },
         }
 
     return jsonify(payload)

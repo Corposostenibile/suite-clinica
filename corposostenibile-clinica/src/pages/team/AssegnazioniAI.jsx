@@ -37,7 +37,7 @@ function AssegnazioniAI() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [salesStatusFilter, setSalesStatusFilter] = useState('pending');
-  const [hmStatusFilter, setHmStatusFilter] = useState('unassigned');
+  const [hmStatusFilter, setHmStatusFilter] = useState('all');
   const [showSalesOnly, setShowSalesOnly] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
 
@@ -49,14 +49,15 @@ function AssegnazioniAI() {
     const nextSalesStatus = override.salesStatusFilter ?? salesStatusFilter;
     const nextHmStatus = override.hmStatusFilter ?? hmStatusFilter;
     const nextSearch = (override.search ?? search).trim();
+    const effectiveSearch = nextSection === 'hm_legacy' ? '' : nextSearch;
 
     try {
       const response = await ghlService.getAssignmentsDashboard({
-        include_ai: 1,
-        include_hm: 1,
+        include_ai: nextSection === 'sales_ghl' ? 1 : 0,
+        include_hm: nextSection === 'hm_legacy' ? 1 : 0,
         ai_processed: nextSection === 'sales_ghl' ? nextSalesStatus : 'all',
-        hm_state: nextSection === 'hm_legacy' ? nextHmStatus : 'all',
-        q: nextSearch,
+        hm_state: 'all',
+        q: effectiveSearch,
         limit_ai: 200,
         limit_hm: 200,
       });
@@ -87,12 +88,13 @@ function AssegnazioniAI() {
   }, [activeSection, salesStatusFilter, hmStatusFilter]);
 
   useEffect(() => {
+    if (activeSection === 'hm_legacy') return undefined;
     const timeout = setTimeout(() => {
       loadDashboard();
     }, 450);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, activeSection]);
 
   const currentSection = useMemo(() => {
     if (activeSection === 'hm_legacy') {
@@ -106,9 +108,9 @@ function AssegnazioniAI() {
     if (activeSection === 'hm_legacy') {
       return {
         total: rawStats.total || 0,
-        pending: rawStats.unassigned || 0,
-        processed: rawStats.complete || 0,
-        salesAssigned: rawStats.partial || 0,
+        pending: rawStats.complete || 0,
+        processed: rawStats.partial || 0,
+        salesAssigned: 0,
       };
     }
     return {
@@ -132,7 +134,15 @@ function AssegnazioniAI() {
 
   const openOpportunity = (item) => {
     if (activeSection === 'hm_legacy') {
-      navigate(`/suitemind-old/${item.id}`, { state: { lead: item } });
+      const legacyLeadId = item.sales_lead_id || null;
+      if (legacyLeadId) {
+        navigate(`/suitemind-old/${legacyLeadId}`, { state: { lead: item } });
+        return;
+      }
+      if (item.cliente_id) {
+        navigate(`/clienti-dettaglio/${item.cliente_id}?tab=health_manager`);
+        return;
+      }
       return;
     }
     navigate(`/suitemind/${item.id}`, { state: { opportunity: item } });
@@ -141,7 +151,7 @@ function AssegnazioniAI() {
   const clearFilters = () => {
     setSearch('');
     setSalesStatusFilter('pending');
-    setHmStatusFilter('unassigned');
+    setHmStatusFilter('all');
     setShowSalesOnly(false);
   };
 
@@ -153,13 +163,12 @@ function AssegnazioniAI() {
 
   const renderStatusBadge = (item) => {
     if (activeSection === 'hm_legacy') {
-      const state = item.assignment_state || 'unassigned';
+      const state = item.assignment_state || 'partial';
       const map = {
-        unassigned: { bg: 'warning', label: 'Da assegnare' },
-        partial: { bg: 'info', label: 'Parziale' },
-        complete: { bg: 'success', label: 'Completo' },
+        partial: { bg: 'secondary', label: 'Terminato' },
+        complete: { bg: 'success', label: 'Attivo' },
       };
-      const conf = map[state] || map.unassigned;
+      const conf = map[state] || map.partial;
       return <Badge bg={conf.bg} className="rounded-pill">{conf.label}</Badge>;
     }
 
@@ -217,17 +226,19 @@ function AssegnazioniAI() {
             <div className="ghle-old-stat-value">{stats.total}</div>
           </div>
           <div className="ghle-old-stat-card">
-            <div className="ghle-old-stat-label">Da lavorare</div>
+            <div className="ghle-old-stat-label">{activeSection === 'hm_legacy' ? 'Attivi' : 'Da lavorare'}</div>
             <div className="ghle-old-stat-value text-warning">{stats.pending}</div>
           </div>
           <div className="ghle-old-stat-card">
-            <div className="ghle-old-stat-label">Completati</div>
+            <div className="ghle-old-stat-label">{activeSection === 'hm_legacy' ? 'Terminati' : 'Completati'}</div>
             <div className="ghle-old-stat-value text-success">{stats.processed}</div>
           </div>
-          <div className="ghle-old-stat-card">
-            <div className="ghle-old-stat-label">Intermedi</div>
-            <div className="ghle-old-stat-value text-primary">{stats.salesAssigned}</div>
-          </div>
+          {activeSection === 'sales_ghl' ? (
+            <div className="ghle-old-stat-card">
+              <div className="ghle-old-stat-label">Intermedi</div>
+              <div className="ghle-old-stat-value text-primary">{stats.salesAssigned}</div>
+            </div>
+          ) : null}
           <div className="ghle-old-stat-card">
             <div className="ghle-old-stat-label">Ultimo refresh</div>
             <div className="ghle-old-stat-value ghle-old-stat-sm">{formatDate(lastLoadedAt)}</div>
@@ -251,48 +262,37 @@ function AssegnazioniAI() {
                     {f.label}
                   </button>
                 ))
-              : [
-                  { key: 'unassigned', label: 'Da assegnare' },
-                  { key: 'partial', label: 'Parziali' },
-                  { key: 'complete', label: 'Completati' },
-                  { key: 'all', label: 'Tutti' },
-                ].map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    className={`ghle-old-chip ${hmStatusFilter === f.key ? 'active' : ''}`}
-                    onClick={() => setHmStatusFilter(f.key)}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+              : null}
           </div>
 
           <div className="ghle-old-controls">
-            <InputGroup className="ghle-old-search">
-              <InputGroup.Text>
-                <i className="ri-search-line"></i>
-              </InputGroup.Text>
-              <Form.Control
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Nome, email, telefono, pacchetto o codice"
-              />
-            </InputGroup>
-
             {activeSection === 'sales_ghl' ? (
-              <Button
-                variant={showSalesOnly ? 'success' : 'outline-success'}
-                className="ghle-old-action"
-                onClick={() => setShowSalesOnly((prev) => !prev)}
-              >
-                {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
-              </Button>
+              <>
+                <InputGroup className="ghle-old-search">
+                  <InputGroup.Text>
+                    <i className="ri-search-line"></i>
+                  </InputGroup.Text>
+                  <Form.Control
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Nome, email, telefono, pacchetto o codice"
+                  />
+                </InputGroup>
+
+                <Button
+                  variant={showSalesOnly ? 'success' : 'outline-success'}
+                  className="ghle-old-action"
+                  onClick={() => setShowSalesOnly((prev) => !prev)}
+                >
+                  {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
+                </Button>
+
+                <Button variant="outline-secondary" className="ghle-old-action" onClick={clearFilters}>
+                  Reset
+                </Button>
+              </>
             ) : null}
 
-            <Button variant="outline-secondary" className="ghle-old-action" onClick={clearFilters}>
-              Reset
-            </Button>
             <Button variant="outline-primary" className="ghle-old-action" onClick={() => loadDashboard()} disabled={loading}>
               {loading ? <Spinner size="sm" animation="border" className="me-2" /> : null}
               Ricarica
@@ -372,7 +372,18 @@ function AssegnazioniAI() {
                           Dettaglio
                         </Button>
                       ) : (
-                        <Button variant="outline-secondary" onClick={() => navigate(`/suitemind-old/${item.id}`, { state: { lead: item } })}>
+                        <Button
+                          variant="outline-secondary"
+                          onClick={() => {
+                            if (item.sales_lead_id) {
+                              navigate(`/suitemind-old/${item.sales_lead_id}`, { state: { lead: item } });
+                              return;
+                            }
+                            if (item.cliente_id) {
+                              navigate(`/clienti-dettaglio/${item.cliente_id}?tab=health_manager`);
+                            }
+                          }}
+                        >
                           Dettaglio
                         </Button>
                       )}

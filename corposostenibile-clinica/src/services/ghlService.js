@@ -239,7 +239,7 @@ const ghlService = {
    * Dashboard aggregata assegnazioni (/assegnazioni-ai mother page)
    * Sezioni:
    * - sales_ghl (SalesLead source_system='ghl')
-   * - hm_legacy (SalesLead source_system='old_suite')
+   * - hm_legacy (ClienteProfessionistaHistory tipo_professionista='health_manager')
    */
   async getAssignmentsDashboard(params = {}) {
     const response = await ghlApi.get('/admin/assignments-dashboard', { params });
