@@ -48,6 +48,10 @@ customers_bp: Blueprint = Blueprint(
     cli_group="customers",    # abilita  `flask customers …`
 )
 
+# Registra i listener SQLAlchemy (before_insert/before_update su Cliente)
+# per mantenere coerenti i campi cache di scadenza.
+from . import events as _events  # noqa: F401,E402  (side-effect: register listeners)
+
 # --------------------------------------------------------------------------- #
 # Jinja helpers                                                               #
 # --------------------------------------------------------------------------- #

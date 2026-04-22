@@ -3841,6 +3841,7 @@ function ClientiDetail() {
                               ? new Date(new Date(formData.data_inizio_abbonamento).getTime() + Number(formData.durata_programma_giorni) * 86400000).toISOString().split('T')[0]
                               : formData.data_rinnovo || ''}
                             disabled
+                            showValueWhenDisabled
                           />
                         </div>
                       </div>
@@ -3884,6 +3885,7 @@ function ClientiDetail() {
                               ? new Date(new Date(formData.data_inizio_nutrizione).getTime() + Number(formData.durata_nutrizione_giorni) * 86400000).toISOString().split('T')[0]
                               : formData.data_scadenza_nutrizione || ''}
                             disabled
+                            showValueWhenDisabled
                           />
                         </div>
                       </div>
@@ -3920,6 +3922,7 @@ function ClientiDetail() {
                               ? new Date(new Date(formData.data_inizio_coach).getTime() + Number(formData.durata_coach_giorni) * 86400000).toISOString().split('T')[0]
                               : formData.data_scadenza_coach || ''}
                             disabled
+                            showValueWhenDisabled
                           />
                         </div>
                       </div>
@@ -3956,6 +3959,7 @@ function ClientiDetail() {
                               ? new Date(new Date(formData.data_inizio_psicologia).getTime() + Number(formData.durata_psicologia_giorni) * 86400000).toISOString().split('T')[0]
                               : formData.data_scadenza_psicologia || ''}
                             disabled
+                            showValueWhenDisabled
                           />
                         </div>
                       </div>

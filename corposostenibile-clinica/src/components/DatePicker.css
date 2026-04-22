@@ -264,6 +264,16 @@
   cursor: default;
 }
 
+/* Readonly con valore visibile: disabled ma il dato resta leggibile in nero.
+   Usato per date derivate/calcolate (es. Data Scadenza = inizio + durata). */
+.dp-wrap.dp-disabled.dp-value-readable {
+  opacity: 1;
+}
+.dp-wrap.dp-value-readable .dp-input-wrap.cd-input.disabled,
+.dp-wrap.dp-value-readable .dp-input-wrap.cd-input.disabled .dp-display {
+  color: #1e293b;
+}
+
 /* form-control style (Bootstrap) */
 .dp-input-wrap.form-control {
   padding: 0.375rem 0.75rem;

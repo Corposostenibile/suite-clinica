@@ -42,6 +42,7 @@ export default function DatePicker({
   onChange,
   className = '',
   disabled = false,
+  showValueWhenDisabled = false,
   placeholder = 'gg/mm/aaaa',
   name,
   style,
@@ -151,7 +152,7 @@ export default function DatePicker({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <div className={`dp-wrap${disabled ? ' dp-disabled' : ''}`} ref={wrapRef} style={style}>
+    <div className={`dp-wrap${disabled ? ' dp-disabled' : ''}${disabled && showValueWhenDisabled ? ' dp-value-readable' : ''}`} ref={wrapRef} style={style}>
       <div
         className={`dp-input-wrap ${className}`}
         onClick={() => { if (!disabled) setOpen(!open); }}
