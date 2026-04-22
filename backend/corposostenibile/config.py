@@ -153,6 +153,14 @@ class BaseConfig:
     # Redirect URI registrato sul progetto Google Cloud
     GOOGLE_REDIRECT_URL: str | None = os.getenv("GOOGLE_REDIRECT_URL")
 
+    # ------------------ Google AI / Gemini (GenAI) -----------------------
+    # Usata da: Team assignments AI matching, SOP chatbot, SuiteMind, Recruiting AI, ecc.
+    # NOTA: questa è una API key server-side, NON deve mai finire nel frontend.
+    GOOGLE_API_KEY: str | None = os.getenv("GOOGLE_API_KEY")
+
+    # Modello usato per estrazione criteri lead (AIMatchingService)
+    GEMINI_LEAD_CRITERIA_MODEL: str = os.getenv("GEMINI_LEAD_CRITERIA_MODEL", "gemini-flash-latest")
+
     # ------------------ Web Push / PWA Notifications -----------------------
     VAPID_PUBLIC_KEY: str | None = os.getenv("VAPID_PUBLIC_KEY")
     VAPID_PRIVATE_KEY: str | None = os.getenv("VAPID_PRIVATE_KEY")

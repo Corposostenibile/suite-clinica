@@ -188,6 +188,43 @@ cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignment
 
 ---
 
+## Test locale: seed lead realistici + Gemini
+
+### 1) Impostare la API key Gemini (solo backend, solo locale)
+
+Nel file `backend/.env` (non versionato) impostare:
+
+```bash
+GOOGLE_API_KEY=...  # chiave Gemini server-side
+```
+
+Opzionale (override del modello usato da `AIMatchingService`):
+
+```bash
+GEMINI_LEAD_CRITERIA_MODEL=gemini-flash-latest
+```
+
+### 2) Seed di lead GHL realistici
+
+Script:
+
+```bash
+cd backend
+poetry run python scripts/seed_ghl_test_leads_realistic.py --sales-email sales.duckdns@corposostenibile.com
+```
+
+Pulizia:
+
+```bash
+poetry run python scripts/seed_ghl_test_leads_realistic.py --clean
+```
+
+Poi aprire (iframe GHL / embed):
+
+- `/ghl-embed/assegnazioni?user_email=<sales_email>`
+
+---
+
 ## Prossimi passi
 
 1. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales

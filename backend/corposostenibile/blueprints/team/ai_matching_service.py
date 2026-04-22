@@ -105,15 +105,38 @@ class AIMatchingService:
             """
             
             # Call Gemini
-            model_name = "gemini-flash-latest" 
-            
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                )
+            # Override via env/config: GEMINI_LEAD_CRITERIA_MODEL
+            # Default: gemini-flash-latest (più compatibile con quota free-tier in diversi progetti)
+            model_name = (
+                current_app.config.get("GEMINI_LEAD_CRITERIA_MODEL")
+                or os.environ.get("GEMINI_LEAD_CRITERIA_MODEL")
+                or "gemini-flash-latest"
             )
+
+            def _call(model: str):
+                return client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json"
+                    ),
+                )
+
+            try:
+                response = _call(model_name)
+            except Exception as exc:
+                # Fallback automatico se il modello scelto ha quota 0/non disponibile.
+                fallback_model = "gemini-flash-latest"
+                if model_name != fallback_model:
+                    logger.warning(
+                        "Gemini call failed for model=%s (%s). Retrying with %s",
+                        model_name,
+                        str(exc)[:200],
+                        fallback_model,
+                    )
+                    response = _call(fallback_model)
+                else:
+                    raise
             
             if response.text:
                 try:
