@@ -24,8 +24,10 @@ from corposostenibile.models import (
     User,
     UserRoleEnum,
     SalesPerson,
+    SalesLead,
     team_members,
 )
+from corposostenibile.package_support import parse_package_support
 
 
 # ============================================================================
@@ -1861,7 +1863,7 @@ def webhook_opportunity_data():
 @bp.route('/api/opportunity-data', methods=['GET'])
 @login_required
 def api_get_opportunity_data():
-    """Recupera tutti i dati opportunity dal database."""
+    """Recupera la queue assegnazioni AI dal modello canonico SalesLead (source_system='ghl')."""
     if not _can_access_ai_assignments(current_user):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
 
@@ -1874,11 +1876,17 @@ def api_get_opportunity_data():
         except (TypeError, ValueError):
             limit = 200
 
-        query = GHLOpportunityData.query
+        processed_states = {'ASSIGNED', 'CONVERTED', 'LOST', 'ARCHIVED'}
+
+        query = SalesLead.query.filter(
+            SalesLead.source_system == 'ghl',
+            SalesLead.archived_at.is_(None),
+        )
+
         if processed_filter in {'true', '1', 'yes', 'processed'}:
-            query = query.filter(GHLOpportunityData.processed.is_(True))
+            query = query.filter(SalesLead.status.in_(processed_states))
         elif processed_filter in {'false', '0', 'no', 'pending', 'unprocessed'}:
-            query = query.filter(GHLOpportunityData.processed.is_(False))
+            query = query.filter(~SalesLead.status.in_(processed_states))
         elif processed_filter not in {'all', ''}:
             return jsonify({'success': False, 'message': 'Filtro processed non valido'}), 400
 
@@ -1886,47 +1894,370 @@ def api_get_opportunity_data():
             like = f"%{search}%"
             query = query.filter(
                 or_(
-                    GHLOpportunityData.nome.ilike(like),
-                    GHLOpportunityData.email.ilike(like),
-                    GHLOpportunityData.lead_phone.ilike(like),
-                    GHLOpportunityData.sales_consultant.ilike(like),
-                    GHLOpportunityData.pacchetto.ilike(like),
+                    SalesLead.first_name.ilike(like),
+                    SalesLead.last_name.ilike(like),
+                    SalesLead.email.ilike(like),
+                    SalesLead.phone.ilike(like),
+                    SalesLead.unique_code.ilike(like),
+                    SalesLead.custom_package_name.ilike(like),
+                    SalesLead.client_story.ilike(like),
                 )
             )
 
-        data = query.order_by(GHLOpportunityData.received_at.desc()).limit(limit).all()
-        if _is_team_leader_user(current_user) and not current_user.is_admin:
-            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
-            scoped_rows = []
-            for d in data:
-                assignments = _get_current_assignments_for_opp(d)
-                assigned_ids = {
-                    d.health_manager_id,
-                    assignments.get('nutritionist_id'),
-                    assignments.get('coach_id'),
-                    assignments.get('psychologist_id'),
-                }
-                if any(pid in allowed_ids for pid in assigned_ids if pid is not None):
-                    scoped_rows.append((d, assignments))
-            data_with_assignments = scoped_rows
-        else:
-            data_with_assignments = [(d, _get_current_assignments_for_opp(d)) for d in data]
+        leads = query.order_by(SalesLead.created_at.desc()).limit(limit).all()
+
+        def _serialize_lead_for_ai_page(lead: SalesLead):
+            parsed = parse_package_support(lead.custom_package_name)
+            duration_days = parsed.get('duration_days') if isinstance(parsed, dict) else 0
+            sales_user = lead.sales_user
+            return {
+                'id': lead.id,
+                'nome': lead.full_name,
+                'email': lead.email,
+                'lead_phone': lead.phone,
+                'health_manager_email': getattr(getattr(lead, 'health_manager', None), 'email', None),
+                'health_manager_id': lead.health_manager_id,
+                'sales_consultant': sales_user.full_name if sales_user else None,
+                'sales_person_id': lead.sales_user_id,
+                'sales_person': (
+                    {
+                        'id': sales_user.id,
+                        'full_name': sales_user.full_name,
+                        'email': sales_user.email,
+                    }
+                    if sales_user
+                    else None
+                ),
+                'storia': lead.client_story,
+                'pacchetto': lead.custom_package_name,
+                'durata': str(duration_days or ''),
+                'received_at': lead.created_at.isoformat() if lead.created_at else None,
+                'ip_address': lead.ip_address,
+                'raw_payload': (lead.form_responses or {}).get('raw_payload') if isinstance(lead.form_responses, dict) else {},
+                'processed': str(getattr(lead.status, 'value', lead.status) or '').upper() in processed_states,
+                'source_system': lead.source_system,
+                'status': getattr(lead.status, 'value', lead.status),
+                'ai_analysis': lead.ai_analysis,
+                'assignments': {
+                    'nutritionist_id': lead.assigned_nutritionist_id,
+                    'coach_id': lead.assigned_coach_id,
+                    'psychologist_id': lead.assigned_psychologist_id,
+                },
+            }
 
         return jsonify({
             'success': True,
-            'data': [
-                {
-                    **_serialize_opportunity_data_row(d),
-                    'ai_analysis': d.ai_analysis,
-                    'assignments': assignments,
-                }
-                for d, assignments in data_with_assignments
-            ],
-            'total': len(data_with_assignments),
+            'data': [_serialize_lead_for_ai_page(lead) for lead in leads],
+            'total': len(leads),
         })
     except Exception as e:
-        current_app.logger.error(f"[GHL API] Error fetching opportunity data: {e}")
+        current_app.logger.error(f"[GHL API] Error fetching opportunity data (SalesLead): {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+def _hm_assignment_state_for_lead(lead: SalesLead) -> dict:
+    """Calcola stato assegnazione HM per lead old_suite.
+
+    Stati:
+    - unassigned: nessun professionista assegnato
+    - partial: almeno uno assegnato ma non tutti i richiesti
+    - complete: tutti i ruoli richiesti assegnati
+    """
+    parsed = parse_package_support(getattr(lead, 'custom_package_name', None))
+    roles = parsed.get('roles', {}) if isinstance(parsed, dict) else {}
+
+    required = sum(
+        1
+        for needed in (
+            roles.get('nutrition', True),
+            roles.get('coach', True),
+            roles.get('psychology', True),
+        )
+        if needed
+    )
+
+    assigned = sum(
+        1
+        for value in (
+            lead.assigned_nutritionist_id if roles.get('nutrition', True) else None,
+            lead.assigned_coach_id if roles.get('coach', True) else None,
+            lead.assigned_psychologist_id if roles.get('psychology', True) else None,
+        )
+        if value
+    )
+
+    if assigned <= 0:
+        state = 'unassigned'
+    elif required > 0 and assigned >= required:
+        state = 'complete'
+    else:
+        state = 'partial'
+
+    return {
+        'state': state,
+        'required': required,
+        'assigned': assigned,
+        'package_roles': {
+            'nutrition': bool(roles.get('nutrition', True)),
+            'coach': bool(roles.get('coach', True)),
+            'psychology': bool(roles.get('psychology', True)),
+        },
+    }
+
+
+@bp.route('/api/admin/assignments-dashboard', methods=['GET'])
+@login_required
+def api_admin_assignments_dashboard():
+    """Dashboard aggregata per /assegnazioni-ai (C.1).
+
+    Restituisce due sezioni separate entrambe basate su SalesLead:
+    - sales_ghl (alias ai_legacy): queue SalesLead source_system='ghl'
+    - hm_legacy: queue SalesLead source_system='old_suite' (ex /assegnazioni-old-suite)
+
+    Filtri principali:
+    - q / search
+    - include_ai=1|0
+    - include_hm=1|0
+    - ai_processed=pending|processed|all
+    - hm_state=unassigned|partial|complete|all
+    - hm_id=<user_id>
+    - limit_ai, limit_hm
+    """
+    if not _can_access_ai_assignments(current_user):
+        return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
+
+    q = (request.args.get('q') or request.args.get('search') or '').strip()
+
+    def _as_bool(value, default=True):
+        if value is None:
+            return default
+        v = str(value).strip().lower()
+        if v in {'1', 'true', 'yes', 'y', 'on'}:
+            return True
+        if v in {'0', 'false', 'no', 'n', 'off'}:
+            return False
+        return default
+
+    include_ai = _as_bool(request.args.get('include_ai'), True)
+    include_hm = _as_bool(request.args.get('include_hm'), True)
+
+    ai_processed = (request.args.get('ai_processed') or request.args.get('processed') or 'pending').strip().lower()
+    hm_state = (request.args.get('hm_state') or request.args.get('state') or 'unassigned').strip().lower()
+
+    try:
+        hm_id = int(request.args.get('hm_id')) if request.args.get('hm_id') else None
+    except (TypeError, ValueError):
+        hm_id = None
+
+    try:
+        limit_ai = max(1, min(int(request.args.get('limit_ai', 200)), 500))
+    except (TypeError, ValueError):
+        limit_ai = 200
+
+    try:
+        limit_hm = max(1, min(int(request.args.get('limit_hm', 200)), 500))
+    except (TypeError, ValueError):
+        limit_hm = 200
+
+    payload = {
+        'success': True,
+        'filters': {
+            'q': q,
+            'include_ai': include_ai,
+            'include_hm': include_hm,
+            'ai_processed': ai_processed,
+            'hm_state': hm_state,
+            'hm_id': hm_id,
+            'limit_ai': limit_ai,
+            'limit_hm': limit_hm,
+        },
+    }
+
+    if include_ai:
+        # Nuovo flusso: la queue /assegnazioni-ai deve leggere SOLO SalesLead GHL.
+        ghl_query = SalesLead.query.filter(
+            SalesLead.source_system == 'ghl',
+            SalesLead.archived_at.is_(None),
+        )
+
+        # Compat filtro legacy "processed" mappato su stato SalesLead.
+        processed_states = {'ASSIGNED', 'CONVERTED', 'LOST', 'ARCHIVED'}
+        if ai_processed in {'processed', 'true', '1', 'yes'}:
+            ghl_query = ghl_query.filter(SalesLead.status.in_(processed_states))
+        elif ai_processed in {'pending', 'false', '0', 'no', 'unprocessed'}:
+            ghl_query = ghl_query.filter(~SalesLead.status.in_(processed_states))
+        elif ai_processed not in {'all', ''}:
+            return jsonify({'success': False, 'message': 'Filtro ai_processed non valido'}), 400
+
+        if q:
+            like = f"%{q}%"
+            ghl_query = ghl_query.filter(
+                or_(
+                    SalesLead.first_name.ilike(like),
+                    SalesLead.last_name.ilike(like),
+                    SalesLead.email.ilike(like),
+                    SalesLead.phone.ilike(like),
+                    SalesLead.unique_code.ilike(like),
+                    SalesLead.custom_package_name.ilike(like),
+                    SalesLead.client_story.ilike(like),
+                )
+            )
+
+        ghl_rows = ghl_query.order_by(SalesLead.created_at.desc()).limit(limit_ai).all()
+        ghl_total_filtered = ghl_query.count()
+
+        def _serialize_ghl_sales_lead(lead: SalesLead) -> dict:
+            parsed = parse_package_support(lead.custom_package_name)
+            duration_days = parsed.get('duration_days') if isinstance(parsed, dict) else 0
+            sales_user = lead.sales_user
+            return {
+                # shape allineata al frontend storico AssegnazioniAI
+                'id': lead.id,
+                'source': 'sales_lead_ghl',
+                'source_system': lead.source_system,
+                'nome': lead.full_name,
+                'full_name': lead.full_name,
+                'email': lead.email,
+                'lead_phone': lead.phone,
+                'storia': lead.client_story,
+                'pacchetto': lead.custom_package_name,
+                'durata': str(duration_days or ''),
+                'processed': str(getattr(lead.status, 'value', lead.status) or '').upper() in processed_states,
+                'received_at': lead.created_at.isoformat() if lead.created_at else None,
+                'updated_at': lead.updated_at.isoformat() if lead.updated_at else None,
+                'status': getattr(lead.status, 'value', lead.status),
+                'ai_analysis': lead.ai_analysis,
+                'sales_person_id': lead.sales_user_id,
+                'sales_person': (
+                    {
+                        'id': sales_user.id,
+                        'full_name': sales_user.full_name,
+                        'email': sales_user.email,
+                    }
+                    if sales_user
+                    else None
+                ),
+                'sales_consultant': sales_user.full_name if sales_user else None,
+                'assignments': {
+                    'nutritionist_id': lead.assigned_nutritionist_id,
+                    'coach_id': lead.assigned_coach_id,
+                    'psychologist_id': lead.assigned_psychologist_id,
+                },
+            }
+
+        all_ghl = SalesLead.query.filter(
+            SalesLead.source_system == 'ghl',
+            SalesLead.archived_at.is_(None),
+        )
+
+        payload['sales_ghl'] = {
+            'rows': [_serialize_ghl_sales_lead(lead) for lead in ghl_rows],
+            'returned': len(ghl_rows),
+            'total_available': ghl_total_filtered,
+            'stats': {
+                'total': all_ghl.count(),
+                'pending': all_ghl.filter(~SalesLead.status.in_(processed_states)).count(),
+                'processed': all_ghl.filter(SalesLead.status.in_(processed_states)).count(),
+                'sales_assigned': all_ghl.filter(SalesLead.sales_user_id.isnot(None)).count(),
+            },
+        }
+
+        # Alias temporaneo per retro-compatibilità del payload C.1 già avviato
+        payload['ai_legacy'] = payload['sales_ghl']
+
+    if include_hm:
+        hm_query = (
+            SalesLead.query.filter(
+                SalesLead.source_system == 'old_suite',
+                SalesLead.converted_to_client_id.is_(None),
+                SalesLead.archived_at.is_(None),
+            )
+            .order_by(SalesLead.created_at.desc())
+        )
+
+        if hm_id:
+            hm_query = hm_query.filter(SalesLead.health_manager_id == hm_id)
+
+        if q:
+            like = f"%{q}%"
+            hm_query = hm_query.filter(
+                or_(
+                    SalesLead.first_name.ilike(like),
+                    SalesLead.last_name.ilike(like),
+                    SalesLead.email.ilike(like),
+                    SalesLead.phone.ilike(like),
+                    SalesLead.unique_code.ilike(like),
+                    SalesLead.custom_package_name.ilike(like),
+                    SalesLead.client_story.ilike(like),
+                )
+            )
+
+        # Filtriamo stato HM in Python (richiede parsing pacchetto)
+        hm_rows_raw = hm_query.limit(2000).all()
+
+        def _match_state(lead: SalesLead) -> bool:
+            if hm_state in {'all', ''}:
+                return True
+            return _hm_assignment_state_for_lead(lead)['state'] == hm_state
+
+        hm_rows_filtered = [lead for lead in hm_rows_raw if _match_state(lead)]
+        hm_rows = hm_rows_filtered[:limit_hm]
+
+        def _serialize_hm(lead: SalesLead) -> dict:
+            st = _hm_assignment_state_for_lead(lead)
+            hm = lead.health_manager
+            return {
+                'source': 'hm_legacy',
+                'id': lead.id,
+                'unique_code': lead.unique_code,
+                'full_name': lead.full_name,
+                'first_name': lead.first_name,
+                'last_name': lead.last_name,
+                'email': lead.email,
+                'phone': lead.phone,
+                'client_story': lead.client_story,
+                'custom_package_name': lead.custom_package_name,
+                'onboarding_date': lead.onboarding_date.isoformat() if lead.onboarding_date else None,
+                'onboarding_time': lead.onboarding_time.strftime('%H:%M') if lead.onboarding_time else None,
+                'health_manager_id': lead.health_manager_id,
+                'health_manager': {
+                    'id': hm.id,
+                    'full_name': hm.full_name,
+                    'email': hm.email,
+                } if hm else None,
+                'assignments': {
+                    'nutritionist_id': lead.assigned_nutritionist_id,
+                    'coach_id': lead.assigned_coach_id,
+                    'psychologist_id': lead.assigned_psychologist_id,
+                },
+                'assignment_state': st['state'],
+                'assignment_required': st['required'],
+                'assignment_assigned': st['assigned'],
+                'package_roles': st['package_roles'],
+                'created_at': lead.created_at.isoformat() if lead.created_at else None,
+                'updated_at': lead.updated_at.isoformat() if lead.updated_at else None,
+            }
+
+        hm_global = SalesLead.query.filter(
+            SalesLead.source_system == 'old_suite',
+            SalesLead.converted_to_client_id.is_(None),
+            SalesLead.archived_at.is_(None),
+        ).all()
+        hm_stats = {'total': len(hm_global), 'unassigned': 0, 'partial': 0, 'complete': 0, 'without_hm': 0}
+        for lead in hm_global:
+            st = _hm_assignment_state_for_lead(lead)['state']
+            hm_stats[st] = hm_stats.get(st, 0) + 1
+            if not lead.health_manager_id:
+                hm_stats['without_hm'] += 1
+
+        payload['hm_legacy'] = {
+            'rows': [_serialize_hm(lead) for lead in hm_rows],
+            'returned': len(hm_rows),
+            'total_available': len(hm_rows_filtered),
+            'stats': hm_stats,
+        }
+
+    return jsonify(payload)
 
 
 @bp.route('/api/webhook-urls', methods=['GET'])
@@ -2047,28 +2378,58 @@ def api_get_opportunity_data_debug():
 @bp.route('/api/opportunity-data/<int:item_id>', methods=['GET'])
 @login_required
 def api_get_opportunity_data_single(item_id):
-    """Recupera un singolo record opportunity."""
+    """Recupera un singolo record queue AI dal modello SalesLead (source_system='ghl')."""
     if not _can_access_ai_assignments(current_user):
         return jsonify({'success': False, 'message': 'Non autorizzato'}), 403
     try:
-        d = GHLOpportunityData.query.get(item_id)
-        if not d:
+        lead = SalesLead.query.filter(
+            SalesLead.id == item_id,
+            SalesLead.source_system == 'ghl',
+            SalesLead.archived_at.is_(None),
+        ).first()
+        if not lead:
             return jsonify({'success': False, 'message': 'Non trovato'}), 404
-        if _is_team_leader_user(current_user) and not current_user.is_admin:
-            allowed_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
-            visible_ids = {
-                d.health_manager_id,
-                *_get_current_assignments_for_opp(d).values(),
-            }
-            if not any(pid in allowed_ids for pid in visible_ids if pid is not None):
-                return jsonify({'success': False, 'message': 'Non hai i permessi per vedere questo record'}), 403
+
+        processed_states = {'ASSIGNED', 'CONVERTED', 'LOST', 'ARCHIVED'}
+        parsed = parse_package_support(lead.custom_package_name)
+        duration_days = parsed.get('duration_days') if isinstance(parsed, dict) else 0
+        sales_user = lead.sales_user
+
         return jsonify({
             'success': True,
             'data': {
-                **_serialize_opportunity_data_row(d),
-                'ai_analysis': d.ai_analysis,
-                'raw_payload': d.raw_payload,
-                'assignments': _get_current_assignments_for_opp(d),
+                'id': lead.id,
+                'nome': lead.full_name,
+                'email': lead.email,
+                'lead_phone': lead.phone,
+                'health_manager_email': getattr(getattr(lead, 'health_manager', None), 'email', None),
+                'health_manager_id': lead.health_manager_id,
+                'sales_consultant': sales_user.full_name if sales_user else None,
+                'sales_person_id': lead.sales_user_id,
+                'sales_person': (
+                    {
+                        'id': sales_user.id,
+                        'full_name': sales_user.full_name,
+                        'email': sales_user.email,
+                    }
+                    if sales_user
+                    else None
+                ),
+                'storia': lead.client_story,
+                'pacchetto': lead.custom_package_name,
+                'durata': str(duration_days or ''),
+                'received_at': lead.created_at.isoformat() if lead.created_at else None,
+                'ip_address': lead.ip_address,
+                'raw_payload': (lead.form_responses or {}).get('raw_payload') if isinstance(lead.form_responses, dict) else {},
+                'processed': str(getattr(lead.status, 'value', lead.status) or '').upper() in processed_states,
+                'source_system': lead.source_system,
+                'status': getattr(lead.status, 'value', lead.status),
+                'ai_analysis': lead.ai_analysis,
+                'assignments': {
+                    'nutritionist_id': lead.assigned_nutritionist_id,
+                    'coach_id': lead.assigned_coach_id,
+                    'psychologist_id': lead.assigned_psychologist_id,
+                },
             },
         })
     except Exception as e:

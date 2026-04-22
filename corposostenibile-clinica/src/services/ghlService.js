@@ -236,6 +236,17 @@ const ghlService = {
   },
 
   /**
+   * Dashboard aggregata assegnazioni (/assegnazioni-ai mother page)
+   * Sezioni:
+   * - sales_ghl (SalesLead source_system='ghl')
+   * - hm_legacy (SalesLead source_system='old_suite')
+   */
+  async getAssignmentsDashboard(params = {}) {
+    const response = await ghlApi.get('/admin/assignments-dashboard', { params });
+    return response.data;
+  },
+
+  /**
    * Clear all opportunity data (admin only)
    */
   async clearOpportunityData() {

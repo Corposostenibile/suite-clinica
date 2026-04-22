@@ -30,40 +30,49 @@ function getLeadName(item) {
 
 function AssegnazioniAI() {
   const navigate = useNavigate();
-  const [opportunities, setOpportunities] = useState([]);
+
+  const [dashboard, setDashboard] = useState({ sales_ghl: null, hm_legacy: null });
+  const [activeSection, setActiveSection] = useState('sales_ghl');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending');
+  const [salesStatusFilter, setSalesStatusFilter] = useState('pending');
+  const [hmStatusFilter, setHmStatusFilter] = useState('unassigned');
   const [showSalesOnly, setShowSalesOnly] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
-  const [serverTotal, setServerTotal] = useState(0);
 
-  const loadQueue = async (override = {}) => {
+  const loadDashboard = async (override = {}) => {
     setLoading(true);
     setError('');
 
-    const effectiveStatus = override.statusFilter ?? statusFilter;
-    const effectiveSearch = (override.search ?? search).trim();
+    const nextSection = override.activeSection ?? activeSection;
+    const nextSalesStatus = override.salesStatusFilter ?? salesStatusFilter;
+    const nextHmStatus = override.hmStatusFilter ?? hmStatusFilter;
+    const nextSearch = (override.search ?? search).trim();
 
     try {
-      const response = await ghlService.getOpportunityData({
-        processed: effectiveStatus,
-        q: effectiveSearch,
-        limit: 200,
+      const response = await ghlService.getAssignmentsDashboard({
+        include_ai: 1,
+        include_hm: 1,
+        ai_processed: nextSection === 'sales_ghl' ? nextSalesStatus : 'all',
+        hm_state: nextSection === 'hm_legacy' ? nextHmStatus : 'all',
+        q: nextSearch,
+        limit_ai: 200,
+        limit_hm: 200,
       });
 
       if (response?.success) {
-        const rows = Array.isArray(response.data) ? response.data : [];
-        setOpportunities(rows);
-        setServerTotal(typeof response.total === 'number' ? response.total : rows.length);
+        setDashboard({
+          sales_ghl: response.sales_ghl || response.ai_legacy || { rows: [], stats: {}, total_available: 0 },
+          hm_legacy: response.hm_legacy || { rows: [], stats: {}, total_available: 0 },
+        });
         setLastLoadedAt(new Date().toISOString());
       } else {
-        setError(response?.message || 'Impossibile caricare la queue GHL.');
+        setError(response?.message || 'Impossibile caricare la dashboard assegnazioni.');
       }
     } catch (err) {
-      console.error('Errore caricamento opportunity data:', err);
-      setError(err?.response?.data?.message || 'Errore durante il caricamento della queue.');
+      console.error('Errore caricamento dashboard assegnazioni:', err);
+      setError(err?.response?.data?.message || 'Errore durante il caricamento della dashboard.');
     } finally {
       setLoading(false);
     }
@@ -71,54 +80,95 @@ function AssegnazioniAI() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadQueue();
+      loadDashboard();
     }, 250);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [activeSection, salesStatusFilter, hmStatusFilter]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      loadQueue();
+      loadDashboard();
     }, 450);
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
-  const stats = useMemo(() => {
-    const processed = opportunities.filter((item) => item.processed).length;
-    const pending = opportunities.length - processed;
-    const salesAssigned = opportunities.filter((item) => item.sales_person_id || item.sales_person?.id || item.sales_consultant).length;
-    return {
-      total: opportunities.length,
-      pending,
-      processed,
-      salesAssigned,
-    };
-  }, [opportunities]);
+  const currentSection = useMemo(() => {
+    if (activeSection === 'hm_legacy') {
+      return dashboard.hm_legacy || { rows: [], stats: {}, total_available: 0 };
+    }
+    return dashboard.sales_ghl || { rows: [], stats: {}, total_available: 0 };
+  }, [activeSection, dashboard]);
 
-  const visibleOpportunities = useMemo(() => {
-    if (!showSalesOnly) return opportunities;
-    return opportunities.filter((item) => Boolean(item.sales_person_id || item.sales_person?.id || item.sales_consultant));
-  }, [opportunities, showSalesOnly]);
+  const stats = useMemo(() => {
+    const rawStats = currentSection?.stats || {};
+    if (activeSection === 'hm_legacy') {
+      return {
+        total: rawStats.total || 0,
+        pending: rawStats.unassigned || 0,
+        processed: rawStats.complete || 0,
+        salesAssigned: rawStats.partial || 0,
+      };
+    }
+    return {
+      total: rawStats.total || 0,
+      pending: rawStats.pending || 0,
+      processed: rawStats.processed || 0,
+      salesAssigned: rawStats.sales_assigned || 0,
+    };
+  }, [activeSection, currentSection]);
+
+  const visibleRows = useMemo(() => {
+    const rows = Array.isArray(currentSection?.rows) ? currentSection.rows : [];
+    if (activeSection !== 'sales_ghl' || !showSalesOnly) return rows;
+    return rows.filter((item) => Boolean(item.sales_person_id || item.sales_person?.id || item.sales_consultant));
+  }, [activeSection, currentSection, showSalesOnly]);
+
+  const serverTotal = useMemo(() => {
+    if (!currentSection) return 0;
+    return typeof currentSection.total_available === 'number' ? currentSection.total_available : (currentSection.rows || []).length;
+  }, [currentSection]);
 
   const openOpportunity = (item) => {
+    if (activeSection === 'hm_legacy') {
+      navigate(`/suitemind-old/${item.id}`, { state: { lead: item } });
+      return;
+    }
     navigate(`/suitemind/${item.id}`, { state: { opportunity: item } });
   };
 
   const clearFilters = () => {
     setSearch('');
-    setStatusFilter('pending');
+    setSalesStatusFilter('pending');
+    setHmStatusFilter('unassigned');
     setShowSalesOnly(false);
   };
 
   const emptyCopy = useMemo(() => {
-    if (search.trim() && statusFilter !== 'all') {
-      return 'Nessun record trovato con questi filtri.';
+    if (search.trim()) return 'Nessun record trovato con questi filtri.';
+    if (activeSection === 'hm_legacy') return 'Non ci sono lead storico HM da lavorare in questo momento.';
+    return 'Non ci sono lead GHL da lavorare in questo momento.';
+  }, [activeSection, search]);
+
+  const renderStatusBadge = (item) => {
+    if (activeSection === 'hm_legacy') {
+      const state = item.assignment_state || 'unassigned';
+      const map = {
+        unassigned: { bg: 'warning', label: 'Da assegnare' },
+        partial: { bg: 'info', label: 'Parziale' },
+        complete: { bg: 'success', label: 'Completo' },
+      };
+      const conf = map[state] || map.unassigned;
+      return <Badge bg={conf.bg} className="rounded-pill">{conf.label}</Badge>;
     }
-    if (statusFilter === 'processed') return 'Non ci sono lead processati nel range attuale.';
-    return 'Non ci sono lead da lavorare in questo momento.';
-  }, [search, statusFilter]);
+
+    return (
+      <Badge bg={item.processed ? 'success' : 'warning'} className="rounded-pill">
+        {item.processed ? 'Processato' : 'Da lavorare'}
+      </Badge>
+    );
+  };
 
   return (
     <div className="ghle-old-page">
@@ -132,13 +182,32 @@ function AssegnazioniAI() {
               <div className="ghle-old-kicker">Internal AI</div>
               <h1 className="ghle-old-title">Assegnazioni AI</h1>
               <p className="ghle-old-copy">
-                Dashboard interna in stile old suite per analizzare, filtrare e aprire rapidamente le opportunità.
+                Pagina madre: queue SalesLead GHL + storico HM old-suite in un unico pannello.
               </p>
             </div>
           </div>
           <div className="ghle-old-hero-meta">
             <span className="ghle-old-pill">{serverTotal} record server</span>
             <span className="ghle-old-pill ghle-old-pill-dark">Suite interna</span>
+          </div>
+        </div>
+
+        <div className="ghle-old-toolbar mb-3">
+          <div className="ghle-old-filters">
+            <button
+              type="button"
+              className={`ghle-old-chip ${activeSection === 'sales_ghl' ? 'active' : ''}`}
+              onClick={() => setActiveSection('sales_ghl')}
+            >
+              Sales GHL
+            </button>
+            <button
+              type="button"
+              className={`ghle-old-chip ${activeSection === 'hm_legacy' ? 'active' : ''}`}
+              onClick={() => setActiveSection('hm_legacy')}
+            >
+              Storico HM (old-suite)
+            </button>
           </div>
         </div>
 
@@ -152,11 +221,11 @@ function AssegnazioniAI() {
             <div className="ghle-old-stat-value text-warning">{stats.pending}</div>
           </div>
           <div className="ghle-old-stat-card">
-            <div className="ghle-old-stat-label">Processati</div>
+            <div className="ghle-old-stat-label">Completati</div>
             <div className="ghle-old-stat-value text-success">{stats.processed}</div>
           </div>
           <div className="ghle-old-stat-card">
-            <div className="ghle-old-stat-label">Con Sales assegnato</div>
+            <div className="ghle-old-stat-label">Intermedi</div>
             <div className="ghle-old-stat-value text-primary">{stats.salesAssigned}</div>
           </div>
           <div className="ghle-old-stat-card">
@@ -167,20 +236,36 @@ function AssegnazioniAI() {
 
         <div className="ghle-old-toolbar">
           <div className="ghle-old-filters">
-            {[
-              { key: 'pending', label: 'Da lavorare' },
-              { key: 'processed', label: 'Processati' },
-              { key: 'all', label: 'Tutti' },
-            ].map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                className={`ghle-old-chip ${statusFilter === f.key ? 'active' : ''}`}
-                onClick={() => setStatusFilter(f.key)}
-              >
-                {f.label}
-              </button>
-            ))}
+            {activeSection === 'sales_ghl'
+              ? [
+                  { key: 'pending', label: 'Da lavorare' },
+                  { key: 'processed', label: 'Processati' },
+                  { key: 'all', label: 'Tutti' },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={`ghle-old-chip ${salesStatusFilter === f.key ? 'active' : ''}`}
+                    onClick={() => setSalesStatusFilter(f.key)}
+                  >
+                    {f.label}
+                  </button>
+                ))
+              : [
+                  { key: 'unassigned', label: 'Da assegnare' },
+                  { key: 'partial', label: 'Parziali' },
+                  { key: 'complete', label: 'Completati' },
+                  { key: 'all', label: 'Tutti' },
+                ].map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    className={`ghle-old-chip ${hmStatusFilter === f.key ? 'active' : ''}`}
+                    onClick={() => setHmStatusFilter(f.key)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
           </div>
 
           <div className="ghle-old-controls">
@@ -191,21 +276,24 @@ function AssegnazioniAI() {
               <Form.Control
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Nome, email, telefono, Sales o pacchetto"
+                placeholder="Nome, email, telefono, pacchetto o codice"
               />
             </InputGroup>
 
-            <Button
-              variant={showSalesOnly ? 'success' : 'outline-success'}
-              className="ghle-old-action"
-              onClick={() => setShowSalesOnly((prev) => !prev)}
-            >
-              {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
-            </Button>
+            {activeSection === 'sales_ghl' ? (
+              <Button
+                variant={showSalesOnly ? 'success' : 'outline-success'}
+                className="ghle-old-action"
+                onClick={() => setShowSalesOnly((prev) => !prev)}
+              >
+                {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
+              </Button>
+            ) : null}
+
             <Button variant="outline-secondary" className="ghle-old-action" onClick={clearFilters}>
               Reset
             </Button>
-            <Button variant="outline-primary" className="ghle-old-action" onClick={() => loadQueue()} disabled={loading}>
+            <Button variant="outline-primary" className="ghle-old-action" onClick={() => loadDashboard()} disabled={loading}>
               {loading ? <Spinner size="sm" animation="border" className="me-2" /> : null}
               Ricarica
             </Button>
@@ -215,7 +303,7 @@ function AssegnazioniAI() {
         {error && (
           <Alert variant="danger" className="mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
             <span>{error}</span>
-            <Button variant="outline-danger" size="sm" onClick={() => loadQueue()}>
+            <Button variant="outline-danger" size="sm" onClick={() => loadDashboard()}>
               Riprova
             </Button>
           </Alert>
@@ -224,9 +312,9 @@ function AssegnazioniAI() {
         {loading ? (
           <div className="ghle-old-loading">
             <Spinner animation="border" role="status" className="me-2" />
-            Caricamento queue in corso...
+            Caricamento dashboard in corso...
           </div>
-        ) : visibleOpportunities.length === 0 ? (
+        ) : visibleRows.length === 0 ? (
           <Card className="ghle-old-empty shadow-sm border-0 rounded-4">
             <Card.Body className="text-center py-5">
               <div className="fs-1 mb-3">📭</div>
@@ -236,7 +324,7 @@ function AssegnazioniAI() {
           </Card>
         ) : (
           <Row className="g-3">
-            {visibleOpportunities.map((item) => (
+            {visibleRows.map((item) => (
               <Col key={item.id} xs={12} xl={6}>
                 <Card className="ghle-old-card shadow-sm border-0 rounded-4 overflow-hidden h-100">
                   <Card.Body className="p-4 d-flex flex-column gap-3">
@@ -244,9 +332,7 @@ function AssegnazioniAI() {
                       <div className="flex-grow-1">
                         <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
                           <h5 className="mb-0 fw-bold">{getLeadName(item)}</h5>
-                          <Badge bg={item.processed ? 'success' : 'warning'} className="rounded-pill">
-                            {item.processed ? 'Processato' : 'Da lavorare'}
-                          </Badge>
+                          {renderStatusBadge(item)}
                           {item.sales_person?.full_name || item.sales_consultant ? (
                             <Badge bg="light" text="dark" className="rounded-pill border">
                               <i className="ri-user-star-line me-1"></i>
@@ -267,7 +353,7 @@ function AssegnazioniAI() {
                       <div><strong>Sales:</strong> {item.sales_person?.full_name || item.sales_consultant || 'N/D'}</div>
                       <div><strong>Pacchetto:</strong> {item.pacchetto || item.custom_package_name || 'N/D'}</div>
                       <div><strong>Durata:</strong> {item.durata || 'N/D'}</div>
-                      <div><strong>HM:</strong> {item.health_manager_email || 'N/D'}</div>
+                      <div><strong>HM:</strong> {item.health_manager_email || item.health_manager?.full_name || 'N/D'}</div>
                       <div><strong>Ricevuto:</strong> {formatDate(item.received_at || item.created_at)}</div>
                       <div><strong>Aggiornato:</strong> {formatDate(item.updated_at)}</div>
                     </div>
@@ -281,9 +367,15 @@ function AssegnazioniAI() {
                       <Button variant="success" onClick={() => openOpportunity(item)}>
                         Apri assegnazione
                       </Button>
-                      <Button variant="outline-secondary" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
-                        Dettaglio
-                      </Button>
+                      {activeSection === 'sales_ghl' ? (
+                        <Button variant="outline-secondary" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
+                          Dettaglio
+                        </Button>
+                      ) : (
+                        <Button variant="outline-secondary" onClick={() => navigate(`/suitemind-old/${item.id}`, { state: { lead: item } })}>
+                          Dettaglio
+                        </Button>
+                      )}
                     </div>
                   </Card.Body>
                 </Card>

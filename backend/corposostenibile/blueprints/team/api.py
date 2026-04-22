@@ -25,6 +25,7 @@ from corposostenibile.models import (
     ProfessionistCapacity, StatoClienteEnum, cliente_nutrizionisti, cliente_coaches,
     cliente_psicologi, cliente_consulenti, SalesLead,
     CapacityTypeWeight, CapacityRoleTypeWeight, TipologiaClienteEnum,
+    LeadStatusEnum,
 )
 
 
@@ -1545,14 +1546,6 @@ def api_get_criteria_schema():
 # AI Assignment Endpoints
 # =============================================================================
 
-def _get_opportunity_data_email(opp_data) -> str:
-    payload = opp_data.raw_payload or {}
-    email = getattr(opp_data, 'email', None) or payload.get('email') or payload.get('contact', {}).get('email')
-    if isinstance(email, str):
-        email = email.strip()
-    return email or f"lead-{opp_data.id}@ghl-lead.com"
-
-
 @team_api_bp.route("/assignments/analyze-lead", methods=["POST"])
 @login_required
 def api_analyze_lead_story():
@@ -1586,7 +1579,11 @@ def api_analyze_lead_story():
         if existing_obj:
             existing_analysis = existing_obj.ai_analysis
     elif opportunity_id:
-        existing_obj = GHLOpportunityData.query.get(opportunity_id)
+        # Coda AI interna: solo SalesLead GHL
+        existing_obj = SalesLead.query.filter(
+            SalesLead.id == opportunity_id,
+            SalesLead.source_system == 'ghl',
+        ).first()
         if existing_obj:
             existing_analysis = existing_obj.ai_analysis
 
@@ -1741,30 +1738,35 @@ def api_confirm_assignment():
         
     try:
         assignment = None
-        opp_data = None
+        sales_lead = None
         
         # Se abbiamo assignment_id, usiamolo direttamente
         if assignment_id:
             assignment = ServiceClienteAssignment.query.get(assignment_id)
             
-        # Altrimenti, creiamo l'assegnazione da GHLOpportunityData
+        # Altrimenti, creiamo l'assegnazione da SalesLead GHL
         elif opportunity_data_id:
-            opp_data = GHLOpportunityData.query.get(opportunity_data_id)
-            if not opp_data:
+            sales_lead = SalesLead.query.filter(
+                SalesLead.id == opportunity_data_id,
+                SalesLead.source_system == 'ghl',
+            ).first()
+            if not sales_lead:
                 return jsonify({'success': False, 'message': 'Lead non trovato'}), 404
             
-            # Estrai email dal payload se possibile
-            email = _get_opportunity_data_email(opp_data)
+            email = (sales_lead.email or '').strip() or f"lead-{sales_lead.id}@ghl-lead.com"
+            nome = sales_lead.full_name
+            storia = sales_lead.client_story
+            pacchetto = sales_lead.custom_package_name
 
             # Verifica se esiste già un cliente con questa email
             cliente = Cliente.query.filter(Cliente.mail.ilike(email)).first()
             if not cliente:
                 cliente = Cliente(
-                    nome_cognome=opp_data.nome,
+                    nome_cognome=nome,
                     mail=email,
-                    storia_cliente=opp_data.storia,
-                    programma_attuale=opp_data.pacchetto,
-                    acquisition_source='ghl_manual_ai',
+                    storia_cliente=storia,
+                    programma_attuale=pacchetto,
+                    acquisition_source='ghl_saleslead_ai',
                     service_status='pending_assignment',
                     show_in_clienti_lista=False,
                     created_at=datetime.utcnow()
@@ -1782,10 +1784,6 @@ def api_confirm_assignment():
                 )
                 db.session.add(assignment)
                 db.session.flush()
-            
-            # Segna lead come processato
-            opp_data.processed = True
-            db.session.add(opp_data)
 
         if not assignment:
             return jsonify({'success': False, 'message': 'Impossibile trovare o creare l\'assegnazione'}), 404
@@ -1820,8 +1818,8 @@ def api_confirm_assignment():
         ai_analysis_snapshot = ai_analysis_payload
         if ai_analysis_snapshot is None:
             ai_analysis_snapshot = getattr(assignment, 'ai_analysis', None)
-        if ai_analysis_snapshot is None and opp_data is not None:
-            ai_analysis_snapshot = getattr(opp_data, 'ai_analysis', None)
+        if ai_analysis_snapshot is None and sales_lead is not None:
+            ai_analysis_snapshot = getattr(sales_lead, 'ai_analysis', None)
         if ai_analysis_snapshot is not None:
             assignment.ai_analysis_snapshot = deepcopy(ai_analysis_snapshot)
             
@@ -1922,6 +1920,18 @@ def api_confirm_assignment():
         cliente.service_status = 'assigned'
         if assignment.status in ('fully_assigned', 'active'):
             cliente.show_in_clienti_lista = True
+
+        # Se la fonte è SalesLead GHL, persisti assegnazioni anche lì
+        if sales_lead is not None:
+            if data.get('nutritionist_id'):
+                sales_lead.assigned_nutritionist_id = data.get('nutritionist_id')
+            if data.get('coach_id'):
+                sales_lead.assigned_coach_id = data.get('coach_id')
+            if data.get('psychologist_id'):
+                sales_lead.assigned_psychologist_id = data.get('psychologist_id')
+            sales_lead.ai_analysis_snapshot = deepcopy(ai_analysis_snapshot or sales_lead.ai_analysis or {})
+            sales_lead.status = LeadStatusEnum.ASSIGNED
+            db.session.add(sales_lead)
         
         db.session.commit()
         
