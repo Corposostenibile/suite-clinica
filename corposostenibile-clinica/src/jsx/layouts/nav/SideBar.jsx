@@ -7,6 +7,7 @@ import { ThemeContext } from "../../../context/ThemeContext";
 import { useAuth } from "../../../context/AuthContext";
 import {
   canAccessAiAssignments,
+  canAccessAssignmentsDashboard,
   canAccessCapacity,
   canAccessGlobalCheckPage,
   canAccessLoomLibrary,
@@ -92,9 +93,9 @@ const SideBar = () => {
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
           {(isHealthManagerTeamLeader(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'Calendario', 'Check', 'Formazione', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Assegnazioni v1', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'Calendario', 'Check', 'Formazione', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
             : isHealthManagerUser(user)
-            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Calendario', 'Check', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
+            ? MenuList.filter(item => ['Pazienti', 'Assegnazioni', 'Assegnazioni v1', 'Libreria Loom', 'Calendario', 'Check', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
             : user?.role === 'influencer'
             ? MenuList.filter(item => ['Dashboard', 'Pazienti', 'Check', 'MAIN MENU', 'CLIENTI'].includes(item.title))
             : user?.is_trial
@@ -118,7 +119,7 @@ const SideBar = () => {
                 if (item.title === 'Quality' && !canAccessQualityPage(user)) {
                   return false;
                 }
-                if (item.title === 'Assegnazioni v2' && !canAccessAiAssignments(user)) {
+                if (item.title === 'Assegnazioni' && !canAccessAssignmentsDashboard(user)) {
                   return false;
                 }
                 if (item.title === 'Assegnazioni v1' && !canAccessAiAssignments(user)) {

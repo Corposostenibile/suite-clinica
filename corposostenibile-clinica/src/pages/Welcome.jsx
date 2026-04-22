@@ -9,6 +9,7 @@ import checkService from '../services/checkService';
 import taskService from '../services/taskService';
 import logoFoglia from '../images/logo_foglia.png';
 import {
+  canAccessAssignmentsDashboard,
   isHealthManagerScopeUser,
   isHealthManagerTeamLeader,
   isProfessionistaStandard,
@@ -1327,8 +1328,10 @@ function SimpleWelcome({ user }) {
     if (isHealthManagerScopeUser(user)) {
       const links = [
         { label: 'Pazienti', to: '/clienti-lista', icon: 'ri-group-line', color: '#3b82f6', bgColor: '#eff6ff', iconBg: '#dbeafe' },
-        { label: 'Assegnazioni', to: '/assegnazioni-ai', icon: 'ri-cpu-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' },
       ];
+      if (canAccessAssignmentsDashboard(user)) {
+        links.push({ label: 'Assegnazioni', to: '/assegnazioni-ai', icon: 'ri-cpu-line', color: '#8b5cf6', bgColor: '#f5f3ff', iconBg: '#ede9fe' });
+      }
       if (isHealthManagerTeamLeader(user)) {
         links.push({ label: 'Capienze HM', to: '/team-capienza', icon: 'ri-bar-chart-2-line', color: '#22c55e', bgColor: '#f0fdf4', iconBg: '#dcfce7' });
       }

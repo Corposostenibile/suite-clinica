@@ -30,6 +30,7 @@ Stato attuale / direzione confermata:
 | **B.5 — Migration: source_system=ghl + index su sales_leads** | **done** | Il modello/migration esistente supporta `source_system` e l’indice; il nuovo flusso scrive `source_system='ghl'` | Nessun ulteriore cambio DB necessario per il nuovo intake |
 | **C.1 — Backend: `/ghl/api/admin/assignments-dashboard` con filtri + aggregation** | **done (v2)** | Endpoint aggregato nella blueprint `ghl_integration`; `sales_ghl` su `SalesLead` (`source_system='ghl'`) e `hm_legacy` su `ClienteProfessionistaHistory` (`tipo_professionista='health_manager'`) | Per Storico HM la vista operativa è senza filtri (storico puro) |
 | **C.2 — Backend: seed script storico HM completo (`ClienteProfessionistaHistory`)** | **done (apply eseguito in locale)** | Implementato `backend/scripts/seed_hm_history_from_saleslead.py` con soli flag `--dry-run` / `--apply`; crea solo HM history e supporta fallback produzione | Applicato in locale: importati 3 record matchabili (molti clienti prod non presenti in locale) |
+| **C.5 — Frontend: RBAC `canAccessAssignmentsDashboard` + sidebar entry + E2E smoke** | **done** | Introdotto helper RBAC dedicato per `/assegnazioni-ai`; route protetta con helper nuovo; sidebar aggiornata con voce `Assegnazioni`; quick link Welcome reso coerente | Script E2E smoke: `node scripts/test_assignments_dashboard_rbac_e2e.mjs` |
 | **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
 
 ---
@@ -163,6 +164,7 @@ URL completo da configurare in GHL:
 - [x] flow AI end-to-end verificato con script dedicato
 - [x] nuovo intake GHL sales salvato come `SalesLead`
 - [x] endpoint `/api/ghl-assignments` allineato al nuovo modello Sales
+- [x] RBAC `/assegnazioni-ai` allineato (`canAccessAssignmentsDashboard`) + voce sidebar + E2E smoke
 
 ---
 
@@ -188,6 +190,20 @@ cd backend && python test_ghl_opportunity_data_webhooks.py
 
 ```bash
 cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignments/tests/test_sales_ghl_assignments.py -q
+```
+
+---
+
+## Test C.5 — RBAC dashboard + sidebar (E2E smoke)
+
+```bash
+node scripts/test_assignments_dashboard_rbac_e2e.mjs
+```
+
+Facoltativo (build frontend):
+
+```bash
+cd corposostenibile-clinica && npm run build
 ```
 
 ---

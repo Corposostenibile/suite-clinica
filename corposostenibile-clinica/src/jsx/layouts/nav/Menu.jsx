@@ -54,9 +54,9 @@ export const MenuList = [
         iconStyle: SVGICON.Health,
         to: 'clienti-lista',
     },
-    // Assegnazioni v2 (GHL - nuova suite)
+    // Assegnazioni dashboard madre (Sales GHL + Storico HM)
     {
-        title: 'Assegnazioni v2',
+        title: 'Assegnazioni',
         iconStyle: SVGICON.PeopleArrow,
         to: 'assegnazioni-ai',
     },

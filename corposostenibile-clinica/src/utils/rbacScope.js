@@ -61,9 +61,15 @@ export function canAccessTrialPages(user) {
   return !isProfessionistaStandard(user) && !isHealthManagerScopeUser(user);
 }
 
+export function canAccessAssignmentsDashboard(user) {
+  if (!user) return false;
+  // Dashboard madre /assegnazioni-ai:
+  // consentita solo ad admin/CCO e perimetro Health Manager (user + TL HM)
+  return Boolean(isAdminOrCco(user) || isHealthManagerScopeUser(user));
+}
+
 export function canAccessAiAssignments(user) {
-  // Admin, CCO, Health Manager (user e TL) possono accedere
-  // Team leader nutrizione/coach/psicologia e professionisti standard NO
+  // Legacy policy per pagine suitemind/old-suite
   return !isProfessionistaStandard(user) && !isTeamLeaderRestricted(user);
 }
 

@@ -73,6 +73,7 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import {
   canAccessAiAssignments,
+  canAccessAssignmentsDashboard,
   canAccessCapacity,
   canAccessCalendario,
   canAccessGlobalCheckPage,
@@ -178,7 +179,7 @@ function App() {
 
             {/* AI Assignments */}
             <Route path="/assegnazioni-ai" element={
-              <RoleProtectedRoute allowIf={canAccessAiAssignments}>
+              <RoleProtectedRoute allowIf={canAccessAssignmentsDashboard}>
                 <AssegnazioniAI />
               </RoleProtectedRoute>
             } />
