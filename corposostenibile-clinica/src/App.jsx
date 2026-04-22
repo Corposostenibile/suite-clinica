@@ -54,6 +54,9 @@ import { Support, SupportDetail, TicketsPage, TicketDetail } from './pages/suppo
 // GHL Embed pages (iframe GoHighLevel — no layout)
 import { GhlEmbedTicketsPage, GhlEmbedTicketDetail } from './pages/ghl-embed';
 
+// GHL Sales pages (public launcher)
+import { GhlSalesAssignmentsPage } from './pages/ghl-sales';
+
 // Search pages
 import GlobalSearchPage from './pages/GlobalSearchPage';
 
@@ -180,6 +183,7 @@ function App() {
                 <AssegnazioniAI />
               </RoleProtectedRoute>
             } />
+            <Route path="/ghl-sales/assegnazioni-ai" element={<GhlSalesAssignmentsPage />} /> {/* Public GHL launcher for Sales SSO */}
             <Route path="/suitemind/:opportunityId" element={
               <RoleProtectedRoute allowIf={canAccessAiAssignments}>
                 <SuiteMindAssignment />

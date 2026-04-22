@@ -239,17 +239,19 @@ Vedi anche:
 
 ## Setup operativo
 
-1. Configura il link/launcher GHL per chiamare:
+1. Configura il link/launcher GHL pubblico verso:
+   - `https://<BASE_URL_PUBBLICO>/ghl-sales/assegnazioni-ai?user_email=<EMAIL>&user_name=<NOME>`
+2. La pagina pubblica chiama automaticamente:
    - `POST /api/ghl-assignments/sso/exchange`
-2. Usa l'email del sales come input minimo:
+3. Usa l'email del sales come input minimo:
    - `user_email`
-3. Salva il JWT restituito e usalo come header:
+4. Salva il JWT restituito e usalo come header:
    - `Authorization: Bearer <token>`
-4. Configura il webhook GHL verso:
+5. Configura il webhook GHL verso:
    - `https://<BASE_URL_PUBBLICO>/webhooks/ghl-leads/new`
-5. Imposta la firma HMAC con il secret condiviso:
+6. Imposta la firma HMAC con il secret condiviso:
    - `GHL_WEBHOOK_SECRET`
-6. Invia almeno questi campi:
+7. Invia almeno questi campi:
    - `first_name` / `nome`
    - `last_name` / `cognome`
    - `email`

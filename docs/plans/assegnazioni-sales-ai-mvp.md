@@ -191,4 +191,4 @@ cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignment
 
 1. Valutare se usare `SalesLead` anche nel flusso `team/assignments/confirm` per il nuovo intake GHL sales
 2. Se arriva lo schema finale ufficiale da Matteo/Emanuele, rifinire il mapping del payload
-3. Integrare il frontend/launcher GHL che chiama `/api/ghl-assignments/sso/exchange` e salva il JWT sales
+3. Verificare in staging il flusso pubblico `/ghl-sales/assegnazioni-ai` con link GHL e query `user_email`
