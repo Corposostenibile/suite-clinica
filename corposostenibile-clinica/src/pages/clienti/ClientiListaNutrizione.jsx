@@ -83,7 +83,8 @@ function ClientiListaNutrizione() {
   const [filters, setFilters] = useState(() => {
     const init = {
       stato: searchParams.get('stato_cliente') || '',
-      tipologia: searchParams.get('tipologia') || '',
+      // Backward compat: leggi anche "tipologia" (legacy URL)
+      tipologia: searchParams.get('tipologia_supporto_nutrizione') || searchParams.get('tipologia') || '',
       nutrizionista: searchParams.get('nutrizionista_id') || '',
       statoNutrizione: searchParams.get('stato_nutrizione') || '',
       statoChatNutrizione: searchParams.get('stato_chat_nutrizione') || '',
@@ -156,7 +157,7 @@ function ClientiListaNutrizione() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        tipologia_supporto_nutrizione: filters.tipologia || undefined,
         nutrizionista_id: filters.nutrizionista || undefined,
         stato_nutrizione: filters.statoNutrizione || undefined,
         stato_chat_nutrizione: filters.statoChatNutrizione || undefined,
@@ -211,7 +212,7 @@ function ClientiListaNutrizione() {
   const FILTER_KEY_MAP = {
     search: 'q',
     stato: 'stato_cliente',
-    tipologia: 'tipologia',
+    tipologia: 'tipologia_supporto_nutrizione',
     nutrizionista: 'nutrizionista_id',
     statoNutrizione: 'stato_nutrizione',
     statoChatNutrizione: 'stato_chat_nutrizione',
@@ -256,6 +257,10 @@ function ClientiListaNutrizione() {
       newParams.set(paramKey, value);
     } else {
       newParams.delete(paramKey);
+    }
+    // Cleanup parametro legacy per evitare conflitti URL
+    if (key === 'tipologia' && paramKey !== 'tipologia') {
+      newParams.delete('tipologia');
     }
     setSearchParams(newParams);
   };

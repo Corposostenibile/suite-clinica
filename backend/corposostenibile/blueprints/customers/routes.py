@@ -1583,6 +1583,25 @@ def api_list() -> Any:
     
     params = parse_filter_args(request.args)
 
+    # Compatibilità legacy: nelle viste specialistiche il filtro "tipologia"
+    # deve riferirsi alla tipologia supporto (non a tipologia_cliente).
+    view = (request.args.get("view") or "").lower()
+    legacy_tipologia = (request.args.get("tipologia") or "").strip().lower()
+    support_values = {"a", "b", "c", "secondario"}
+    if legacy_tipologia in support_values:
+        if view == "nutrizione" and not params.tipologia_supporto_nutrizione:
+            params = replace(
+                params,
+                tipologia_supporto_nutrizione=legacy_tipologia,
+                tipologia=[],
+            )
+        elif view == "coach" and not params.tipologia_supporto_coach:
+            params = replace(
+                params,
+                tipologia_supporto_coach=legacy_tipologia,
+                tipologia=[],
+            )
+
     # Filtro per Influencer: vincola alle origini assegnate (M2M)
     if current_user.role == UserRoleEnum.influencer:
         origine_ids = [o.id for o in current_user.influencer_origins]
