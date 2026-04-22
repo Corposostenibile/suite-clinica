@@ -2746,7 +2746,13 @@ def get_available_professionals(team_type):
     team_type = team_type_aliases.get(team_type, team_type)
     requesting_role = _get_user_role(current_user)
     tl_visible_member_ids = None
-    if requesting_role == "team_leader" and not _can_view_all_team_module_data(current_user):
+    # Scope-by-team per Team Leader "classici" (nutrizione/coach/psicologia).
+    # I Team Leader HM devono poter assegnare professionisti globalmente.
+    if (
+        requesting_role == "team_leader"
+        and not _can_view_all_team_module_data(current_user)
+        and not _is_health_manager_team_leader(current_user)
+    ):
         tl_visible_member_ids = _get_team_leader_member_ids(current_user.id) | {current_user.id}
 
     # Health Manager: include both HM users and HM team leaders

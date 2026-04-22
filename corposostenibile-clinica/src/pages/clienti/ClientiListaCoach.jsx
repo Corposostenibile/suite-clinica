@@ -89,7 +89,8 @@ function ClientiListaCoach() {
 
   const [filters, setFilters] = useState({
     stato: searchParams.get('stato_cliente') || '',
-    tipologia: searchParams.get('tipologia') || '',
+    // Backward compat: leggi anche "tipologia" (legacy URL)
+    tipologia: searchParams.get('tipologia_supporto_coach') || searchParams.get('tipologia') || '',
     coach: searchParams.get('coach_id') || '',
     statoCoach: searchParams.get('stato_coach') || '',
     statoChatCoaching: searchParams.get('stato_chat_coaching') || '',
@@ -156,7 +157,7 @@ function ClientiListaCoach() {
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
         stato_cliente: filters.stato || undefined,
-        tipologia: filters.tipologia || undefined,
+        tipologia_supporto_coach: filters.tipologia || undefined,
         coach_id: filters.coach || undefined,
         stato_coach: filters.statoCoach || undefined,
         stato_chat_coaching: filters.statoChatCoaching || undefined,
@@ -211,7 +212,7 @@ function ClientiListaCoach() {
   const FILTER_KEY_MAP = {
     search: 'q',
     stato: 'stato_cliente',
-    tipologia: 'tipologia',
+    tipologia: 'tipologia_supporto_coach',
     coach: 'coach_id',
     statoCoach: 'stato_coach',
     statoChatCoaching: 'stato_chat_coaching',
@@ -257,6 +258,10 @@ function ClientiListaCoach() {
       newParams.set(paramKey, value);
     } else {
       newParams.delete(paramKey);
+    }
+    // Cleanup parametro legacy per evitare conflitti URL
+    if (key === 'tipologia' && paramKey !== 'tipologia') {
+      newParams.delete('tipologia');
     }
     setSearchParams(newParams);
   };
