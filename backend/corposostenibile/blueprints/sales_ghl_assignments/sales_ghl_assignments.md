@@ -14,7 +14,16 @@ Questo package copre:
    - query e filtri per la queue sales
    - accesso via Bearer JWT sales oppure sessione legacy
 
-3. **Webhook inbound GHL**
+3. **Azioni queue Sales**
+   - endpoint `GET /api/ghl-assignments/<id>`
+   - endpoint `PATCH /api/ghl-assignments/<id>/story`
+   - endpoint `POST /api/ghl-assignments/<id>/analyze-lead`
+   - endpoint `POST /api/ghl-assignments/<id>/match`
+   - endpoint `POST /api/ghl-assignments/<id>/confirm`
+   - endpoint `GET /api/ghl-assignments/professionals/<team_type>`
+   - supporto per analisi AI, suggerimenti e conferma assegnazione
+
+4. **Webhook inbound GHL**
    - endpoint `POST /webhooks/ghl-leads/new`
    - firma HMAC SHA-256
    - mapping payload → `SalesLead`
@@ -33,6 +42,12 @@ Endpoint reali esposti dal package:
 
 - `POST /api/ghl-assignments/sso/exchange`
 - `GET /api/ghl-assignments`
+- `GET /api/ghl-assignments/<id>`
+- `PATCH /api/ghl-assignments/<id>/story`
+- `POST /api/ghl-assignments/<id>/analyze-lead`
+- `POST /api/ghl-assignments/<id>/match`
+- `POST /api/ghl-assignments/<id>/confirm`
+- `GET /api/ghl-assignments/professionals/<team_type>`
 - `POST /webhooks/ghl-leads/new`
 
 ---
@@ -240,7 +255,7 @@ Vedi anche:
 ## Setup operativo
 
 1. Configura il link/launcher GHL pubblico verso:
-   - `https://<BASE_URL_PUBBLICO>/ghl-sales/assegnazioni-ai?user_email=<EMAIL>&user_name=<NOME>`
+   - `https://<BASE_URL_PUBBLICO>/ghl-embed/assegnazioni?user_email=<EMAIL>&user_name=<NOME>`
 2. La pagina pubblica chiama automaticamente:
    - `POST /api/ghl-assignments/sso/exchange`
 3. Usa l'email del sales come input minimo:

@@ -6,6 +6,12 @@ import axios from 'axios';
  * Backend:
  * - POST /api/ghl-assignments/sso/exchange
  * - GET /api/ghl-assignments
+ * - GET /api/ghl-assignments/:id
+ * - PATCH /api/ghl-assignments/:id/story
+ * - POST /api/ghl-assignments/:id/analyze-lead
+ * - POST /api/ghl-assignments/:id/match
+ * - POST /api/ghl-assignments/:id/confirm
+ * - GET /api/ghl-assignments/professionals/:teamType
  *
  * Il token viene salvato in sessionStorage per mantenere la sessione del tab.
  */
@@ -90,6 +96,48 @@ const salesGhlAssignmentsService = {
     const response = await salesApi.get('', {
       headers: authHeaders(),
       params,
+    });
+    return response.data;
+  },
+
+  async getAssignment(id) {
+    const response = await salesApi.get(`/${id}`, {
+      headers: authHeaders(),
+    });
+    return response.data;
+  },
+
+  async updateStory(id, clientStory) {
+    const response = await salesApi.patch(`/${id}/story`, { client_story: clientStory }, {
+      headers: authHeaders(),
+    });
+    return response.data;
+  },
+
+  async analyzeLead(id, payload = {}) {
+    const response = await salesApi.post(`/${id}/analyze-lead`, payload, {
+      headers: authHeaders(),
+    });
+    return response.data;
+  },
+
+  async matchProfessionals(id, payload = {}) {
+    const response = await salesApi.post(`/${id}/match`, payload, {
+      headers: authHeaders(),
+    });
+    return response.data;
+  },
+
+  async confirmAssignment(id, payload = {}) {
+    const response = await salesApi.post(`/${id}/confirm`, payload, {
+      headers: authHeaders(),
+    });
+    return response.data;
+  },
+
+  async getAvailableProfessionals(teamType) {
+    const response = await salesApi.get(`/professionals/${teamType}`, {
+      headers: authHeaders(),
     });
     return response.data;
   },

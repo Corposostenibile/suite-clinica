@@ -54,8 +54,6 @@ import { Support, SupportDetail, TicketsPage, TicketDetail } from './pages/suppo
 // GHL Embed pages (iframe GoHighLevel — no layout)
 import { GhlEmbedTicketsPage, GhlEmbedTicketDetail, GhlEmbedAssegnazioniPage } from './pages/ghl-embed';
 
-// GHL Sales pages (public launcher)
-import { GhlSalesAssignmentsPage } from './pages/ghl-sales';
 
 // Search pages
 import GlobalSearchPage from './pages/GlobalSearchPage';
@@ -148,7 +146,6 @@ function App() {
           <Route path="/ghl-embed/tickets" element={<GhlEmbedTicketsPage />} />
           <Route path="/ghl-embed/tickets/:id" element={<GhlEmbedTicketDetail />} />
           <Route path="/ghl-embed/assegnazioni" element={<GhlEmbedAssegnazioniPage />} />
-          <Route path="/ghl-sales/assegnazioni-ai" element={<GhlSalesAssignmentsPage />} /> {/* Public GHL launcher for Sales SSO */}
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>

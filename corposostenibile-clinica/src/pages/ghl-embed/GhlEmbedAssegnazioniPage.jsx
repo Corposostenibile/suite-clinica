@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Spinner } from 'react-bootstrap';
+import { Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Spinner, Alert } from 'react-bootstrap';
 import salesGhlAssignmentsService from '../../services/salesGhlAssignmentsService';
 import './GhlEmbedAssegnazioni.css';
 
@@ -23,6 +23,12 @@ const STATUS_FILTERS = [
   { value: 'CONVERTED', label: 'Convertiti' },
   { value: 'LOST', label: 'Persi' },
 ];
+
+const EMPTY_ASSIGNEES = {
+  nutrizione: [],
+  coach: [],
+  psicologia: [],
+};
 
 function formatDate(value) {
   if (!value) return 'N/D';
@@ -55,8 +61,12 @@ function badgeVariant(status) {
   }
 }
 
+function getLeadName(item) {
+  return item?.full_name || [item?.first_name, item?.last_name].filter(Boolean).join(' ') || item?.email || 'N/D';
+}
+
 function GhlEmbedAssegnazioniPage() {
-  const [bootstrapState, setBootstrapState] = useState('loading'); // loading|ready|error
+  const [bootstrapState, setBootstrapState] = useState('loading');
   const [bootstrapError, setBootstrapError] = useState('');
   const [user, setUser] = useState(salesGhlAssignmentsService.getCachedUser());
 
@@ -72,12 +82,43 @@ function GhlEmbedAssegnazioniPage() {
   const [lastLoadedAt, setLastLoadedAt] = useState(null);
   const [serverTotal, setServerTotal] = useState(0);
 
+  const [professionals, setProfessionals] = useState(EMPTY_ASSIGNEES);
+  const [loadingProfessionals, setLoadingProfessionals] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [matches, setMatches] = useState(null);
+  const [assignmentDraft, setAssignmentDraft] = useState({
+    client_story: '',
+    nutritionist_id: '',
+    coach_id: '',
+    psychologist_id: '',
+    notes: '',
+    target_role: '',
+  });
+  const [modalBusy, setModalBusy] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+
   const bootstrap = useCallback(async () => {
     setBootstrapState('loading');
     setBootstrapError('');
 
     try {
+      const params = new URLSearchParams(window.location.search);
+      const userEmail = params.get('user_email') || params.get('email') || params.get('sales_user_email') || '';
       const existingToken = salesGhlAssignmentsService.getToken();
+
+      if (userEmail) {
+        salesGhlAssignmentsService.clearSession();
+        const data = await salesGhlAssignmentsService.exchangeSession({
+          user_email: userEmail,
+          user_name: params.get('user_name') || params.get('name') || '',
+        });
+
+        setUser(data?.sales_user || salesGhlAssignmentsService.getCachedUser());
+        window.history.replaceState({}, '', window.location.pathname);
+        setBootstrapState('ready');
+        return;
+      }
+
       if (existingToken) {
         const me = await salesGhlAssignmentsService.verifySession();
         if (me) {
@@ -87,22 +128,8 @@ function GhlEmbedAssegnazioniPage() {
         }
       }
 
-      const params = new URLSearchParams(window.location.search);
-      const userEmail = params.get('user_email') || params.get('email') || params.get('sales_user_email') || '';
-      if (!userEmail) {
-        setBootstrapError('Parametri GHL mancanti. Apri la pagina dal menu sales oppure aggiungi user_email nel link.');
-        setBootstrapState('error');
-        return;
-      }
-
-      const data = await salesGhlAssignmentsService.exchangeSession({
-        user_email: userEmail,
-        user_name: params.get('user_name') || params.get('name') || '',
-      });
-
-      setUser(data?.sales_user || salesGhlAssignmentsService.getCachedUser());
-      window.history.replaceState({}, '', window.location.pathname);
-      setBootstrapState('ready');
+      setBootstrapError('Parametri GHL mancanti. Apri la pagina dal menu sales oppure aggiungi user_email nel link.');
+      setBootstrapState('error');
     } catch (err) {
       setBootstrapError(
         err?.response?.data?.description
@@ -144,17 +171,39 @@ function GhlEmbedAssegnazioniPage() {
     }
   }, [search, statusFilter]);
 
-  useEffect(() => {
-    bootstrap();
-  }, [bootstrap]);
+  const loadProfessionals = useCallback(async () => {
+    setLoadingProfessionals(true);
+    try {
+      const [n, c, p] = await Promise.all([
+        salesGhlAssignmentsService.getAvailableProfessionals('nutrizione'),
+        salesGhlAssignmentsService.getAvailableProfessionals('coach'),
+        salesGhlAssignmentsService.getAvailableProfessionals('psicologia'),
+      ]);
+      setProfessionals({
+        nutrizione: n?.professionals || [],
+        coach: c?.professionals || [],
+        psicologia: p?.professionals || [],
+      });
+    } catch (err) {
+      setError(err?.response?.data?.description || err?.message || 'Impossibile caricare i professionisti disponibili.');
+    } finally {
+      setLoadingProfessionals(false);
+    }
+  }, []);
+
+  useEffect(() => { bootstrap(); }, [bootstrap]);
 
   useEffect(() => {
     if (bootstrapState !== 'ready') return undefined;
-    const timeout = setTimeout(() => {
-      loadQueue(true);
-    }, 250);
+    const timeout = setTimeout(() => loadQueue(true), 250);
     return () => clearTimeout(timeout);
   }, [bootstrapState, loadQueue]);
+
+  useEffect(() => {
+    if (bootstrapState !== 'ready') return undefined;
+    const timeout = setTimeout(() => loadQueue(true), 450);
+    return () => clearTimeout(timeout);
+  }, [bootstrapState, search, statusFilter, loadQueue]);
 
   const filteredItems = useMemo(() => {
     let rows = items;
@@ -172,9 +221,21 @@ function GhlEmbedAssegnazioniPage() {
     return { total, assigned, pending, converted };
   }, [items]);
 
-  const openItem = (item) => {
+  const openItem = async (item) => {
     setSelectedItem(item);
+    setAssignmentDraft({
+      client_story: item?.client_story || '',
+      nutritionist_id: item?.assigned_nutritionist_id || '',
+      coach_id: item?.assigned_coach_id || '',
+      psychologist_id: item?.assigned_psychologist_id || '',
+      notes: item?.assignment_notes || '',
+      target_role: '',
+    });
+    setAnalysis(item?.ai_analysis_snapshot || item?.ai_analysis || null);
+    setMatches(null);
+    setModalMessage('');
     setShowModal(true);
+    await loadProfessionals();
   };
 
   const clearFilters = () => {
@@ -191,6 +252,81 @@ function GhlEmbedAssegnazioniPage() {
     setShowModal(false);
     setBootstrapState('loading');
     bootstrap();
+  };
+
+  const applyMatchResults = (matchesData) => {
+    const topN = matchesData?.nutrizione?.[0]?.id || '';
+    const topC = matchesData?.coach?.[0]?.id || '';
+    const topP = matchesData?.psicologia?.[0]?.id || '';
+    setAssignmentDraft((prev) => ({
+      ...prev,
+      nutritionist_id: topN || prev.nutritionist_id,
+      coach_id: topC || prev.coach_id,
+      psychologist_id: topP || prev.psychologist_id,
+    }));
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedItem) return;
+    setModalBusy(true);
+    setModalMessage('Analisi AI in corso…');
+    try {
+      const response = await salesGhlAssignmentsService.analyzeLead(selectedItem.id, {
+        story: assignmentDraft.client_story,
+        target_role: assignmentDraft.target_role || undefined,
+      });
+      setAnalysis(response?.analysis || null);
+      setSelectedItem((prev) => prev ? { ...prev, ai_analysis: response?.analysis, ai_analysis_snapshot: response?.analysis } : prev);
+      setModalMessage('Analisi salvata.');
+    } catch (err) {
+      setModalMessage(err?.response?.data?.description || err?.message || 'Analisi non disponibile.');
+    } finally {
+      setModalBusy(false);
+    }
+  };
+
+  const handleMatch = async () => {
+    if (!selectedItem) return;
+    setModalBusy(true);
+    setModalMessage('Ricerca match professionisti…');
+    try {
+      const response = await salesGhlAssignmentsService.matchProfessionals(selectedItem.id, {
+        criteria: analysis?.criteria,
+        story: assignmentDraft.client_story,
+      });
+      const matchesData = response?.matches || null;
+      setMatches(matchesData);
+      if (matchesData) applyMatchResults(matchesData);
+      setModalMessage('Suggerimenti professionisti aggiornati.');
+    } catch (err) {
+      setModalMessage(err?.response?.data?.description || err?.message || 'Matching non disponibile.');
+    } finally {
+      setModalBusy(false);
+    }
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!selectedItem) return;
+    setModalBusy(true);
+    setModalMessage('Salvataggio assegnazione in corso…');
+    try {
+      const response = await salesGhlAssignmentsService.confirmAssignment(selectedItem.id, {
+        nutritionist_id: assignmentDraft.nutritionist_id || null,
+        coach_id: assignmentDraft.coach_id || null,
+        psychologist_id: assignmentDraft.psychologist_id || null,
+        notes: assignmentDraft.notes || null,
+        ai_analysis: analysis || selectedItem?.ai_analysis_snapshot || selectedItem?.ai_analysis || null,
+      });
+      const updated = response?.lead || null;
+      setItems((prev) => prev.map((item) => (item.id === selectedItem.id ? (updated || item) : item)));
+      setSelectedItem(updated || selectedItem);
+      setModalMessage('Assegnazione salvata con successo.');
+      await loadQueue(true);
+    } catch (err) {
+      setModalMessage(err?.response?.data?.description || err?.message || 'Impossibile salvare l\'assegnazione.');
+    } finally {
+      setModalBusy(false);
+    }
   };
 
   if (bootstrapState === 'loading') {
@@ -236,7 +372,7 @@ function GhlEmbedAssegnazioniPage() {
               <div className="ghle-old-kicker">Sales SSO</div>
               <h1 className="ghle-old-title">Assegnazioni</h1>
               <p className="ghle-old-copy">
-                Vista sales in stile old suite: lead GHL, filtri rapidi, card dettagliate e accesso diretto alla coda.
+                Vista sales in stile old suite: lead GHL, filtri rapidi, card dettagliate e azioni complete di analisi e assegnazione.
               </p>
             </div>
           </div>
@@ -347,8 +483,10 @@ function GhlEmbedAssegnazioniPage() {
                     <div className="d-flex justify-content-between align-items-start gap-3">
                       <div className="flex-grow-1">
                         <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
-                          <h5 className="mb-0 fw-bold">{item.full_name || 'N/D'}</h5>
-                          <Badge bg={badgeVariant(item.status)} className="rounded-pill">{STATUS_LABELS[item.status] || item.status || 'N/D'}</Badge>
+                          <h5 className="mb-0 fw-bold">{getLeadName(item)}</h5>
+                          <Badge bg={badgeVariant(item.status)} className="rounded-pill">
+                            {STATUS_LABELS[item.status] || item.status || 'N/D'}
+                          </Badge>
                           {item.sales_user?.full_name || item.sales_user_id ? (
                             <Badge bg="light" text="dark" className="rounded-pill border">
                               <i className="ri-user-star-line me-1"></i>
@@ -391,19 +529,20 @@ function GhlEmbedAssegnazioniPage() {
         ) : null}
       </div>
 
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" centered>
         <Modal.Header closeButton>
-          <Modal.Title>Dettaglio lead</Modal.Title>
+          <Modal.Title>Dettaglio e assegnazione lead</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {selectedItem ? (
-            <div className="d-flex flex-column gap-3">
+            <div className="d-flex flex-column gap-4">
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                <h4 className="mb-0">{selectedItem.full_name || 'N/D'}</h4>
+                <h4 className="mb-0">{getLeadName(selectedItem)}</h4>
                 <Badge bg={badgeVariant(selectedItem.status)} className="rounded-pill">
                   {STATUS_LABELS[selectedItem.status] || selectedItem.status || 'N/D'}
                 </Badge>
               </div>
+
               <div className="ghle-old-meta-grid">
                 <div><strong>Codice:</strong> {selectedItem.unique_code || 'N/D'}</div>
                 <div><strong>Email:</strong> {selectedItem.email || 'N/D'}</div>
@@ -412,19 +551,124 @@ function GhlEmbedAssegnazioniPage() {
                 <div><strong>Origine:</strong> {selectedItem.origin || 'N/D'}</div>
                 <div><strong>Pacchetto:</strong> {selectedItem.custom_package_name || 'N/D'}</div>
               </div>
-              <div>
-                <div className="text-muted small mb-1">Storia cliente</div>
-                <div className="ghle-old-modal-box">{preview(selectedItem.client_story, 1200)}</div>
-              </div>
-              <div>
-                <div className="text-muted small mb-1">Snapshot AI / assegnazione</div>
-                <div className="ghle-old-modal-box">{preview(selectedItem.ai_analysis_snapshot || selectedItem.ai_analysis, 1200)}</div>
-              </div>
+
+              <Row className="g-3">
+                <Col lg={6}>
+                  <div className="text-muted small mb-1">Storia cliente</div>
+                  <Form.Control
+                    as="textarea"
+                    rows={10}
+                    value={assignmentDraft.client_story}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, client_story: e.target.value }))}
+                    placeholder="Inserisci o aggiorna la storia del cliente"
+                  />
+                </Col>
+                <Col lg={6}>
+                  <div className="text-muted small mb-1">Snapshot AI / assegnazione</div>
+                  <div className="ghle-old-modal-box" style={{ maxHeight: 220 }}>
+                    {preview(analysis || selectedItem.ai_analysis_snapshot || selectedItem.ai_analysis, 1600)}
+                  </div>
+                  <div className="mt-3 d-flex gap-2 flex-wrap">
+                    <Button variant="outline-primary" onClick={handleAnalyze} disabled={modalBusy}>
+                      {modalBusy ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+                      Analizza AI
+                    </Button>
+                    <Button variant="outline-success" onClick={handleMatch} disabled={modalBusy || loadingProfessionals}>
+                      Suggerisci match
+                    </Button>
+                    <Button variant="outline-secondary" onClick={() => setAnalysis(selectedItem.ai_analysis_snapshot || selectedItem.ai_analysis || null)}>
+                      Ripristina snapshot
+                    </Button>
+                  </div>
+                </Col>
+              </Row>
+
+              <Row className="g-3">
+                <Col md={4}>
+                  <Form.Label className="fw-semibold">Nutrizionista</Form.Label>
+                  <Form.Select
+                    value={assignmentDraft.nutritionist_id}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, nutritionist_id: e.target.value }))}
+                    disabled={loadingProfessionals}
+                  >
+                    <option value="">Nessuno</option>
+                    {professionals.nutrizione.map((prof) => (
+                      <option key={prof.id} value={prof.id}>{prof.full_name}</option>
+                    ))}
+                  </Form.Select>
+                </Col>
+                <Col md={4}>
+                  <Form.Label className="fw-semibold">Coach</Form.Label>
+                  <Form.Select
+                    value={assignmentDraft.coach_id}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, coach_id: e.target.value }))}
+                    disabled={loadingProfessionals}
+                  >
+                    <option value="">Nessuno</option>
+                    {professionals.coach.map((prof) => (
+                      <option key={prof.id} value={prof.id}>{prof.full_name}</option>
+                    ))}
+                  </Form.Select>
+                </Col>
+                <Col md={4}>
+                  <Form.Label className="fw-semibold">Psicologo</Form.Label>
+                  <Form.Select
+                    value={assignmentDraft.psychologist_id}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, psychologist_id: e.target.value }))}
+                    disabled={loadingProfessionals}
+                  >
+                    <option value="">Nessuno</option>
+                    {professionals.psicologia.map((prof) => (
+                      <option key={prof.id} value={prof.id}>{prof.full_name}</option>
+                    ))}
+                  </Form.Select>
+                </Col>
+              </Row>
+
+              <Row className="g-3">
+                <Col md={4}>
+                  <Form.Label className="fw-semibold">Target analisi</Form.Label>
+                  <Form.Select
+                    value={assignmentDraft.target_role}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, target_role: e.target.value }))}
+                  >
+                    <option value="">Generale</option>
+                    <option value="nutrition">Nutrizione</option>
+                    <option value="coach">Coach</option>
+                    <option value="psychology">Psicologia</option>
+                  </Form.Select>
+                </Col>
+                <Col md={8}>
+                  <Form.Label className="fw-semibold">Note assegnazione</Form.Label>
+                  <Form.Control
+                    value={assignmentDraft.notes}
+                    onChange={(e) => setAssignmentDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Eventuali note operative"
+                  />
+                </Col>
+              </Row>
+
+              {matches ? (
+                <div className="ghle-old-modal-box">
+                  <strong>Match suggeriti</strong>
+                  <div className="mt-2 small">
+                    <div><strong>Nutrizione:</strong> {preview(matches.nutrizione?.map((p) => p.full_name).join(', '), 400)}</div>
+                    <div><strong>Coach:</strong> {preview(matches.coach?.map((p) => p.full_name).join(', '), 400)}</div>
+                    <div><strong>Psicologia:</strong> {preview(matches.psicologia?.map((p) => p.full_name).join(', '), 400)}</div>
+                  </div>
+                </div>
+              ) : null}
+
+              {modalMessage ? <Alert variant="info" className="mb-0">{modalMessage}</Alert> : null}
             </div>
           ) : null}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setShowModal(false)}>Chiudi</Button>
+          <Button variant="primary" onClick={handleSaveAssignment} disabled={modalBusy || !selectedItem}>
+            {modalBusy ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+            Salva assegnazione
+          </Button>
         </Modal.Footer>
       </Modal>
     </div>

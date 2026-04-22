@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, Row, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import ghlService from '../../services/ghlService';
+import '../ghl-embed/GhlEmbedAssegnazioni.css';
 
 function formatDate(value) {
   if (!value) return 'N/D';
@@ -21,6 +22,10 @@ function truncate(text, max = 140) {
   if (!value) return 'N/D';
   if (value.length <= max) return value;
   return `${value.slice(0, max).trim()}…`;
+}
+
+function getLeadName(item) {
+  return item?.nome || item?.full_name || [item?.first_name, item?.last_name].filter(Boolean).join(' ') || item?.email || 'N/D';
 }
 
 function AssegnazioniAI() {
@@ -116,73 +121,70 @@ function AssegnazioniAI() {
   }, [search, statusFilter]);
 
   return (
-    <div className="container-fluid py-4">
-      <div className="bg-white border rounded-4 p-4 p-lg-5 shadow-sm mb-4">
-        <div className="d-flex flex-column flex-xl-row align-items-xl-center justify-content-between gap-4">
-          <div className="flex-grow-1">
-            <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-              <Badge bg="success" className="rounded-pill px-3 py-2">GHL Queue</Badge>
-              <Badge bg="light" text="dark" className="rounded-pill px-3 py-2">
-                {serverTotal} record server
-              </Badge>
+    <div className="ghle-old-page">
+      <div className="ghle-old-shell">
+        <div className="ghle-old-hero">
+          <div className="ghle-old-hero-left">
+            <div className="ghle-old-hero-icon">
+              <i className="ri-cpu-line"></i>
             </div>
-            <h2 className="mb-2 fw-bold">Assegnazioni AI</h2>
-            <p className="text-muted mb-0" style={{ maxWidth: 760 }}>
-              Queue GHL per analisi, matching e conferma assegnazioni Sales. Qui puoi filtrare i lead,
-              aprire il dettaglio AI e procedere con l'assegnazione.
-            </p>
+            <div>
+              <div className="ghle-old-kicker">Internal AI</div>
+              <h1 className="ghle-old-title">Assegnazioni AI</h1>
+              <p className="ghle-old-copy">
+                Dashboard interna in stile old suite per analizzare, filtrare e aprire rapidamente le opportunità.
+              </p>
+            </div>
           </div>
-
-          <div className="d-flex gap-2 flex-wrap">
-            <Button variant="outline-secondary" onClick={() => loadQueue()} disabled={loading}>
-              {loading ? <Spinner size="sm" animation="border" className="me-2" /> : null}
-              Ricarica
-            </Button>
-            <Button variant="outline-danger" onClick={clearFilters} disabled={loading}>
-              Reset filtri
-            </Button>
+          <div className="ghle-old-hero-meta">
+            <span className="ghle-old-pill">{serverTotal} record server</span>
+            <span className="ghle-old-pill ghle-old-pill-dark">Suite interna</span>
           </div>
         </div>
 
-        <Row className="g-3 mt-4">
-          <Col md={3} sm={6}>
-            <Card className="h-100 border-0 bg-light">
-              <Card.Body>
-                <div className="text-muted small">Da lavorare</div>
-                <div className="fs-3 fw-bold text-warning">{stats.pending}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} sm={6}>
-            <Card className="h-100 border-0 bg-light">
-              <Card.Body>
-                <div className="text-muted small">Processati</div>
-                <div className="fs-3 fw-bold text-success">{stats.processed}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} sm={6}>
-            <Card className="h-100 border-0 bg-light">
-              <Card.Body>
-                <div className="text-muted small">Con Sales assegnato</div>
-                <div className="fs-3 fw-bold text-primary">{stats.salesAssigned}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-          <Col md={3} sm={6}>
-            <Card className="h-100 border-0 bg-light">
-              <Card.Body>
-                <div className="text-muted small">Ultimo refresh</div>
-                <div className="fw-semibold">{formatDate(lastLoadedAt)}</div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+        <div className="ghle-old-stats">
+          <div className="ghle-old-stat-card">
+            <div className="ghle-old-stat-label">Totale</div>
+            <div className="ghle-old-stat-value">{stats.total}</div>
+          </div>
+          <div className="ghle-old-stat-card">
+            <div className="ghle-old-stat-label">Da lavorare</div>
+            <div className="ghle-old-stat-value text-warning">{stats.pending}</div>
+          </div>
+          <div className="ghle-old-stat-card">
+            <div className="ghle-old-stat-label">Processati</div>
+            <div className="ghle-old-stat-value text-success">{stats.processed}</div>
+          </div>
+          <div className="ghle-old-stat-card">
+            <div className="ghle-old-stat-label">Con Sales assegnato</div>
+            <div className="ghle-old-stat-value text-primary">{stats.salesAssigned}</div>
+          </div>
+          <div className="ghle-old-stat-card">
+            <div className="ghle-old-stat-label">Ultimo refresh</div>
+            <div className="ghle-old-stat-value ghle-old-stat-sm">{formatDate(lastLoadedAt)}</div>
+          </div>
+        </div>
 
-        <Row className="g-3 mt-4 align-items-end">
-          <Col lg={5}>
-            <Form.Label className="fw-semibold">Cerca</Form.Label>
-            <InputGroup>
+        <div className="ghle-old-toolbar">
+          <div className="ghle-old-filters">
+            {[
+              { key: 'pending', label: 'Da lavorare' },
+              { key: 'processed', label: 'Processati' },
+              { key: 'all', label: 'Tutti' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                className={`ghle-old-chip ${statusFilter === f.key ? 'active' : ''}`}
+                onClick={() => setStatusFilter(f.key)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="ghle-old-controls">
+            <InputGroup className="ghle-old-search">
               <InputGroup.Text>
                 <i className="ri-search-line"></i>
               </InputGroup.Text>
@@ -192,111 +194,104 @@ function AssegnazioniAI() {
                 placeholder="Nome, email, telefono, Sales o pacchetto"
               />
             </InputGroup>
-          </Col>
-          <Col lg={3} md={6}>
-            <Form.Label className="fw-semibold">Stato record</Form.Label>
-            <Form.Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="pending">Da lavorare</option>
-              <option value="processed">Processati</option>
-              <option value="all">Tutti</option>
-            </Form.Select>
-          </Col>
-          <Col lg={4} md={6}>
-            <div className="d-flex gap-2 flex-wrap justify-content-lg-end">
-              <Button
-                variant={showSalesOnly ? 'success' : 'outline-success'}
-                onClick={() => setShowSalesOnly((prev) => !prev)}
-              >
-                {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
-              </Button>
-              <Button variant="primary" onClick={() => loadQueue()} disabled={loading}>
-                Applica filtri
-              </Button>
-            </div>
-          </Col>
-        </Row>
-      </div>
 
-      {error && (
-        <Alert variant="danger" className="mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
-          <span>{error}</span>
-          <Button variant="outline-danger" size="sm" onClick={() => loadQueue()}>
-            Riprova
-          </Button>
-        </Alert>
-      )}
-
-      {loading ? (
-        <div className="d-flex justify-content-center align-items-center py-5">
-          <Spinner animation="border" role="status" className="me-2" />
-          <span>Caricamento queue in corso...</span>
+            <Button
+              variant={showSalesOnly ? 'success' : 'outline-success'}
+              className="ghle-old-action"
+              onClick={() => setShowSalesOnly((prev) => !prev)}
+            >
+              {showSalesOnly ? 'Mostra tutti i lead' : 'Solo lead con Sales'}
+            </Button>
+            <Button variant="outline-secondary" className="ghle-old-action" onClick={clearFilters}>
+              Reset
+            </Button>
+            <Button variant="outline-primary" className="ghle-old-action" onClick={() => loadQueue()} disabled={loading}>
+              {loading ? <Spinner size="sm" animation="border" className="me-2" /> : null}
+              Ricarica
+            </Button>
+          </div>
         </div>
-      ) : visibleOpportunities.length === 0 ? (
-        <Card className="shadow-sm border-0 rounded-4">
-          <Card.Body className="text-center py-5">
-            <div className="fs-1 mb-3">📭</div>
-            <h5 className="mb-2">Nessun record disponibile</h5>
-            <p className="text-muted mb-0">{emptyCopy}</p>
-          </Card.Body>
-        </Card>
-      ) : (
-        <Row className="g-3">
-          {visibleOpportunities.map((item) => (
-            <Col key={item.id} xs={12} xl={6}>
-              <Card className="h-100 shadow-sm border-0 rounded-4 overflow-hidden">
-                <Card.Body className="p-4 d-flex flex-column gap-3">
-                  <div className="d-flex justify-content-between align-items-start gap-3">
-                    <div className="flex-grow-1">
-                      <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
-                        <h5 className="mb-0 fw-bold">{item.nome || 'N/D'}</h5>
-                        <Badge bg={item.processed ? 'success' : 'warning'} className="rounded-pill">
-                          {item.processed ? 'Processato' : 'Da lavorare'}
-                        </Badge>
-                        {item.sales_person?.full_name || item.sales_consultant ? (
-                          <Badge bg="light" text="dark" className="rounded-pill border">
-                            <i className="ri-user-star-line me-1"></i>
-                            {item.sales_person?.full_name || item.sales_consultant}
+
+        {error && (
+          <Alert variant="danger" className="mb-4 d-flex align-items-center justify-content-between gap-3 flex-wrap">
+            <span>{error}</span>
+            <Button variant="outline-danger" size="sm" onClick={() => loadQueue()}>
+              Riprova
+            </Button>
+          </Alert>
+        )}
+
+        {loading ? (
+          <div className="ghle-old-loading">
+            <Spinner animation="border" role="status" className="me-2" />
+            Caricamento queue in corso...
+          </div>
+        ) : visibleOpportunities.length === 0 ? (
+          <Card className="ghle-old-empty shadow-sm border-0 rounded-4">
+            <Card.Body className="text-center py-5">
+              <div className="fs-1 mb-3">📭</div>
+              <h5 className="mb-2">Nessun record disponibile</h5>
+              <p className="text-muted mb-0">{emptyCopy}</p>
+            </Card.Body>
+          </Card>
+        ) : (
+          <Row className="g-3">
+            {visibleOpportunities.map((item) => (
+              <Col key={item.id} xs={12} xl={6}>
+                <Card className="ghle-old-card shadow-sm border-0 rounded-4 overflow-hidden h-100">
+                  <Card.Body className="p-4 d-flex flex-column gap-3">
+                    <div className="d-flex justify-content-between align-items-start gap-3">
+                      <div className="flex-grow-1">
+                        <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
+                          <h5 className="mb-0 fw-bold">{getLeadName(item)}</h5>
+                          <Badge bg={item.processed ? 'success' : 'warning'} className="rounded-pill">
+                            {item.processed ? 'Processato' : 'Da lavorare'}
                           </Badge>
-                        ) : null}
+                          {item.sales_person?.full_name || item.sales_consultant ? (
+                            <Badge bg="light" text="dark" className="rounded-pill border">
+                              <i className="ri-user-star-line me-1"></i>
+                              {item.sales_person?.full_name || item.sales_consultant}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <div className="text-muted small">ID record: {item.id}</div>
                       </div>
-                      <div className="text-muted small">ID record: {item.id}</div>
+                      <Button variant="outline-primary" size="sm" onClick={() => openOpportunity(item)}>
+                        Apri
+                      </Button>
                     </div>
-                    <Button variant="outline-primary" size="sm" onClick={() => openOpportunity(item)}>
-                      Apri
-                    </Button>
-                  </div>
 
-                  <div className="p-3 bg-light rounded-3 small">
-                    <Row className="g-2">
-                      <Col md={6}><strong>Email:</strong> {item.email || 'N/D'}</Col>
-                      <Col md={6}><strong>Telefono:</strong> {item.lead_phone || 'N/D'}</Col>
-                      <Col md={6}><strong>Sales:</strong> {item.sales_person?.full_name || item.sales_consultant || 'N/D'}</Col>
-                      <Col md={6}><strong>Pacchetto:</strong> {item.pacchetto || 'N/D'}</Col>
-                      <Col md={6}><strong>Durata:</strong> {item.durata || 'N/D'}</Col>
-                      <Col md={6}><strong>HM:</strong> {item.health_manager_email || 'N/D'}</Col>
-                      <Col md={6}><strong>Ricevuto:</strong> {formatDate(item.received_at)}</Col>
-                    </Row>
-                  </div>
+                    <div className="ghle-old-meta-grid">
+                      <div><strong>Email:</strong> {item.email || 'N/D'}</div>
+                      <div><strong>Telefono:</strong> {item.lead_phone || item.phone || 'N/D'}</div>
+                      <div><strong>Sales:</strong> {item.sales_person?.full_name || item.sales_consultant || 'N/D'}</div>
+                      <div><strong>Pacchetto:</strong> {item.pacchetto || item.custom_package_name || 'N/D'}</div>
+                      <div><strong>Durata:</strong> {item.durata || 'N/D'}</div>
+                      <div><strong>HM:</strong> {item.health_manager_email || 'N/D'}</div>
+                      <div><strong>Ricevuto:</strong> {formatDate(item.received_at || item.created_at)}</div>
+                      <div><strong>Aggiornato:</strong> {formatDate(item.updated_at)}</div>
+                    </div>
 
-                  <div>
-                    <div className="text-muted small mb-1">Storia</div>
-                    <div className="small">{truncate(item.storia, 160)}</div>
-                  </div>
+                    <div>
+                      <div className="text-muted small mb-1">Storia</div>
+                      <div className="small ghle-old-story">{truncate(item.storia || item.client_story, 160)}</div>
+                    </div>
 
-                  <div className="d-flex gap-2 flex-wrap mt-auto">
-                    <Button variant="success" onClick={() => openOpportunity(item)}>
-                      Apri assegnazione
-                    </Button>
-                    <Button variant="outline-secondary" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
-                      Dettaglio
-                    </Button>
-                  </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
+                    <div className="d-flex gap-2 flex-wrap mt-auto">
+                      <Button variant="success" onClick={() => openOpportunity(item)}>
+                        Apri assegnazione
+                      </Button>
+                      <Button variant="outline-secondary" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
+                        Dettaglio
+                      </Button>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
+      </div>
     </div>
   );
 }
