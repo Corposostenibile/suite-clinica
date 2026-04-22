@@ -52,7 +52,7 @@ import { Calendario } from './pages/calendario';
 import { Support, SupportDetail, TicketsPage, TicketDetail } from './pages/support';
 
 // GHL Embed pages (iframe GoHighLevel — no layout)
-import { GhlEmbedTicketsPage, GhlEmbedTicketDetail } from './pages/ghl-embed';
+import { GhlEmbedTicketsPage, GhlEmbedTicketDetail, GhlEmbedAssegnazioniPage } from './pages/ghl-embed';
 
 // GHL Sales pages (public launcher)
 import { GhlSalesAssignmentsPage } from './pages/ghl-sales';
@@ -147,6 +147,8 @@ function App() {
           {/* GHL Embed Routes (nessun layout, iframe GoHighLevel) */}
           <Route path="/ghl-embed/tickets" element={<GhlEmbedTicketsPage />} />
           <Route path="/ghl-embed/tickets/:id" element={<GhlEmbedTicketDetail />} />
+          <Route path="/ghl-embed/assegnazioni" element={<GhlEmbedAssegnazioniPage />} />
+          <Route path="/ghl-sales/assegnazioni-ai" element={<GhlSalesAssignmentsPage />} /> {/* Public GHL launcher for Sales SSO */}
 
           {/* Dashboard Routes (with layout) */}
           <Route element={<DashboardLayout />}>
@@ -183,7 +185,6 @@ function App() {
                 <AssegnazioniAI />
               </RoleProtectedRoute>
             } />
-            <Route path="/ghl-sales/assegnazioni-ai" element={<GhlSalesAssignmentsPage />} /> {/* Public GHL launcher for Sales SSO */}
             <Route path="/suitemind/:opportunityId" element={
               <RoleProtectedRoute allowIf={canAccessAiAssignments}>
                 <SuiteMindAssignment />

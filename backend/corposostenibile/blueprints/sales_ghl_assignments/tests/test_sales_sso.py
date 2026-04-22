@@ -42,7 +42,11 @@ def test_sales_sso_exchange_returns_jwt_and_allows_queue_access(app):
 
     with app.app_context():
         sales_user = _create_user(sales_email)
-        _create_sales_lead(f"lead-{uuid4().hex[:6]}@example.com", sales_user_id=sales_user.id)
+        own_lead = _create_sales_lead(f"lead-{uuid4().hex[:6]}@example.com", sales_user_id=sales_user.id)
+        other_sales = _create_user(f"other-{uuid4().hex[:6]}@example.com")
+        other_lead = _create_sales_lead(f"other-lead-{uuid4().hex[:6]}@example.com", sales_user_id=other_sales.id)
+        own_lead_id = own_lead.id
+        other_lead_id = other_lead.id
         db.session.commit()
 
         client = app.test_client()
@@ -76,7 +80,8 @@ def test_sales_sso_exchange_returns_jwt_and_allows_queue_access(app):
         list_data = list_response.get_json()
         assert list_data["auth_mode"] == "jwt"
         assert list_data["current_user_id"] == sales_user.id
-        assert any(item["email"].startswith("lead-") for item in list_data["assignments"])
+        assert any(item["id"] == own_lead_id for item in list_data["assignments"])
+        assert all(item["id"] != other_lead_id for item in list_data["assignments"])
 
 
 def test_sales_sso_exchange_rejects_unknown_email(app):

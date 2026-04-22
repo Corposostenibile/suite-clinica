@@ -79,6 +79,10 @@ def api_assignments():
         SalesLead.archived_at.is_(None),
     )
 
+    # Scoping: via JWT sales si vede solo la propria coda.
+    if getattr(g, "sales_auth_mode", None) == "jwt" and get_active_sales_user():
+        query = query.filter(SalesLead.sales_user_id == get_active_sales_user().id)
+
     if status.lower() != "all":
         query = query.filter(SalesLead.status == status.upper())
 
