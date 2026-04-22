@@ -855,6 +855,14 @@ class NotificationService:
                 check_type_label = "Check DCA"
             elif check_type == 'minor':
                 check_type_label = "Check Minori"
+            elif check_type == 'weekly-light':
+                check_type_label = "Check Settimanale Light"
+            elif check_type == 'monthly-regolare':
+                check_type_label = "Check Mensile"
+            elif check_type == 'monthly-dca':
+                check_type_label = "Check Mensile Benessere"
+            elif check_type == 'monthly-minori':
+                check_type_label = "Check Mensile Minori"
             else:
                 check_type_label = "Check"
             subject = f"Nuovo {check_type_label} compilato da {cliente.nome_cognome}"

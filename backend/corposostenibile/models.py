@@ -11863,6 +11863,163 @@ Cliente.dca_checks = relationship("DCACheck", back_populates="cliente", lazy='dy
                                  order_by="desc(DCACheck.assigned_at)")
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK SETTIMANALE LIGHT (unico per tutti i clienti, auto-generato)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class WeeklyCheckLight(TimestampMixin, db.Model):
+    """
+    Link PERMANENTE per il Check Settimanale Light (5 domande, scala 1-10).
+
+    Auto-generato alla creazione del cliente. Il professionista può solo copiarlo.
+    Il cliente usa sempre lo stesso link per compilare il check ogni settimana.
+    """
+    __tablename__ = 'weekly_check_light'
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey('clienti.cliente_id'), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True,
+                      comment="Token univoco PERMANENTE per link")
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False,
+                          comment="Link valido (raramente disattivato)")
+
+    # ─── Relationships ──────────────────────────────────────────────────────
+    cliente = relationship("Cliente", back_populates="weekly_check_light")
+    responses = relationship("WeeklyCheckLightResponse", back_populates="assignment",
+                             lazy='dynamic', order_by="desc(WeeklyCheckLightResponse.submit_date)")
+
+    def __repr__(self) -> str:
+        return f"<WeeklyCheckLight(id={self.id}, cliente={self.cliente_id}, active={self.is_active})>"
+
+    @property
+    def response_count(self) -> int:
+        return self.responses.count()
+
+    @property
+    def last_response(self):
+        return self.responses.first()
+
+    @property
+    def last_response_date(self):
+        last = self.last_response
+        return last.submit_date if last else None
+
+
+class WeeklyCheckLightResponse(TimestampMixin, db.Model):
+    """
+    Singola compilazione del Check Settimanale Light.
+
+    Le risposte sono in responses_data (JSON) con chiavi fisse:
+    q1_sostenibilita, q2_benessere_psicologico, q2_benessere_alimentare,
+    q2_benessere_movimento, q3_segnali_corpo, q4_gestione_quotidiana, q5_energia
+    (tutte scala 1-10).
+    """
+    __tablename__ = 'weekly_check_light_responses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    weekly_check_light_id = db.Column(db.Integer, db.ForeignKey('weekly_check_light.id'),
+                                      nullable=False, index=True)
+    submit_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    responses_data = db.Column(db.JSON, nullable=False, comment="Risposte check light in JSON")
+
+    # ─── Relationships ──────────────────────────────────────────────────────
+    assignment = relationship("WeeklyCheckLight", back_populates="responses")
+
+    def __repr__(self) -> str:
+        return f"<WeeklyCheckLightResponse(id={self.id}, date={self.submit_date})>"
+
+
+# Relationship inversa su Cliente
+Cliente.weekly_check_light = relationship("WeeklyCheckLight", back_populates="cliente",
+                                          uselist=False)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK MENSILE (3 varianti per tipologia, token generato dal professionista)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class MonthlyCheck(TimestampMixin, db.Model):
+    """
+    Assignment PERMANENTE per il Check Mensile (regolare / dca / minori).
+
+    Generato manualmente dal professionista in base alla tipologia del cliente.
+    Il cliente usa sempre lo stesso link per compilare il check ogni mese.
+    """
+    __tablename__ = 'monthly_checks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.BigInteger, db.ForeignKey('clienti.cliente_id'), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False, index=True,
+                      comment="Token univoco PERMANENTE per link")
+    tipologia = db.Column(
+        db.Enum('regolare', 'dca', 'minori', name='tipologia_monthly_enum'),
+        nullable=False,
+        comment="Tipo di check mensile: regolare, dca o minori"
+    )
+
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    assigned_by_id = db.Column(db.Integer, db.ForeignKey('users.id'),
+                               comment="Chi ha generato il link")
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    deactivated_at = db.Column(db.DateTime)
+    deactivated_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    # ─── Relationships ──────────────────────────────────────────────────────
+    cliente = relationship("Cliente", back_populates="monthly_checks")
+    assigned_by = relationship("User", foreign_keys=[assigned_by_id])
+    deactivated_by = relationship("User", foreign_keys=[deactivated_by_id])
+    responses = relationship("MonthlyCheckResponse", back_populates="assignment",
+                             lazy='dynamic', order_by="desc(MonthlyCheckResponse.submit_date)")
+
+    def __repr__(self) -> str:
+        return f"<MonthlyCheck(id={self.id}, cliente={self.cliente_id}, tipologia={self.tipologia})>"
+
+    @property
+    def response_count(self) -> int:
+        return self.responses.count()
+
+    @property
+    def last_response(self):
+        return self.responses.first()
+
+    @property
+    def last_response_date(self):
+        last = self.last_response
+        return last.submit_date if last else None
+
+
+class MonthlyCheckResponse(TimestampMixin, db.Model):
+    """
+    Singola compilazione del Check Mensile.
+
+    Le risposte sono in responses_data (JSON). Il formato dipende dalla tipologia
+    del MonthlyCheck parent (regolare / dca / minori) — vedere check_definitions.py.
+    """
+    __tablename__ = 'monthly_check_responses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    monthly_check_id = db.Column(db.Integer, db.ForeignKey('monthly_checks.id'),
+                                 nullable=False, index=True)
+    submit_date = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.Text)
+    responses_data = db.Column(db.JSON, nullable=False, comment="Risposte check mensile in JSON")
+
+    # ─── Relationships ──────────────────────────────────────────────────────
+    assignment = relationship("MonthlyCheck", back_populates="responses")
+
+    def __repr__(self) -> str:
+        return f"<MonthlyCheckResponse(id={self.id}, date={self.submit_date})>"
+
+
+# Relationship inversa su Cliente
+Cliente.monthly_checks = relationship("MonthlyCheck", back_populates="cliente", lazy='dynamic',
+                                      order_by="desc(MonthlyCheck.assigned_at)")
+
+
 # ─────────────────────────── INDICI CLIENT CHECKS ─────────────────────────── #
 
 # Indice per ricerca veloce assignment per cliente e form

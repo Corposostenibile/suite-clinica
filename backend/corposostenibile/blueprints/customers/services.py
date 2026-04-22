@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import decimal
 import json
+import secrets
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
@@ -52,6 +53,7 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     TipologiaCheckEnum,
     UserRoleEnum,
     WeeklyCheck,
+    WeeklyCheckLight,
     DCACheck,
     MinorCheck,
     cliente_nutrizionisti,
@@ -234,6 +236,14 @@ def create_cliente(data: Mapping[str, Any], created_by_user) -> Cliente:
             cliente.personal_consultant = consultant
         session.add(cliente)
         session.flush()
+
+        # Auto-genera il link del check settimanale light per il nuovo cliente
+        light_check = WeeklyCheckLight(
+            cliente_id=cliente.cliente_id,
+            token=secrets.token_urlsafe(32),
+            is_active=True,
+        )
+        session.add(light_check)
 
         # Contratto iniziale (facoltativo)
         if "initial_contract" in data:

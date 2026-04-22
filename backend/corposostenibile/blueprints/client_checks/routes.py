@@ -57,11 +57,15 @@ from corposostenibile.models import (
     WeeklyCheck,
     WeeklyCheckResponse,
     WeeklyCheckLinkAssignment,
+    WeeklyCheckLight,
+    WeeklyCheckLightResponse,
     DCACheck,
     DCACheckResponse,
     StatoClienteEnum,
     MinorCheck,
     MinorCheckResponse,
+    MonthlyCheck,
+    MonthlyCheckResponse,
     UserRoleEnum,
 )
 from .forms import (
@@ -5210,3 +5214,294 @@ def api_admin_dashboard_stats():
     except Exception as e:
         current_app.logger.error(f"[CHECK_ADMIN_STATS] Error: {e}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK SETTIMANALE LIGHT
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_bp.route("/weekly-light/<int:cliente_id>", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/weekly-light/<int:cliente_id>", methods=["GET"])
+@login_required
+def weekly_light_get_link(cliente_id: int):
+    """Restituisce il link del weekly check light per il cliente (read-only)."""
+    _abort_if_no_cliente_checks_access(cliente_id)
+
+    light = WeeklyCheckLight.query.filter_by(cliente_id=cliente_id).first()
+    if not light:
+        return jsonify({"success": False, "error": "Check light non trovato per questo cliente."}), 404
+
+    base_url = _frontend_base_url()
+    return jsonify({
+        "success": True,
+        "check": {
+            "id": light.id,
+            "token": light.token,
+            "is_active": light.is_active,
+            "url": f"{base_url}/check/weekly-light/{light.token}",
+            "response_count": light.response_count,
+            "last_response_date": light.last_response_date.isoformat() if light.last_response_date else None,
+        }
+    })
+
+
+@api_bp.route("/public/weekly-light/<token>", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/public/weekly-light/<token>", methods=["GET"])
+@csrf.exempt
+def weekly_light_public_info(token: str):
+    """Info pubblica del check light (dati cliente + domande)."""
+    from .check_definitions import WEEKLY_LIGHT_QUESTIONS
+
+    light = WeeklyCheckLight.query.filter_by(token=token).first_or_404()
+    if not light.is_active:
+        return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
+
+    cliente = light.cliente
+    return jsonify({
+        "success": True,
+        "check": {
+            "id": light.id,
+            "token": light.token,
+        },
+        "cliente": {
+            "nome_cognome": cliente.nome_cognome,
+        },
+        "questions": WEEKLY_LIGHT_QUESTIONS,
+    })
+
+
+@api_bp.route("/public/weekly-light/<token>", methods=["POST"])
+@client_checks_bp.route("/api/client-checks/public/weekly-light/<token>", methods=["POST"])
+@csrf.exempt
+def weekly_light_public_submit(token: str):
+    """Riceve la compilazione del check settimanale light."""
+    from .check_definitions import WEEKLY_LIGHT_QUESTIONS, WEEKLY_LIGHT_REQUIRED_KEYS
+
+    light = WeeklyCheckLight.query.filter_by(token=token).first_or_404()
+    if not light.is_active:
+        return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
+
+    data = request.get_json(silent=True) or {}
+
+    # Valida che tutte le chiavi obbligatorie siano presenti e nei range
+    missing = WEEKLY_LIGHT_REQUIRED_KEYS - set(data.keys())
+    if missing:
+        return jsonify({"success": False, "error": f"Campi mancanti: {', '.join(sorted(missing))}"}), 400
+
+    for q in WEEKLY_LIGHT_QUESTIONS:
+        val = data.get(q["key"])
+        if val is not None and q["type"] == "scale":
+            try:
+                val_int = int(val)
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "error": f"Valore non valido per {q['key']}"}), 400
+            if not (q["min"] <= val_int <= q["max"]):
+                return jsonify({"success": False, "error": f"Valore fuori range per {q['key']}"}), 400
+            data[q["key"]] = val_int
+
+    response = WeeklyCheckLightResponse(
+        weekly_check_light_id=light.id,
+        responses_data=data,
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
+    )
+    db.session.add(response)
+    db.session.commit()
+
+    try:
+        NotificationService.send_check_notification_to_professionals(
+            cliente=light.cliente,
+            check_type='weekly-light',
+            check_id=response.id,
+        )
+    except Exception as e:
+        current_app.logger.error(f"[WEEKLY_LIGHT] Errore notifiche: {e}")
+
+    return jsonify({"success": True, "message": "Check settimanale salvato con successo."})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHECK MENSILE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@api_bp.route("/generate-monthly/<int:cliente_id>", methods=["POST"])
+@client_checks_bp.route("/api/client-checks/generate-monthly/<int:cliente_id>", methods=["POST"])
+@login_required
+def generate_monthly_check_link(cliente_id: int):
+    """Genera (o restituisce) il link del check mensile per il cliente."""
+    import secrets as _secrets
+
+    _abort_if_no_cliente_checks_access(cliente_id)
+
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        return jsonify({"success": False, "error": "Cliente non trovato."}), 404
+
+    tipologia = (request.get_json(silent=True) or {}).get("tipologia")
+    valid_tipologie = ("regolare", "dca", "minori")
+    if tipologia not in valid_tipologie:
+        return jsonify({"success": False, "error": f"Tipologia non valida. Valori accettati: {valid_tipologie}"}), 400
+
+    # Cerca check mensile attivo per questo cliente e tipologia
+    existing = MonthlyCheck.query.filter_by(
+        cliente_id=cliente_id,
+        tipologia=tipologia,
+        is_active=True,
+    ).first()
+
+    if existing:
+        base_url = _frontend_base_url()
+        return jsonify({
+            "success": True,
+            "already_existed": True,
+            "check": {
+                "id": existing.id,
+                "token": existing.token,
+                "tipologia": existing.tipologia,
+                "url": f"{base_url}/check/monthly/{existing.token}",
+            }
+        })
+
+    token = _secrets.token_urlsafe(32)
+    monthly = MonthlyCheck(
+        cliente_id=cliente_id,
+        token=token,
+        tipologia=tipologia,
+        is_active=True,
+        assigned_by_id=current_user.id,
+    )
+    db.session.add(monthly)
+    db.session.commit()
+
+    base_url = _frontend_base_url()
+    return jsonify({
+        "success": True,
+        "already_existed": False,
+        "check": {
+            "id": monthly.id,
+            "token": monthly.token,
+            "tipologia": monthly.tipologia,
+            "url": f"{base_url}/check/monthly/{monthly.token}",
+        }
+    })
+
+
+@api_bp.route("/monthly/<int:check_id>/deactivate", methods=["POST"])
+@client_checks_bp.route("/api/client-checks/monthly/<int:check_id>/deactivate", methods=["POST"])
+@login_required
+def deactivate_monthly_check(check_id: int):
+    """Disattiva un check mensile."""
+    monthly = db.session.get(MonthlyCheck, check_id)
+    if not monthly:
+        return jsonify({"success": False, "error": "Check non trovato."}), 404
+
+    _abort_if_no_cliente_checks_access(monthly.cliente_id)
+
+    monthly.is_active = False
+    monthly.deactivated_at = datetime.utcnow()
+    monthly.deactivated_by_id = current_user.id
+    db.session.commit()
+
+    return jsonify({"success": True})
+
+
+@api_bp.route("/public/monthly/<token>", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/public/monthly/<token>", methods=["GET"])
+@csrf.exempt
+def monthly_check_public_info(token: str):
+    """Info pubblica del check mensile (dati cliente + domande tipologia-specifiche)."""
+    from .check_definitions import MONTHLY_QUESTIONS
+
+    monthly = MonthlyCheck.query.filter_by(token=token).first_or_404()
+    if not monthly.is_active:
+        return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
+
+    cliente = monthly.cliente
+    return jsonify({
+        "success": True,
+        "check": {
+            "id": monthly.id,
+            "token": monthly.token,
+            "tipologia": monthly.tipologia,
+        },
+        "cliente": {
+            "nome_cognome": cliente.nome_cognome,
+        },
+        "questions": MONTHLY_QUESTIONS.get(monthly.tipologia, []),
+    })
+
+
+@api_bp.route("/public/monthly/<token>", methods=["POST"])
+@client_checks_bp.route("/api/client-checks/public/monthly/<token>", methods=["POST"])
+@csrf.exempt
+def monthly_check_public_submit(token: str):
+    """Riceve la compilazione del check mensile."""
+    from .check_definitions import MONTHLY_QUESTIONS
+
+    monthly = MonthlyCheck.query.filter_by(token=token).first_or_404()
+    if not monthly.is_active:
+        return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
+
+    data = request.get_json(silent=True) or {}
+
+    questions = MONTHLY_QUESTIONS.get(monthly.tipologia, [])
+    required_keys = {q["key"] for q in questions if q.get("required", True) and q["type"] != "text"}
+
+    missing = required_keys - set(data.keys())
+    if missing:
+        return jsonify({"success": False, "error": f"Campi mancanti: {', '.join(sorted(missing))}"}), 400
+
+    # Normalizza valori scala
+    for q in questions:
+        val = data.get(q["key"])
+        if val is not None and q["type"] == "scale":
+            try:
+                data[q["key"]] = int(val)
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "error": f"Valore non valido per {q['key']}"}), 400
+
+    response = MonthlyCheckResponse(
+        monthly_check_id=monthly.id,
+        responses_data=data,
+        ip_address=get_client_ip(request),
+        user_agent=get_user_agent(request),
+    )
+    db.session.add(response)
+    db.session.commit()
+
+    try:
+        NotificationService.send_check_notification_to_professionals(
+            cliente=monthly.cliente,
+            check_type=f'monthly-{monthly.tipologia}',
+            check_id=response.id,
+        )
+    except Exception as e:
+        current_app.logger.error(f"[MONTHLY_CHECK] Errore notifiche: {e}")
+
+    return jsonify({"success": True, "message": "Check mensile salvato con successo."})
+
+
+@api_bp.route("/monthly/<int:cliente_id>", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/monthly/<int:cliente_id>", methods=["GET"])
+@login_required
+def monthly_checks_list(cliente_id: int):
+    """Lista dei check mensili attivi per un cliente."""
+    _abort_if_no_cliente_checks_access(cliente_id)
+
+    base_url = _frontend_base_url()
+    checks = MonthlyCheck.query.filter_by(cliente_id=cliente_id, is_active=True).all()
+
+    return jsonify({
+        "success": True,
+        "checks": [
+            {
+                "id": c.id,
+                "token": c.token,
+                "tipologia": c.tipologia,
+                "url": f"{base_url}/check/monthly/{c.token}",
+                "response_count": c.response_count,
+                "last_response_date": c.last_response_date.isoformat() if c.last_response_date else None,
+            }
+            for c in checks
+        ]
+    })
