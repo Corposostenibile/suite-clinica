@@ -31,6 +31,7 @@ Stato attuale / direzione confermata:
 | **C.1 — Backend: `/ghl/api/admin/assignments-dashboard` con filtri + aggregation** | **done (v2)** | Endpoint aggregato nella blueprint `ghl_integration`; `sales_ghl` su `SalesLead` (`source_system='ghl'`) e `hm_legacy` su `ClienteProfessionistaHistory` (`tipo_professionista='health_manager'`) | Per Storico HM la vista operativa è senza filtri (storico puro) |
 | **C.2 — Backend: seed script storico HM completo (`ClienteProfessionistaHistory`)** | **done (apply eseguito in locale)** | Implementato `backend/scripts/seed_hm_history_from_saleslead.py` con soli flag `--dry-run` / `--apply`; crea solo HM history e supporta fallback produzione | Applicato in locale: importati 3 record matchabili (molti clienti prod non presenti in locale) |
 | **C.3 — Frontend: pagina `/admin/assegnazioni-dashboard` (DataTable + filtri + metric card)** | **done** | Evoluta `AssegnazioniAI` con vista tabellare (DataTable-style), paginazione client-side, filtri (search + stato + toggle sales) e metric card collegate a `stats`; route canonica protetta `/admin/assegnazioni-dashboard` | Alias legacy rimosso |
+| **C.4 — Frontend: drill-down per sales user + timeline + export CSV** | **done** | In `AssegnazioniAI` aggiunti: vista drill-down “per Sales” con espansione lead per utente, modal timeline per singolo lead (Sales/HM), export CSV dei record filtrati visibili | Build frontend verificata (`cd corposostenibile-clinica && npm run build`) |
 | **C.5 — Frontend: RBAC `canAccessAssignmentsDashboard` + sidebar entry + E2E smoke** | **done** | Introdotto helper RBAC dedicato alla dashboard assegnazioni (route canonica `/admin/assegnazioni-dashboard`); sidebar aggiornata con voce `Assegnazioni`; quick link Welcome reso coerente | Script E2E smoke: `node scripts/test_assignments_dashboard_rbac_e2e.mjs` |
 | **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
 
@@ -194,6 +195,12 @@ cd backend && poetry run pytest corposostenibile/blueprints/sales_ghl_assignment
 ```
 
 ---
+
+## Test C.4 — Drill-down Sales + Timeline + Export CSV (smoke)
+
+```bash
+node scripts/test_assignments_dashboard_c4_smoke.mjs
+```
 
 ## Test C.5 — RBAC dashboard + sidebar (E2E smoke)
 

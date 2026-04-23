@@ -2021,6 +2021,7 @@ def api_admin_assignments_dashboard():
     - ai_processed=pending|processed|all
     - hm_state=unassigned|partial|complete|all
     - hm_id=<user_id>
+    - sales_user_id=<user_id>|unassigned
     - limit_ai, limit_hm
     """
     if not _can_access_ai_assignments(current_user):
@@ -2049,6 +2050,17 @@ def api_admin_assignments_dashboard():
     except (TypeError, ValueError):
         hm_id = None
 
+    sales_user_filter_raw = (request.args.get('sales_user_id') or '').strip()
+    sales_user_filter = None
+    if sales_user_filter_raw:
+        if sales_user_filter_raw.lower() == 'unassigned':
+            sales_user_filter = 'unassigned'
+        else:
+            try:
+                sales_user_filter = int(sales_user_filter_raw)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'message': 'Filtro sales_user_id non valido'}), 400
+
     try:
         limit_ai = max(1, min(int(request.args.get('limit_ai', 200)), 500))
     except (TypeError, ValueError):
@@ -2068,6 +2080,7 @@ def api_admin_assignments_dashboard():
             'ai_processed': ai_processed,
             'hm_state': hm_state,
             'hm_id': hm_id,
+            'sales_user_id': sales_user_filter,
             'limit_ai': limit_ai,
             'limit_hm': limit_hm,
         },
@@ -2089,9 +2102,14 @@ def api_admin_assignments_dashboard():
         elif ai_processed not in {'all', ''}:
             return jsonify({'success': False, 'message': 'Filtro ai_processed non valido'}), 400
 
+        if sales_user_filter == 'unassigned':
+            ghl_query = ghl_query.filter(SalesLead.sales_user_id.is_(None))
+        elif isinstance(sales_user_filter, int):
+            ghl_query = ghl_query.filter(SalesLead.sales_user_id == sales_user_filter)
+
         if q:
             like = f"%{q}%"
-            ghl_query = ghl_query.filter(
+            ghl_query = ghl_query.outerjoin(User, User.id == SalesLead.sales_user_id).filter(
                 or_(
                     SalesLead.first_name.ilike(like),
                     SalesLead.last_name.ilike(like),
@@ -2100,6 +2118,9 @@ def api_admin_assignments_dashboard():
                     SalesLead.unique_code.ilike(like),
                     SalesLead.custom_package_name.ilike(like),
                     SalesLead.client_story.ilike(like),
+                    User.first_name.ilike(like),
+                    User.last_name.ilike(like),
+                    User.email.ilike(like),
                 )
             )
 
