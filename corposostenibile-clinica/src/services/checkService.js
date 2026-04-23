@@ -202,6 +202,11 @@ const checkService = {
     return response.data;
   },
 
+  async getWeeklyLightResponses(clienteId) {
+    const response = await api.get(`${API_BASE}/weekly-light/${clienteId}/responses`);
+    return response.data;
+  },
+
   // ==================== MONTHLY CHECK ====================
 
   /**
@@ -222,6 +227,11 @@ const checkService = {
    */
   async getMonthlyChecks(clienteId) {
     const response = await api.get(`${API_BASE}/monthly/${clienteId}`);
+    return response.data;
+  },
+
+  async getMonthlyResponses(clienteId) {
+    const response = await api.get(`${API_BASE}/monthly/${clienteId}/responses`);
     return response.data;
   },
 

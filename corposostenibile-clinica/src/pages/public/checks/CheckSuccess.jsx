@@ -13,6 +13,16 @@ const CHECK_CONFIG = {
     message: 'Il tuo check settimanale è stato inviato con successo!',
     theme: 'check-theme-weekly',
   },
+  'weekly-light': {
+    title: 'Check Settimanale',
+    message: 'Il tuo check settimanale è stato inviato con successo!',
+    theme: 'check-theme-weekly',
+  },
+  monthly: {
+    title: 'Check Mensile',
+    message: 'Il tuo check mensile è stato inviato con successo!',
+    theme: 'check-theme-weekly',
+  },
   dca: {
     title: 'Check Benessere',
     message: 'Il tuo check benessere è stato inviato con successo!',

@@ -112,7 +112,19 @@ const publicCheckService = {
     return response.data;
   },
 
-  async submitMonthlyCheck(token, data) {
+  async submitMonthlyCheck(token, data, photos = {}) {
+    const hasPhotos = Object.values(photos).some(Boolean);
+    if (hasPhotos) {
+      const formData = new FormData();
+      formData.append('responses', JSON.stringify(data));
+      if (photos.photo_front) formData.append('photo_front', photos.photo_front);
+      if (photos.photo_side) formData.append('photo_side', photos.photo_side);
+      if (photos.photo_back) formData.append('photo_back', photos.photo_back);
+      const response = await api.post(`/public/monthly/${token}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    }
     const response = await api.post(`/public/monthly/${token}`, data);
     return response.data;
   },

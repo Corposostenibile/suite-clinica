@@ -5246,6 +5246,28 @@ def weekly_light_get_link(cliente_id: int):
     })
 
 
+@api_bp.route("/weekly-light/<int:cliente_id>/responses", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/weekly-light/<int:cliente_id>/responses", methods=["GET"])
+@login_required
+def weekly_light_get_responses(cliente_id: int):
+    """Restituisce le compilazioni del check settimanale light per il cliente."""
+    _abort_if_no_cliente_checks_access(cliente_id)
+
+    light = WeeklyCheckLight.query.filter_by(cliente_id=cliente_id).first()
+    if not light:
+        return jsonify({"success": True, "responses": []})
+
+    responses = []
+    for r in light.responses.all():
+        responses.append({
+            "id": r.id,
+            "type": "weekly-light",
+            "submit_date": r.submit_date.strftime('%d/%m/%Y %H:%M') if r.submit_date else None,
+            "responses_data": r.responses_data or {},
+        })
+    return jsonify({"success": True, "responses": responses})
+
+
 @api_bp.route("/public/weekly-light/<token>", methods=["GET"])
 @client_checks_bp.route("/api/client-checks/public/weekly-light/<token>", methods=["GET"])
 @csrf.exempt
@@ -5412,6 +5434,39 @@ def monthly_check_public_info(token: str):
         return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
 
     cliente = monthly.cliente
+
+    # Per il DCA mensile includiamo anche i professionisti assegnati (come nel check DCA settimanale)
+    professionisti = []
+    if monthly.tipologia == 'dca':
+        seen_keys = set()
+
+        def _add_prof(user, ruolo, rating_field, feedback_field):
+            if not user:
+                return
+            key = f"{ruolo}:{user.id}"
+            if key in seen_keys:
+                return
+            seen_keys.add(key)
+            professionisti.append({
+                "id": user.id,
+                "nome": user.full_name or user.email,
+                "ruolo": ruolo,
+                "rating_field": rating_field,
+                "feedback_field": feedback_field,
+            })
+
+        _add_prof(cliente.nutrizionista_user, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+        for u in (cliente.nutrizionisti_multipli or []):
+            _add_prof(u, "Nutrizionista", "nutritionist_rating", "nutritionist_feedback")
+
+        _add_prof(cliente.psicologa_user, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+        for u in (cliente.psicologi_multipli or []):
+            _add_prof(u, "Psicologo/a", "psychologist_rating", "psychologist_feedback")
+
+        _add_prof(cliente.coach_user, "Coach", "coach_rating", "coach_feedback")
+        for u in (cliente.coaches_multipli or []):
+            _add_prof(u, "Coach", "coach_rating", "coach_feedback")
+
     return jsonify({
         "success": True,
         "check": {
@@ -5424,6 +5479,7 @@ def monthly_check_public_info(token: str):
         },
         "questions": MONTHLY_QUESTIONS.get(monthly.tipologia, []),
         "definition_version": MONTHLY_DEFINITION_VERSION,
+        "professionisti": professionisti,
     })
 
 
@@ -5431,20 +5487,53 @@ def monthly_check_public_info(token: str):
 @client_checks_bp.route("/api/client-checks/public/monthly/<token>", methods=["POST"])
 @csrf.exempt
 def monthly_check_public_submit(token: str):
-    """Riceve la compilazione del check mensile."""
+    """Riceve la compilazione del check mensile (JSON o multipart con foto)."""
+    import json as _json
+    import os
+    import secrets
+    from werkzeug.utils import secure_filename
     from .check_definitions import MONTHLY_DEFINITION_VERSION, MONTHLY_QUESTIONS
 
     monthly = MonthlyCheck.query.filter_by(token=token).first_or_404()
     if not monthly.is_active:
         return jsonify({"success": False, "error": "Questo link non è più attivo."}), 410
 
-    data = request.get_json(silent=True) or {}
+    # Supporta sia JSON puro che multipart/form-data (con foto)
+    is_multipart = request.content_type and 'multipart/form-data' in request.content_type
+    if is_multipart:
+        raw = request.form.get('responses', '{}')
+        try:
+            data = _json.loads(raw)
+        except Exception:
+            return jsonify({"success": False, "error": "Formato JSON non valido nel campo responses."}), 400
+    else:
+        data = request.get_json(silent=True) or {}
+
     questions = MONTHLY_QUESTIONS.get(monthly.tipologia, [])
     normalized_data, error = validate_json_check_payload(payload=data, questions=questions)
     if error:
         return jsonify({"success": False, "error": error}), 400
 
     normalized_data["__definition_version"] = MONTHLY_DEFINITION_VERSION
+
+    # Per il DCA mensile preserviamo i campi extra (valutazioni professionisti + referral)
+    if monthly.tipologia == 'dca':
+        _DCA_EXTRA = {
+            'nutritionist_rating', 'nutritionist_feedback',
+            'psychologist_rating', 'psychologist_feedback',
+            'coach_rating', 'coach_feedback',
+            'progress_rating', 'referral',
+        }
+        for field in _DCA_EXTRA:
+            val = data.get(field)
+            if val is not None and str(val).strip():
+                try:
+                    if field.endswith('_rating'):
+                        normalized_data[field] = int(val)
+                    else:
+                        normalized_data[field] = str(val).strip()
+                except (TypeError, ValueError):
+                    pass
 
     response = MonthlyCheckResponse(
         monthly_check_id=monthly.id,
@@ -5453,6 +5542,33 @@ def monthly_check_public_submit(token: str):
         user_agent=get_user_agent(),
     )
     db.session.add(response)
+    db.session.flush()  # ottiene response.id prima del commit
+
+    # Gestione foto (solo tipologia regolare, opzionali)
+    if is_multipart and monthly.tipologia == 'regolare':
+        photos_folder = os.path.join(
+            current_app.config.get('UPLOAD_FOLDER', 'uploads'),
+            'monthly_checks',
+            str(monthly.cliente_id),
+        )
+        os.makedirs(photos_folder, exist_ok=True)
+        allowed_ext = {'.jpg', '.jpeg', '.png', '.webp', '.heic'}
+
+        for field, attr in [('photo_front', 'photo_front'),
+                             ('photo_side', 'photo_side'),
+                             ('photo_back', 'photo_back')]:
+            file = request.files.get(field)
+            if file and file.filename:
+                ext = os.path.splitext(file.filename)[1].lower()
+                if ext not in allowed_ext:
+                    continue
+                filename = secure_filename(
+                    f"mc{response.id}_{attr}_{secrets.token_hex(6)}{ext}"
+                )
+                filepath = os.path.join(photos_folder, filename)
+                file.save(filepath)
+                setattr(response, attr, filepath)
+
     db.session.commit()
 
     try:
@@ -5491,3 +5607,28 @@ def monthly_checks_list(cliente_id: int):
             for c in checks
         ]
     })
+
+
+@api_bp.route("/monthly/<int:cliente_id>/responses", methods=["GET"])
+@client_checks_bp.route("/api/client-checks/monthly/<int:cliente_id>/responses", methods=["GET"])
+@login_required
+def monthly_get_responses(cliente_id: int):
+    """Compilazioni ricevute di tutti i check mensili per un cliente."""
+    _abort_if_no_cliente_checks_access(cliente_id)
+
+    checks = MonthlyCheck.query.filter_by(cliente_id=cliente_id).all()
+    responses = []
+    for check in checks:
+        for r in check.responses.all():
+            responses.append({
+                "id": r.id,
+                "type": f"monthly-{check.tipologia}",
+                "tipologia": check.tipologia,
+                "submit_date": r.submit_date.strftime('%d/%m/%Y %H:%M') if r.submit_date else None,
+                "responses_data": r.responses_data or {},
+                "photo_front": _photo_path_to_url(r.photo_front) if r.photo_front else None,
+                "photo_side": _photo_path_to_url(r.photo_side) if r.photo_side else None,
+                "photo_back": _photo_path_to_url(r.photo_back) if r.photo_back else None,
+            })
+    responses.sort(key=lambda x: x["submit_date"] or "", reverse=True)
+    return jsonify({"success": True, "responses": responses})

@@ -852,7 +852,9 @@ function ClientiDetail() {
   const [loadingChecks, setLoadingChecks] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(null); // 'weekly' | 'dca' | 'minor' | null
   const [weeklyLightCheck, setWeeklyLightCheck] = useState(null);
+  const [weeklyLightResponses, setWeeklyLightResponses] = useState([]);
   const [monthlyChecks, setMonthlyChecks] = useState([]);
+  const [monthlyResponses, setMonthlyResponses] = useState([]);
   const [generatingMonthly, setGeneratingMonthly] = useState(false);
   const [showCheckResponseModal, setShowCheckResponseModal] = useState(false);
   const [selectedCheckResponse, setSelectedCheckResponse] = useState(null);
@@ -1186,10 +1188,12 @@ function ClientiDetail() {
   const fetchCheckData = async () => {
     setLoadingChecks(true);
     try {
-      const [data, lightData, monthlyData] = await Promise.allSettled([
+      const [data, lightData, monthlyData, lightResponsesData, monthlyResponsesData] = await Promise.allSettled([
         checkService.getClienteChecks(id),
         checkService.getWeeklyLightCheck(id),
         checkService.getMonthlyChecks(id),
+        checkService.getWeeklyLightResponses(id),
+        checkService.getMonthlyResponses(id),
       ]);
 
       if (data.status === 'fulfilled' && data.value.success) {
@@ -1200,6 +1204,12 @@ function ClientiDetail() {
       }
       if (monthlyData.status === 'fulfilled' && monthlyData.value.success) {
         setMonthlyChecks(monthlyData.value.checks || []);
+      }
+      if (lightResponsesData.status === 'fulfilled' && lightResponsesData.value.success) {
+        setWeeklyLightResponses(lightResponsesData.value.responses || []);
+      }
+      if (monthlyResponsesData.status === 'fulfilled' && monthlyResponsesData.value.success) {
+        setMonthlyResponses(monthlyResponsesData.value.responses || []);
       }
     } catch (err) {
       console.error('Error fetching check data:', err);
@@ -1237,16 +1247,26 @@ function ClientiDetail() {
     alert('Link settimanale light copiato!');
   };
 
-  const handleGenerateMonthlyLink = async (tipologia) => {
-    if (!canGenerateCheckLinks) return;
+  const handleCopyMonthlyLink = async (tipologia) => {
+    if (!tipologia || !canGenerateCheckLinks) return;
+    const existing = monthlyChecks.find(mc => mc.tipologia === tipologia);
+    if (existing) {
+      await checkService.copyLinkToClipboard(existing.url);
+      alert('Link mensile copiato!');
+      return;
+    }
     setGeneratingMonthly(true);
     try {
       const result = await checkService.generateMonthlyCheckLink(id, tipologia);
       if (result.success) {
         await checkService.copyLinkToClipboard(result.check.url);
         alert('Link mensile generato e copiato!');
-        const monthlyData = await checkService.getMonthlyChecks(id);
+        const [monthlyData, monthlyResponsesData] = await Promise.all([
+          checkService.getMonthlyChecks(id),
+          checkService.getMonthlyResponses(id),
+        ]);
         if (monthlyData.success) setMonthlyChecks(monthlyData.checks || []);
+        if (monthlyResponsesData.success) setMonthlyResponses(monthlyResponsesData.responses || []);
       }
     } catch (err) {
       console.error('Error generating monthly check:', err);
@@ -1274,6 +1294,18 @@ function ClientiDetail() {
     } finally {
       setLoadingCheckDetail(false);
     }
+  };
+
+  const handleViewWeeklyLightResponse = (response) => {
+    setSelectedCheckResponse(response);
+    setShowCheckResponseModal(true);
+    setLoadingCheckDetail(false);
+  };
+
+  const handleViewMonthlyResponse = (response) => {
+    setSelectedCheckResponse(response);
+    setShowCheckResponseModal(true);
+    setLoadingCheckDetail(false);
   };
 
   const handleConfirmReadCheck = async (responseType, responseId) => {
@@ -7855,14 +7887,7 @@ function ClientiDetail() {
                               <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
                             </div>
                           ) : weeklyLightCheck ? (
-                            <div className="cd-check-actions">
-                              <input
-                                type="text"
-                                className="cd-input"
-                                readOnly
-                                value={weeklyLightCheck.url || ''}
-                                style={{ flex: 1, fontSize: '0.78rem', background: '#f8fafc' }}
-                              />
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                               <button
                                 className="cd-btn-save"
                                 style={{ background: '#6366f1', whiteSpace: 'nowrap' }}
@@ -7885,11 +7910,114 @@ function ClientiDetail() {
                               <span>Link non disponibile. Il cliente potrebbe essere stato creato prima dell&apos;attivazione del nuovo sistema.</span>
                             </div>
                           )}
-                          {weeklyLightCheck && (
-                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>
-                              {weeklyLightCheck.response_count ?? 0} compilazioni ricevute
-                              {weeklyLightCheck.last_response_date && ` · ultima: ${weeklyLightCheck.last_response_date}`}
+                        </div>
+                      </div>
+
+                      {/* Giorno del Check */}
+                      {canSaveGlobalClientCard && (
+                        <div className="cd-inner-card" style={{ marginBottom: '20px' }}>
+                          <div className="cd-inner-card-body">
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle blue">
+                                <i className="ri-calendar-check-line"></i>
+                              </div>
+                              <span className="cd-inner-card-title">Giorno del Check</span>
+                            </div>
+                            <select
+                              className="cd-select"
+                              value={
+                                { lunedi: 'lun', martedi: 'mar', mercoledi: 'mer', giovedi: 'gio', venerdi: 'ven', sabato: 'sab', domenica: 'dom' }[formData.check_day] || formData.check_day || ''
+                              }
+                              onChange={(e) => handleInputChange('check_day', e.target.value)}
+                            >
+                              <option value="">-- Seleziona giorno --</option>
+                              <option value="lun">Lunedì</option>
+                              <option value="mar">Martedì</option>
+                              <option value="mer">Mercoledì</option>
+                              <option value="gio">Giovedì</option>
+                              <option value="ven">Venerdì</option>
+                              <option value="sab">Sabato</option>
+                              <option value="dom">Domenica</option>
+                            </select>
+                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px', marginBottom: 0 }}>
+                              Salva con il tasto &quot;Salva Modifiche&quot; in cima alla pagina.
                             </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Compilazioni ricevute */}
+                      <div className="cd-section-title" style={{ marginTop: '4px' }}>
+                        <i className="ri-list-check-2"></i>
+                        Compilazioni ricevute
+                      </div>
+                      <div className="cd-inner-card">
+                        <div className="cd-inner-card-body">
+                          {loadingChecks ? (
+                            <div className="cd-loading">
+                              <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                            </div>
+                          ) : weeklyLightResponses.length === 0 ? (
+                            <div className="cd-empty">
+                              <i className="ri-inbox-line cd-empty-icon"></i>
+                              <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
+                            </div>
+                          ) : (
+                            <div className="cd-table-wrap">
+                              <table className="cd-table">
+                                <thead>
+                                  <tr>
+                                    <th>Data</th>
+                                    <th style={{ textAlign: 'center' }}>Percorso</th>
+                                    <th style={{ textAlign: 'center' }}>Psico</th>
+                                    <th style={{ textAlign: 'center' }}>Alimentare</th>
+                                    <th style={{ textAlign: 'center' }}>Movimento</th>
+                                    <th style={{ textAlign: 'center' }}>Energia</th>
+                                    <th style={{ textAlign: 'center' }}>Azioni</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {weeklyLightResponses.map((r) => {
+                                    const d = r.responses_data || {};
+                                    const scores = [
+                                      { key: 'q1_sostenibilita', label: 'Percorso' },
+                                      { key: 'q2_benessere_psicologico', label: 'Psico' },
+                                      { key: 'q2_benessere_alimentare', label: 'Alimentare' },
+                                      { key: 'q2_benessere_movimento', label: 'Movimento' },
+                                      { key: 'q5_energia', label: 'Energia' },
+                                    ];
+                                    return (
+                                      <tr key={r.id}>
+                                        <td>
+                                          <span style={{ fontWeight: 500 }}>{r.submit_date}</span>
+                                        </td>
+                                        {scores.map((s) => (
+                                          <td key={s.key} style={{ textAlign: 'center' }}>
+                                            {d[s.key] != null ? (
+                                              <span className="cd-badge" style={checkService.getRatingBadgeStyle(d[s.key])}>
+                                                {d[s.key]}
+                                              </span>
+                                            ) : (
+                                              <span style={{ color: '#cbd5e1' }}>—</span>
+                                            )}
+                                          </td>
+                                        ))}
+                                        <td style={{ textAlign: 'center' }}>
+                                          <button
+                                            className="cd-btn-back"
+                                            style={{ fontSize: '0.75rem' }}
+                                            onClick={() => handleViewWeeklyLightResponse(r)}
+                                            title="Vedi dettaglio"
+                                          >
+                                            <i className="ri-eye-line"></i>
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -7897,183 +8025,204 @@ function ClientiDetail() {
                   )}
 
                   {/* ── Monthly Sub-tab ── */}
-                  {activePeriodiciTab === 'monthly' && (
-                    <div>
-                      <div className="cd-section-title">
-                        <i className="ri-calendar-2-line"></i>
-                        Check Mensile
-                      </div>
-                      {canGenerateCheckLinks && (
+                  {activePeriodiciTab === 'monthly' && (() => {
+                    const MONTHLY_SCORES = {
+                      regolare: [
+                        { key: 'energy_rating', label: 'Energia', max: 10 },
+                        { key: 'mood_rating', label: 'Umore', max: 10 },
+                        { key: 'motivation_rating', label: 'Motivazione', max: 10 },
+                        { key: 'progress_rating', label: 'Progresso', max: 10 },
+                      ],
+                      dca: [
+                        { key: 'mood_balance', label: 'Equilibrio', max: 5 },
+                        { key: 'food_serenity', label: 'Serenità cibo', max: 5 },
+                        { key: 'body_comfort', label: 'Corpo', max: 5 },
+                      ],
+                      minori: [
+                        { key: 'energia', label: 'Energia', max: 5 },
+                        { key: 'umore', label: 'Umore', max: 5 },
+                        { key: 'rapporto_cibo', label: 'Cibo', max: 5 },
+                      ],
+                    };
+                    const TIPOLOGIA_OPTS = [
+                      { key: 'regolare', label: 'Regolare', color: '#22c55e', icon: 'ri-user-line' },
+                      { key: 'dca', label: 'DCA', color: '#ec4899', icon: 'ri-heart-line' },
+                      { key: 'minori', label: 'Minori', color: '#6366f1', icon: 'ri-user-heart-line' },
+                    ];
+                    const selTipologia = formData.tipologia_check_assegnato;
+                    const activeMonthlyCheck = monthlyChecks.find(mc => mc.tipologia === selTipologia);
+                    const filteredResponses = monthlyResponses.filter(r => r.tipologia === selTipologia);
+                    const scores = MONTHLY_SCORES[selTipologia] || [];
+                    const selOpt = TIPOLOGIA_OPTS.find(t => t.key === selTipologia);
+
+                    return (
+                      <div>
+                        {/* Tipologia selector */}
                         <div className="cd-inner-card" style={{ marginBottom: '16px' }}>
                           <div className="cd-inner-card-body">
-                            <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '12px' }}>
-                              Genera il link del check mensile in base alla tipologia del paziente.
-                              Se esiste già un link attivo, verrà restituito quello esistente.
-                            </p>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              {[
-                                { key: 'regolare', label: 'Regolare', color: '#22c55e', icon: 'ri-user-line' },
-                                { key: 'dca', label: 'DCA', color: '#ec4899', icon: 'ri-heart-line' },
-                                { key: 'minori', label: 'Minori', color: '#6366f1', icon: 'ri-user-heart-line' },
-                              ].map((t) => (
+                            <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
+                              <div className="cd-icon-circle purple">
+                                <i className="ri-focus-3-line"></i>
+                              </div>
+                              <span className="cd-inner-card-title">Tipologia Check Mensile</span>
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                              {TIPOLOGIA_OPTS.map((option) => (
+                                <label
+                                  key={option.key}
+                                  style={{
+                                    border: selTipologia === option.key ? `1px solid ${option.color}` : '1px solid #e2e8f0',
+                                    borderRadius: '10px',
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    cursor: 'pointer',
+                                    background: selTipologia === option.key ? `${option.color}10` : '#fff',
+                                  }}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="tipologia_mensile"
+                                    value={option.key}
+                                    checked={selTipologia === option.key}
+                                    onChange={(e) => handleInputChange('tipologia_check_assegnato', e.target.value)}
+                                  />
+                                  <i className={option.icon} style={{ color: option.color, fontSize: '1rem' }}></i>
+                                  <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{option.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {canSaveGlobalClientCard && (
+                              <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '10px', marginBottom: 0 }}>
+                                Salva con il tasto &quot;Salva Modifiche&quot; in cima alla pagina.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Link card */}
+                        {canGenerateCheckLinks && selTipologia && (
+                          <div className="cd-inner-card" style={{ marginBottom: '20px' }}>
+                            <div className="cd-inner-card-body">
+                              <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '12px' }}>
+                                Link check mensile
+                                {selOpt && <strong style={{ color: selOpt.color }}> {selOpt.label}</strong>}.
+                                {activeMonthlyCheck
+                                  ? ' Il link è attivo.'
+                                  : ' Il link verrà generato al primo utilizzo del tasto.'}
+                              </p>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 <button
-                                  key={t.key}
                                   className="cd-btn-save"
-                                  style={{ background: t.color, fontSize: '0.78rem' }}
-                                  disabled={generatingMonthly}
-                                  onClick={() => handleGenerateMonthlyLink(t.key)}
+                                  style={{ background: selOpt?.color || '#3b82f6', whiteSpace: 'nowrap' }}
+                                  disabled={generatingMonthly || !selTipologia}
+                                  onClick={() => handleCopyMonthlyLink(selTipologia)}
                                 >
                                   {generatingMonthly ? (
                                     <span className="spinner-border spinner-border-sm"></span>
                                   ) : (
-                                    <i className={t.icon}></i>
+                                    <i className="ri-file-copy-line"></i>
                                   )}
-                                  Genera — {t.label}
+                                  Copia link
                                 </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {loadingChecks ? (
-                        <div className="cd-loading">
-                          <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        </div>
-                      ) : monthlyChecks.length === 0 ? (
-                        <div className="cd-empty">
-                          <i className="ri-inbox-line cd-empty-icon"></i>
-                          <p className="cd-empty-text">Nessun check mensile generato</p>
-                        </div>
-                      ) : (
-                        monthlyChecks.map((mc) => (
-                          <div key={mc.id} className="cd-inner-card" style={{ marginBottom: '10px' }}>
-                            <div className="cd-inner-card-body">
-                              <div className="cd-check-actions" style={{ alignItems: 'center' }}>
-                                <div style={{ flex: 1 }}>
-                                  <span style={{ fontWeight: 600, fontSize: '0.82rem', textTransform: 'capitalize' }}>
-                                    {mc.tipologia}
-                                  </span>
-                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: '8px' }}>
-                                    {mc.response_count ?? 0} compilazioni
-                                    {mc.last_response_date && ` · ultima: ${mc.last_response_date}`}
-                                  </span>
-                                </div>
-                                <button
-                                  className="cd-btn-save"
-                                  style={{ background: '#3b82f6', fontSize: '0.75rem' }}
-                                  onClick={async () => {
-                                    await checkService.copyLinkToClipboard(mc.url);
-                                    alert('Link copiato!');
-                                  }}
-                                >
-                                  <i className="ri-file-copy-line"></i>
-                                  Copia
-                                </button>
-                                <button
-                                  className="cd-btn-back"
-                                  onClick={() => handleOpenCheckForm(mc.url)}
-                                  title="Apri form"
-                                >
-                                  <i className="ri-external-link-line"></i>
-                                </button>
+                                {activeMonthlyCheck && (
+                                  <button
+                                    className="cd-btn-back"
+                                    onClick={() => handleOpenCheckForm(activeMonthlyCheck.url)}
+                                    title="Apri form"
+                                  >
+                                    <i className="ri-external-link-line"></i>
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                        )}
+
+                        {/* Compilazioni ricevute */}
+                        <div className="cd-section-title">
+                          <i className="ri-list-check-2"></i>
+                          Compilazioni ricevute
+                          {selOpt && <span style={{ fontSize: '0.78rem', fontWeight: 400, color: selOpt.color, marginLeft: '6px' }}>— {selOpt.label}</span>}
+                        </div>
+                        <div className="cd-inner-card">
+                          <div className="cd-inner-card-body">
+                            {loadingChecks ? (
+                              <div className="cd-loading">
+                                <div className="spinner-border spinner-border-sm text-primary" role="status"></div>
+                              </div>
+                            ) : !selTipologia ? (
+                              <div className="cd-empty">
+                                <i className="ri-focus-3-line cd-empty-icon"></i>
+                                <p className="cd-empty-text">Seleziona una tipologia per visualizzare le compilazioni</p>
+                              </div>
+                            ) : filteredResponses.length === 0 ? (
+                              <div className="cd-empty">
+                                <i className="ri-inbox-line cd-empty-icon"></i>
+                                <p className="cd-empty-text">Nessuna compilazione ricevuta</p>
+                              </div>
+                            ) : (
+                              <div className="cd-table-wrap">
+                                <table className="cd-table">
+                                  <thead>
+                                    <tr>
+                                      <th>Data</th>
+                                      {scores.map(s => (
+                                        <th key={s.key} style={{ textAlign: 'center' }}>{s.label}</th>
+                                      ))}
+                                      <th style={{ textAlign: 'center' }}>Azioni</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {filteredResponses.map((r) => {
+                                      const d = r.responses_data || {};
+                                      return (
+                                        <tr key={r.id}>
+                                          <td>
+                                            <span style={{ fontWeight: 500 }}>{r.submit_date}</span>
+                                          </td>
+                                          {scores.map((s) => {
+                                            const val = d[s.key];
+                                            const normalized = val != null ? (s.max === 5 ? val * 2 : val) : null;
+                                            return (
+                                              <td key={s.key} style={{ textAlign: 'center' }}>
+                                                {val != null ? (
+                                                  <span className="cd-badge" style={checkService.getRatingBadgeStyle(normalized)}>
+                                                    {val}/{s.max}
+                                                  </span>
+                                                ) : (
+                                                  <span style={{ color: '#cbd5e1' }}>—</span>
+                                                )}
+                                              </td>
+                                            );
+                                          })}
+                                          <td style={{ textAlign: 'center' }}>
+                                            <button
+                                              className="cd-btn-back"
+                                              style={{ fontSize: '0.75rem' }}
+                                              onClick={() => handleViewMonthlyResponse(r)}
+                                              title="Vedi dettaglio"
+                                            >
+                                              <i className="ri-eye-line"></i>
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Configurazione & Storico Sub-tab */}
                   {activePeriodiciTab === 'configurazione' && (
                     <div>
-                      {/* Setup card */}
-                      <div className="cd-sections">
-                        <div>
-                          <div className="cd-section-title">
-                            <i className="ri-settings-3-line"></i>
-                            Configurazione Check
-                          </div>
-                          <div className="cd-inner-card">
-                            <div className="cd-inner-card-body">
-                              <div className="cd-inner-card-header-left" style={{ marginBottom: '12px' }}>
-                                <div className="cd-icon-circle blue">
-                                  <i className="ri-calendar-check-line"></i>
-                                </div>
-                                <span className="cd-inner-card-title">Giorno del Check</span>
-                              </div>
-                              <select
-                                className="cd-select"
-                                value={
-                                  { lunedi: 'lun', martedi: 'mar', mercoledi: 'mer', giovedi: 'gio', venerdi: 'ven', sabato: 'sab', domenica: 'dom' }[formData.check_day] || formData.check_day || ''
-                                }
-                                onChange={(e) => handleInputChange('check_day', e.target.value)}
-                              >
-                                <option value="">-- Seleziona giorno --</option>
-                                <option value="lun">Lunedì</option>
-                                <option value="mar">Martedì</option>
-                                <option value="mer">Mercoledì</option>
-                                <option value="gio">Giovedì</option>
-                                <option value="ven">Venerdì</option>
-                                <option value="sab">Sabato</option>
-                                <option value="dom">Domenica</option>
-                              </select>
-                              <div className="cd-inner-card-header-left" style={{ margin: '18px 0 12px' }}>
-                                <div className="cd-icon-circle purple">
-                                  <i className="ri-focus-3-line"></i>
-                                </div>
-                                <span className="cd-inner-card-title">Tipologia Check Assegnato</span>
-                              </div>
-                              <div style={{ display: 'grid', gap: '10px' }}>
-                                {[
-                                  {
-                                    key: TIPOLOGIA_CHECK.REGOLARE,
-                                    description: 'Check settimanale completo con feedback professionisti e monitoraggio generale.',
-                                  },
-                                  {
-                                    key: TIPOLOGIA_CHECK.MINORI,
-                                    description: 'Questionario dedicato al percorso adolescenti con scale e indicatori specifici.',
-                                  },
-                                  {
-                                    key: TIPOLOGIA_CHECK.DCA,
-                                    description: 'Check psicologico per monitorare il rapporto con cibo, emozioni e aderenza.',
-                                  },
-                                ].map((option) => (
-                                  <label
-                                    key={option.key}
-                                    style={{
-                                      border: formData.tipologia_check_assegnato === option.key ? '1px solid #6366f1' : '1px solid #e2e8f0',
-                                      borderRadius: '10px',
-                                      padding: '10px 12px',
-                                      display: 'flex',
-                                      alignItems: 'flex-start',
-                                      gap: '10px',
-                                      cursor: 'pointer',
-                                      background: formData.tipologia_check_assegnato === option.key ? '#f5f3ff' : '#fff',
-                                    }}
-                                  >
-                                    <input
-                                      type="radio"
-                                      name="tipologia_check_assegnato"
-                                      value={option.key}
-                                      checked={formData.tipologia_check_assegnato === option.key}
-                                      onChange={(e) => handleInputChange('tipologia_check_assegnato', e.target.value)}
-                                      style={{ marginTop: '2px' }}
-                                    />
-                                    <span>
-                                      <strong>{TIPOLOGIA_CHECK_LABELS[option.key]}</strong>
-                                      <span className="cd-empty-text" style={{ display: 'block', marginTop: '3px' }}>
-                                        {option.description}
-                                      </span>
-                                    </span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* Storico check precedenti */}
                       <div style={{ marginTop: '24px' }}>
                         <div className="cd-section-title" style={{ opacity: 0.65 }}>
@@ -10727,9 +10876,18 @@ function ClientiDetail() {
             {/* HEADER */}
             <div className="chk-modal-header">
               <div className="chk-modal-header-left">
-                <div className={`chk-modal-type-dot ${selectedCheckResponse.type || 'weekly'}`}></div>
+                <div className={`chk-modal-type-dot ${
+                  selectedCheckResponse.type === 'weekly-light' ? 'weekly'
+                  : selectedCheckResponse.type?.startsWith('monthly-') ? selectedCheckResponse.tipologia || 'weekly'
+                  : selectedCheckResponse.type || 'weekly'
+                }`}></div>
                 <h5 className="chk-modal-title">
-                  {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale' : selectedCheckResponse.type === 'dca' ? 'Check DCA' : 'Check Minori'}
+                  {selectedCheckResponse.type === 'weekly' ? 'Check Settimanale'
+                   : selectedCheckResponse.type === 'weekly-light' ? 'Check Settimanale'
+                   : selectedCheckResponse.type === 'dca' ? 'Check DCA'
+                   : selectedCheckResponse.type === 'minor' ? 'Check Minori'
+                   : selectedCheckResponse.type?.startsWith('monthly-') ? `Check Mensile — ${selectedCheckResponse.tipologia?.charAt(0).toUpperCase() + selectedCheckResponse.tipologia?.slice(1)}`
+                   : 'Check'}
                 </h5>
               </div>
               <button className="chk-modal-close" onClick={() => setShowCheckResponseModal(false)}>
@@ -10761,13 +10919,141 @@ function ClientiDetail() {
                       )}
                       <div className="chk-modal-field">
                         <span className="chk-modal-label">Tipo</span>
-                        <span className={`chk-modal-type-badge ${selectedCheckResponse.type || 'weekly'}`}>
-                          <i className={selectedCheckResponse.type === 'weekly' ? 'ri-calendar-check-line' : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line' : 'ri-user-heart-line'}></i>
-                          {selectedCheckResponse.type === 'weekly' ? 'Settimanale' : selectedCheckResponse.type === 'dca' ? 'DCA' : 'Minori'}
+                        <span className={`chk-modal-type-badge ${
+                          selectedCheckResponse.type === 'weekly-light' ? 'weekly'
+                          : selectedCheckResponse.type?.startsWith('monthly-') ? selectedCheckResponse.tipologia || 'weekly'
+                          : selectedCheckResponse.type || 'weekly'
+                        }`}>
+                          <i className={
+                            selectedCheckResponse.type === 'weekly' || selectedCheckResponse.type === 'weekly-light' ? 'ri-flashlight-line'
+                            : selectedCheckResponse.type?.startsWith('monthly-') ? 'ri-calendar-2-line'
+                            : selectedCheckResponse.type === 'dca' ? 'ri-heart-pulse-line'
+                            : 'ri-user-heart-line'
+                          }></i>
+                          {selectedCheckResponse.type === 'weekly' ? 'Settimanale'
+                           : selectedCheckResponse.type === 'weekly-light' ? 'Settimanale'
+                           : selectedCheckResponse.type === 'dca' ? 'DCA'
+                           : selectedCheckResponse.type === 'minor' ? 'Minori'
+                           : selectedCheckResponse.type?.startsWith('monthly-') ? `Mensile ${selectedCheckResponse.tipologia?.charAt(0).toUpperCase() + selectedCheckResponse.tipologia?.slice(1)}`
+                           : selectedCheckResponse.type}
                         </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Scores — Weekly Light */}
+                  {selectedCheckResponse.type === 'weekly-light' && (
+                    <div className="chk-modal-section">
+                      <span className="chk-modal-label">Punteggi</span>
+                      <div style={{ display: 'grid', gap: '10px', marginTop: '10px' }}>
+                        {[
+                          { key: 'q1_sostenibilita', label: 'Sostenibilità percorso' },
+                          { key: 'q2_benessere_psicologico', label: 'Benessere psicologico' },
+                          { key: 'q2_benessere_alimentare', label: 'Benessere alimentare' },
+                          { key: 'q2_benessere_movimento', label: 'Benessere movimento' },
+                          { key: 'q3_segnali_corpo', label: 'Ascolto del corpo' },
+                          { key: 'q4_gestione_quotidiana', label: 'Gestione quotidiana' },
+                          { key: 'q5_energia', label: 'Energia ed equilibrio' },
+                        ].map(({ key, label }) => {
+                          const val = selectedCheckResponse.responses_data?.[key];
+                          return (
+                            <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.82rem', color: '#475569' }}>{label}</span>
+                              {val != null ? (
+                                <span className="cd-badge" style={checkService.getRatingBadgeStyle(val)}>
+                                  {val} / 10
+                                </span>
+                              ) : (
+                                <span style={{ color: '#cbd5e1', fontSize: '0.82rem' }}>—</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scores & Answers — Monthly */}
+                  {selectedCheckResponse.type?.startsWith('monthly-') && (() => {
+                    const d = selectedCheckResponse.responses_data || {};
+                    const MONTHLY_DETAIL_FIELDS = {
+                      regolare: [
+                        { key: 'energy_rating', label: 'Energia', type: 'scale', max: 10 },
+                        { key: 'mood_rating', label: 'Umore', type: 'scale', max: 10 },
+                        { key: 'motivation_rating', label: 'Motivazione', type: 'scale', max: 10 },
+                        { key: 'sleep_rating', label: 'Qualità sonno', type: 'scale', max: 10 },
+                        { key: 'hunger_rating', label: 'Gestione fame', type: 'scale', max: 10 },
+                        { key: 'strength_rating', label: 'Forza/performance', type: 'scale', max: 10 },
+                        { key: 'digestion_rating', label: 'Digestione', type: 'scale', max: 10 },
+                        { key: 'progress_rating', label: 'Progresso complessivo', type: 'scale', max: 10 },
+                        { key: 'weight', label: 'Peso (kg)', type: 'number' },
+                        { key: 'what_worked', label: 'Cosa ha funzionato', type: 'text' },
+                        { key: 'what_didnt_work', label: 'Cosa non ha funzionato', type: 'text' },
+                        { key: 'what_learned', label: 'Cosa ho imparato', type: 'text' },
+                        { key: 'what_focus_next', label: 'Focus prossimo mese', type: 'text' },
+                        { key: 'extra_comments', label: 'Note extra', type: 'text' },
+                      ],
+                      dca: [
+                        { key: 'mood_balance', label: 'Equilibrio emotivo', type: 'scale', max: 5 },
+                        { key: 'food_serenity', label: 'Serenità rispetto al cibo', type: 'scale', max: 5 },
+                        { key: 'food_worry', label: 'Pensieri ossessivi cibo', type: 'scale', max: 5 },
+                        { key: 'emotional_eating', label: 'Emotional eating', type: 'scale', max: 5 },
+                        { key: 'body_comfort', label: 'Agio nel corpo', type: 'scale', max: 5 },
+                        { key: 'body_respect', label: 'Rispetto del corpo', type: 'scale', max: 5 },
+                        { key: 'exercise_wellness', label: 'Movimento positivo', type: 'scale', max: 5 },
+                        { key: 'exercise_guilt', label: 'Senso di colpa allenamento', type: 'scale', max: 5 },
+                      ],
+                      minori: [
+                        { key: 'energia', label: 'Energia', type: 'scale', max: 5 },
+                        { key: 'sonno', label: 'Sonno', type: 'scale', max: 5 },
+                        { key: 'umore', label: 'Umore', type: 'scale', max: 5 },
+                        { key: 'rapporto_cibo', label: 'Rapporto col cibo', type: 'scale', max: 5 },
+                        { key: 'segnali_corpo', label: 'Ascolto corpo', type: 'scale', max: 5 },
+                        { key: 'sentire_generale', label: 'Come ti senti', type: 'text' },
+                        { key: 'percorso_vissuto', label: 'Percorso vissuto', type: 'text' },
+                        { key: 'difficolta', label: 'Difficoltà', type: 'text' },
+                      ],
+                    };
+                    const fields = MONTHLY_DETAIL_FIELDS[selectedCheckResponse.tipologia] || [];
+                    const scaleFields = fields.filter(f => f.type === 'scale' && d[f.key] != null);
+                    const textFields = fields.filter(f => f.type !== 'scale' && d[f.key] != null);
+                    return (
+                      <>
+                        {scaleFields.length > 0 && (
+                          <div className="chk-modal-section">
+                            <span className="chk-modal-label">Punteggi</span>
+                            <div style={{ display: 'grid', gap: '10px', marginTop: '10px' }}>
+                              {scaleFields.map(({ key, label, max }) => {
+                                const val = d[key];
+                                const normalized = max === 5 ? val * 2 : val;
+                                return (
+                                  <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: '0.82rem', color: '#475569' }}>{label}</span>
+                                    <span className="cd-badge" style={checkService.getRatingBadgeStyle(normalized)}>
+                                      {val} / {max}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {textFields.length > 0 && (
+                          <div className="chk-modal-section">
+                            <span className="chk-modal-label">Risposte</span>
+                            <div style={{ display: 'grid', gap: '12px', marginTop: '10px' }}>
+                              {textFields.map(({ key, label }) => (
+                                <div key={key}>
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '2px' }}>{label}</span>
+                                  <span style={{ fontSize: '0.85rem', color: '#1e293b' }}>{d[key]}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
 
                   {/* Photos — Weekly */}
                   {selectedCheckResponse.type === 'weekly' && (

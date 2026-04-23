@@ -393,6 +393,14 @@
   font-size: 20px;
   flex-shrink: 0;
 }
+
+/* Smaller icon variant when inside a collapsible toggle */
+.check-section-toggle .check-section-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  border-radius: var(--check-radius-sm);
+}
 .check-section-title {
   font-size: 0.95rem;
   font-weight: 600;
@@ -1209,7 +1217,7 @@
   margin-bottom: 16px;
 }
 
-/* --- Radio Selector (Adolescent Check) --- */
+/* --- Radio Selector --- */
 .check-radio-grid {
   display: flex;
   flex-wrap: wrap;
@@ -1218,13 +1226,13 @@
 }
 .check-radio-btn {
   flex: 1;
-  min-width: 90px;
-  padding: 10px 12px;
+  min-width: 88px;
+  padding: 9px 10px;
   border-radius: var(--check-radius-sm);
   border: 2px solid var(--check-border);
   background: var(--check-card-bg);
   color: var(--check-text-secondary);
-  font-size: 12px;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1633,4 +1641,163 @@
   .wcl-section-title {
     font-size: 1.5rem;
   }
+}
+
+/* --- Collapsible Section (Monthly / shared) --- */
+.check-section-collapsible {
+  border: 1px solid var(--check-border-light);
+  border-radius: var(--check-radius-lg);
+  overflow: hidden;
+  margin-bottom: 12px;
+  background: var(--check-card-bg);
+}
+
+.check-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--check-section-bg);
+  border: none;
+  border-left: 4px solid var(--check-border);
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+  gap: 10px;
+}
+.check-section-toggle:hover {
+  background: #e8edf5;
+}
+.check-section-toggle.complete {
+  background: #f0fdf4;
+  border-left-color: #22c55e;
+}
+
+.check-section-toggle-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--check-text);
+  flex: 1;
+  text-align: left;
+}
+
+.check-section-toggle-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--check-text-muted);
+  font-size: 1rem;
+}
+
+/* Badge inside collapsible toggle */
+.check-section-collapsible .check-section-badge {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--check-border);
+  color: var(--check-text-muted);
+  padding: 2px 9px;
+  border-radius: 20px;
+}
+.check-section-collapsible .check-section-badge.done {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Collapsible section body: gray background like DCA sections */
+.check-section-collapsible .check-section-body {
+  background: var(--check-section-bg);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Question blocks inside collapsible sections: white on gray, no outer border */
+.check-section-collapsible .check-question-block {
+  border: none;
+  margin-bottom: 0;
+  border-radius: var(--check-radius-md);
+  box-shadow: var(--check-shadow-sm);
+}
+
+/* Legacy non-collapsible section-body */
+.check-section-body {
+  padding: 16px;
+}
+
+/* --- Select Options (Monthly) --- */
+.check-select-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.check-select-btn {
+  padding: 10px 18px;
+  border-radius: 20px;
+  border: 2px solid var(--check-border);
+  background: var(--check-card-bg);
+  color: var(--check-text-secondary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.check-select-btn:active {
+  transform: scale(0.95);
+}
+.check-select-btn.selected {
+  border-color: var(--check-primary);
+  background: var(--check-primary);
+  color: #fff;
+}
+
+/* --- Number Input (Monthly) --- */
+.check-number-input {
+  width: 100%;
+  max-width: 180px;
+  border: 2px solid var(--check-border);
+  border-radius: var(--check-radius-md);
+  padding: 12px 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--check-text);
+  background: var(--check-card-bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: inherit;
+  display: block;
+}
+.check-number-input:focus {
+  outline: none;
+  border-color: var(--check-primary);
+  box-shadow: var(--check-shadow-glow) rgba(37,179,106,0.15);
+}
+.check-number-input::placeholder {
+  color: var(--check-text-muted);
+  font-weight: 400;
+}
+
+/* Optional label */
+.check-optional {
+  font-size: 0.78rem;
+  color: var(--check-text-muted);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* Submit spinner */
+.check-btn-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
 }

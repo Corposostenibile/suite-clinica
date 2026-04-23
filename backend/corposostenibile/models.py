@@ -12007,6 +12007,9 @@ class MonthlyCheckResponse(TimestampMixin, db.Model):
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.Text)
     responses_data = db.Column(db.JSON, nullable=False, comment="Risposte check mensile in JSON")
+    photo_front = db.Column(db.String(500), comment="Foto frontale (solo tipologia regolare)")
+    photo_side = db.Column(db.String(500), comment="Foto laterale (solo tipologia regolare)")
+    photo_back = db.Column(db.String(500), comment="Foto posteriore (solo tipologia regolare)")
 
     # ─── Relationships ──────────────────────────────────────────────────────
     assignment = relationship("MonthlyCheck", back_populates="responses")
