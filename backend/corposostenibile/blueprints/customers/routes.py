@@ -1613,9 +1613,30 @@ def api_list() -> Any:
             })
         params = replace(params, origine_ids=origine_ids)
 
+    # Visuale Marketing: applica pre-filtro server-side su peso_perso e media
+    # (valori calcolati da check, non colonne). I filtri restringono la lista
+    # di cliente_id PRIMA della paginazione → risultati corretti su dataset
+    # completo, non solo pagina corrente.
+    if view == "marketing":
+        from .services import get_marketing_filtered_cliente_ids
+        def _fnum(name):
+            v = request.args.get(name)
+            try:
+                return float(v) if v not in (None, "",) else None
+            except (TypeError, ValueError):
+                return None
+        allowed_ids = get_marketing_filtered_cliente_ids(
+            media_min=_fnum("media_min"),
+            media_max=_fnum("media_max"),
+            peso_perso_min=_fnum("peso_perso_min"),
+            peso_perso_max=_fnum("peso_perso_max"),
+        )
+        if allowed_ids is not None:
+            params = replace(params, forced_cliente_ids=allowed_ids)
+
     # Apply trial user filter to query
     from corposostenibile.blueprints.customers.trial_integration import apply_trial_user_filter
-    
+
     pagination = customers_repo.list(
         filters=params,
         order_by=request.args.get("order_by"),

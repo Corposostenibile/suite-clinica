@@ -171,6 +171,10 @@ class CustomerFilterParams:
     professione: Optional[str] = None
     paese: Optional[str] = None
     origine_ids: List[int] = field(default_factory=list)  # Added for Influencer filtering
+    # Override forzato: se non None, restringe la query ai cliente_id in lista.
+    # Non letto da query args (None di default); usato da endpoint custom (es.
+    # visuale marketing con filtri peso/media calcolati).
+    forced_cliente_ids: Optional[List[int]] = None
     
     # Missing anagrafica
     missing_email: bool = False
@@ -678,6 +682,14 @@ def parse_filter_args(args) -> "CustomerFilterParams":  # noqa: D401
 # ────────────────────────────────────────────────────────────────────────────
 def apply_customer_filters(qry: Query, p: CustomerFilterParams) -> Query:
     """Applica tutti i filtri di *p* alla query clienti."""
+    # -------- override forzato cliente_ids (es. visuale marketing con filtri
+    # calcolati server-side: media soddisfazione, peso perso). None = no-op;
+    # [] = nessun match → short-circuit a query vuota.
+    if p.forced_cliente_ids is not None:
+        if not p.forced_cliente_ids:
+            return qry.filter(Cliente.cliente_id == -1)  # nessun match
+        qry = qry.filter(Cliente.cliente_id.in_(p.forced_cliente_ids))
+
     # -------- full-text --------
     if p.q:
         term = p.q.strip()

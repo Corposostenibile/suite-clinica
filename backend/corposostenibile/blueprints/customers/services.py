@@ -94,6 +94,7 @@ __all__ = [
     "unfreeze_cliente",
     # marketing metrics
     "get_marketing_metrics_for_clienti",
+    "get_marketing_filtered_cliente_ids",
     # call bonus management
     "create_call_bonus",
     "update_call_bonus_response",
@@ -2200,3 +2201,125 @@ def get_marketing_metrics_for_clienti(cliente_ids: Sequence[int]) -> Dict[int, D
             "media_soddisfazione": media_metrics.get(cid),
         }
     return result
+
+
+def get_marketing_filtered_cliente_ids(
+    *,
+    media_min: float | None = None,
+    media_max: float | None = None,
+    peso_perso_min: float | None = None,
+    peso_perso_max: float | None = None,
+) -> list[int] | None:
+    """
+    Ritorna la lista di `cliente_id` che rispettano i range di media_soddisfazione
+    e peso_perso_kg. Se nessun filtro è impostato ritorna None (non applicare
+    restrizione). I vincoli sono calcolati come in
+    `get_marketing_metrics_for_clienti` (stesse formule).
+    """
+    from corposostenibile.models import (
+        TypeFormResponse,
+        WeeklyCheck,
+        WeeklyCheckResponse,
+    )
+    from sqlalchemy import case
+    from collections import defaultdict
+
+    if all(v is None for v in (media_min, media_max, peso_perso_min, peso_perso_max)):
+        return None
+
+    eligible: set[int] | None = None
+
+    # ── Media soddisfazione: aggregazione GLOBALE per cliente ── #
+    if media_min is not None or media_max is not None:
+        avg_query = (
+            db.session.query(
+                WeeklyCheck.cliente_id.label("cid"),
+                func.avg(
+                    (
+                        func.coalesce(WeeklyCheckResponse.nutritionist_rating.cast(db.Float), 0)
+                        + func.coalesce(WeeklyCheckResponse.coach_rating.cast(db.Float), 0)
+                        + func.coalesce(WeeklyCheckResponse.psychologist_rating.cast(db.Float), 0)
+                        + func.coalesce(WeeklyCheckResponse.progress_rating.cast(db.Float), 0)
+                    )
+                    / func.nullif(
+                        (
+                            case((WeeklyCheckResponse.nutritionist_rating.isnot(None), 1), else_=0)
+                            + case((WeeklyCheckResponse.coach_rating.isnot(None), 1), else_=0)
+                            + case((WeeklyCheckResponse.psychologist_rating.isnot(None), 1), else_=0)
+                            + case((WeeklyCheckResponse.progress_rating.isnot(None), 1), else_=0)
+                        ),
+                        0,
+                    )
+                ).label("media"),
+            )
+            .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+            .filter(
+                or_(
+                    WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                    WeeklyCheckResponse.coach_rating.isnot(None),
+                    WeeklyCheckResponse.psychologist_rating.isnot(None),
+                    WeeklyCheckResponse.progress_rating.isnot(None),
+                )
+            )
+            .group_by(WeeklyCheck.cliente_id)
+        )
+        matching_media: set[int] = set()
+        for cid, media in avg_query.all():
+            if cid is None or media is None:
+                continue
+            m = float(media)
+            if media_min is not None and m < media_min:
+                continue
+            if media_max is not None and m > media_max:
+                continue
+            matching_media.add(int(cid))
+        eligible = matching_media
+
+    # ── Peso perso: calcolo per-cliente su tutti i weight disponibili ── #
+    if peso_perso_min is not None or peso_perso_max is not None:
+        # Pool di candidati: se abbiamo già filtrato per media, restringi a
+        # quelli; altrimenti raccogli tutti i clienti con almeno un weight.
+        pool_ids: set[int] | None = eligible
+        q_initial = db.session.query(
+            TypeFormResponse.cliente_id.label("cid"),
+            TypeFormResponse.weight.label("w"),
+            TypeFormResponse.submit_date.label("dt"),
+        ).filter(TypeFormResponse.weight.isnot(None))
+        q_weekly = (
+            db.session.query(
+                WeeklyCheck.cliente_id.label("cid"),
+                WeeklyCheckResponse.weight.label("w"),
+                WeeklyCheckResponse.submit_date.label("dt"),
+            )
+            .join(WeeklyCheck, WeeklyCheck.id == WeeklyCheckResponse.weekly_check_id)
+            .filter(WeeklyCheckResponse.weight.isnot(None))
+        )
+        if pool_ids is not None:
+            if not pool_ids:
+                # Media già filtrata a 0 candidati → nessun cliente possibile
+                return []
+            q_initial = q_initial.filter(TypeFormResponse.cliente_id.in_(pool_ids))
+            q_weekly = q_weekly.filter(WeeklyCheck.cliente_id.in_(pool_ids))
+
+        rows_by_cid: Dict[int, List[Tuple[datetime, float]]] = defaultdict(list)
+        for cid, w, dt in q_initial.all():
+            if cid is None or w is None:
+                continue
+            rows_by_cid[int(cid)].append((dt, float(w)))
+        for cid, w, dt in q_weekly.all():
+            if cid is None or w is None:
+                continue
+            rows_by_cid[int(cid)].append((dt, float(w)))
+
+        matching_peso: set[int] = set()
+        for cid, rows in rows_by_cid.items():
+            rows.sort(key=lambda r: r[0] or datetime.min)
+            peso_perso = round(rows[0][1] - rows[-1][1], 1)
+            if peso_perso_min is not None and peso_perso < peso_perso_min:
+                continue
+            if peso_perso_max is not None and peso_perso > peso_perso_max:
+                continue
+            matching_peso.add(cid)
+        eligible = matching_peso if eligible is None else (eligible & matching_peso)
+
+    return sorted(eligible) if eligible is not None else None

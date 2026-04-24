@@ -231,8 +231,12 @@ function ClientiListaMarketing() {
         page: pagination.page,
         per_page: pagination.perPage,
         q: debouncedSearch || undefined,
-        // Filtro origine applicato server-side (Cliente.origine LIKE case-insensitive)
+        // Filtri server-side (origine + media_soddisfazione + peso_perso_kg)
         origine: filters.origine || undefined,
+        media_min: filters.mediaMin !== '' ? filters.mediaMin : undefined,
+        media_max: filters.mediaMax !== '' ? filters.mediaMax : undefined,
+        peso_perso_min: filters.pesoPersoMin !== '' ? filters.pesoPersoMin : undefined,
+        peso_perso_max: filters.pesoPersoMax !== '' ? filters.pesoPersoMax : undefined,
       };
       const data = await clientiService.getClientiMarketing(params);
       setClienti(data.data || []);
@@ -247,7 +251,17 @@ function ClientiListaMarketing() {
     } finally {
       setLoading(false);
     }
-  }, [hasAccess, pagination.page, pagination.perPage, debouncedSearch, filters.origine]);
+  }, [
+    hasAccess,
+    pagination.page,
+    pagination.perPage,
+    debouncedSearch,
+    filters.origine,
+    filters.mediaMin,
+    filters.mediaMax,
+    filters.pesoPersoMin,
+    filters.pesoPersoMax,
+  ]);
 
   useEffect(() => {
     fetchClienti();
@@ -259,10 +273,10 @@ function ClientiListaMarketing() {
     setSearchParams(params, { replace: true });
   }, [debouncedSearch, setSearchParams]);
 
-  // Reset pagina quando cambia l'origine (filtro server-side)
+  // Reset pagina quando cambiano i filtri server-side
   useEffect(() => {
     setPagination((p) => (p.page === 1 ? p : { ...p, page: 1 }));
-  }, [filters.origine]);
+  }, [filters.origine, filters.mediaMin, filters.mediaMax, filters.pesoPersoMin, filters.pesoPersoMax]);
 
   useEffect(() => {
     updateScrollMetrics();
@@ -311,29 +325,9 @@ function ClientiListaMarketing() {
   }, [clienti]);
 
   const filteredRows = useMemo(() => {
-    const pmin = filters.pesoPersoMin === '' ? null : Number(filters.pesoPersoMin);
-    const pmax = filters.pesoPersoMax === '' ? null : Number(filters.pesoPersoMax);
-    const smin = filters.mediaMin === '' ? null : Number(filters.mediaMin);
-    const smax = filters.mediaMax === '' ? null : Number(filters.mediaMax);
-
+    // Filtri server-side applicati: q, origine, media_min/max, peso_perso_min/max
+    // Rimangono client-side solo i 10 bool marketing_* (sulla pagina corrente)
     return clienti.filter((c) => {
-      // NB: filters.origine è applicato server-side (vedi fetchClienti)
-
-      if (pmin !== null || pmax !== null) {
-        // Filtro attivo sul peso: escludi clienti senza dato
-        if (c.peso_perso_kg == null) return false;
-        const peso = Number(c.peso_perso_kg);
-        if (pmin !== null && peso < pmin) return false;
-        if (pmax !== null && peso > pmax) return false;
-      }
-
-      if (smin !== null || smax !== null) {
-        if (c.media_soddisfazione == null) return false;
-        const media = Number(c.media_soddisfazione);
-        if (smin !== null && media < smin) return false;
-        if (smax !== null && media > smax) return false;
-      }
-
       for (const col of BOOL_COLUMNS) {
         const want = filters[col.key];
         if (want === 'all') continue;
@@ -762,8 +756,8 @@ function MarketingFiltersModal({ open, onClose, filters, onApply, onReset, origi
 
           <div className="alert alert-info small mb-0" style={{ background: '#eff6ff', borderColor: '#bfdbfe', color: '#1e40af' }}>
             <i className="ri-information-line me-1"></i>
-            <strong>Nota:</strong> Origine e ricerca testuale sono applicate al backend (paginazione completa).
-            I flag marketing, peso perso e soddisfazione filtrano la pagina corrente.
+            <strong>Nota:</strong> Ricerca, origine, peso perso e soddisfazione sono applicate al backend
+            (paginazione completa). I flag marketing filtrano la pagina corrente.
           </div>
         </div>
 
