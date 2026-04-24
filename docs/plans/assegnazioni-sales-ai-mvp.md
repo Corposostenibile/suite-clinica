@@ -34,6 +34,7 @@ Stato attuale / direzione confermata:
 | **C.4 — Frontend: drill-down per sales user + timeline + export CSV** | **done** | In `AssegnazioniAI` aggiunti: vista drill-down “per Sales” con espansione lead per utente, modal timeline per singolo lead (Sales/HM), export CSV dei record filtrati visibili | Build frontend verificata (`cd corposostenibile-clinica && npm run build`) |
 | **C.5 — Frontend: RBAC `canAccessAssignmentsDashboard` + sidebar entry + E2E smoke** | **done** | Introdotto helper RBAC dedicato alla dashboard assegnazioni (route canonica `/admin/assegnazioni-dashboard`); sidebar aggiornata con voce `Assegnazioni`; quick link Welcome reso coerente | Script E2E smoke: `node scripts/test_assignments_dashboard_rbac_e2e.mjs` |
 | **C.6 — Migration: ai_analysis_snapshot JSONB + populate in confirm-assignment (old_suite + ghl)** | **done** | Snapshot AI salvato in conferma assegnazione old_suite + GHL | Già verificato runtime |
+| **C.7 — Frontend: drawer "Perché questo professionista" nel dashboard admin** | **done** | In `AssegnazioniAI` aggiunto drawer Offcanvas apribile da riga lead con motivazioni AI strutturate per ruolo (nutrizione/coach/psicologia) e fallback payload grezzo | Smoke: `node scripts/test_assignments_dashboard_c7_drawer_smoke.mjs` |
 
 ---
 

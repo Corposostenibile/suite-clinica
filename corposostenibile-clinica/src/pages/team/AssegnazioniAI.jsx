@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, Card, Form, InputGroup, Modal, Spinner, Table } from 'react-bootstrap';
+import { Alert, Badge, Button, Card, Form, InputGroup, Modal, Offcanvas, Spinner, Table } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import ghlService from '../../services/ghlService';
 import '../ghl-embed/GhlEmbedAssegnazioni.css';
@@ -104,6 +104,58 @@ function escapeCsvCell(value) {
   return raw;
 }
 
+function parseAnalysis(rawValue) {
+  if (!rawValue) return null;
+  if (typeof rawValue === 'object') return rawValue;
+  if (typeof rawValue !== 'string') return null;
+
+  try {
+    return JSON.parse(rawValue);
+  } catch {
+    return null;
+  }
+}
+
+function extractMatchReasons(rawEntry) {
+  if (!rawEntry || typeof rawEntry !== 'object') return [];
+  const candidate = rawEntry.match_reasons || rawEntry.reasons || rawEntry.why || rawEntry.motivazioni;
+  if (Array.isArray(candidate)) return candidate.filter(Boolean).map((v) => String(v));
+  if (typeof candidate === 'string' && candidate.trim()) return [candidate.trim()];
+  return [];
+}
+
+function buildWhySections(analysis) {
+  if (!analysis || typeof analysis !== 'object') return [];
+
+  const roleConfigs = [
+    { key: 'nutrition', label: 'Nutrizionista' },
+    { key: 'coach', label: 'Coach' },
+    { key: 'psychology', label: 'Psicologo' },
+  ];
+
+  return roleConfigs
+    .map((role) => {
+      const candidates = [];
+
+      if (Array.isArray(analysis[`${role.key}_matches`])) candidates.push(...analysis[`${role.key}_matches`]);
+      if (Array.isArray(analysis?.matches?.[role.key])) candidates.push(...analysis.matches[role.key]);
+      if (Array.isArray(analysis?.role_matches?.[role.key])) candidates.push(...analysis.role_matches[role.key]);
+
+      const items = candidates
+        .map((entry) => {
+          const name = entry?.name || entry?.full_name || entry?.professional_name || entry?.professionista || null;
+          const score = entry?.score ?? entry?.match_score ?? null;
+          const reasons = extractMatchReasons(entry);
+          if (!name && !reasons.length) return null;
+          return { name: name || 'Professionista suggerito', score, reasons };
+        })
+        .filter(Boolean);
+
+      return { ...role, items };
+    })
+    .filter((section) => section.items.length > 0);
+}
+
 function AssegnazioniAI() {
   const navigate = useNavigate();
 
@@ -112,6 +164,7 @@ function AssegnazioniAI() {
   const [viewMode, setViewMode] = useState('table');
   const [expandedSalesKey, setExpandedSalesKey] = useState(null);
   const [timelineItem, setTimelineItem] = useState(null);
+  const [whyDrawerItem, setWhyDrawerItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
@@ -308,6 +361,13 @@ function AssegnazioniAI() {
     if (!timelineItem) return [];
     return getLeadTimeline(timelineItem, activeSection);
   }, [activeSection, timelineItem]);
+
+  const whyAnalysis = useMemo(() => {
+    if (!whyDrawerItem) return null;
+    return parseAnalysis(whyDrawerItem.ai_analysis_snapshot || whyDrawerItem.ai_analysis);
+  }, [whyDrawerItem]);
+
+  const whySections = useMemo(() => buildWhySections(whyAnalysis), [whyAnalysis]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -660,6 +720,15 @@ function AssegnazioniAI() {
                                   <Button variant="outline-secondary" size="sm" onClick={() => setTimelineItem(item)}>
                                     Timeline
                                   </Button>
+                                  <Button
+                                    variant="outline-info"
+                                    size="sm"
+                                    onClick={() => setWhyDrawerItem(item)}
+                                    disabled={!item.ai_analysis && !item.ai_analysis_snapshot}
+                                    title={item.ai_analysis || item.ai_analysis_snapshot ? 'Apri motivazioni AI' : 'Nessuna analisi AI disponibile'}
+                                  >
+                                    Perché questo professionista
+                                  </Button>
                                 </div>
                               </td>
                             </tr>
@@ -736,6 +805,15 @@ function AssegnazioniAI() {
                           <Button variant="outline-secondary" size="sm" onClick={() => setTimelineItem(item)}>
                             Timeline
                           </Button>
+                          <Button
+                            variant="outline-info"
+                            size="sm"
+                            onClick={() => setWhyDrawerItem(item)}
+                            disabled={!item.ai_analysis && !item.ai_analysis_snapshot}
+                            title={item.ai_analysis || item.ai_analysis_snapshot ? 'Apri motivazioni AI' : 'Nessuna analisi AI disponibile'}
+                          >
+                            Perché questo professionista
+                          </Button>
                           {activeSection === 'sales_ghl' ? (
                             <Button variant="outline-secondary" size="sm" onClick={() => navigate(`/suitemind/${item.id}`, { state: { opportunity: item } })}>
                               Dettaglio
@@ -801,6 +879,67 @@ function AssegnazioniAI() {
             </Button>
           </Modal.Footer>
         </Modal>
+
+        <Offcanvas show={Boolean(whyDrawerItem)} onHide={() => setWhyDrawerItem(null)} placement="end" scroll>
+          <Offcanvas.Header closeButton>
+            <Offcanvas.Title>Perché questo professionista</Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body>
+            {whyDrawerItem ? (
+              <div className="d-flex flex-column gap-3">
+                <div>
+                  <div className="fw-semibold">{getLeadName(whyDrawerItem)}</div>
+                  <div className="small text-muted">Lead ID {whyDrawerItem.id}</div>
+                </div>
+
+                <div className="small text-muted">
+                  Sales: {whyDrawerItem.sales_person?.full_name || whyDrawerItem.sales_consultant || 'N/D'}
+                </div>
+
+                {whySections.length ? (
+                  <div className="d-grid gap-2">
+                    {whySections.map((section) => (
+                      <Card key={section.key} className="border-0 shadow-sm">
+                        <Card.Body className="py-2">
+                          <div className="fw-semibold mb-2">{section.label}</div>
+                          <div className="d-grid gap-2">
+                            {section.items.map((item, idx) => (
+                              <div key={`${section.key}_${idx}`} className="border rounded-3 p-2">
+                                <div className="d-flex justify-content-between gap-2 align-items-start">
+                                  <strong>{item.name}</strong>
+                                  {item.score != null ? <Badge bg="info">{item.score}%</Badge> : null}
+                                </div>
+                                {item.reasons.length ? (
+                                  <ul className="small mb-0 mt-2 ps-3">
+                                    {item.reasons.map((reason, rIdx) => (
+                                      <li key={`${section.key}_${idx}_${rIdx}`}>{reason}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <div className="small text-muted mt-2">Nessuna motivazione testuale disponibile.</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <Alert variant="light" className="mb-0">
+                    <div className="fw-semibold mb-1">Dettaglio motivazioni non strutturato</div>
+                    <div className="small text-muted mb-2">
+                      Mostro il payload AI grezzo perché non contiene campi match standardizzati.
+                    </div>
+                    <pre className="small mb-0" style={{ whiteSpace: 'pre-wrap' }}>
+                      {whyAnalysis ? JSON.stringify(whyAnalysis, null, 2) : (whyDrawerItem.ai_analysis_snapshot || whyDrawerItem.ai_analysis || 'N/D')}
+                    </pre>
+                  </Alert>
+                )}
+              </div>
+            ) : null}
+          </Offcanvas.Body>
+        </Offcanvas>
       </div>
     </div>
   );

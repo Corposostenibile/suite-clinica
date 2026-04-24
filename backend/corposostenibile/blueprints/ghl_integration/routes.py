@@ -2148,6 +2148,7 @@ def api_admin_assignments_dashboard():
                 'updated_at': lead.updated_at.isoformat() if lead.updated_at else None,
                 'status': getattr(lead.status, 'value', lead.status),
                 'ai_analysis': lead.ai_analysis,
+                'ai_analysis_snapshot': lead.ai_analysis_snapshot,
                 'sales_person_id': lead.sales_user_id,
                 'sales_person': (
                     {
