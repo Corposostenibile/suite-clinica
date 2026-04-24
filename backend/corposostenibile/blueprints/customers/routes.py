@@ -7946,6 +7946,11 @@ def _require_team_leader_assignment_scope_or_403(user, tipo_professionista: str,
     role_value = role.value if hasattr(role, "value") else str(role or "")
     if role_value != "team_leader":
         return
+    # Team Leader HM: stesso perimetro di un Health Manager regolare (il team HM
+    # coordina clienti multi-specialty, quindi il TL HM deve poter assegnare
+    # qualsiasi tipo di professionista senza restrizioni specialty-scoped).
+    if _is_team_leader_health_manager_scope(user):
+        return
     if not _team_leader_can_manage_assignment_type(user, tipo_professionista):
         abort(HTTPStatus.FORBIDDEN, description="Tipo professionista non gestibile per la tua specialità.")
     if int(target_user_id) not in _team_leader_visible_member_ids(user):

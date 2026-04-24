@@ -239,7 +239,7 @@ function ClientiListaMarketing() {
       setPagination((p) => ({
         ...p,
         total: data.pagination?.total || 0,
-        totalPages: data.pagination?.total_pages || 0,
+        totalPages: data.pagination?.pages || data.pagination?.total_pages || 0,
       }));
     } catch (err) {
       console.error('Error fetching marketing clienti:', err);
