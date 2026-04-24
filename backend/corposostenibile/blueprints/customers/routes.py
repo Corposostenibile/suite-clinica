@@ -79,6 +79,7 @@ from .services import (
     update_cliente,
     calculate_dashboard_kpis,
     apply_role_filtering,
+    reconcile_stato_cliente_from_services,
 )
 from .rbac_scope import (
     is_professionista_assigned_to_cliente,
@@ -978,6 +979,7 @@ def assign_professionista(cliente_id: int):
         elif tipo == 'health_manager':
             cliente.health_manager_id = user_id
 
+        reconcile_stato_cliente_from_services(cliente, current_user)
         db.session.commit()
 
         return jsonify({
@@ -1091,6 +1093,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
         elif tipo == 'consulente' and cliente.consulente_alimentare_id == professionista.id:
             cliente.consulente_alimentare_id = None
 
+    reconcile_stato_cliente_from_services(cliente, current_user)
     db.session.commit()
 
     return jsonify({
@@ -1178,6 +1181,7 @@ def interrupt_professionista_legacy(cliente_id: int):
         elif tipo == 'health_manager' and cliente.health_manager_id == user_id:
             cliente.health_manager_id = None
 
+    reconcile_stato_cliente_from_services(cliente, current_user)
     db.session.commit()
 
     return jsonify({
@@ -3906,6 +3910,7 @@ def assign_professionista(cliente_id: int):
         elif tipo_professionista == "health_manager":
             cliente.health_manager_id = user_id
 
+        reconcile_stato_cliente_from_services(cliente, current_user)
         db.session.commit()
 
         return jsonify({
@@ -4021,6 +4026,7 @@ def interrupt_professionista(cliente_id: int, history_id: int):
                 if cliente.health_manager_id == history.user_id:
                     cliente.health_manager_id = None
 
+        reconcile_stato_cliente_from_services(cliente, current_user)
         db.session.commit()
 
         return jsonify({
@@ -4100,6 +4106,7 @@ def interrupt_legacy_professionista(cliente_id: int):
             if cliente.health_manager_id == user_id:
                 cliente.health_manager_id = None
 
+        reconcile_stato_cliente_from_services(cliente, current_user)
         db.session.commit()
 
         return jsonify({

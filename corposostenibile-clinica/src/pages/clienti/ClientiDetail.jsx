@@ -3308,7 +3308,7 @@ function ClientiDetail() {
   const c = {
     id: cliente.cliente_id || cliente.clienteId,
     nome: cliente.nome_cognome || cliente.nomeCognome,
-    statoCliente: cliente.stato_cliente || cliente.statoCliente || 'ghost',
+    statoCliente: cliente.stato_cliente || cliente.statoCliente || null,
     alert: cliente.alert,
     programma: cliente.programma_attuale || cliente.programmaAttuale,
     tipologia: cliente.tipologia_cliente || cliente.tipologiaCliente,
@@ -3328,8 +3328,11 @@ function ClientiDetail() {
     personalConsultant: cliente.personal_consultant || cliente.personalConsultant,
   };
 
+  const normalizedStatus = c.statoCliente || 'non_definito';
+  const statusLabel = STATO_LABELS[c.statoCliente] || 'non definito';
+
   const age = calculateAge(formData.data_di_nascita);
-  const statusGradient = STATUS_GRADIENTS[c.statoCliente] || STATUS_GRADIENTS.ghost;
+  const statusGradient = STATUS_GRADIENTS[c.statoCliente] || 'linear-gradient(135deg, #64748b 0%, #94a3b8 100%)';
   const statusColor = STATUS_COLORS[c.statoCliente] || 'secondary';
 
   // Get initials
@@ -3411,9 +3414,9 @@ function ClientiDetail() {
             >
               {/* Status badges */}
               <div className="cd-profile-badges">
-                <span className={`cd-profile-badge ${c.statoCliente}`}>
+                <span className={`cd-profile-badge ${normalizedStatus}`}>
                   <i className={`ri-${c.statoCliente === 'attivo' ? 'checkbox-circle' : 'close-circle'}-line`}></i>
-                  {STATO_LABELS[c.statoCliente] || c.statoCliente}
+                  {statusLabel}
                 </span>
                 {c.alert && (
                   <span className="cd-profile-badge danger">

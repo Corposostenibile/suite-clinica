@@ -101,6 +101,7 @@ __all__ = [
     "update_call_bonus_hm_confirm",
     "get_cliente_call_bonus_history",
     "get_call_bonus_accettate",
+    "reconcile_stato_cliente_from_services",
 ]
 
 # --------------------------------------------------------------------------- #
@@ -237,6 +238,10 @@ def create_cliente(data: Mapping[str, Any], created_by_user) -> Cliente:
         # Contratto iniziale (facoltativo)
         if "initial_contract" in data:
             _create_contract_for_cliente(cliente, data["initial_contract"], session)
+
+        # Riallinea stato globale con gli stati servizio già presenti nel payload
+        # (evita clienti con stato_cliente NULL ma servizi attivi).
+        _update_stato_cliente_from_services(cliente, created_by_user)
 
     # post-commit
     emit_created(cliente, user_id=_user_id(created_by_user))
@@ -381,6 +386,11 @@ def _check_and_update_global_ghost_status(cliente: Cliente, updated_by_user) -> 
 
 def _check_and_update_global_pausa_status(cliente: Cliente, updated_by_user) -> bool:
     """Deprecato: usa _update_stato_cliente_from_services"""
+    return _update_stato_cliente_from_services(cliente, updated_by_user)
+
+
+def reconcile_stato_cliente_from_services(cliente: Cliente, updated_by_user) -> bool:
+    """API pubblica: riallinea stato_cliente in base agli stati servizio assegnati."""
     return _update_stato_cliente_from_services(cliente, updated_by_user)
 
 
