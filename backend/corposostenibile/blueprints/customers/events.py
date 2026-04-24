@@ -20,7 +20,7 @@ rinnovi anticipati, casi speciali).
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from sqlalchemy import event
@@ -39,9 +39,39 @@ _SCADENZA_FIELDS: tuple[tuple[str, str, str], ...] = (
 )
 
 
-def _compute_scadenza(inizio: Optional[date], durata) -> Optional[date]:
-    """Scadenza = inizio + durata giorni, se entrambi validi (durata > 0)."""
-    if inizio is None:
+def _coerce_date(value) -> Optional[date]:
+    """Converte value in `date` se possibile, altrimenti None.
+
+    Tollera i tipi che possono arrivare al before_update hook:
+    - None -> None
+    - datetime -> .date()
+    - date -> as-is
+    - str ISO ("2026-05-07" / "2026-05-07T...") -> parse, o None se invalida
+    """
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _compute_scadenza(inizio, durata) -> Optional[date]:
+    """Scadenza = inizio + durata giorni, se entrambi validi (durata > 0).
+
+    MAI solleva eccezione: se non e' possibile calcolare ritorna None. Il hook
+    chiamante ha gia' un try/except di sicurezza, ma meglio essere difensivi:
+    i campi data_* possono arrivare come str se un PATCH bypassa il marshmallow
+    schema (es. update diretto via setattr) -> evita TypeError 'str + timedelta'.
+    """
+    inizio_date = _coerce_date(inizio)
+    if inizio_date is None:
         return None
     try:
         durata_int = int(durata) if durata is not None else 0
@@ -49,7 +79,7 @@ def _compute_scadenza(inizio: Optional[date], durata) -> Optional[date]:
         return None
     if durata_int <= 0:
         return None
-    return inizio + timedelta(days=durata_int)
+    return inizio_date + timedelta(days=durata_int)
 
 
 def _sync_scadenza_fields(cliente: Cliente) -> None:
