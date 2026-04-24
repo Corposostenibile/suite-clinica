@@ -32,7 +32,7 @@ import DatePicker from '../../components/DatePicker';
 import api from '../../services/api';
 import ProgressoTab from './ProgressoTab';
 import { FaUserCircle, FaIdCard, FaLayerGroup, FaSave, FaAppleAlt, FaClipboardCheck, FaBrain, FaRunning, FaCheck } from 'react-icons/fa';
-import { isHealthManagerUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
+import { isHealthManagerUser, isMarketingUser, isProfessionistaStandard, isTeamLeaderRestricted, normalizeSpecialtyGroup } from '../../utils/rbacScope';
 import { createPortal } from 'react-dom';
 import './ClientiDetail.css';
 import '../calendario/Calendario.css';
@@ -126,6 +126,143 @@ const PROFESSIONI_OPTIONS = [
   { group: 'Altre Opzioni', options: ['Studente/ssa', 'Pensionato/a', 'Disoccupato/a o in cerca di occupazione', 'Casalingo/a', '__ALTRO__'] },
 ];
 
+// ==================== MARKETING FLAGS (Sub-tab Flag Marketing) ====================
+const MARKETING_FLAG_GROUPS = [
+  {
+    key: 'videofeedback',
+    label: 'Videofeedback',
+    icon: 'ri-video-chat-line',
+    color: '#8b5cf6',
+    flags: [
+      { key: 'marketing_videofeedback', label: 'Videofeedback' },
+      { key: 'marketing_videofeedback_richiesto', label: 'Videofeedback richiesto' },
+      { key: 'marketing_videofeedback_svolto', label: 'Videofeedback svolto' },
+      { key: 'marketing_videofeedback_condiviso', label: 'Videofeedback condiviso' },
+    ],
+  },
+  {
+    key: 'trasformazione',
+    label: 'Trasformazione',
+    icon: 'ri-sparkling-2-line',
+    color: '#ec4899',
+    flags: [
+      { key: 'marketing_trasformazione_fisica', label: 'Trasformazione fisica' },
+      { key: 'marketing_trasformazione_fisica_condivisa', label: 'Trasformazione fisica condivisa' },
+      { key: 'marketing_trasformazione', label: 'Trasformazione' },
+    ],
+  },
+  {
+    key: 'exit_call',
+    label: 'Exit Call',
+    icon: 'ri-phone-line',
+    color: '#f59e0b',
+    flags: [
+      { key: 'marketing_exit_call_richiesta', label: 'Exit call richiesta' },
+      { key: 'marketing_exit_call_svolta', label: 'Exit call svolta' },
+      { key: 'marketing_exit_call_condivisa', label: 'Exit call condivisa' },
+    ],
+  },
+];
+
+function MarketingFlagToggle({ checked, saving, error, label, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={saving}
+      className="d-flex align-items-center w-100 text-start"
+      style={{
+        gap: 12,
+        padding: '10px 14px',
+        border: `1.5px solid ${error ? '#dc2626' : checked ? '#10b981' : '#e2e8f0'}`,
+        borderRadius: 10,
+        background: checked ? 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)' : '#fff',
+        cursor: saving ? 'wait' : 'pointer',
+        transition: 'all .15s',
+        fontSize: 14,
+        fontWeight: 500,
+        color: checked ? '#065f46' : '#374151',
+      }}
+    >
+      <span
+        className="d-inline-flex align-items-center justify-content-center rounded"
+        style={{
+          width: 24,
+          height: 24,
+          background: checked ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#f3f4f6',
+          border: checked ? 'none' : '1.5px solid #d1d5db',
+          flexShrink: 0,
+        }}
+      >
+        {saving ? (
+          <span className="spinner-border spinner-border-sm" style={{ width: 12, height: 12, borderWidth: 2 }} />
+        ) : checked ? (
+          <i className="ri-check-line" style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}></i>
+        ) : null}
+      </span>
+      <span style={{ flex: 1 }}>{label}</span>
+      {error && (
+        <span className="badge bg-danger-subtle text-danger" title="Errore nel salvataggio">
+          <i className="ri-error-warning-line"></i>
+        </span>
+      )}
+    </button>
+  );
+}
+
+function MarketingFlagsPanel({ cliente, savingFlag, onToggle }) {
+  if (!cliente) return null;
+  return (
+    <div>
+      <div
+        style={{
+          padding: 14,
+          marginBottom: 20,
+          background: 'linear-gradient(135deg, #fdf2f8 0%, #ede9fe 100%)',
+          border: '1px solid #e9d5ff',
+          borderRadius: 12,
+          fontSize: 13,
+          color: '#6b21a8',
+        }}
+      >
+        <i className="ri-information-line" style={{ marginRight: 6 }}></i>
+        Flag marketing sincronizzati con la <strong>Visuale Marketing</strong>. Ogni modifica è salvata automaticamente.
+      </div>
+
+      {MARKETING_FLAG_GROUPS.map((group) => (
+        <div
+          key={group.key}
+          style={{
+            marginBottom: 20,
+            padding: 16,
+            background: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, fontWeight: 700 }}>
+            <i className={group.icon} style={{ color: group.color, fontSize: 18 }}></i>
+            <span>{group.label}</span>
+          </div>
+          <div className="row g-2">
+            {group.flags.map((f) => (
+              <div className="col-md-6" key={f.key}>
+                <MarketingFlagToggle
+                  label={f.label}
+                  checked={Boolean(cliente[f.key])}
+                  saving={savingFlag[f.key] === 'saving'}
+                  error={savingFlag[f.key] === 'error'}
+                  onToggle={() => onToggle(f.key, Boolean(cliente[f.key]))}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ClientiDetail() {
   const { id } = useParams();
 
@@ -133,6 +270,7 @@ function ClientiDetail() {
   const { user } = useAuth();
   const isProfessionista = isProfessionistaStandard(user);
   const isHealthManager = isHealthManagerUser(user);
+  const isMarketing = isMarketingUser(user);
   const isAdmin = Boolean(user?.is_admin || user?.role === 'admin');
   const isCco = user?.specialty === 'cco';
   const isRestrictedTeamLeader = isTeamLeaderRestricted(user);
@@ -146,7 +284,7 @@ function ClientiDetail() {
   const canGenerateCheckLinks = true;
   const canCreateCallBonus = true;
   const canDeleteClientRecord = isAdmin;
-  const canViewMarketingTab = Boolean(isAdmin || isHealthManager || isCco || isProfessionista);
+  const canViewMarketingTab = Boolean(isAdmin || isHealthManager || isCco || isProfessionista || isMarketing);
   const canManageNutritionSection = !isSpecialtyRestrictedRole || specialtyGroup === 'nutrizione';
   const canManageCoachingSection = !isSpecialtyRestrictedRole || specialtyGroup === 'coach';
   const canManagePsychologySection = !isSpecialtyRestrictedRole || specialtyGroup === 'psicologia';
@@ -765,7 +903,8 @@ function ClientiDetail() {
   const [savingVideoReviewAction, setSavingVideoReviewAction] = useState(false);
 
   // ==================== MARKETING CONSENTS STATE ====================
-  const [marketingSubTab, setMarketingSubTab] = useState('consensi');
+  const [marketingSubTab, setMarketingSubTab] = useState('flags');
+  const [savingMarketingFlag, setSavingMarketingFlag] = useState({});
   const [marketingConsents, setMarketingConsents] = useState({
     note_marketing: '',
     usabile_marketing: { checked: false, checked_date: '' },
@@ -8584,8 +8723,9 @@ function ClientiDetail() {
                   </h5>
 
                   {/* Sub-tab navigation */}
-                  <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e2e8f0', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid #e2e8f0', marginBottom: 20, flexWrap: 'wrap' }}>
                     {[
+                      { id: 'flags', label: 'Flag Marketing', icon: 'ri-flag-line' },
                       { id: 'consensi', label: 'Consensi Marketing', icon: 'ri-shield-check-line' },
                       { id: 'trustpilot', label: 'Trustpilot', icon: 'ri-star-line' },
                       { id: 'export_pdf', label: 'Export PDF', icon: 'ri-file-pdf-2-line' },
@@ -8604,6 +8744,38 @@ function ClientiDetail() {
                       </button>
                     ))}
                   </div>
+
+                  {/* ── Sub-tab: Flag Marketing ── */}
+                  {marketingSubTab === 'flags' && (
+                    <MarketingFlagsPanel
+                      cliente={cliente}
+                      savingFlag={savingMarketingFlag}
+                      onToggle={async (field, currentValue) => {
+                        const newValue = !currentValue;
+                        setSavingMarketingFlag((prev) => ({ ...prev, [field]: 'saving' }));
+                        setCliente((prev) => ({ ...prev, [field]: newValue }));
+                        try {
+                          await clientiService.updateField(cliente.cliente_id, field, newValue);
+                          setSavingMarketingFlag((prev) => {
+                            const next = { ...prev };
+                            delete next[field];
+                            return next;
+                          });
+                        } catch (err) {
+                          console.error('Error toggling marketing flag:', err);
+                          setCliente((prev) => ({ ...prev, [field]: currentValue }));
+                          setSavingMarketingFlag((prev) => ({ ...prev, [field]: 'error' }));
+                          window.setTimeout(() => {
+                            setSavingMarketingFlag((prev) => {
+                              const next = { ...prev };
+                              delete next[field];
+                              return next;
+                            });
+                          }, 2500);
+                        }
+                      }}
+                    />
+                  )}
 
                   {/* ── Sub-tab: Consensi Marketing ── */}
                   {marketingSubTab === 'consensi' && (

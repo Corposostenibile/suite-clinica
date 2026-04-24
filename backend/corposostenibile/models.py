@@ -251,6 +251,7 @@ class UserRoleEnum(str, Enum):
     team_esterno = "team_esterno"
     influencer = "influencer"
     health_manager = "health_manager"
+    marketing = "marketing"
 
 
 class UserSpecialtyEnum(str, Enum):
@@ -2078,6 +2079,21 @@ class Cliente(TimestampMixin, db.Model):
 
     # Marketing Consents
     note_marketing        = db.Column(db.Text)
+
+    # ───────────────────── MARKETING FLAGS (Visuale Marketing) ─────── #
+    # Flag usati dalla Visuale Marketing per tracciare stato videofeedback,
+    # trasformazione, exit call di ciascun cliente. Nullable/default False
+    # per non rompere righe esistenti.
+    marketing_videofeedback                 = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_videofeedback_richiesto       = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_videofeedback_svolto          = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_videofeedback_condiviso       = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_trasformazione_fisica         = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_trasformazione_fisica_condivisa = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_trasformazione                = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_exit_call_richiesta           = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_exit_call_svolta              = db.Column(db.Boolean, default=False, nullable=True)
+    marketing_exit_call_condivisa           = db.Column(db.Boolean, default=False, nullable=True)
 
     # Referral Richiesti
     referral_richiesti_note = db.Column(db.Text)  # Note per richiesta/rifiuto/ricezione

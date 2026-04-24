@@ -92,6 +92,8 @@ __all__ = [
     # freeze management
     "freeze_cliente",
     "unfreeze_cliente",
+    # marketing metrics
+    "get_marketing_metrics_for_clienti",
     # call bonus management
     "create_call_bonus",
     "update_call_bonus_response",
@@ -1381,8 +1383,9 @@ def apply_role_filtering(query):
                 is_hm_tl = True
                 break
 
-    # Admin/CCO/Health Manager/HM Team Leader: vede tutto e modifica tutto
-    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco or user_role == UserRoleEnum.health_manager or is_hm_tl:
+    # Admin/CCO/Health Manager/HM Team Leader/Marketing: vede tutto e modifica tutto
+    # Marketing: placeholder — scope di visibilita da ridefinire quando saranno note le regole
+    if user_role == UserRoleEnum.admin or current_user.is_admin or is_cco or user_role == UserRoleEnum.health_manager or is_hm_tl or user_role == UserRoleEnum.marketing:
         return query
     
     # Team Leader: vede i pazienti assegnati ai membri del suo team
@@ -2074,3 +2077,126 @@ def get_call_bonus_accettate(health_manager_id: int = None) -> List[CallBonus]:
     results = query.all()
     # Ordina in Python invece che in SQL
     return sorted(results, key=lambda x: x.id, reverse=True)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#                          MARKETING METRICS
+# ════════════════════════════════════════════════════════════════════════════
+def get_marketing_metrics_for_clienti(cliente_ids: Sequence[int]) -> Dict[int, Dict[str, Any]]:
+    """
+    Calcola per ciascun cliente:
+      - peso_perso_kg: differenza tra il primo peso registrato (TypeFormResponse
+        check iniziale + WeeklyCheckResponse settimanali) e l'ultimo in ordine
+        cronologico. Positivo = peso perso.
+      - media_soddisfazione: media dei voti nutrizionista + coach + psicologa +
+        progress_rating presi dai WeeklyCheckResponse del cliente, escludendo
+        i NULL dal denominatore (formula identica a unsatisfied_customers in
+        routes.py).
+
+    Ritorna un dict `{cliente_id: {peso_perso_kg, media_soddisfazione}}`.
+    Se il cliente non ha dati, i valori sono None.
+    """
+    from corposostenibile.models import (
+        TypeFormResponse,
+        WeeklyCheck,
+        WeeklyCheckResponse,
+    )
+    from sqlalchemy import case
+
+    if not cliente_ids:
+        return {}
+
+    ids_list = list({int(c) for c in cliente_ids if c is not None})
+    if not ids_list:
+        return {}
+
+    # ── Peso: raccogli tutti i weight (iniziali + settimanali) e scegli primo/ultimo ── #
+    pesi_iniziali = (
+        db.session.query(
+            TypeFormResponse.cliente_id.label("cid"),
+            TypeFormResponse.weight.label("w"),
+            TypeFormResponse.submit_date.label("dt"),
+        )
+        .filter(
+            TypeFormResponse.cliente_id.in_(ids_list),
+            TypeFormResponse.weight.isnot(None),
+        )
+    )
+    pesi_settimanali = (
+        db.session.query(
+            WeeklyCheck.cliente_id.label("cid"),
+            WeeklyCheckResponse.weight.label("w"),
+            WeeklyCheckResponse.submit_date.label("dt"),
+        )
+        .join(WeeklyCheck, WeeklyCheck.id == WeeklyCheckResponse.weekly_check_id)
+        .filter(
+            WeeklyCheck.cliente_id.in_(ids_list),
+            WeeklyCheckResponse.weight.isnot(None),
+        )
+    )
+
+    from collections import defaultdict
+    pesi_by_cliente: Dict[int, List[Tuple[datetime, float]]] = defaultdict(list)
+    for cid, w, dt in pesi_iniziali.all():
+        if cid is None or w is None:
+            continue
+        pesi_by_cliente[int(cid)].append((dt, float(w)))
+    for cid, w, dt in pesi_settimanali.all():
+        if cid is None or w is None:
+            continue
+        pesi_by_cliente[int(cid)].append((dt, float(w)))
+
+    peso_metrics: Dict[int, float] = {}
+    for cid, rows in pesi_by_cliente.items():
+        rows.sort(key=lambda r: r[0] or datetime.min)
+        peso_iniziale = rows[0][1]
+        peso_attuale = rows[-1][1]
+        peso_metrics[cid] = round(peso_iniziale - peso_attuale, 1)
+
+    # ── Media soddisfazione: formula replicata da routes.py:1918-1956 ── #
+    avg_query = (
+        db.session.query(
+            WeeklyCheck.cliente_id.label("cliente_id"),
+            func.avg(
+                (
+                    func.coalesce(WeeklyCheckResponse.nutritionist_rating.cast(db.Float), 0)
+                    + func.coalesce(WeeklyCheckResponse.coach_rating.cast(db.Float), 0)
+                    + func.coalesce(WeeklyCheckResponse.psychologist_rating.cast(db.Float), 0)
+                    + func.coalesce(WeeklyCheckResponse.progress_rating.cast(db.Float), 0)
+                ) / func.nullif(
+                    (
+                        case((WeeklyCheckResponse.nutritionist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.coach_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.psychologist_rating.isnot(None), 1), else_=0)
+                        + case((WeeklyCheckResponse.progress_rating.isnot(None), 1), else_=0)
+                    ),
+                    0,
+                )
+            ).label("avg_rating"),
+        )
+        .join(WeeklyCheck, WeeklyCheckResponse.weekly_check_id == WeeklyCheck.id)
+        .filter(
+            WeeklyCheck.cliente_id.in_(ids_list),
+            or_(
+                WeeklyCheckResponse.nutritionist_rating.isnot(None),
+                WeeklyCheckResponse.coach_rating.isnot(None),
+                WeeklyCheckResponse.psychologist_rating.isnot(None),
+                WeeklyCheckResponse.progress_rating.isnot(None),
+            ),
+        )
+        .group_by(WeeklyCheck.cliente_id)
+    )
+    media_metrics: Dict[int, float] = {}
+    for cid, avg_val in avg_query.all():
+        if cid is None or avg_val is None:
+            continue
+        media_metrics[int(cid)] = round(float(avg_val), 2)
+
+    # ── Merge ── #
+    result: Dict[int, Dict[str, Any]] = {}
+    for cid in ids_list:
+        result[cid] = {
+            "peso_perso_kg": peso_metrics.get(cid),
+            "media_soddisfazione": media_metrics.get(cid),
+        }
+    return result

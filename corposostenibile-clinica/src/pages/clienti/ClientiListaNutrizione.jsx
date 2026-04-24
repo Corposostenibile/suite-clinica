@@ -47,7 +47,9 @@ function ClientiListaNutrizione() {
     { key: 'nutrizione', to: '/clienti-nutrizione', label: 'Visuale Nutrizione', icon: 'ri-restaurant-line' },
     { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
+    { key: 'marketing', to: '/clienti-marketing', label: 'Visuale Marketing', icon: 'ri-megaphone-line' },
   ].filter((btn) => {
+    if (btn.key === 'marketing') return isAdminOrCco;
     if (isProfessionista) return btn.key === 'generale' || btn.key === userSpecialtyGroup;
     if (!isTeamLeaderRestricted) return true;
     if (btn.key === 'generale') return true;

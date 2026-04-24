@@ -44,6 +44,11 @@ const SATISFACTION_TABS = [
 
 function ClientiListaHealthManager() {
   const { user } = useAuth();
+  const isAdminOrCcoLocal = Boolean(
+    user?.is_admin ||
+    String(user?.role?.value || user?.role || '').toLowerCase() === 'admin' ||
+    String(user?.specialty?.value || user?.specialty || '').toLowerCase() === 'cco'
+  );
 
   const visualButtons = [
     { key: 'generale', to: '/clienti-lista', label: 'Lista Generale', icon: 'ri-list-check' },
@@ -51,7 +56,11 @@ function ClientiListaHealthManager() {
     { key: 'coach', to: '/clienti-coach', label: 'Coach', icon: 'ri-run-line' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Psicologia', icon: 'ri-mental-health-line' },
     { key: 'health_manager', to: '/clienti-health-manager', label: 'Health Manager', icon: 'ri-heart-pulse-line' },
-  ];
+    { key: 'marketing', to: '/clienti-marketing', label: 'Visuale Marketing', icon: 'ri-megaphone-line' },
+  ].filter((btn) => {
+    if (btn.key === 'marketing') return isAdminOrCcoLocal;
+    return true;
+  });
 
   // Main tab state
   const [mainTab, setMainTab] = useState('scadenze');

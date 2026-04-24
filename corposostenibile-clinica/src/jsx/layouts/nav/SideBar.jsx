@@ -15,6 +15,7 @@ import {
   canAccessTrialPages,
   isHealthManagerTeamLeader,
   isHealthManagerUser,
+  isMarketingUser,
   isProfessionistaStandard,
 } from "../../../utils/rbacScope";
 
@@ -91,7 +92,9 @@ const SideBar = () => {
 
       <div className="deznav-scroll">
         <ul className="metismenu" id="menu">
-          {(isHealthManagerTeamLeader(user)
+          {(isMarketingUser(user)
+            ? MenuList.filter(item => ['Dashboard', 'Visuale Marketing', 'MAIN MENU', 'CLIENTI'].includes(item.title))
+            : isHealthManagerTeamLeader(user)
             ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Team', 'Professionisti', 'Capienze', 'Calendario', 'Check', 'Formazione', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
             : isHealthManagerUser(user)
             ? MenuList.filter(item => ['Pazienti', 'Assegnazioni v1', 'Assegnazioni v2', 'Libreria Loom', 'Calendario', 'Check', 'CLIENTI', 'TEAM', 'MAIN MENU'].includes(item.title))
@@ -128,6 +131,10 @@ const SideBar = () => {
                 if (item.title === 'Check' && !canAccessGlobalCheckPage(user)) return false;
                 if (item.title === 'In Prova' && !canAccessTrialPages(user)) return false;
                 if (item.title === 'Libreria Loom' && !canAccessLoomLibrary(user)) return false;
+                // "Visuale Marketing" non compare nella sidebar per admin/CCO:
+                // e accessibile solo come pill dentro le viste lista pazienti.
+                // Il ruolo marketing la vede tramite il branch isMarketingUser sopra.
+                if (item.title === 'Visuale Marketing') return false;
                 if ((item.title === 'Team' || item.title === 'Professionisti') && !canAccessTeamLists(user)) {
                   return false;
                 }

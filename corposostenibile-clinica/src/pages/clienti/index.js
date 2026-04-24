@@ -5,3 +5,4 @@ export { default as ClientiListaNutrizione } from './ClientiListaNutrizione';
 export { default as ClientiListaCoach } from './ClientiListaCoach';
 export { default as ClientiListaPsicologia } from './ClientiListaPsicologia';
 export { default as ClientiListaHealthManager } from './ClientiListaHealthManager';
+export { default as ClientiListaMarketing } from './ClientiListaMarketing';

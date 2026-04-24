@@ -412,6 +412,21 @@ const clientiService = {
     return response.data;
   },
 
+  /**
+   * Get clients for Marketing view (placeholder — contenuto da definire)
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response with clients and KPIs
+   */
+  async getClientiMarketing(params = {}) {
+    const response = await api.get(`${API_BASE}/`, {
+      params: {
+        ...params,
+        view: 'marketing',
+      },
+    });
+    return response.data;
+  },
+
   async getClientiExpiring(params = {}) {
     const response = await api.get(`${API_BASE}/expiring`, { params });
     return response.data;

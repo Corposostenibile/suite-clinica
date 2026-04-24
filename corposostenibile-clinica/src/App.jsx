@@ -28,6 +28,7 @@ import {
   ClientiListaCoach,
   ClientiListaPsicologia,
   ClientiListaHealthManager,
+  ClientiListaMarketing,
 } from './pages/clienti';
 
 // Chat pages
@@ -74,8 +75,10 @@ import {
   canAccessAiAssignments,
   canAccessCapacity,
   canAccessCalendario,
+  canAccessClientiListaGenerale,
   canAccessGlobalCheckPage,
   canAccessLoomLibrary,
+  canAccessMarketingView,
   canAccessQualityPage,
   canAccessSecondaryModules,
   canAccessSpecializzazione,
@@ -212,7 +215,11 @@ function App() {
             <Route path="/in-prova/:userId/assegna-clienti" element={<RoleProtectedRoute allowIf={canAccessTrialPages}><AssignClients /></RoleProtectedRoute>} />
 
             {/* Clienti Routes */}
-            <Route path="/clienti-lista" element={<ClientiList />} />
+            <Route path="/clienti-lista" element={
+              <RoleProtectedRoute allowIf={canAccessClientiListaGenerale} redirectTo="/clienti-marketing">
+                <ClientiList />
+              </RoleProtectedRoute>
+            } />
             <Route path="/clienti-nuovo" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
             <Route path="/clienti-dettaglio/:id" element={<ClientiDetail />} />
             <Route path="/clienti-modifica/:id" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><ClientiAdd /></RoleProtectedRoute>} />
@@ -220,6 +227,11 @@ function App() {
             <Route path="/clienti-coach" element={<ClientiListaCoach />} />
             <Route path="/clienti-psicologia" element={<ClientiListaPsicologia />} />
             <Route path="/clienti-health-manager" element={<ClientiListaHealthManager />} />
+            <Route path="/clienti-marketing" element={
+              <RoleProtectedRoute allowIf={canAccessMarketingView}>
+                <ClientiListaMarketing />
+              </RoleProtectedRoute>
+            } />
 
             {/* Chat */}
             <Route path="/chat" element={<RoleProtectedRoute allowIf={canAccessSecondaryModules}><Chat /></RoleProtectedRoute>} />

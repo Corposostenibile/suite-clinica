@@ -496,6 +496,73 @@
   cursor: not-allowed;
 }
 
+/* Visuale Marketing — scroll orizzontale carousel-style (2 pillole sui lati + fade gradient) */
+.cl-mk-table-wrap {
+  position: relative;
+}
+
+/* Gradient fade ai bordi: il contenuto della tabella "scorre" sotto le pillole */
+.cl-mk-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 0.2s ease;
+}
+
+.cl-mk-fade-left {
+  left: 0;
+  background: linear-gradient(to right, #ffffff 10%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0) 100%);
+  border-top-left-radius: 14px;
+  border-bottom-left-radius: 14px;
+}
+
+.cl-mk-fade-right {
+  right: 0;
+  background: linear-gradient(to left, #ffffff 10%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0) 100%);
+  border-top-right-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+
+/* Pillole floating */
+.cl-mk-scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.14);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cl-mk-scroll-btn-left {
+  left: 14px;
+}
+
+.cl-mk-scroll-btn-right {
+  right: 14px;
+}
+
+.cl-mk-scroll-btn:hover {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.4);
+  transform: translateY(-50%) scale(1.08);
+}
+
 .cl-table {
   width: 100%;
   border-collapse: collapse;

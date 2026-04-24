@@ -40,6 +40,9 @@ def get_accessible_clients_query():
     # Admin: vede tutto
     if getattr(current_user, 'is_admin', False) or getattr(current_user, 'role', None) == 'admin':
         return None
+    # Marketing: placeholder — vede tutti i clienti finche le regole di scope non sono definite
+    if getattr(current_user, 'role', None) == UserRoleEnum.marketing:
+        return None
     # Influencer: solo clienti con origine associata all'influencer
     if getattr(current_user, 'role', None) == UserRoleEnum.influencer:
         origine_ids = [o.id for o in current_user.influencer_origins]

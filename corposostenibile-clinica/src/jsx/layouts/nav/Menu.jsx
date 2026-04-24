@@ -54,6 +54,12 @@ export const MenuList = [
         iconStyle: SVGICON.Health,
         to: 'clienti-lista',
     },
+    // Visuale Marketing (ruolo marketing + admin/CCO)
+    {
+        title: 'Visuale Marketing',
+        iconStyle: SVGICON.Health,
+        to: 'clienti-marketing',
+    },
     // Assegnazioni v2 (GHL - nuova suite)
     {
         title: 'Assegnazioni v2',

@@ -354,7 +354,9 @@ function ClientiList() {
     { key: 'coach', to: '/clienti-coach', label: 'Visuale Coach', icon: 'ri-run-line' },
     { key: 'psicologia', to: '/clienti-psicologia', label: 'Visuale Psicologia', icon: 'ri-mental-health-line' },
     { key: 'health_manager', to: '/clienti-health-manager', label: 'Health Manager', icon: 'ri-heart-pulse-line' },
+    { key: 'marketing', to: '/clienti-marketing', label: 'Visuale Marketing', icon: 'ri-megaphone-line' },
   ].filter((btn) => {
+    if (btn.key === 'marketing') return isAdminOrCco;
     if (isInfluencer) return btn.key === 'generale';
     if (isHealthManager) return btn.key === 'generale' || btn.key === 'health_manager';
     if (isTeamLeaderHm) return btn.key === 'generale' || btn.key === 'health_manager';

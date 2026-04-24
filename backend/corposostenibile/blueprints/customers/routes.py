@@ -1691,6 +1691,17 @@ def api_list() -> Any:
                 "chat_stop": chat_counts.get("stop", 0),
             }
 
+    # Visuale Marketing: arricchisce ogni item del dump con peso_perso_kg e
+    # media_soddisfazione calcolati dai check iniziali + settimanali.
+    if view == "marketing" and result.get("data"):
+        from .services import get_marketing_metrics_for_clienti
+        cliente_ids = [item.get("cliente_id") for item in result["data"] if item.get("cliente_id") is not None]
+        metrics = get_marketing_metrics_for_clienti(cliente_ids)
+        for item in result["data"]:
+            m = metrics.get(item.get("cliente_id"), {})
+            item["peso_perso_kg"] = m.get("peso_perso_kg")
+            item["media_soddisfazione"] = m.get("media_soddisfazione")
+
     return jsonify(result)
 
 

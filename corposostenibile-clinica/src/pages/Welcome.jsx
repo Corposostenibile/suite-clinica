@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, Navigate, useOutletContext } from 'react-router-dom';
 import dashboardService from '../services/dashboardService';
 import teamService from '../services/teamService';
 import trialUserService from '../services/trialUserService';
@@ -1704,6 +1704,11 @@ function InfluencerWelcome({ user }) {
 
 function Welcome() {
   const { user } = useOutletContext();
+
+  // Marketing → unica pagina accessibile e la Visuale Marketing
+  if (user?.role === 'marketing') {
+    return <Navigate to="/clienti-marketing" replace />;
+  }
 
   // Influencer → dedicated welcome
   if (user?.role === 'influencer') {
