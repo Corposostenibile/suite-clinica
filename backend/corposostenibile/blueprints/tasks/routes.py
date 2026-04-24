@@ -25,13 +25,13 @@ def _normalize_check_task_payload(payload: dict | None):
     response_id = payload.get("response_id") or payload.get("check_response_id")
 
     # Compatibilità con payload tipo {"check_type":"weekly","check_id":123}
-    if not response_type and payload.get("check_type") in {"weekly", "dca", "minor"}:
+    if not response_type and payload.get("check_type") in {"weekly", "dca", "minor", "monthly"}:
         response_type = f"{payload['check_type']}_check"
     if not response_id:
         response_id = payload.get("check_id")
 
     # Normalizza short form ("weekly" → "weekly_check")
-    if response_type in ("weekly", "dca", "minor"):
+    if response_type in ("weekly", "dca", "minor", "monthly"):
         response_type = f"{response_type}_check"
 
     try:
@@ -39,7 +39,7 @@ def _normalize_check_task_payload(payload: dict | None):
     except (TypeError, ValueError):
         response_id = None
 
-    if response_type not in {"weekly_check", "dca_check", "minor_check"}:
+    if response_type not in {"weekly_check", "dca_check", "minor_check", "monthly_check"}:
         return None, None
     if not response_id:
         return response_type, None
@@ -64,6 +64,7 @@ def _mark_check_as_read_from_task_if_needed(task: Task) -> None:
         WeeklyCheckResponse,
         DCACheckResponse,
         MinorCheckResponse,
+        MonthlyCheckResponse,
     )
 
     if response_type == "weekly_check":
@@ -74,6 +75,9 @@ def _mark_check_as_read_from_task_if_needed(task: Task) -> None:
         cliente = response.assignment.cliente if response and response.assignment else None
     elif response_type == "minor_check":
         response = MinorCheckResponse.query.get(response_id)
+        cliente = response.assignment.cliente if response and response.assignment else None
+    elif response_type == "monthly_check":
+        response = MonthlyCheckResponse.query.get(response_id)
         cliente = response.assignment.cliente if response and response.assignment else None
     else:
         return

@@ -528,6 +528,26 @@ class NotificationService:
     """Servizio per l'invio di notifiche."""
 
     @staticmethod
+    def _collect_cliente_professionals_with_email(cliente) -> list:
+        """Raccoglie i professionisti M2M del cliente che hanno un'email valida."""
+        professionals = []
+        for rel_name in ("nutrizionisti_multipli", "psicologi_multipli", "coaches_multipli"):
+            rel_users = getattr(cliente, rel_name, None) or []
+            professionals.extend(rel_users)
+
+        # Deduplica per id mantenendo ordine.
+        unique_by_id = {}
+        for professional in professionals:
+            if not professional or not getattr(professional, "id", None):
+                continue
+            unique_by_id[professional.id] = professional
+
+        return [
+            p for p in unique_by_id.values()
+            if getattr(p, "email", None) and str(p.email).strip()
+        ]
+
+    @staticmethod
     def send_weekly_check_summary_to_patient(cliente, weekly_response) -> None:
         """Invia al paziente una copia email con il riepilogo del Weekly Check."""
         from flask import render_template
@@ -655,6 +675,101 @@ class NotificationService:
         current_app.logger.info(
             f"[WEEKLY_CHECK] Email riepilogo paziente inviata a {recipient} (response_id={getattr(weekly_response, 'id', '?')})"
         )
+
+    @staticmethod
+    def send_monthly_check_summary_to_professionals(cliente, monthly_check, monthly_response) -> None:
+        """Invia ai professionisti la copia email con il riepilogo del check mensile."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+        from .check_definitions import MONTHLY_QUESTIONS
+
+        recipients = NotificationService._collect_cliente_professionals_with_email(cliente)
+        if not recipients:
+            current_app.logger.info(
+                f"[MONTHLY_CHECK] Skip email riepilogo professionisti: cliente {getattr(cliente, 'cliente_id', '?')} senza professionisti con email"
+            )
+            return
+
+        responses_data = getattr(monthly_response, "responses_data", None) or {}
+        questions = MONTHLY_QUESTIONS.get(getattr(monthly_check, "tipologia", ""), [])
+
+        def _fmt(value):
+            if value is None:
+                return None
+            if isinstance(value, Decimal):
+                value = str(value)
+            text = str(value).strip()
+            return text or None
+
+        section_items: dict[str, list[dict[str, str]]] = {}
+        for question in questions:
+            key = question.get("key")
+            if not key:
+                continue
+            value = _fmt(responses_data.get(key))
+            if value is None:
+                continue
+            section = question.get("section") or "Risposte"
+            section_items.setdefault(section, []).append({
+                "label": question.get("label") or key,
+                "value": value,
+            })
+
+        sections = [
+            {"title": title, "items": items}
+            for title, items in section_items.items()
+            if items
+        ]
+
+        tipologia = getattr(monthly_check, "tipologia", None) or "regolare"
+        tipologia_label_map = {
+            "regolare": "Mensile",
+            "dca": "Mensile Benessere",
+            "minori": "Mensile Minori",
+        }
+        tipologia_label = tipologia_label_map.get(tipologia, "Mensile")
+        submit_dt = getattr(monthly_response, "submit_date", None)
+        submit_label = submit_dt.strftime("%d/%m/%Y %H:%M") if submit_dt else None
+        subject = f"Riepilogo check {tipologia_label} - {cliente.nome_cognome}"
+
+        text_lines = [
+            "Ciao,",
+            "",
+            f"il cliente {cliente.nome_cognome} ha compilato il check mensile ({tipologia_label}).",
+        ]
+        if submit_label:
+            text_lines.extend(["", f"Data invio: {submit_label}"])
+        for section in sections:
+            text_lines.extend(["", str(section["title"])])
+            for item in section["items"]:
+                text_lines.append(f"- {item['label']}: {item['value']}")
+        text_lines.extend([
+            "",
+            "Questa email è automatica. Non rispondere a questo messaggio.",
+            "— Corpo Sostenibile Suite",
+        ])
+        text_body = "\n".join(text_lines)
+
+        html_body = render_template(
+            "client_checks/emails/monthly_summary.html",
+            cliente=cliente,
+            monthly_check=monthly_check,
+            response=monthly_response,
+            submit_label=submit_label,
+            tipologia_label=tipologia_label,
+            sections=sections,
+        )
+
+        for professional in recipients:
+            send_mail_html(
+                subject=subject,
+                recipients=[professional.email],
+                text_body=text_body,
+                html_body=html_body,
+            )
+            current_app.logger.info(
+                f"[MONTHLY_CHECK] Email riepilogo inviata a {professional.email} (response_id={getattr(monthly_response, 'id', '?')})"
+            )
     
     @staticmethod
     def send_assignment_notifications(assignments: List[ClientCheckAssignment]) -> None:
@@ -830,17 +945,7 @@ class NotificationService:
             # Le relazioni singole (nutrizionista_id, ecc.) sono legacy e non devono essere usate
             # per determinare chi riceve le notifiche, per evitare di notificare professionisti
             # non più associati al cliente.
-            professionals = []
-
-            if cliente.nutrizionisti_multipli:
-                professionals.extend(cliente.nutrizionisti_multipli)
-            if cliente.psicologi_multipli:
-                professionals.extend(cliente.psicologi_multipli)
-            if cliente.coaches_multipli:
-                professionals.extend(cliente.coaches_multipli)
-
-            # Filtra solo professionisti con email
-            professionals_with_email = [p for p in professionals if p and p.email]
+            professionals_with_email = NotificationService._collect_cliente_professionals_with_email(cliente)
 
             if not professionals_with_email:
                 current_app.logger.info(

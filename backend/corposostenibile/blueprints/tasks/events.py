@@ -15,6 +15,7 @@ from corposostenibile.models import (
     WeeklyCheckResponse, WeeklyCheck,
     DCACheckResponse, DCACheck,
     MinorCheckResponse, MinorCheck,
+    MonthlyCheckResponse, MonthlyCheck,
     Review,
     ReviewRequest,
     Task,
@@ -270,6 +271,18 @@ def trigger_minor_check_task(mapper, connection, target):
     check = session.get(MinorCheck, target.minor_check_id)
     if check and check.cliente:
         _create_check_tasks_for_professionals(session, check.cliente, 'Minore', 'minor', target.id)
+
+
+@event.listens_for(MonthlyCheckResponse, 'after_insert')
+def trigger_monthly_check_task(mapper, connection, target):
+    """Genera task per ogni professionista quando un cliente compila il check mensile."""
+    logger.info(f"EVENT: trigger_monthly_check_task for response {target.id}")
+    session = db.session
+    if not session:
+        return
+    check = session.get(MonthlyCheck, target.monthly_check_id)
+    if check and check.cliente:
+        _create_check_tasks_for_professionals(session, check.cliente, 'Mensile', 'monthly_check', target.id)
 
 
 # --------------------------------------------------------------------------- #

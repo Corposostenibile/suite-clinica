@@ -11246,12 +11246,17 @@ class ClientCheckReadConfirmation(TimestampMixin, db.Model):
     """
     Conferma di lettura di un check da parte di un professionista.
     Permette di tracciare quali professionisti hanno letto quali check.
-    Supporta sia WeeklyCheckResponse che DCACheckResponse tramite approccio polimorfico.
+    Supporta WeeklyCheckResponse, DCACheckResponse, MinorCheckResponse e
+    MonthlyCheckResponse tramite approccio polimorfico.
     """
     __tablename__ = 'client_check_read_confirmations'
 
     id = db.Column(db.Integer, primary_key=True)
-    response_type = db.Column(db.String(50), nullable=False, comment="Tipo di check: 'weekly_check' o 'dca_check'")
+    response_type = db.Column(
+        db.String(50),
+        nullable=False,
+        comment="Tipo di check: 'weekly_check', 'dca_check', 'minor_check' o 'monthly_check'",
+    )
     response_id = db.Column(db.Integer, nullable=False, comment="ID del check letto")
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment="Professionista che ha letto")
     read_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, comment="Data e ora di lettura")
@@ -11274,6 +11279,10 @@ class ClientCheckReadConfirmation(TimestampMixin, db.Model):
             return WeeklyCheckResponse.query.get(self.response_id)
         elif self.response_type == 'dca_check':
             return DCACheckResponse.query.get(self.response_id)
+        elif self.response_type == 'minor_check':
+            return MinorCheckResponse.query.get(self.response_id)
+        elif self.response_type == 'monthly_check':
+            return MonthlyCheckResponse.query.get(self.response_id)
         return None
 
 

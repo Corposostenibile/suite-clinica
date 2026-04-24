@@ -5580,6 +5580,15 @@ def monthly_check_public_submit(token: str):
     except Exception as e:
         current_app.logger.error(f"[MONTHLY_CHECK] Errore notifiche: {e}")
 
+    try:
+        NotificationService.send_monthly_check_summary_to_professionals(
+            cliente=monthly.cliente,
+            monthly_check=monthly,
+            monthly_response=response,
+        )
+    except Exception as e:
+        current_app.logger.warning(f"[MONTHLY_CHECK] Errore invio riepilogo mensile: {e}")
+
     return jsonify({"success": True, "message": "Check mensile salvato con successo."})
 
 
