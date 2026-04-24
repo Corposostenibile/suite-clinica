@@ -382,9 +382,13 @@ def collect_new_tasks_for_push(session, flush_context):
     pending = session.info.setdefault("pending_task_push", [])
     for obj in session.new:
         if isinstance(obj, Task) and obj.assignee_id:
+            # Salviamo riferimento all'oggetto ORM (non snapshot di obj.id) perché
+            # al momento di after_flush il task potrebbe non essere ancora stato
+            # INSERTato e quindi obj.id sarebbe None. L'id viene letto in
+            # dispatch_task_push_after_commit, dopo il commit, quando è garantito.
             pending.append(
                 {
-                    "task_id": obj.id,
+                    "task_obj": obj,
                     "assignee_id": obj.assignee_id,
                     "title": obj.title,
                 }
@@ -396,15 +400,17 @@ def dispatch_task_push_after_commit(session):
     pending = session.info.pop("pending_task_push", [])
     for item in pending:
         try:
+            task_obj = item.get("task_obj")
+            task_id = task_obj.id if task_obj else item.get("task_id")
             send_task_assigned_push(
-                task_id=item["task_id"],
+                task_id=task_id,
                 assignee_id=item["assignee_id"],
                 task_title=item["title"],
             )
         except Exception as exc:  # pragma: no cover
             logger.warning(
                 "PUSH TASK FAILED task_id=%s assignee=%s err=%s",
-                item.get("task_id"),
+                item.get("task_obj") and getattr(item["task_obj"], "id", None),
                 item.get("assignee_id"),
                 exc,
             )

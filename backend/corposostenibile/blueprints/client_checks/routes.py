@@ -1407,15 +1407,16 @@ def weekly_check_public(token: str):
 
                 db.session.add(response)
                 try:
-                    db.session.commit()
-                except Exception as commit_err:
+                    db.session.flush()
+                except Exception as flush_err:
                     db.session.rollback()
-                    if "unique" in str(commit_err).lower():
+                    if "unique" in str(flush_err).lower():
                         _fix_sequence("weekly_check_responses")
                         db.session.add(response)
-                        db.session.commit()
+                        db.session.flush()
                     else:
                         raise
+                db.session.commit()
 
                 current_app.logger.info(
                     f"[WEEKLY_CHECK] Response salvata con successo: "
@@ -5588,6 +5589,15 @@ def monthly_check_public_submit(token: str):
         )
     except Exception as e:
         current_app.logger.warning(f"[MONTHLY_CHECK] Errore invio riepilogo mensile: {e}")
+
+    try:
+        NotificationService.send_monthly_check_summary_to_patient(
+            cliente=monthly.cliente,
+            monthly_check=monthly,
+            monthly_response=response,
+        )
+    except Exception as e:
+        current_app.logger.warning(f"[MONTHLY_CHECK] Errore invio riepilogo a cliente: {e}")
 
     return jsonify({"success": True, "message": "Check mensile salvato con successo."})
 

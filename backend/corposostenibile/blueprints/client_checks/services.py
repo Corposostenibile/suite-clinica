@@ -770,7 +770,101 @@ class NotificationService:
             current_app.logger.info(
                 f"[MONTHLY_CHECK] Email riepilogo inviata a {professional.email} (response_id={getattr(monthly_response, 'id', '?')})"
             )
-    
+
+    @staticmethod
+    def send_monthly_check_summary_to_patient(cliente, monthly_check, monthly_response) -> None:
+        """Invia al paziente una copia email con il riepilogo del check mensile."""
+        from flask import render_template
+        from corposostenibile.blueprints.auth.email_utils import send_mail_html
+        from .check_definitions import MONTHLY_QUESTIONS
+
+        recipient = getattr(cliente, "mail", None) or getattr(cliente, "email", None)
+        if not recipient or not str(recipient).strip():
+            current_app.logger.info(
+                f"[MONTHLY_CHECK] Skip email riepilogo paziente: cliente {getattr(cliente, 'cliente_id', '?')} senza email"
+            )
+            return
+
+        responses_data = getattr(monthly_response, "responses_data", None) or {}
+        questions = MONTHLY_QUESTIONS.get(getattr(monthly_check, "tipologia", ""), [])
+
+        def _fmt(value):
+            if value is None:
+                return None
+            if isinstance(value, Decimal):
+                value = str(value)
+            text = str(value).strip()
+            return text or None
+
+        section_items: dict[str, list[dict[str, str]]] = {}
+        for question in questions:
+            key = question.get("key")
+            if not key:
+                continue
+            value = _fmt(responses_data.get(key))
+            if value is None:
+                continue
+            section = question.get("section") or "Risposte"
+            section_items.setdefault(section, []).append({
+                "label": question.get("label") or key,
+                "value": value,
+            })
+
+        sections = [
+            {"title": title, "items": items}
+            for title, items in section_items.items()
+            if items
+        ]
+
+        tipologia = getattr(monthly_check, "tipologia", None) or "regolare"
+        tipologia_label_map = {
+            "regolare": "Mensile",
+            "dca": "Mensile Benessere",
+            "minori": "Mensile Minori",
+        }
+        tipologia_label = tipologia_label_map.get(tipologia, "Mensile")
+        submit_dt = getattr(monthly_response, "submit_date", None)
+        submit_label = submit_dt.strftime("%d/%m/%Y %H:%M") if submit_dt else None
+        subject = f"Riepilogo del tuo check {tipologia_label}"
+
+        text_lines = [
+            f"Ciao {cliente.nome_cognome},",
+            "",
+            f"di seguito il riepilogo delle tue risposte per il check {tipologia_label}.",
+        ]
+        if submit_label:
+            text_lines.extend(["", f"Data invio: {submit_label}"])
+        for section in sections:
+            text_lines.extend(["", str(section["title"])])
+            for item in section["items"]:
+                text_lines.append(f"- {item['label']}: {item['value']}")
+        text_lines.extend([
+            "",
+            "Questa email è automatica. Non rispondere a questo messaggio.",
+            "— Corpo Sostenibile Suite",
+        ])
+        text_body = "\n".join(text_lines)
+
+        html_body = render_template(
+            "client_checks/emails/monthly_summary_patient.html",
+            cliente=cliente,
+            monthly_check=monthly_check,
+            response=monthly_response,
+            submit_label=submit_label,
+            tipologia_label=tipologia_label,
+            sections=sections,
+        )
+
+        send_mail_html(
+            subject=subject,
+            recipients=[recipient],
+            text_body=text_body,
+            html_body=html_body,
+        )
+        current_app.logger.info(
+            f"[MONTHLY_CHECK] Email riepilogo paziente inviata a {recipient} (response_id={getattr(monthly_response, 'id', '?')})"
+        )
+
     @staticmethod
     def send_assignment_notifications(assignments: List[ClientCheckAssignment]) -> None:
         """Invia notifiche di assegnazione ai clienti."""
