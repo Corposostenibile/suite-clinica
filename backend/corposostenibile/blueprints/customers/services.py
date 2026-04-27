@@ -27,7 +27,7 @@ import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
-from urllib.parse import quote_plus
+from urllib.parse import quote
 
 import requests
 from flask import current_app, render_template
@@ -74,6 +74,7 @@ from .rbac_scope import professionista_visibility_clause
 __all__ = [
     # CRUD & API pubblica
     "select_hm_for_new_client",
+    "build_hm_wa_link",
     "send_onboarding_email",
     "create_cliente",
     "update_cliente",
@@ -299,29 +300,38 @@ def _build_check_links_for_onboarding(db_session: Session, cliente: Cliente) -> 
     }
 
 
-def _build_onboarding_whatsapp_url(cliente: Cliente) -> str:
-    hm = getattr(cliente, "health_manager_user", None)
-    hm_name = getattr(hm, "full_name", None) or "il tuo Health Manager"
-    text = current_app.config.get(
-        "ONBOARDING_WHATSAPP_TEXT",
-        "Ciao {hm_name}, sono {cliente_name}. Ho appena iniziato il percorso e vorrei avviare la chat di onboarding.",
-    ).format(
-        hm_name=hm_name,
-        cliente_name=cliente.nome_cognome or "Cliente",
-    )
+def _split_cliente_first_last(cliente: Cliente) -> tuple[str, str]:
+    full_name = (getattr(cliente, "nome_cognome", None) or "").strip()
+    if not full_name:
+        return "Cliente", ""
+    parts = full_name.split()
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], " ".join(parts[1:])
 
-    phone = (
-        current_app.config.get("ONBOARDING_WHATSAPP_PHONE")
-        or getattr(hm, "phone", None)
-        or getattr(hm, "numero_telefono", None)
-        or ""
-    )
-    phone_digits = "".join(ch for ch in str(phone) if ch.isdigit())
-    encoded_text = quote_plus(text)
 
-    if phone_digits:
-        return f"https://wa.me/{phone_digits}?text={encoded_text}"
-    return f"https://wa.me/?text={encoded_text}"
+def build_hm_wa_link(cliente: Cliente, hm: User | None) -> str:
+    """
+    Costruisce link wa.me precompilato per handoff verso HM (Respond.io).
+
+    Formato concordato del messaggio:
+    "Ciao, sono {cliente.nome} {cliente.cognome}. Mi e stata assegnata {hm.first_name} {hm.last_name} come Health Manager."
+    """
+    raw_number = str(current_app.config.get("WHATSAPP_BUSINESS_NUMBER", "")).strip()
+    phone_digits = "".join(ch for ch in raw_number if ch.isdigit())
+
+    cliente_nome, cliente_cognome = _split_cliente_first_last(cliente)
+    hm_first = (getattr(hm, "first_name", None) or "Health").strip() or "Health"
+    hm_last = (getattr(hm, "last_name", None) or "Manager").strip() or "Manager"
+
+    message = (
+        f"Ciao, sono {cliente_nome} {cliente_cognome}. "
+        f"Mi e stata assegnata {hm_first} {hm_last} come Health Manager."
+    )
+    message = " ".join(message.split())
+    encoded_message = quote(message, safe="")
+
+    return f"https://wa.me/{phone_digits}?text={encoded_message}"
 
 
 def send_onboarding_email(cliente_id: int) -> bool:
@@ -361,7 +371,7 @@ def send_onboarding_email(cliente_id: int) -> bool:
         "ONBOARDING_TERMS_URL",
         "https://www.corposostenibile.com/termini-e-condizioni",
     )
-    whatsapp_url = _build_onboarding_whatsapp_url(cliente)
+    whatsapp_url = build_hm_wa_link(cliente, getattr(cliente, "health_manager_user", None))
 
     html = render_template(
         "email/onboarding_cliente.html",

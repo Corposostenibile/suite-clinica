@@ -50,7 +50,7 @@ def test_send_onboarding_email_sends_once_and_sets_timestamp(monkeypatch) -> Non
         },
     )
     monkeypatch.setattr(services, "_resolve_package_name", lambda _c: "Pacchetto Gold")
-    monkeypatch.setattr(services, "_build_onboarding_whatsapp_url", lambda _c: "https://wa.me/390000000")
+    monkeypatch.setattr(services, "build_hm_wa_link", lambda _c, _hm: "https://wa.me/390000000")
 
     captured_template = {}
 
