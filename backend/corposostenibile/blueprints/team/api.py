@@ -3035,8 +3035,6 @@ def get_professionals_capacity():
     assigned_map = _get_assigned_clients_count_map_active_by_role(user_ids)
     type_breakdown_map = _get_assigned_clients_by_type(user_ids)
     weights_by_role = _get_capacity_weights_by_role()
-    hm_ids = [u.id for u in professionals if _get_capacity_role_type(u) == 'health_manager']
-    hm_split = _get_hm_split_counts(hm_ids) if hm_ids else {}
 
     capacities = ProfessionistCapacity.query.filter(
         ProfessionistCapacity.user_id.in_(user_ids)
@@ -3106,11 +3104,6 @@ def get_professionals_capacity():
         row_data['clienti_tipo_c'] = metrics['clienti_tipo_c']
         row_data['clienti_tipo_secondario'] = metrics['clienti_tipo_secondario']
         row_data['capienza_ponderata'] = metrics['capienza_ponderata']
-
-        if role_type == 'health_manager':
-            split = hm_split.get(prof.id, {})
-            row_data['clienti_convertiti'] = split.get('clienti_convertiti', 0)
-            row_data['lead_in_attesa'] = split.get('lead_in_attesa', 0)
 
         rows.append(row_data)
 
@@ -3209,7 +3202,7 @@ def update_professional_capacity(user_id: int):
 
     user = User.query.get_or_404(user_id)
     role_type = _get_capacity_role_type(user)
-    if not role_type or _get_user_role(user) not in {'professionista', 'health_manager', 'team_leader'}:
+    if not role_type or _get_user_role(user) not in {'professionista', 'team_leader'}:
         return jsonify({
             'success': False,
             'message': 'Utente non gestibile nella tabella capienza professionisti'

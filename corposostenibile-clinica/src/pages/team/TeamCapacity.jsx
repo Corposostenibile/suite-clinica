@@ -328,10 +328,6 @@ function TeamCapacity() {
           <i className="ri-stethoscope-line"></i> Professionisti
           <span className="tc-view-count">{profRows.length}</span>
         </button>
-        <button className={`tc-view-tab${viewTab === 'health_manager' ? ' active' : ''}`} onClick={() => setViewTab('health_manager')}>
-          <i className="ri-heart-pulse-line"></i> Health Manager
-          <span className="tc-view-count">{hmRows.length}</span>
-        </button>
       </div>
 
       {/* Filter Bar */}
@@ -364,7 +360,7 @@ function TeamCapacity() {
           )}
           <input
             type="search" className="tc-search-input"
-            placeholder={viewTab === 'health_manager' ? 'Cerca health manager...' : 'Cerca professionista...'}
+            placeholder="Cerca professionista..."
             value={search} onChange={(e) => setSearch(e.target.value)}
           />
         </div>
@@ -380,9 +376,7 @@ function TeamCapacity() {
         <div className="tc-error">{error}</div>
       ) : filteredRows.length === 0 ? (
         <div className="tc-table-card">
-          <div className="tc-empty-row">
-            {viewTab === 'health_manager' ? 'Nessun Health Manager trovato.' : 'Nessuna capienza disponibile.'}
-          </div>
+          <div className="tc-empty-row">Nessuna capienza disponibile.</div>
         </div>
       ) : (
         <div className="tc-table-card">
