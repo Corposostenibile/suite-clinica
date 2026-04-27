@@ -7,6 +7,7 @@ Job Celery asincroni per il feature-package *customers*.
 Task presenti
 -------------
 * **new_customer_notification**   – notifica Slack / e-mail alla creazione
+* **send_onboarding_email_task** – email onboarding cliente (idempotente)
 * **remind_expiring_contracts**   – promemoria contratti in scadenza
 * **send_email_async**            – invio email in background (evita blocco richiesta HTTP)
 """
@@ -146,6 +147,15 @@ def new_customer_notification(cliente_id: int) -> None:
             msg,
             current_app.config.get("CUSTOMERS_NOTIFICATION_MAILS", []),
         )
+
+
+@celery.task(name="customers.tasks.send_onboarding_email_task")
+def send_onboarding_email_task(cliente_id: int) -> None:
+    """Wrapper Celery per invio onboarding email cliente."""
+    with celery.app.app_context():
+        from .services import send_onboarding_email
+
+        send_onboarding_email(cliente_id)
 
 
 # --------------------------------------------------------------------------- #

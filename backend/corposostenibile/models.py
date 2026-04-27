@@ -2127,6 +2127,11 @@ class Cliente(TimestampMixin, db.Model):
     onboarding_date = db.Column(db.Date)  # Data di onboarding del cliente
     note_criticita_iniziali = db.Column(db.Text)  # Note sulle criticità iniziali rilevate durante onboarding
     loom_link = db.Column(db.String(500))  # Link Loom (dal Sales Lead)
+    onboarding_email_sent_at = db.Column(
+        db.DateTime,
+        nullable=True,
+        comment="Timestamp invio email onboarding cliente (idempotenza)",
+    )
 
     # ───────────────────── RELAZIONI "CORE" ─────────────────────── #
 

@@ -27,9 +27,11 @@ import json
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Tuple
+from urllib.parse import quote_plus
 
 import requests
-from flask import current_app
+from flask import current_app, render_template
+from flask_mail import Message
 from sqlalchemy import desc, func, or_, cast, String
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
@@ -45,6 +47,8 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     SubscriptionContract,
     User,
     SubscriptionRenewal,
+    WeeklyCheck,
+    DCACheck,
     # ENUM
     CommissionRoleEnum,
     StatoClienteEnum,
@@ -70,6 +74,7 @@ from .rbac_scope import professionista_visibility_clause
 __all__ = [
     # CRUD & API pubblica
     "select_hm_for_new_client",
+    "send_onboarding_email",
     "create_cliente",
     "update_cliente",
     "delete_cliente",
@@ -227,6 +232,179 @@ def select_hm_for_new_client(db_session: Session) -> User | None:
     return eligible[0]["user"]
 
 
+def _resolve_package_name(cliente: Cliente) -> str:
+    """Best-effort: ricava nome pacchetto/programa per email onboarding."""
+    pacchetto = getattr(cliente, "pacchetto", None)
+    if isinstance(pacchetto, str) and pacchetto.strip():
+        return pacchetto.strip()
+    if pacchetto is not None:
+        for attr in ("name", "nome", "title"):
+            value = getattr(pacchetto, attr, None)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    for attr in ("programma", "programma_attuale"):
+        value = getattr(cliente, attr, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    return "Percorso Corposostenibile"
+
+
+def _public_base_url() -> str:
+    cfg = current_app.config
+    return (
+        cfg.get("PUBLIC_BASE_URL")
+        or cfg.get("FRONTEND_BASE_URL")
+        or cfg.get("FRONTEND_URL")
+        or cfg.get("BASE_URL")
+        or ""
+    ).rstrip("/")
+
+
+def _build_check_links_for_onboarding(db_session: Session, cliente: Cliente) -> dict[str, str | None]:
+    base_url = _public_base_url()
+    check_base_path = (current_app.config.get("ONBOARDING_CHECKS_BASE_PATH") or "/client-checks").rstrip("/")
+
+    weekly = (
+        db_session.query(WeeklyCheck)
+        .filter(
+            WeeklyCheck.cliente_id == cliente.cliente_id,
+            WeeklyCheck.is_active == True,
+        )
+        .order_by(WeeklyCheck.assigned_at.desc())
+        .first()
+    )
+    dca = (
+        db_session.query(DCACheck)
+        .filter(
+            DCACheck.cliente_id == cliente.cliente_id,
+            DCACheck.is_active == True,
+        )
+        .order_by(DCACheck.assigned_at.desc())
+        .first()
+    )
+
+    weekly_url = f"{base_url}{check_base_path}/weekly/{weekly.token}" if (base_url and weekly) else None
+    monthly_url = f"{base_url}{check_base_path}/dca/{dca.token}" if (base_url and dca) else None
+
+    check_portal_url = current_app.config.get("ONBOARDING_CHECK_PORTAL_URL")
+    if not check_portal_url and base_url:
+        check_portal_url = f"{base_url}/check"
+
+    return {
+        "weekly_url": weekly_url,
+        "monthly_url": monthly_url,
+        "check_portal_url": check_portal_url,
+    }
+
+
+def _build_onboarding_whatsapp_url(cliente: Cliente) -> str:
+    hm = getattr(cliente, "health_manager_user", None)
+    hm_name = getattr(hm, "full_name", None) or "il tuo Health Manager"
+    text = current_app.config.get(
+        "ONBOARDING_WHATSAPP_TEXT",
+        "Ciao {hm_name}, sono {cliente_name}. Ho appena iniziato il percorso e vorrei avviare la chat di onboarding.",
+    ).format(
+        hm_name=hm_name,
+        cliente_name=cliente.nome_cognome or "Cliente",
+    )
+
+    phone = (
+        current_app.config.get("ONBOARDING_WHATSAPP_PHONE")
+        or getattr(hm, "phone", None)
+        or getattr(hm, "numero_telefono", None)
+        or ""
+    )
+    phone_digits = "".join(ch for ch in str(phone) if ch.isdigit())
+    encoded_text = quote_plus(text)
+
+    if phone_digits:
+        return f"https://wa.me/{phone_digits}?text={encoded_text}"
+    return f"https://wa.me/?text={encoded_text}"
+
+
+def send_onboarding_email(cliente_id: int) -> bool:
+    """
+    Invia email onboarding cliente in modo idempotente.
+
+    Regole:
+    - skip se cliente inesistente o senza email
+    - skip se onboarding_email_sent_at già valorizzato
+    - aggiorna onboarding_email_sent_at al successo
+    """
+    cliente = db.session.get(Cliente, cliente_id)
+    if not cliente:
+        current_app.logger.warning("[onboarding-email] Cliente %s non trovato", cliente_id)
+        return False
+
+    if getattr(cliente, "onboarding_email_sent_at", None):
+        current_app.logger.info(
+            "[onboarding-email] già inviata per cliente %s", cliente_id
+        )
+        return False
+
+    recipient_email = (cliente.mail or "").strip()
+    if not recipient_email:
+        current_app.logger.warning(
+            "[onboarding-email] cliente %s senza email destinatario", cliente_id
+        )
+        return False
+
+    if not current_app.config.get("MAIL_SERVER"):
+        current_app.logger.warning("[onboarding-email] MAIL_SERVER non configurato")
+        return False
+
+    check_links = _build_check_links_for_onboarding(db.session, cliente)
+    package_name = _resolve_package_name(cliente)
+    tc_url = current_app.config.get(
+        "ONBOARDING_TERMS_URL",
+        "https://www.corposostenibile.com/termini-e-condizioni",
+    )
+    whatsapp_url = _build_onboarding_whatsapp_url(cliente)
+
+    html = render_template(
+        "email/onboarding_cliente.html",
+        cliente=cliente,
+        package_name=package_name,
+        tc_url=tc_url,
+        weekly_check_url=check_links["weekly_url"],
+        monthly_check_url=check_links["monthly_url"],
+        check_portal_url=check_links["check_portal_url"],
+        whatsapp_url=whatsapp_url,
+    )
+
+    msg = Message(
+        subject=current_app.config.get(
+            "ONBOARDING_EMAIL_SUBJECT",
+            "Benvenutə in Corposostenibile: recap percorso, check e chat con il tuo HM",
+        ),
+        recipients=[recipient_email],
+        html=html,
+        sender=current_app.config.get("MAIL_DEFAULT_SENDER", "noreply@corposostenibile.com"),
+    )
+
+    try:
+        from corposostenibile.extensions import mail
+
+        mail.send(msg)
+        cliente.onboarding_email_sent_at = datetime.utcnow()
+        db.session.commit()
+        current_app.logger.info(
+            "[onboarding-email] inviata a cliente %s <%s>",
+            cliente_id,
+            recipient_email,
+        )
+        return True
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception(
+            "[onboarding-email] errore invio per cliente %s",
+            cliente_id,
+        )
+        return False
+
+
 # ........................................................................... #
 #  Algoritmo di matching cliente                                              #
 # ........................................................................... #
@@ -352,6 +530,7 @@ def create_cliente(data: Mapping[str, Any], created_by_user) -> Cliente:
     # post-commit
     emit_created(cliente, user_id=_user_id(created_by_user))
     _enqueue_async("customers.tasks.new_customer_notification", cliente_id=cliente.cliente_id)
+    _enqueue_async("customers.tasks.send_onboarding_email_task", cliente_id=cliente.cliente_id)
     current_app.logger.info("Creato cliente %s", cliente.cliente_id)
     return cliente
 

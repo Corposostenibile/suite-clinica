@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Onboarding Corposostenibile</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f8fb;padding:24px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 28px;background:#111827;color:#fff;">
+                <h1 style="margin:0;font-size:24px;line-height:1.2;">Benvenut{{ 'a' if cliente.nome_cognome and cliente.nome_cognome.endswith('a') else 'o' }} in Corposostenibile!</h1>
+                <p style="margin:8px 0 0;font-size:14px;opacity:.9;">Ciao {{ cliente.nome_cognome or 'Cliente' }}, ecco tutto quello che ti serve per partire.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 28px;border-bottom:1px solid #e5e7eb;">
+                <h2 style="margin:0 0 8px;font-size:18px;color:#111827;">1) Recap pacchetto + T&amp;C</h2>
+                <p style="margin:0 0 10px;font-size:14px;line-height:1.6;">
+                  Il tuo pacchetto attivo: <strong>{{ package_name }}</strong>.
+                </p>
+                <p style="margin:0;font-size:14px;line-height:1.6;">
+                  Prima di iniziare, leggi i Termini &amp; Condizioni:
+                  <a href="{{ tc_url }}" target="_blank" rel="noopener" style="color:#2563eb;">Apri T&amp;C</a>
+                </p>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 28px;border-bottom:1px solid #e5e7eb;">
+                <h2 style="margin:0 0 8px;font-size:18px;color:#111827;">2) Link ai check da compilare</h2>
+                <ul style="margin:0;padding-left:18px;font-size:14px;line-height:1.8;">
+                  {% if weekly_check_url %}
+                    <li><a href="{{ weekly_check_url }}" target="_blank" rel="noopener" style="color:#2563eb;">Check settimanale</a></li>
+                  {% else %}
+                    <li>Check settimanale: disponibile nel portale check</li>
+                  {% endif %}
+
+                  {% if monthly_check_url %}
+                    <li><a href="{{ monthly_check_url }}" target="_blank" rel="noopener" style="color:#2563eb;">Check mensile</a></li>
+                  {% elif check_portal_url %}
+                    <li><a href="{{ check_portal_url }}" target="_blank" rel="noopener" style="color:#2563eb;">Portale check</a></li>
+                  {% endif %}
+                </ul>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:20px 28px;">
+                <h2 style="margin:0 0 8px;font-size:18px;color:#111827;">3) Avvia chat WhatsApp con il tuo Health Manager</h2>
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.6;">
+                  Per domande operative e supporto iniziale, puoi avviare subito la chat.
+                </p>
+                <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:600;">
+                  Avvia chat WhatsApp
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
