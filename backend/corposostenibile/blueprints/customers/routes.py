@@ -9109,6 +9109,87 @@ def list_marketing_influencers():
 
 
 # --------------------------------------------------------------------------- #
+#  Bulk tipologia check assignment                                            #
+# --------------------------------------------------------------------------- #
+
+@api_bp.route("/bulk-tipologia-check/candidates", methods=["GET"])
+@permission_required(CustomerPerm.VIEW)
+def bulk_tipologia_check_candidates():
+    """Clienti senza tipologia_check_assegnato, paginati (solo admin / TL HM)."""
+    from corposostenibile.blueprints.team.api import _is_health_manager_team_leader
+    if not (current_user.is_admin or _is_health_manager_team_leader(current_user)):
+        abort(HTTPStatus.FORBIDDEN, description="Solo admin o TL Health Manager.")
+
+    q = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 25, type=int)
+
+    query = Cliente.query.filter(Cliente.tipologia_check_assegnato.is_(None))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            or_(
+                Cliente.nome_cognome.ilike(like),
+                Cliente.mail.ilike(like),
+            )
+        )
+    pagination_obj = query.order_by(Cliente.nome_cognome).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify({
+        "data": [
+            {
+                "cliente_id": c.cliente_id,
+                "nome_cognome": c.nome_cognome,
+                "mail": c.mail,
+                "programma_attuale": c.programma_attuale,
+            }
+            for c in pagination_obj.items
+        ],
+        "pagination": {
+            "page": pagination_obj.page,
+            "pages": pagination_obj.pages,
+            "total": pagination_obj.total,
+        },
+    })
+
+
+@api_bp.route("/bulk-tipologia-check/assign", methods=["POST"])
+@permission_required(CustomerPerm.EDIT)
+def bulk_tipologia_check_assign():
+    """Assegna tipologia_check_assegnato a una lista di clienti (solo admin / TL HM)."""
+    from corposostenibile.blueprints.team.api import _is_health_manager_team_leader
+    from .services import _sync_tipologia_check_assignments
+    if not (current_user.is_admin or _is_health_manager_team_leader(current_user)):
+        abort(HTTPStatus.FORBIDDEN, description="Solo admin o TL Health Manager.")
+
+    payload = request.get_json(silent=True) or {}
+    cliente_ids = payload.get("cliente_ids", [])
+    tipologia_str = payload.get("tipologia_check_assegnato")
+
+    if tipologia_str not in ("regolare", "dca", "minori"):
+        abort(HTTPStatus.BAD_REQUEST, description=f"Tipologia non valida: '{tipologia_str}'.")
+
+    tipologia = TipologiaCheckEnum(tipologia_str)
+    actor_id = current_user.id
+    updated = 0
+    skipped = 0
+
+    for cid in cliente_ids:
+        cliente = db.session.get(Cliente, cid)
+        if not cliente:
+            skipped += 1
+            continue
+        cliente.tipologia_check_assegnato = tipologia
+        _sync_tipologia_check_assignments(cliente, tipologia, actor_id)
+        updated += 1
+
+    db.session.commit()
+    return jsonify({"updated": updated, "skipped": skipped})
+
+
+# --------------------------------------------------------------------------- #
 #  Blueprint registration helper                                              #
 # --------------------------------------------------------------------------- #
 def register_routes(app):  # noqa: D401

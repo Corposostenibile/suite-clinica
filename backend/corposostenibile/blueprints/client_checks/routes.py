@@ -62,6 +62,7 @@ from corposostenibile.models import (
     DCACheck,
     DCACheckResponse,
     StatoClienteEnum,
+    TipologiaCheckEnum,
     MinorCheck,
     MinorCheckResponse,
     MonthlyCheck,
@@ -5360,6 +5361,19 @@ def generate_monthly_check_link(cliente_id: int):
     if tipologia not in valid_tipologie:
         return jsonify({"success": False, "error": f"Tipologia non valida. Valori accettati: {valid_tipologie}"}), 400
 
+    now = datetime.utcnow()
+
+    # Disattiva monthly check di altre tipologie (enforce regola: un solo monthly attivo per cliente)
+    MonthlyCheck.query.filter(
+        MonthlyCheck.cliente_id == cliente_id,
+        MonthlyCheck.tipologia != tipologia,
+        MonthlyCheck.is_active == True,
+    ).update({
+        "is_active": False,
+        "deactivated_at": now,
+        "deactivated_by_id": current_user.id,
+    }, synchronize_session=False)
+
     # Cerca check mensile attivo per questo cliente e tipologia
     existing = MonthlyCheck.query.filter_by(
         cliente_id=cliente_id,
@@ -5368,6 +5382,8 @@ def generate_monthly_check_link(cliente_id: int):
     ).first()
 
     if existing:
+        cliente.tipologia_check_assegnato = TipologiaCheckEnum(tipologia)
+        db.session.commit()
         base_url = _frontend_base_url()
         return jsonify({
             "success": True,
@@ -5389,6 +5405,7 @@ def generate_monthly_check_link(cliente_id: int):
         assigned_by_id=current_user.id,
     )
     db.session.add(monthly)
+    cliente.tipologia_check_assegnato = TipologiaCheckEnum(tipologia)
     db.session.commit()
 
     base_url = _frontend_base_url()

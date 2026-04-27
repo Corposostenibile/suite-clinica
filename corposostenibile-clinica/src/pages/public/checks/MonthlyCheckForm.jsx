@@ -520,6 +520,7 @@ function MonthlyCheckForm() {
   const [formData, setFormData] = useState({});
   const [collapsedSections, setCollapsedSections] = useState({});
   const [photos, setPhotos] = useState({});
+  const draftRestoredRef = useRef(false);
 
   useEffect(() => {
     loadCheckInfo();
@@ -541,6 +542,24 @@ function MonthlyCheckForm() {
       setLoading(false);
     }
   };
+
+  // Ripristina bozza dopo il caricamento del check
+  useEffect(() => {
+    if (!checkInfo || draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    const saved = localStorage.getItem(`monthly_check_draft_${token}`);
+    if (saved) {
+      try {
+        setFormData(JSON.parse(saved));
+      } catch (_) {}
+    }
+  }, [checkInfo, token]);
+
+  // Salva bozza ad ogni modifica (solo dopo il ripristino iniziale)
+  useEffect(() => {
+    if (!draftRestoredRef.current) return;
+    localStorage.setItem(`monthly_check_draft_${token}`, JSON.stringify(formData));
+  }, [formData, token]);
 
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -576,6 +595,7 @@ function MonthlyCheckForm() {
     try {
       const result = await publicCheckService.submitMonthlyCheck(token, formData, photos);
       if (result.success) {
+        localStorage.removeItem(`monthly_check_draft_${token}`);
         navigate(`/check/monthly/${token}/success`);
       } else {
         setError(result.error || 'Errore nell\'invio');

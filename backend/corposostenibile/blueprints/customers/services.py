@@ -56,6 +56,7 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     WeeklyCheckLight,
     DCACheck,
     MinorCheck,
+    MonthlyCheck,
     cliente_nutrizionisti,
     cliente_coaches,
     cliente_psicologi,
@@ -862,9 +863,9 @@ def _sync_tipologia_check_assignments(cliente: Cliente, selected_tipologia: Tipo
     """
     Mantiene un solo assignment check periodico attivo per il cliente.
 
-    - disattiva eventuali assignment attivi di tipologia diversa
-    - riusa il token esistente per la tipologia selezionata
-    - crea un nuovo assignment attivo se non presente
+    - disattiva tutti i legacy weekly check (WeeklyCheck/DCACheck/MinorCheck):
+      WeeklyCheckLight è l'unico flow settimanale corrente
+    - sincronizza il MonthlyCheck per la tipologia selezionata
     """
     if selected_tipologia is None:
         return
@@ -872,43 +873,55 @@ def _sync_tipologia_check_assignments(cliente: Cliente, selected_tipologia: Tipo
     import secrets
 
     now = datetime.utcnow()
-    model_by_tipologia = {
-        TipologiaCheckEnum.regolare: WeeklyCheck,
-        TipologiaCheckEnum.dca: DCACheck,
-        TipologiaCheckEnum.minori: MinorCheck,
-    }
-    selected_model = model_by_tipologia[selected_tipologia]
 
-    for tipologia, model in model_by_tipologia.items():
-        active_assignment = (
-            db.session.query(model)
+    # Disattiva tutti i legacy weekly: WeeklyCheckLight è l'unico flow settimanale
+    for legacy_model in (WeeklyCheck, DCACheck, MinorCheck):
+        active_legacy = (
+            db.session.query(legacy_model)
             .filter_by(cliente_id=cliente.cliente_id, is_active=True)
             .first()
         )
-        if not active_assignment:
-            continue
-        if tipologia != selected_tipologia:
-            active_assignment.is_active = False
-            active_assignment.deactivated_at = now
-            active_assignment.deactivated_by_id = actor_id
+        if active_legacy:
+            active_legacy.is_active = False
+            active_legacy.deactivated_at = now
+            active_legacy.deactivated_by_id = actor_id
 
-    selected_active = (
-        db.session.query(selected_model)
-        .filter_by(cliente_id=cliente.cliente_id, is_active=True)
+    # Sync MonthlyCheck: disattiva tipologie diverse, crea/riusa quella selezionata
+    now_mc = datetime.utcnow()
+    other_monthly = (
+        db.session.query(MonthlyCheck)
+        .filter(
+            MonthlyCheck.cliente_id == cliente.cliente_id,
+            MonthlyCheck.tipologia != selected_tipologia.value,
+            MonthlyCheck.is_active == True,
+        )
+        .all()
+    )
+    for mc in other_monthly:
+        mc.is_active = False
+        mc.deactivated_at = now_mc
+        mc.deactivated_by_id = actor_id
+
+    active_monthly = (
+        db.session.query(MonthlyCheck)
+        .filter_by(
+            cliente_id=cliente.cliente_id,
+            tipologia=selected_tipologia.value,
+            is_active=True,
+        )
         .first()
     )
-    if selected_active:
-        return
-
-    db.session.add(
-        selected_model(
-            cliente_id=cliente.cliente_id,
-            token=secrets.token_urlsafe(32),
-            is_active=True,
-            assigned_by_id=actor_id,
-            assigned_at=now,
+    if not active_monthly:
+        db.session.add(
+            MonthlyCheck(
+                cliente_id=cliente.cliente_id,
+                token=secrets.token_urlsafe(32),
+                tipologia=selected_tipologia.value,
+                is_active=True,
+                assigned_by_id=actor_id,
+                assigned_at=now_mc,
+            )
         )
-    )
 
 
 def update_cliente(
