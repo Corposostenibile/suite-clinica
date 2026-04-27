@@ -9,6 +9,7 @@ import {
   canAccessAiAssignments,
   canAccessCapacity,
   canAccessGlobalCheckPage,
+  canAccessHmCapacityAdmin,
   canAccessLoomLibrary,
   canAccessQualityPage,
   canAccessTeamLists,
@@ -56,6 +57,8 @@ const SideBar = () => {
 
   //For scroll
   const [hideOnScroll, setHideOnScroll] = useState(true)
+  const canManageHmCapacity = canAccessHmCapacityAdmin(user);
+  const isAdminUser = Boolean(user?.is_admin || user?.role === 'admin');
 
   // ForAction Menu
   let path = window.location.pathname;
@@ -225,7 +228,7 @@ const SideBar = () => {
           })}
 
           {/* Admin Settings - solo per admin */}
-          {(user?.is_admin || user?.role === 'admin') && (
+          {isAdminUser && (
             <>
               <li className="nav-label menu-title">Impostazioni</li>
               <li className={path === 'admin/ghl-settings' ? 'mm-active' : ''}>
@@ -246,6 +249,12 @@ const SideBar = () => {
                   <span className="nav-text">Pesi Capienza</span>
                 </Link>
               </li>
+              <li className={path === 'admin/capienza-hm' ? 'mm-active' : ''}>
+                <Link to="/admin/capienza-hm" className={path === 'admin/capienza-hm' ? 'mm-active' : ''}>
+                  <i className="ri-bar-chart-box-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">Capienza HM</span>
+                </Link>
+              </li>
               {!user?.impersonating && (
                 <li className={path === 'admin/impersonate' ? 'mm-active' : ''}>
                   <Link to="/admin/impersonate" className={path === 'admin/impersonate' ? 'mm-active' : ''}>
@@ -254,6 +263,18 @@ const SideBar = () => {
                   </Link>
                 </li>
               )}
+            </>
+          )}
+
+          {canManageHmCapacity && !isAdminUser && (
+            <>
+              <li className="nav-label menu-title">Impostazioni</li>
+              <li className={path === 'admin/capienza-hm' ? 'mm-active' : ''}>
+                <Link to="/admin/capienza-hm" className={path === 'admin/capienza-hm' ? 'mm-active' : ''}>
+                  <i className="ri-bar-chart-box-line" style={{ fontSize: '20px', marginRight: '10px' }}></i>
+                  <span className="nav-text">Capienza HM</span>
+                </Link>
+              </li>
             </>
           )}
         </ul>

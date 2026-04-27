@@ -1,0 +1,112 @@
+.hmc-container {
+  padding: 1.25rem;
+}
+
+.hmc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.hmc-subtitle {
+  margin: 0;
+  color: #64748b;
+}
+
+.hmc-refresh {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+}
+
+.hmc-alert {
+  margin-bottom: 1rem;
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.hmc-loading,
+.hmc-empty,
+.hmc-error {
+  padding: 1rem;
+  color: #475569;
+}
+
+.hmc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.hmc-table th,
+.hmc-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0.7rem;
+  vertical-align: middle;
+}
+
+.hmc-edit {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.hmc-input {
+  width: 110px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+}
+
+.hmc-save {
+  border: 0;
+  background: #1d4ed8;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.4rem 0.65rem;
+}
+
+.hmc-save:disabled {
+  opacity: 0.6;
+}
+
+.hmc-badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: center;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 0.2rem 0.55rem;
+}
+
+.hmc-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hmc-progress {
+  width: 140px;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.hmc-progress-bar {
+  height: 100%;
+}
+
+.hmc-progress-bar.normal {
+  background: #16a34a;
+}
+
+.hmc-progress-bar.danger {
+  background: #dc2626;
+}

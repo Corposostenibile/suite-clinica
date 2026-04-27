@@ -66,7 +66,7 @@ import LoomLibrary from './pages/loom/LoomLibrary';
 import Novita from './pages/Novita';
 
 // Admin pages
-import { GHLSettings, OriginSettings, ImpersonateUser, CapacityWeightSettings } from './pages/admin';
+import { GHLSettings, OriginSettings, ImpersonateUser, CapacityWeightSettings, HmCapacityAdmin } from './pages/admin';
 
 // Components
 import RoleProtectedRoute from './components/RoleProtectedRoute';
@@ -79,6 +79,7 @@ import {
   canAccessGlobalCheckPage,
   canAccessLoomLibrary,
   canAccessMarketingView,
+  canAccessHmCapacityAdmin,
   canAccessQualityPage,
   canAccessSecondaryModules,
   canAccessSpecializzazione,
@@ -283,6 +284,11 @@ function App() {
             <Route path="/admin/capacity-weights" element={
               <RoleProtectedRoute allowedRoles={['admin']}>
                 <CapacityWeightSettings />
+              </RoleProtectedRoute>
+            } />
+            <Route path="/admin/capienza-hm" element={
+              <RoleProtectedRoute allowIf={canAccessHmCapacityAdmin}>
+                <HmCapacityAdmin />
               </RoleProtectedRoute>
             } />
             <Route path="/admin/impersonate" element={

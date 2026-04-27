@@ -96,6 +96,10 @@ export function canAccessCapacity(user) {
   return Boolean(isAdminOrCco(user) || isTeamLeaderRestricted(user) || isHealthManagerTeamLeader(user));
 }
 
+export function canAccessHmCapacityAdmin(user) {
+  return Boolean(isAdminOrCco(user) || isHealthManagerTeamLeader(user));
+}
+
 export function canViewOtherProfessionalProfile(user) {
   if (isAdminOrCco(user)) return true;
   if (isTeamLeader(user)) return true;

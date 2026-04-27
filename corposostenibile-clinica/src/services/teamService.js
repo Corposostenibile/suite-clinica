@@ -373,6 +373,22 @@ const teamService = {
   },
 
   /**
+   * Get HM capacity rows (admin/CCO/TL HM).
+   */
+  async getHmCapacity() {
+    const response = await api.get('/users/hm/capacity');
+    return response.data;
+  },
+
+  /**
+   * Update HM capacity target (admin/CCO/TL HM).
+   */
+  async updateHmCapacityTarget(userId, target) {
+    const response = await api.patch(`/users/hm/${userId}/capacity`, { target });
+    return response.data;
+  },
+
+  /**
    * Helper function to determine user role from backend data
    */
   getUserRole(user) {
