@@ -30,7 +30,7 @@ from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence,
 
 import requests
 from flask import current_app
-from sqlalchemy import desc, func, or_
+from sqlalchemy import desc, func, or_, cast, String
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,7 @@ from corposostenibile.models import (                 # pylint: disable=too-many
     PaymentTransaction,
     SalesPerson,
     SubscriptionContract,
+    User,
     SubscriptionRenewal,
     # ENUM
     CommissionRoleEnum,
@@ -68,6 +69,7 @@ from .rbac_scope import professionista_visibility_clause
 
 __all__ = [
     # CRUD & API pubblica
+    "select_hm_for_new_client",
     "create_cliente",
     "update_cliente",
     "delete_cliente",
@@ -149,6 +151,82 @@ def _user_id(actor) -> int | None:           # pragma: no cover
     return getattr(actor, "id", None)
 
 
+def _get_hm_capacity_candidates(db_session: Session) -> list[dict[str, Any]]:
+    """Costruisce i candidati HM con metriche target/current/residual."""
+    hm_users = (
+        db_session.query(User)
+        .filter(
+            User.is_active == True,
+            cast(User.role, String) == "health_manager",
+            User.hm_capacity_target.isnot(None),
+        )
+        .all()
+    )
+
+    if not hm_users:
+        return []
+
+    hm_ids = [u.id for u in hm_users]
+    count_rows = (
+        db_session.query(
+            Cliente.health_manager_id,
+            func.count(Cliente.cliente_id),
+        )
+        .filter(
+            Cliente.health_manager_id.in_(hm_ids),
+            or_(
+                Cliente.stato_cliente.is_(None),
+                ~func.lower(cast(Cliente.stato_cliente, String)).in_(["stop", "archiviato"]),
+            ),
+        )
+        .group_by(Cliente.health_manager_id)
+        .all()
+    )
+    active_counts = {int(hm_id): int(cnt) for hm_id, cnt in count_rows if hm_id is not None}
+
+    candidates: list[dict[str, Any]] = []
+    for hm in hm_users:
+        target = hm.hm_capacity_target
+        current_assigned = active_counts.get(hm.id, 0)
+        residual = int(target) - current_assigned if target is not None else None
+        candidates.append(
+            {
+                "user": hm,
+                "target": target,
+                "current_assigned": current_assigned,
+                "residual": residual,
+            }
+        )
+    return candidates
+
+
+def select_hm_for_new_client(db_session: Session) -> User | None:
+    """
+    Seleziona HM per nuovo cliente in base alla capacità residua:
+    - residual DESC
+    - current_assigned ASC (tie-break)
+    - id ASC (tie-break finale)
+
+    Ritorna None se non ci sono HM con residual > 0.
+    """
+    candidates = _get_hm_capacity_candidates(db_session)
+    eligible = [
+        c for c in candidates
+        if c.get("target") is not None and (c.get("residual") or 0) > 0
+    ]
+    if not eligible:
+        return None
+
+    eligible.sort(
+        key=lambda c: (
+            -int(c["residual"]),
+            int(c["current_assigned"]),
+            int(c["user"].id),
+        )
+    )
+    return eligible[0]["user"]
+
+
 # ........................................................................... #
 #  Algoritmo di matching cliente                                              #
 # ........................................................................... #
@@ -226,14 +304,42 @@ def create_cliente(data: Mapping[str, Any], created_by_user) -> Cliente:
         if data.get("personal_consultant_id") and not consultant:
             raise ValueError("Consulente personale non trovato.")
 
+        explicit_hm_id = data.get("health_manager_id")
+        should_auto_assign_hm = explicit_hm_id in (None, "")
+        selected_hm = select_hm_for_new_client(session) if should_auto_assign_hm else None
+
         cliente = Cliente(
             **{k: v for k, v in data.items() if hasattr(Cliente, k)},
             created_by=_user_id(created_by_user),
         )
+        if selected_hm:
+            cliente.health_manager_id = selected_hm.id
+
         if consultant:
             cliente.personal_consultant = consultant
         session.add(cliente)
         session.flush()
+
+        if selected_hm:
+            session.add(
+                ActivityLog(
+                    cliente_id=cliente.cliente_id,
+                    field="health_manager_id",
+                    before=None,
+                    after=str(selected_hm.id),
+                    user_id=_user_id(created_by_user),
+                )
+            )
+            current_app.logger.info(
+                "Auto-assegnato HM %s al nuovo cliente %s",
+                selected_hm.id,
+                cliente.cliente_id,
+            )
+        elif should_auto_assign_hm:
+            current_app.logger.warning(
+                "Nessun HM auto-assegnabile trovato per nuovo cliente %s",
+                cliente.cliente_id,
+            )
 
         # Contratto iniziale (facoltativo)
         if "initial_contract" in data:
