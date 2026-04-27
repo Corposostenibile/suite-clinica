@@ -129,6 +129,14 @@ team_api_bp = Blueprint(
 # Exempt entire blueprint from CSRF (JSON API)
 csrf.exempt(team_api_bp)
 
+# Dedicated users API namespace (requested endpoints: /api/users/*)
+users_api_bp = Blueprint(
+    "users_api",
+    __name__,
+    url_prefix="/api/users",
+)
+csrf.exempt(users_api_bp)
+
 
 # =============================================================================
 # Permission Helpers
@@ -238,6 +246,31 @@ def _is_health_manager_team_leader(user) -> bool:
         return True
     department_name = str(getattr(getattr(user, 'department', None), 'name', '') or '').strip().lower()
     return ('health' in department_name) or ('customer success' in department_name)
+
+
+def _can_manage_hm_capacity(user) -> bool:
+    """ACL aggiornamento/lettura capienza HM: admin, CCO, Team Leader HM."""
+    return bool(
+        getattr(user, 'is_authenticated', False)
+        and (
+            getattr(user, 'is_admin', False)
+            or _is_cco_user(user)
+            or _is_health_manager_team_leader(user)
+        )
+    )
+
+
+def _compute_hm_capacity_values(target: int | None, current_assigned: int) -> tuple[int | None, float | None]:
+    """Calcola residual/percent per HM. target NULL => non monitorato."""
+    if target is None:
+        return None, None
+
+    residual = int(target) - int(current_assigned)
+    if target <= 0:
+        return residual, 0.0
+
+    percent = round((int(current_assigned) / int(target)) * 100, 2)
+    return residual, percent
 
 
 def _get_team_leader_member_ids(user_id: int) -> set[int]:
@@ -2783,6 +2816,147 @@ def get_available_professionals(team_type):
         'success': True,
         'professionals': [_serialize_user(u) for u in professionals],
         'total': len(professionals)
+    })
+
+
+# =============================================================================
+# HM Capacity Endpoints (/api/users/hm/*)
+# =============================================================================
+
+@users_api_bp.route("/hm/capacity", methods=["GET"])
+@login_required
+def get_hm_capacity():
+    """
+    Elenco capienza HM:
+    {hm_id, name, target, current_assigned, residual, percent}
+
+    current_assigned = clienti con health_manager_id valorizzato e stato_cliente
+    NON in (stop, archiviato).
+    """
+    if not _can_manage_hm_capacity(current_user):
+        return jsonify({
+            "success": False,
+            "message": "Non autorizzato",
+        }), HTTPStatus.FORBIDDEN
+
+    hm_users = (
+        User.query.filter(
+            User.is_active == True,
+            cast(User.role, String) == "health_manager",
+        )
+        .order_by(User.first_name, User.last_name)
+        .all()
+    )
+
+    hm_ids = [u.id for u in hm_users]
+    active_counts: dict[int, int] = {}
+
+    if hm_ids:
+        rows = (
+            db.session.query(
+                Cliente.health_manager_id,
+                func.count(Cliente.cliente_id),
+            )
+            .filter(
+                Cliente.health_manager_id.in_(hm_ids),
+                or_(
+                    Cliente.stato_cliente.is_(None),
+                    ~func.lower(cast(Cliente.stato_cliente, String)).in_(["stop", "archiviato"]),
+                ),
+            )
+            .group_by(Cliente.health_manager_id)
+            .all()
+        )
+        active_counts = {int(hm_id): int(cnt) for hm_id, cnt in rows if hm_id is not None}
+
+    result = []
+    for hm in hm_users:
+        current_assigned = active_counts.get(hm.id, 0)
+        target = hm.hm_capacity_target
+        residual, percent = _compute_hm_capacity_values(target, current_assigned)
+        result.append({
+            "hm_id": hm.id,
+            "name": hm.full_name,
+            "target": target,
+            "current_assigned": current_assigned,
+            "residual": residual,
+            "percent": percent,
+        })
+
+    return jsonify({
+        "success": True,
+        "rows": result,
+        "total": len(result),
+    })
+
+
+@users_api_bp.route("/hm/<int:user_id>/capacity", methods=["PATCH"])
+@login_required
+def patch_hm_capacity_target(user_id: int):
+    """Aggiorna hm_capacity_target (admin / CCO / Team Leader HM)."""
+    if not _can_manage_hm_capacity(current_user):
+        return jsonify({
+            "success": False,
+            "message": "Non autorizzato",
+        }), HTTPStatus.FORBIDDEN
+
+    hm_user = User.query.get_or_404(user_id)
+    role_val = hm_user.role.value if hasattr(hm_user.role, "value") else str(hm_user.role or "")
+    if role_val != "health_manager":
+        return jsonify({
+            "success": False,
+            "message": "Utente non valido: deve avere ruolo health_manager",
+        }), HTTPStatus.BAD_REQUEST
+
+    payload = request.get_json(silent=True) or {}
+    raw_target = payload.get("target", payload.get("hm_capacity_target"))
+
+    if raw_target is None or raw_target == "":
+        hm_user.hm_capacity_target = None
+    else:
+        try:
+            target = int(raw_target)
+        except (TypeError, ValueError):
+            return jsonify({
+                "success": False,
+                "message": "target deve essere un intero o null",
+            }), HTTPStatus.BAD_REQUEST
+
+        if target < 0:
+            return jsonify({
+                "success": False,
+                "message": "target non può essere negativo",
+            }), HTTPStatus.BAD_REQUEST
+
+        hm_user.hm_capacity_target = target
+
+    db.session.commit()
+
+    current_assigned = (
+        db.session.query(func.count(Cliente.cliente_id))
+        .filter(
+            Cliente.health_manager_id == hm_user.id,
+            or_(
+                Cliente.stato_cliente.is_(None),
+                ~func.lower(cast(Cliente.stato_cliente, String)).in_(["stop", "archiviato"]),
+            ),
+        )
+        .scalar()
+        or 0
+    )
+
+    residual, percent = _compute_hm_capacity_values(hm_user.hm_capacity_target, int(current_assigned))
+
+    return jsonify({
+        "success": True,
+        "row": {
+            "hm_id": hm_user.id,
+            "name": hm_user.full_name,
+            "target": hm_user.hm_capacity_target,
+            "current_assigned": int(current_assigned),
+            "residual": residual,
+            "percent": percent,
+        },
     })
 
 

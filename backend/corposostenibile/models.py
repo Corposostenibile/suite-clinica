@@ -1199,6 +1199,14 @@ class User(UserMixin, TimestampMixin, db.Model):
         comment="True se l'utente è un collaboratore esterno"
     )
 
+    # Capienza Health Manager (NULL = non monitorato / nessun limite)
+    hm_capacity_target = db.Column(
+        db.Integer,
+        nullable=True,
+        default=None,
+        comment="Target capienza HM; NULL = nessun limite/non monitorato",
+    )
+
     # ────────────────────────── Trial User System ──────────────────────────────
     is_trial = db.Column(db.Boolean, default=False, nullable=False)
     trial_stage = db.Column(db.Integer, default=1)  # 1=Dashboard+Review, 2=Selected Clients, 3=Full User

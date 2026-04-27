@@ -18,7 +18,7 @@ def init_app(app):  # noqa: D401
     # 1️⃣ importa le view prima della registrazione
     from . import routes, forms, okr_routes, trial_routes, trial_api, anonymous_survey_routes, team_payments_routes   # noqa: F401,E402
     from .weekly_report_routes import weekly_report_bp   # noqa: F401,E402
-    from .api import team_api_bp   # noqa: F401,E402
+    from .api import team_api_bp, users_api_bp   # noqa: F401,E402
 
     # 2️⃣ registra il blueprint principale
     app.register_blueprint(team_bp, url_prefix="/team")
@@ -28,6 +28,7 @@ def init_app(app):  # noqa: D401
 
     # 2️⃣.2 registra il sub-blueprint API per React frontend
     app.register_blueprint(team_api_bp)
+    app.register_blueprint(users_api_bp)
 
     # 3️⃣ CLI helper
     from .cli import team_cli     # noqa: F401,E402
