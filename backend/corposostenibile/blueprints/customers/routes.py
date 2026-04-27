@@ -8433,33 +8433,58 @@ def _resolve_hm_user(cliente):
     return None
 
 
-def _resolve_hm_ghl_calendar(hm_user):
-    """Risolve il calendario GHL dell'HM: prima campo, poi ricerca automatica per ghl_user_id."""
-    if hm_user.ghl_calendar_id:
-        return hm_user.ghl_calendar_id
+_VIDEO_REVIEW_CALENDAR_PREFIX = "video interview servizio clienti"
 
+
+def _resolve_hm_ghl_calendar(hm_user):
+    """Risolve il calendario GHL "Video Interview Servizio Clienti..." dell'HM.
+
+    Ogni HM ha un proprio calendario il cui nome inizia con il prefisso sopra.
+    Match: nome calendario startswith prefisso + teamMembers.userId == hm.ghl_user_id.
+    Il cached `users.ghl_calendar_id` viene invalidato se non punta piu' a un
+    calendario con il prefisso corretto (es. residuo del precedente flusso "Follow Up").
+    """
     if not hm_user.ghl_user_id:
-        return None
+        return hm_user.ghl_calendar_id
 
     try:
         from corposostenibile.blueprints.ghl_integration.calendar_service import get_ghl_calendar_service
         service = get_ghl_calendar_service()
         if not service.is_configured():
-            return None
+            return hm_user.ghl_calendar_id
         calendars = service.get_calendars()
+
+        # Verifica che il cached ghl_calendar_id sia ancora valido (esiste + prefisso corretto)
+        if hm_user.ghl_calendar_id:
+            cached = next((c for c in calendars if c.get("id") == hm_user.ghl_calendar_id), None)
+            cached_name = (cached.get("name") if cached else "") or ""
+            if cached and cached_name.lower().startswith(_VIDEO_REVIEW_CALENDAR_PREFIX):
+                return hm_user.ghl_calendar_id
+            logger.info(
+                f"[VideoReview] Cached calendar {hm_user.ghl_calendar_id} for HM {hm_user.id} "
+                f"stale (name={cached_name!r}), re-resolving"
+            )
+            hm_user.ghl_calendar_id = None
+            db.session.commit()
+
+        # Trova il calendario il cui nome inizia con il prefisso e l'HM e' tra i teamMembers
         for cal in calendars:
             name = (cal.get("name") or "").lower()
-            if "calendario follow up servizio clienti" not in name:
+            if not name.startswith(_VIDEO_REVIEW_CALENDAR_PREFIX):
                 continue
             for member in cal.get("teamMembers") or []:
                 if member.get("userId") == hm_user.ghl_user_id:
-                    # Cache per il futuro
                     hm_user.ghl_calendar_id = cal["id"]
                     db.session.commit()
-                    logger.info(f"[VideoReview] Auto-resolved calendar {cal['id']} for HM {hm_user.id}")
+                    logger.info(
+                        f"[VideoReview] Auto-resolved calendar {cal['id']} ({cal.get('name')!r}) "
+                        f"for HM {hm_user.id}"
+                    )
                     return cal["id"]
     except Exception as e:
         logger.warning(f"[VideoReview] Calendar auto-resolve failed: {e}")
+        return hm_user.ghl_calendar_id
+
     return None
 
 
