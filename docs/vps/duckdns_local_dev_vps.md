@@ -39,7 +39,7 @@ Servizi locali su VPS:
 - Nginx: espone `80/443`, termina TLS e fa reverse proxy
 
 Routing Nginx:
-- `/api/*`, `/ghl/*`, `/review/*`, `/postit/*`, `/team/*`, ecc. -> backend `127.0.0.1:5001`
+- `/api/*`, `/ghl/*`, `/webhooks/*`, `/review/*`, `/postit/*`, `/team/*`, ecc. -> backend `127.0.0.1:5001`
 - tutte le route pagina (`/`, `/auth/*`, `/clienti-lista`, ...) -> frontend `127.0.0.1:3001`
 - compatibilità legacy: `/static/clinica/*` -> redirect 301 verso `/*`
 
